@@ -196,6 +196,10 @@ public class WoodEditTree extends JTree implements TreeSelectionListener, Conten
                 new DefaultMutableTreeNode[]{selected},
                 selected.getIndex(child)
         ));
+
+        TreePath newPath = new TreePath(child.getPath());
+        setSelectionPath(newPath);
+        scrollPathToVisible(newPath);
     }
 
     private void deleteNode() {

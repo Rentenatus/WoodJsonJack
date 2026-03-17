@@ -23,8 +23,8 @@ import javax.swing.tree.TreePath;
 public class WoodEditPopup extends JPopupMenu {
 
     public WoodEditPopup(MasterControl master) {
-        JMenuItem addNodeItem = new JMenuItem("Node hinzufÃ¼gen");
-        JMenuItem deleteNodeItem = new JMenuItem("Node lÃ¶schen");
+        JMenuItem addNodeItem = new JMenuItem("Node hinzufügen");
+        JMenuItem deleteNodeItem = new JMenuItem("Node löschen");
         JMenuItem renameNodeItem = new JMenuItem("Node umbenennen");
 
         addNodeItem.addActionListener(e -> master.fireCommand(EDIT_ADD_NODE, this));
