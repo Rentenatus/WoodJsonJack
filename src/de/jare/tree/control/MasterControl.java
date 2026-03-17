@@ -1,0 +1,125 @@
+/* <copyright> 
+ * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ * </copyright>
+ */
+package de.jare.tree.control;
+
+import de.jare.tree.control.listeners.ContentListener;
+import de.jare.tree.control.listeners.FocusListener;
+import de.jare.tree.ui.WoodClipboardTree;
+import javax.swing.JTree;
+import de.jare.tree.control.listeners.TreeSelectionListener;
+import de.jare.tree.control.listeners.UndoRedoListener;
+
+public class MasterControl {
+
+    public MasterControl() {
+        this.undoMan = new UndoManager();
+        addSelectionListener(6, this.undoMan);
+    }
+
+    // Channels
+    private final Orator<FocusListener> focusOrator = new Orator<>();
+    private final Orator<TreeSelectionListener> selectionOrator = new Orator<>();
+    private final Orator<ContentListener> contentOrator = new Orator<>();
+
+    private WoodClipboardTree clipboardTree;
+    // welcher Editor ist aktuell aktiv (Tab-basiert)?
+    private Object activeEditor; // bewusst generisch
+    private UndoManager undoMan;
+
+    // Registrierung
+    public void addFocusListener(FocusListener l) {
+        focusOrator.addListener(l);
+    }
+
+    public void addFocusListener(int level, FocusListener l) {
+        focusOrator.addListener(level, l);
+    }
+
+    public void addSelectionListener(TreeSelectionListener l) {
+        selectionOrator.addListener(l);
+    }
+
+    public void addSelectionListener(int level, TreeSelectionListener l) {
+        selectionOrator.addListener(level, l);
+    }
+
+    public void addContentListener(ContentListener l) {
+        contentOrator.addListener(l);
+    }
+
+    public void addContentListener(int level, ContentListener l) {
+        contentOrator.addListener(level, l);
+    }
+
+    public void addUndoRedoListener(int level, UndoRedoListener l) {
+        undoMan.addUndoRedoListener(level, l);
+    }
+
+    public void addUndoRedoListener(UndoRedoListener l) {
+        undoMan.addUndoRedoListener(5, l);
+    }
+
+    public void removeFocusListener(FocusListener l) {
+        focusOrator.removeListener(l);
+    }
+
+    public void removeSelectionListener(TreeSelectionListener l) {
+        selectionOrator.removeListener(l);
+    }
+
+    public void removeContentListener(ContentListener l) {
+        contentOrator.removeListener(l);
+    }
+
+    public void removeUndoRedoListener(UndoRedoListener l) {
+        undoMan.removeUndoRedoListener(l);
+    }
+
+    public void setClipboardTree(WoodClipboardTree clipboardTree) {
+        this.clipboardTree = clipboardTree;
+    }
+
+    public WoodClipboardTree getClipboardTree() {
+        return clipboardTree;
+    }
+
+    // Vom UI (z.B. JTabbedPane) gerufen, wenn ein Tab gew?hlt wird
+    public void setActiveEditor(JTree editor, Object trigger) {
+        Object previous = this.activeEditor;
+        if (previous == editor) {
+            return;
+        }
+        this.activeEditor = editor;
+
+        // Fokus-Events verteilen
+        if (previous != null) {
+            focusOrator.say(l -> l.onFocusLost());
+        }
+        if (editor != null) {
+            focusOrator.say(l -> l.onFocusGained());
+        }
+        selectionOrator.say(l -> l.onEditorSelected(editor, trigger));
+    }
+
+    // Vom aktiven Editor gerufen, wenn sich die Node-Selektion ?ndert
+    public void fireSelection(Object node, Object trigger, boolean rootSelected) {
+        selectionOrator.say(l -> l.onNodeSelected(node, trigger, rootSelected));
+    }
+
+    public void fireCommand(String commandId, Object trigger) {
+        contentOrator.say(l -> l.onCommand(commandId, trigger));
+    }
+
+    public Object getActiveEditor() {
+        return activeEditor;
+    }
+
+    public UndoManager getUndoManager() {
+        return undoMan;
+    }
+
+}
