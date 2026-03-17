@@ -105,7 +105,7 @@ public class WoodClipboardTree extends JTree {
             if (!(clipUo instanceof JsonTreeNodeData clipData)) {
                 return false;
             }
-            if (!clipData.canBeChildOf(targetData)) {
+            if (!targetData.canBeChildOf(clipData)) {
                 return false;
             }
         }
