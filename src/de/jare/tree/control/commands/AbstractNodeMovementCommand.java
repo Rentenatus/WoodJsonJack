@@ -48,6 +48,50 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
         return commandText;
     }
 
+    protected void checkAddNodes(TreeModel model, Entry[] entries, String newStatus) {
+        DefaultTreeModel dtm = asDefaultModel(model);
+        if (dtm == null) {
+            return;
+        }
+        Object root = dtm.getRoot();
+        if (!(root instanceof DefaultMutableTreeNode rootNode)) {
+            return;
+        }
+
+        this.status = newStatus;
+        boolean warwas = false;
+        for (Entry e : entries) {
+            warwas = fixSnapshotEditIds(rootNode, e.snapshot) || warwas;
+        }
+        if (warwas) {
+            this.status = newStatus + " (nodedata dupplicated)";
+
+        } else {
+            this.status = newStatus;
+        }
+    }
+
+    private boolean fixSnapshotEditIds(DefaultMutableTreeNode root,
+            DefaultMutableTreeNode snapNode) {
+        boolean warwas = false;
+        Object uo = snapNode.getUserObject();
+        if (uo instanceof JsonTreeNodeData data) {
+            long id = data.getEditId();
+            DefaultMutableTreeNode existing = findNodeByEditId(root, id);
+            if (existing != null) {
+                // editId kollidiert -> neu generieren
+                JsonTreeNodeData newData = data.deepCopy(true); // regenerateEditId = true
+                snapNode.setUserObject(newData);
+                warwas = true;
+            }
+        }
+        for (int i = 0; i < snapNode.getChildCount(); i++) {
+            DefaultMutableTreeNode child = (DefaultMutableTreeNode) snapNode.getChildAt(i);
+            warwas = fixSnapshotEditIds(root, child) || warwas;
+        }
+        return warwas;
+    }
+
     public void addNodes(TreeModel model, Entry[] entries, String newStatus) {
         DefaultTreeModel dtm = asDefaultModel(model);
         if (dtm == null) {

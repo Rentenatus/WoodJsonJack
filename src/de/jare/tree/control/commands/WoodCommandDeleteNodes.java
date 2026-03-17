@@ -73,7 +73,8 @@ public class WoodCommandDeleteNodes extends AbstractNodeMovementCommand {
 
     @Override
     public void undoMovement(TreeModel model) {
-        addNodes(model, entries, STATUS_REVERTED);
+        checkAddNodes(model, entries, STATUS_REDO_DONE);
+        addNodes(model, entries, getStatus());
     }
 
     @Override

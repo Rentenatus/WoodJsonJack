@@ -259,11 +259,25 @@ public class WoodEditTree extends JTree implements TreeSelectionListener, Conten
 
         master.getClipboardTree().copySelection(this, paths, cut);
 
-        // Bei Cut: Originale entfernen
         if (cut) {
             DefaultTreeModel srcModel = (DefaultTreeModel) getModel();
-            for (int i = paths.length - 1; i >= 0; i--) {
+            DefaultMutableTreeNode[] nodes = new DefaultMutableTreeNode[paths.length];
+            DefaultMutableTreeNode[] parents = new DefaultMutableTreeNode[paths.length];
+
+            for (int i = 0; i < paths.length; i++) {
                 DefaultMutableTreeNode n = (DefaultMutableTreeNode) paths[i].getLastPathComponent();
+                nodes[i] = n;
+                parents[i] = (DefaultMutableTreeNode) n.getParent();
+            }
+
+            // Undo-Command f�r Cut
+            master.getUndoManager().pushCommand(
+                    new WoodCommandDeleteNodes(nodes, parents)
+            );
+
+            // physisch entfernen (von unten nach oben)
+            for (int i = paths.length - 1; i >= 0; i--) {
+                DefaultMutableTreeNode n = nodes[i];
                 MutableTreeNode p = (MutableTreeNode) n.getParent();
                 if (p != null) {
                     srcModel.removeNodeFromParent(n);
@@ -282,11 +296,9 @@ public class WoodEditTree extends JTree implements TreeSelectionListener, Conten
             return;
         }
 
-        // Zielknoten (Elternkandidat)
         DefaultMutableTreeNode target = (DefaultMutableTreeNode) path.getLastPathComponent();
         Object targetUo = target.getUserObject();
         if (!(targetUo instanceof JsonTreeNodeData targetData)) {
-            // Ziel ist kein JSON-Knoten -> nichts einfuegen
             return;
         }
 

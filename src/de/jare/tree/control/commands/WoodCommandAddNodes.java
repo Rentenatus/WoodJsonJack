@@ -69,7 +69,8 @@ public class WoodCommandAddNodes extends AbstractNodeMovementCommand {
 
     @Override
     public void executeMovement(TreeModel model) {
-        addNodes(model, entries, STATUS_REDO_DONE);
+        checkAddNodes(model, entries, STATUS_REDO_DONE);
+        addNodes(model, entries, getStatus());
     }
 
     @Override

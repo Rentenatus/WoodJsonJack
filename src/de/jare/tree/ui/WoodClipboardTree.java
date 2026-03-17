@@ -6,6 +6,7 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.tree.control.commands.WoodCommandAddNodes;
 import de.jare.tree.data.JsonTreeNodeData;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -60,14 +61,29 @@ public class WoodClipboardTree extends JTree {
         DefaultTreeModel model = (DefaultTreeModel) trigger.getModel();
 
         int index = parent.getChildCount();
+
+        // Arrays fuer Undo-Command
+        DefaultMutableTreeNode[] added = new DefaultMutableTreeNode[clipboardNodes.length];
+        DefaultMutableTreeNode[] parents = new DefaultMutableTreeNode[clipboardNodes.length];
+
         DefaultMutableTreeNode lastCopy = null;
 
-        for (DefaultMutableTreeNode node : clipboardNodes) {
+        for (int i = 0; i < clipboardNodes.length; i++) {
+            DefaultMutableTreeNode node = clipboardNodes[i];
             DefaultMutableTreeNode copy = deepCopy(node, !cut);
             model.insertNodeInto(copy, parent, index++);
+            added[i] = copy;
+            parents[i] = parent;
             lastCopy = copy;
         }
         this.cut = false;
+
+        // Undo-Command registrieren (Paste = AddNodes)
+        if (trigger.getMaster() != null) {
+            trigger.getMaster().getUndoManager().pushCommand(
+                    new WoodCommandAddNodes(added, parents, null)
+            );
+        }
 
         if (lastCopy != null) {
             TreePath newPath = new TreePath(lastCopy.getPath());
