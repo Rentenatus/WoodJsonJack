@@ -1,4 +1,4 @@
-/* <copyright> 
+/* <copyright>
  * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v20.html
@@ -10,25 +10,28 @@ import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.ui.WoodClipboardTree;
 import javax.swing.JTree;
-import de.jare.tree.control.listeners.TreeSelectionListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.tree.control.listeners.TreeFocusListener;
 
 public class MasterControl {
 
-    public MasterControl() {
-        this.undoMan = new UndoManager();
-        addSelectionListener(6, this.undoMan);
-    }
-
     // Channels
     private final Orator<FocusListener> focusOrator = new Orator<>();
-    private final Orator<TreeSelectionListener> selectionOrator = new Orator<>();
+    private final Orator<TreeFocusListener> selectionOrator = new Orator<>();
     private final Orator<ContentListener> contentOrator = new Orator<>();
 
     private WoodClipboardTree clipboardTree;
     // welcher Editor ist aktuell aktiv (Tab-basiert)?
     private Object activeEditor; // bewusst generisch
     private UndoManager undoMan;
+    private SelectionStackManager selectionStack;
+
+    public MasterControl() {
+        this.undoMan = new UndoManager();
+        this.selectionStack = new SelectionStackManager();
+        addSelectionListener(6, this.undoMan);
+        addSelectionListener(8, this.selectionStack);
+    }
 
     // Registrierung
     public void addFocusListener(FocusListener l) {
@@ -39,11 +42,11 @@ public class MasterControl {
         focusOrator.addListener(level, l);
     }
 
-    public void addSelectionListener(TreeSelectionListener l) {
+    public void addSelectionListener(TreeFocusListener l) {
         selectionOrator.addListener(l);
     }
 
-    public void addSelectionListener(int level, TreeSelectionListener l) {
+    public void addSelectionListener(int level, TreeFocusListener l) {
         selectionOrator.addListener(level, l);
     }
 
@@ -67,7 +70,7 @@ public class MasterControl {
         focusOrator.removeListener(l);
     }
 
-    public void removeSelectionListener(TreeSelectionListener l) {
+    public void removeSelectionListener(TreeFocusListener l) {
         selectionOrator.removeListener(l);
     }
 
@@ -120,6 +123,10 @@ public class MasterControl {
 
     public UndoManager getUndoManager() {
         return undoMan;
+    }
+
+    public SelectionStackManager getSelectionStackManager() {
+        return selectionStack;
     }
 
 }

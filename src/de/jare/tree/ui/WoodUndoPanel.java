@@ -9,7 +9,6 @@ package de.jare.tree.ui;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.UndoManager;
 import de.jare.tree.control.commands.WoodCommand;
-import de.jare.tree.control.listeners.TreeSelectionListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
 import java.awt.BorderLayout;
 import javax.swing.JPanel;
@@ -18,8 +17,9 @@ import javax.swing.JTable;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.TreeModel;
+import de.jare.tree.control.listeners.TreeFocusListener;
 
-public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeSelectionListener {
+public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeFocusListener {
 
     private final UndoTableModel undoModel;
     private final JTable undoTable;

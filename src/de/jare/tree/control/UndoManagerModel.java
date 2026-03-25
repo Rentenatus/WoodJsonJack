@@ -10,7 +10,9 @@ import de.jare.tree.control.commands.WoodCommand;
 import java.lang.ref.WeakReference;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import javax.swing.tree.TreeModel;
 
 /**
@@ -202,6 +204,34 @@ public class UndoManagerModel {
             return null;
         }
         return undoStack.stream().skip(index).findFirst().orElse(null);
+    }
+
+    public List<String> getUndoLabels(int max) {
+        List<String> result = new ArrayList<>();
+        int count = Math.min(max, undoStack.size());
+        // 0 = naechstes Undo (oberstes Element)
+        for (int i = 0; i < count; i++) {
+            WoodCommand cmd = getUndo(i);
+            if (cmd == null) {
+                break;
+            }
+            result.add((i + 1) + ": " + cmd.getCommandText() + " - " + cmd.getDescription());
+        }
+        return result;
+    }
+
+    public List<String> getRedoLabels(int max) {
+        List<String> result = new ArrayList<>();
+        int count = Math.min(max, redoStack.size());
+        // 0 = naechstes Redo (oberstes Element)
+        for (int i = 0; i < count; i++) {
+            WoodCommand cmd = getRedo(i);
+            if (cmd == null) {
+                break;
+            }
+            result.add((i + 1) + ": " + cmd.getCommandText() + " - " + cmd.getDescription());
+        }
+        return result;
     }
 
 }

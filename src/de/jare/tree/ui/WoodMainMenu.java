@@ -94,7 +94,7 @@ public class WoodMainMenu extends JMenuBar {
         add(editMenu);
         add(infoMenu);
 
-        master.addSelectionListener(7, new de.jare.tree.control.listeners.TreeSelectionListener() {
+        master.addSelectionListener(7, new de.jare.tree.control.listeners.TreeFocusListener() {
             @Override
             public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
                 boolean enableCutDelete = !rootSelected && node instanceof DefaultMutableTreeNode;

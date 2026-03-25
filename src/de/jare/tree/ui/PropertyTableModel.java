@@ -8,9 +8,9 @@ package de.jare.tree.ui;
 
 import javax.swing.JTree;
 import javax.swing.table.AbstractTableModel;
-import de.jare.tree.control.listeners.TreeSelectionListener;
+import de.jare.tree.control.listeners.TreeFocusListener;
 
-public class PropertyTableModel extends AbstractTableModel implements TreeSelectionListener {
+public class PropertyTableModel extends AbstractTableModel implements TreeFocusListener {
 
     private final String[] columnNames = {"Name", "Value", "Typ"};
     private Object[][] data = {

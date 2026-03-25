@@ -8,7 +8,7 @@ package de.jare.tree.control.listeners;
 
 import javax.swing.JTree;
 
-public interface TreeSelectionListener {
+public interface TreeFocusListener {
 
     void onNodeSelected(Object node, Object trigger, boolean rootSelected);
 

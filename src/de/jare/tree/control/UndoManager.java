@@ -13,15 +13,15 @@ import javax.swing.tree.TreeModel;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import de.jare.tree.control.listeners.TreeSelectionListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.tree.control.listeners.TreeFocusListener;
 
 /**
  * Global undo/redo dispatcher that keeps one {@link UndoManagerModel} per
  * {@link TreeModel} and delegates execute/undo/redo to the manager of the
  * currently active model.
  */
-public class UndoManager implements TreeSelectionListener {
+public class UndoManager implements TreeFocusListener {
 
     private final List<UndoManagerModel> managers = new ArrayList<>();
     private UndoManagerModel activeManager;
@@ -168,4 +168,19 @@ public class UndoManager implements TreeSelectionListener {
         managers.add(newManager);
         return newManager;
     }
+
+    public List<String> getUndoLabels(int max) {
+        if (canUndo()) {
+            return activeManager.getUndoLabels(max);
+        }
+        return List.of();
+    }
+
+    public List<String> getRedoLabels(int max) {
+        if (canRedo()) {
+            return activeManager.getRedoLabels(max);
+        }
+        return List.of();
+    }
+
 }

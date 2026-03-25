@@ -6,8 +6,7 @@
  */
 package de.jare.tree.control.commands;
 
-import de.jare.tree.data.JsonTreeNodeData;
-import javax.swing.tree.DefaultMutableTreeNode;
+import de.jare.tree.control.WoodUtils;
 import javax.swing.tree.TreeModel;
 
 /**
@@ -18,7 +17,7 @@ import javax.swing.tree.TreeModel;
  * change.
  * </p>
  */
-public interface WoodCommand {
+public interface WoodCommand extends WoodUtils {
 
     public static final String STATUS_ACTION_DONE = "Action done";
     public static final String STATUS_REDO_DONE = "Redo done";
@@ -69,41 +68,4 @@ public interface WoodCommand {
         return "";
     }
 
-    default DefaultMutableTreeNode findNodeByEditId(TreeModel model, long id) {
-        Object root = model.getRoot();
-        if (!(root instanceof DefaultMutableTreeNode dmtn)) {
-            return null;
-        }
-        return findNodeByEditId(dmtn, id);
-    }
-
-    default DefaultMutableTreeNode findNodeByEditId(DefaultMutableTreeNode node, long id) {
-        Object uo = node.getUserObject();
-        if (uo instanceof JsonTreeNodeData data && data.getEditId() == id) {
-            return node;
-        }
-        for (int i = 0; i < node.getChildCount(); i++) {
-            DefaultMutableTreeNode child = (DefaultMutableTreeNode) node.getChildAt(i);
-            DefaultMutableTreeNode found = findNodeByEditId(child, id);
-            if (found != null) {
-                return found;
-            }
-        }
-        return null;
-    }
-
-    default DefaultMutableTreeNode deepCopy(DefaultMutableTreeNode original) {
-        Object uo = original.getUserObject();
-        if (uo instanceof JsonTreeNodeData data) {
-            uo = data.deepCopy(false);
-        } else {
-            uo = String.valueOf(uo);
-        }
-        DefaultMutableTreeNode copy = new DefaultMutableTreeNode(uo);
-        for (int i = 0; i < original.getChildCount(); i++) {
-            DefaultMutableTreeNode child = (DefaultMutableTreeNode) original.getChildAt(i);
-            copy.add(deepCopy(child));
-        }
-        return copy;
-    }
 }

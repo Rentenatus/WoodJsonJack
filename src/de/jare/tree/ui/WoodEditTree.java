@@ -12,15 +12,14 @@ import de.jare.tree.control.commands.WoodCommandAddNodes;
 import de.jare.tree.control.commands.WoodCommandDeleteNodes;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
+import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.listeners.UndoRedoListener;
 import de.jare.tree.data.JsonObjectData;
 import de.jare.tree.data.JsonTreeNodeData;
-
 import javax.swing.*;
 import javax.swing.tree.*;
-import de.jare.tree.control.listeners.TreeSelectionListener;
-import de.jare.tree.control.listeners.UndoRedoListener;
 
-public class WoodEditTree extends JTree implements TreeSelectionListener, ContentListener, FocusListener, UndoRedoListener {
+public class WoodEditTree extends JTree implements TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
 
     private final MasterControl master;
 
