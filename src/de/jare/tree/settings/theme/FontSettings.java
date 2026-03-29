@@ -59,4 +59,12 @@ public class FontSettings {
             fontMap.put(entry.getKey(), scaled);
         }
     }
+
+    public FontSettings deepCopy() {
+        FontSettings copy = new FontSettings();
+        this.fontMap.forEach((key, value) -> {
+            copy.setFont(key, value);
+        });
+        return copy;
+    }
 }

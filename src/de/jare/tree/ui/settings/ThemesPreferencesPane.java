@@ -1,7 +1,10 @@
 package de.jare.tree.ui.settings;
 
+import de.jare.tree.settings.WoodSettings;
 import de.jare.tree.settings.theme.ColorScheme;
 import de.jare.tree.settings.theme.FontSettings;
+import de.jare.tree.settings.theme.Theme;
+import de.jare.tree.settings.theme.ThemeSuite;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -25,8 +28,10 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 public class ThemesPreferencesPane extends JPanel {
 
-    private final DefaultListModel<String> themesListModel;
-    private final JList<String> themesList;
+    private final ThemeSuite themeSuite;
+
+    private final DefaultListModel<Theme> themesListModel;
+    private final JList<Theme> themesList;
 
     private final JPanel themeDetailsPane;
     private final JPanel themeDetailsButtonPane;
@@ -50,9 +55,15 @@ public class ThemesPreferencesPane extends JPanel {
 
     private JTextField themeIdField;
     private JComboBox<String> themeVariantComboBox1, themeVariantComboBox2;
+    
 
-    public ThemesPreferencesPane() {
+    private de.jare.tree.settings.theme.Theme activeTheme;
+    private de.jare.tree.settings.theme.Theme workTheme;
+
+    public ThemesPreferencesPane(ThemeSuite themeSuite) {
         super(new BorderLayout(8, 8));
+
+        this.themeSuite = themeSuite;
 
         this.themesListModel = new DefaultListModel<>();
         this.themesList = new JList<>(themesListModel);
@@ -78,7 +89,22 @@ public class ThemesPreferencesPane extends JPanel {
         this.previewPane = new JPanel();
 
         buildUi();
-        fillDummyData();
+        updateThemesList();
+    }
+
+    private void updateThemesList() {
+        if (themeSuite == null) {
+            return;
+        }
+
+        themesListModel.clear();
+        for (de.jare.tree.settings.theme.Theme theme : themeSuite.getAvailableThemes()) {
+            themesListModel.addElement(theme);
+        }
+
+        if (!themesListModel.isEmpty()) {
+            themesList.setSelectedIndex(0);
+        }
     }
 
     private void buildUi() {
@@ -107,6 +133,54 @@ public class ThemesPreferencesPane extends JPanel {
 
     private void buildThemesList() {
         themesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        themesList.setCellRenderer(new javax.swing.DefaultListCellRenderer() {
+            @Override
+            public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof de.jare.tree.settings.theme.Theme) {
+                    de.jare.tree.settings.theme.Theme theme = (de.jare.tree.settings.theme.Theme) value;
+                    setText(theme.getThemeName());
+                }
+                return this;
+            }
+        });
+
+        themesList.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                if (evt.getClickCount() == 2) {
+                    Theme selectedTheme = (Theme) themesList.getSelectedValue();
+                    if (selectedTheme != null) {
+                        activeTheme = selectedTheme;
+                        workTheme = selectedTheme.deepCopy();
+                        loadThemeDetails(workTheme);
+                    }
+                }
+            }
+        });
+    }
+
+    private void loadThemeDetails(de.jare.tree.settings.theme.Theme theme) {
+        if (theme == null) {
+            return;
+        }
+
+        updateColorsTable(theme.getColors());
+        updateFontsTable(theme.getFonts());
+    }
+
+    private void updateColorsTable(ColorScheme colorScheme) {
+        colorsTableModel.setRowCount(0);
+        colorScheme.forEachColor((key, value) -> {
+            colorsTableModel.addRow(new Object[]{key, ColorScheme.colorToHex(value)});
+        });
+    }
+
+    private void updateFontsTable(FontSettings fontSettings) {
+        fontsTableModel.setRowCount(0);
+        fontSettings.forEachFont((key, value) -> {
+            fontsTableModel.addRow(new Object[]{key, value.getFontName()});
+        });
     }
 
     private void buildThemeDetailsPane() {
@@ -151,80 +225,80 @@ public class ThemesPreferencesPane extends JPanel {
         return previewPane;
     }
 
-  private JPanel buildPreviewContent() {
-      JPanel content = new JPanel(new BorderLayout(8, 8));
+    private JPanel buildPreviewContent() {
+        JPanel content = new JPanel(new BorderLayout(8, 8));
 
-      JPanel centerPanel = new JPanel(new GridLayout(1, 2, 8, 8));
+        JPanel centerPanel = new JPanel(new GridLayout(1, 2, 8, 8));
 
-      JPanel formPanel = new JPanel(new GridLayout(0, 1, 6, 6));
-      formPanel.setBorder(BorderFactory.createTitledBorder("Form"));
-      formPanel.add(new JLabel("Theme ID"));
-      themeIdField = new JTextField("default-light");
-      formPanel.add(themeIdField);
+        JPanel formPanel = new JPanel(new GridLayout(0, 1, 6, 6));
+        formPanel.setBorder(BorderFactory.createTitledBorder("Form"));
+        formPanel.add(new JLabel("Theme ID"));
+        themeIdField = new JTextField("default-light");
+        formPanel.add(themeIdField);
 
-      formPanel.add(new JLabel("Project name"));
-      formPanel.add(new JTextField("Wood JSON Jack"));
+        formPanel.add(new JLabel("Project name"));
+        formPanel.add(new JTextField("Wood JSON Jack"));
 
-      formPanel.add(new JLabel("Theme variant"));
-      themeVariantComboBox2 = new JComboBox<>(new String[]{"Light", "Dark"});
-      formPanel.add(themeVariantComboBox2);
+        formPanel.add(new JLabel("Theme variant"));
+        themeVariantComboBox2 = new JComboBox<>(new String[]{"Light", "Dark"});
+        formPanel.add(themeVariantComboBox2);
 
-      JPanel samplePanel = new JPanel(new GridLayout(1, 2, 8, 8));
-      samplePanel.setBorder(BorderFactory.createTitledBorder("Sample Elements"));
+        JPanel samplePanel = new JPanel(new GridLayout(1, 2, 8, 8));
+        samplePanel.setBorder(BorderFactory.createTitledBorder("Sample Elements"));
 
-      JPanel structurePanel = new JPanel(new GridLayout(2, 1, 6, 6));
+        JPanel structurePanel = new JPanel(new GridLayout(2, 1, 6, 6));
 
-      DefaultMutableTreeNode root = new DefaultMutableTreeNode("project");
-      DefaultMutableTreeNode src = new DefaultMutableTreeNode("src");
-      src.add(new DefaultMutableTreeNode("Main.java"));
-      src.add(new DefaultMutableTreeNode("ThemeService.java"));
-      DefaultMutableTreeNode data = new DefaultMutableTreeNode("data");
-      data.add(new DefaultMutableTreeNode("config.json"));
-      root.add(src);
-      root.add(data);
+        DefaultMutableTreeNode root = new DefaultMutableTreeNode("project");
+        DefaultMutableTreeNode src = new DefaultMutableTreeNode("src");
+        src.add(new DefaultMutableTreeNode("Main.java"));
+        src.add(new DefaultMutableTreeNode("ThemeService.java"));
+        DefaultMutableTreeNode data = new DefaultMutableTreeNode("data");
+        data.add(new DefaultMutableTreeNode("config.json"));
+        root.add(src);
+        root.add(data);
 
-      JTree sampleTree = new JTree(root);
-      JScrollPane treeScrollPane = new JScrollPane(sampleTree);
-      treeScrollPane.setBorder(BorderFactory.createTitledBorder("Tree"));
+        JTree sampleTree = new JTree(root);
+        JScrollPane treeScrollPane = new JScrollPane(sampleTree);
+        treeScrollPane.setBorder(BorderFactory.createTitledBorder("Tree"));
 
-      DefaultTableModel sampleTableModel = new DefaultTableModel(
-              new Object[]{"Name", "Type"},
-              0
-      );
-      sampleTableModel.addRow(new Object[]{"Main.java", "Java"});
-      sampleTableModel.addRow(new Object[]{"config.json", "JSON"});
-      sampleTableModel.addRow(new Object[]{"theme-dark", "Theme"});
+        DefaultTableModel sampleTableModel = new DefaultTableModel(
+                new Object[]{"Name", "Type"},
+                0
+        );
+        sampleTableModel.addRow(new Object[]{"Main.java", "Java"});
+        sampleTableModel.addRow(new Object[]{"config.json", "JSON"});
+        sampleTableModel.addRow(new Object[]{"theme-dark", "Theme"});
 
-      JTable sampleTable = new JTable(sampleTableModel);
-      JScrollPane sampleTableScrollPane = new JScrollPane(sampleTable);
-      sampleTableScrollPane.setBorder(BorderFactory.createTitledBorder("Table"));
+        JTable sampleTable = new JTable(sampleTableModel);
+        JScrollPane sampleTableScrollPane = new JScrollPane(sampleTable);
+        sampleTableScrollPane.setBorder(BorderFactory.createTitledBorder("Table"));
 
-      structurePanel.add(treeScrollPane);
-      structurePanel.add(sampleTableScrollPane);
+        structurePanel.add(treeScrollPane);
+        structurePanel.add(sampleTableScrollPane);
 
-      JPanel controlsPanel = new JPanel(new GridLayout(0, 1, 6, 6));
+        JPanel controlsPanel = new JPanel(new GridLayout(0, 1, 6, 6));
 
-      JLabel infoLabel = new JLabel("Example label");
-      infoLabel.setOpaque(true);
-      infoLabel.setBackground(new Color(230, 230, 230));
+        JLabel infoLabel = new JLabel("Example label");
+        infoLabel.setOpaque(true);
+        infoLabel.setBackground(new Color(230, 230, 230));
 
-      controlsPanel.add(infoLabel);
-      controlsPanel.add(new JButton("Preview Button"));
-      controlsPanel.add(new JTextField("Sample text field"));
+        controlsPanel.add(infoLabel);
+        controlsPanel.add(new JButton("Preview Button"));
+        controlsPanel.add(new JTextField("Sample text field"));
 
-      controlsPanel.add(new JLabel("Theme variant"));
-      themeVariantComboBox1 = new JComboBox<>(new String[]{"Light", "Dark"});
-      controlsPanel.add(themeVariantComboBox1);
+        controlsPanel.add(new JLabel("Theme variant"));
+        themeVariantComboBox1 = new JComboBox<>(new String[]{"Light", "Dark"});
+        controlsPanel.add(themeVariantComboBox1);
 
-      samplePanel.add(structurePanel);
-      samplePanel.add(controlsPanel);
+        samplePanel.add(structurePanel);
+        samplePanel.add(controlsPanel);
 
-      centerPanel.add(formPanel);
-      centerPanel.add(samplePanel);
+        centerPanel.add(formPanel);
+        centerPanel.add(samplePanel);
 
-      content.add(centerPanel, BorderLayout.CENTER);
-      return content;
-}
+        content.add(centerPanel, BorderLayout.CENTER);
+        return content;
+    }
 
     private JPanel buildOuterButtonPane() {
         JPanel buttonPane = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -233,12 +307,33 @@ public class ThemesPreferencesPane extends JPanel {
         buttonPane.add(applyThemesButton);
         buttonPane.add(duplicateThemeButton);
         buttonPane.add(newThemeButton);
+
+        duplicateThemeButton.addActionListener(e -> duplicateCurrentTheme());
+
         return buttonPane;
     }
 
+    private void duplicateCurrentTheme() {
+        if (themeSuite == null) {
+            return;
+        }
+
+        de.jare.tree.settings.theme.Theme selectedTheme = (de.jare.tree.settings.theme.Theme) themesList.getSelectedValue();
+        if (selectedTheme == null) {
+            return;
+        }
+
+        String newThemeName = selectedTheme.getThemeName() + " (Copy)";
+        de.jare.tree.settings.theme.Theme newTheme = new de.jare.tree.settings.theme.Theme(selectedTheme.getThemeId() + "-copy", newThemeName);
+        newTheme.setColors(selectedTheme.getColors());
+        newTheme.setFonts(selectedTheme.getFonts());
+
+        themeSuite.getAvailableThemes().add(newTheme);
+        themesListModel.addElement(newTheme);
+    }
+
     private void fillDummyData() {
-        themesListModel.addElement("Default Light");
-        themesListModel.addElement("Default Dark");
+        themesListModel.addElement(new Theme());
         themesList.setSelectedIndex(0);
 
         ColorScheme dummyColorScheme = new ColorScheme();
@@ -256,13 +351,13 @@ public class ThemesPreferencesPane extends JPanel {
         });
     }
 
-    public void setThemes(Iterable<String> themeNames) {
+    public void setThemes(Iterable<Theme> themeNames) {
         themesListModel.clear();
         if (themeNames == null) {
             return;
         }
 
-        for (String themeName : themeNames) {
+        for (Theme themeName : themeNames) {
             themesListModel.addElement(themeName);
         }
 
@@ -271,11 +366,11 @@ public class ThemesPreferencesPane extends JPanel {
         }
     }
 
-    public DefaultListModel<String> getThemesListModel() {
+    public DefaultListModel<Theme> getThemesListModel() {
         return themesListModel;
     }
 
-    public JList<String> getThemesList() {
+    public JList<Theme> getThemesList() {
         return themesList;
     }
 

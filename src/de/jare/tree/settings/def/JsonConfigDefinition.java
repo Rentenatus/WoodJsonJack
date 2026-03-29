@@ -58,7 +58,11 @@ public class JsonConfigDefinition implements JsonItemDefinition {
 
         JsonClass folderType = model.newJsonEnumByName(FolderType.class);
 
-        //JsonClass userPreferences = model.newJsonReflect(UserPreferences.class);
+        JsonClass userPreferences = model.newJsonReflect(UserPreferences.class);
+        userPreferences.addField("uiLanguage", asString);
+        userPreferences.addField("showTips", asBoolean);
+        userPreferences.addField("autoSave", asBoolean);
+
         //JsonClass windowLayout = model.newJsonReflect(WindowLayout.class);
         JsonClass colorScheme = model.newJsonReflect(ColorScheme.class);
         colorScheme.addField("colorMap", colorMap);
@@ -81,6 +85,11 @@ public class JsonConfigDefinition implements JsonItemDefinition {
         projektEntry.addField("projectPath", asString);
 
         JsonClass agentPreferences = model.newJsonReflect(AgentPreferences.class);
+        agentPreferences.addField("apiKey", asString);
+        agentPreferences.addField("defaultBehavior", asString);
+        agentPreferences.addField("maxRetries", asInt);
+        agentPreferences.addField("modelList", asString, LIST);
+        agentPreferences.addField("prioritizedModel", asString);
 
         JsonClass rootSetting = model.newJsonReflect(RootSetting.class);
         rootSetting.addField("folderType", folderType);
@@ -95,6 +104,7 @@ public class JsonConfigDefinition implements JsonItemDefinition {
         woodSettingsRoot.addField("themeId", asString);
         woodSettingsRoot.addField("knownProjects", projektEntry, LIST);
         woodSettingsRoot.addField("agentPreferences", agentPreferences);
+        woodSettingsRoot.addField("userPreferences", userPreferences);
     }
 
     @Override

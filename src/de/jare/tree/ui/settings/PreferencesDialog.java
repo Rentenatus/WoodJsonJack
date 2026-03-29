@@ -1,5 +1,7 @@
 package de.jare.tree.ui.settings;
 
+import de.jare.tree.settings.WoodSettings;
+import de.jare.tree.settings.theme.ThemeSuite;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Frame;
@@ -16,13 +18,19 @@ public class PreferencesDialog extends JDialog {
     private final ThemesPreferencesPane themesPane;
     private final JPanel projectsPane;
 
-    public PreferencesDialog(Frame owner) {
+    private final WoodSettings settings;
+    private final ThemeSuite themeSuite;
+
+    public PreferencesDialog(Frame owner, WoodSettings settings, ThemeSuite themeSuite) {
         super(owner, "Preferences", false);
+
+        this.settings = settings;
+        this.themeSuite = themeSuite;
 
         this.tabbedPane = new JTabbedPane();
 
         this.woodJsonJackPane = new JPanel(new BorderLayout());
-        this.themesPane = new ThemesPreferencesPane();
+        this.themesPane = new ThemesPreferencesPane(themeSuite);
         this.projectsPane = new JPanel(new BorderLayout());
 
         buildUi();

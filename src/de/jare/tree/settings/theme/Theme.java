@@ -27,6 +27,13 @@ public class Theme {
         this.fonts = new FontSettings();
     }
 
+    public Theme deepCopy() {
+        Theme copy = new Theme(this.themeId + "-copy", this.themeName + " (Copy)");
+        copy.setColors(this.colors.deepCopy());
+        copy.setFonts(this.fonts.deepCopy());
+        return copy;
+    }
+
     public String getThemeId() {
         return themeId;
     }

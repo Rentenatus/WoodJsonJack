@@ -167,7 +167,7 @@ public class WoodWindow extends JFrame {
 
     public void openPreferences() {
         if (preferencesDialog == null) {
-            preferencesDialog = new PreferencesDialog(this);
+            preferencesDialog = new PreferencesDialog(this, settings, themeSuite);
         }
 
         preferencesDialog.setVisible(true);

@@ -56,6 +56,15 @@ public class ColorScheme {
         }
     }
 
+    public ColorScheme deepCopy() {
+        ColorScheme copy = new ColorScheme();
+        this.colorMap.forEach((key, value) -> {
+            copy.setColor(key, value);
+        });
+        copy.isDark = this.isDark;
+        return copy;
+    }
+
     public void invert() {
         for (Map.Entry<String, Color> entry : colorMap.entrySet()) {
             Color c = entry.getValue();

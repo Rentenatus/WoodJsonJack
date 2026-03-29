@@ -18,6 +18,22 @@ public class ThemeSuite {
         this.availableThemes = new ArrayList<>();
     }
 
+    public List<Theme> getAvailableThemes() {
+        return availableThemes;
+    }
+
+    public void setAvailableThemes(List<Theme> availableThemes) {
+        this.availableThemes = availableThemes;
+    }
+
+    public WindowLayout getWindowLayout() {
+        return windowLayout;
+    }
+
+    public void setWindowLayout(WindowLayout windowLayout) {
+        this.windowLayout = windowLayout;
+    }
+
     public Theme getOrCreate(String themeId) {
         for (Theme th : availableThemes) {
             if (th.getThemeId().equals(themeId)) {

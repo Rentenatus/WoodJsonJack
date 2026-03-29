@@ -8,11 +8,37 @@ package de.jare.tree.settings;
 
 public class UserPreferences {
 
-    private String language;      // "de", "en"
+    private String uiLanguage;      // "de", "en"
     private boolean showTips;
+    private boolean autoSave;
 
     public UserPreferences() {
-        this.language = "de";
+        this.uiLanguage = "de";
         this.showTips = true;
+        this.autoSave = true;
+    }
+
+    public String getUiLanguage() {
+        return uiLanguage;
+    }
+
+    public void setUiLanguage(String uiLanguage) {
+        this.uiLanguage = uiLanguage;
+    }
+
+    public boolean isShowTips() {
+        return showTips;
+    }
+
+    public void setShowTips(boolean showTips) {
+        this.showTips = showTips;
+    }
+
+    public boolean isAutoSave() {
+        return autoSave;
+    }
+
+    public void setAutoSave(boolean autoSave) {
+        this.autoSave = autoSave;
     }
 }

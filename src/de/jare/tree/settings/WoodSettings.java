@@ -27,9 +27,27 @@ public class WoodSettings {
 
     // Editor-Defaults
     private AgentPreferences agentPreferences;
+    private UserPreferences userPreferences;
 
     public WoodSettings() {
+        this.agentPreferences = new AgentPreferences();
+        this.userPreferences = new UserPreferences();
+    }
 
+    public AgentPreferences getAgentPreferences() {
+        return agentPreferences;
+    }
+
+    public void setAgentPreferences(AgentPreferences agentPreferences) {
+        this.agentPreferences = agentPreferences;
+    }
+
+    public UserPreferences getUserPreferences() {
+        return userPreferences;
+    }
+
+    public void setUserPreferences(UserPreferences userPreferences) {
+        this.userPreferences = userPreferences;
     }
 
     public void useThemeSuite(ThemeSuite themeSuite) {
