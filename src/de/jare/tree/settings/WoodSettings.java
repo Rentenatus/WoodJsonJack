@@ -8,8 +8,7 @@ package de.jare.tree.settings;
 
 import de.jare.tree.settings.project.ProjektEntry;
 import de.jare.tree.settings.theme.Theme;
-import de.jare.tree.settings.theme.WindowLayout;
-
+import de.jare.tree.settings.theme.ThemeSuite;
 import java.util.List;
 
 public class WoodSettings {
@@ -18,15 +17,26 @@ public class WoodSettings {
     private String themeId;
 
     /**
-     * Transiente Variable, die das aktuell angezeigte Theme hält. Wird nicht serialisiert, sondern bei Bedarf aus der themeId neu geladen.
+     * Transiente Variable, die das aktuell angezeigte Theme hält. Wird nicht
+     * serialisiert, sondern bei Bedarf aus der themeId neu geladen.
      */
     private Theme shownTheme;
-
 
     // Projekte
     private List<ProjektEntry> knownProjects;
 
     // Editor-Defaults
     private AgentPreferences agentPreferences;
+
+    public WoodSettings() {
+
+    }
+
+    public void useThemeSuite(ThemeSuite themeSuite) {
+        if (themeId == null) {
+            themeId = "swing";
+        }
+        shownTheme = themeSuite.getOrCreate(themeId);
+    }
 
 }

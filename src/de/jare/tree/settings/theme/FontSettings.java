@@ -10,6 +10,7 @@ import java.awt.Font;
 import javax.swing.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 public class FontSettings {
 
@@ -17,6 +18,11 @@ public class FontSettings {
 
     public void setFont(String key, Font font) {
         fontMap.put(key, font);
+
+    }
+
+    public void forEachFont(BiConsumer<String, Font> action) {
+        fontMap.forEach(action);
     }
 
     public Font getFont(String key) {

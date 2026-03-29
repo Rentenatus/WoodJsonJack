@@ -13,7 +13,35 @@ public class Theme {
     private ColorScheme colors;
     private FontSettings fonts;
 
+    public Theme() {
+        this.themeId = "new";
+        this.themeName = "new";
+        this.colors = new ColorScheme();
+        this.fonts = new FontSettings();
+    }
 
+    public Theme(String themeId, String themeName) {
+        this.themeId = themeId;
+        this.themeName = themeName;
+        this.colors = new ColorScheme();
+        this.fonts = new FontSettings();
+    }
+
+    public String getThemeId() {
+        return themeId;
+    }
+
+    public void setThemeId(String themeId) {
+        this.themeId = themeId;
+    }
+
+    public String getThemeName() {
+        return themeName;
+    }
+
+    public void setThemeName(String themeName) {
+        this.themeName = themeName;
+    }
 
     public ColorScheme getColors() {
         return colors;

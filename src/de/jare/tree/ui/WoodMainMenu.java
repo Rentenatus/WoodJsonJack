@@ -1,4 +1,4 @@
-/* <copyright> 
+/* <copyright>
  * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v20.html
@@ -20,11 +20,11 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 public class WoodMainMenu extends JMenuBar {
 
-    private final JFrame frame;
+    private final WoodWindow woodWindow;
     private final MasterControl master;
 
-    public WoodMainMenu(JFrame mainFrame, MasterControl master) {
-        this.frame = mainFrame;
+    public WoodMainMenu(WoodWindow mainFrame, MasterControl master) {
+        this.woodWindow = mainFrame;
         this.master = master;
 
         // Projekt-Menü
@@ -37,7 +37,7 @@ public class WoodMainMenu extends JMenuBar {
         JMenuItem saveAsItem = new JMenuItem("Speichern unter...");
         JMenuItem exitItem = new JMenuItem("Beenden");
 
-        exitItem.addActionListener(e -> frame.dispose());
+        exitItem.addActionListener(e -> woodWindow.dispose());
 
         projectMenu.add(newItem);
         projectMenu.add(openItem);
@@ -75,14 +75,20 @@ public class WoodMainMenu extends JMenuBar {
         editMenu.add(deleteNodeItem);
         editMenu.add(renameNodeItem);
 
+        JMenu helpMenu = new JMenu("Help");
+        JMenuItem preferencesItem = new JMenuItem("Preferences");
+
+        preferencesItem.addActionListener(e -> openPreferences());
+
+        helpMenu.add(preferencesItem);
+
         // Info-Menü
         JMenu infoMenu = new JMenu("Info");
         infoMenu.setMnemonic(KeyEvent.VK_I);
 
         JMenuItem aboutItem = new JMenuItem("Über...");
         aboutItem.addActionListener(e
-                -> JOptionPane.showMessageDialog(
-                        frame,
+                -> JOptionPane.showMessageDialog(woodWindow,
                         "Tree Editor\n© 2026",
                         "Über",
                         JOptionPane.INFORMATION_MESSAGE
@@ -92,6 +98,7 @@ public class WoodMainMenu extends JMenuBar {
 
         add(projectMenu);
         add(editMenu);
+        add(helpMenu);
         add(infoMenu);
 
         master.addSelectionListener(7, new de.jare.tree.control.listeners.TreeFocusListener() {
@@ -118,6 +125,10 @@ public class WoodMainMenu extends JMenuBar {
             }
         });
 
+    }
+
+    private void openPreferences() {
+        woodWindow.openPreferences();
     }
 
 }

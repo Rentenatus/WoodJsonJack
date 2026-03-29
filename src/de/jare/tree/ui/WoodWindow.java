@@ -7,6 +7,10 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.control.MasterControl;
+import de.jare.tree.settings.SettingsService;
+import de.jare.tree.settings.WoodSettings;
+import de.jare.tree.settings.theme.ThemeSuite;
+import de.jare.tree.ui.settings.PreferencesDialog;
 import java.awt.*;
 import javax.swing.*;
 
@@ -16,8 +20,16 @@ public class WoodWindow extends JFrame {
     private final JTabbedPane centerTabs;
     private final WoodEditTree editorTree1;
     private final WoodEditTree editorTree2;
+    private final SettingsService settingsService;
+    private final WoodSettings settings;
+    private final ThemeSuite themeSuite;
+    private PreferencesDialog preferencesDialog;
 
     public WoodWindow() {
+        settingsService = new SettingsService();
+        settings = settingsService.loadWoodSettings(false);
+        themeSuite = settingsService.loadThemeSuite(false);
+        settings.useThemeSuite(themeSuite);
         master = new MasterControl();
 
         setTitle("Wood Json Studio");
@@ -153,4 +165,12 @@ public class WoodWindow extends JFrame {
         return panel;
     }
 
+    public void openPreferences() {
+        if (preferencesDialog == null) {
+            preferencesDialog = new PreferencesDialog(this);
+        }
+
+        preferencesDialog.setVisible(true);
+        preferencesDialog.toFront();
+    }
 }

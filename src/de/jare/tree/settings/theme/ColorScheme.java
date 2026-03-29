@@ -9,12 +9,24 @@ package de.jare.tree.settings.theme;
 import java.awt.Color;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.swing.UIManager;
 
 public class ColorScheme {
 
+    public static String colorToHex(Color color) {
+        return String.format("#%02X%02X%02X",
+                color.getRed(),
+                color.getGreen(),
+                color.getBlue());
+    }
+
     private final Map<String, Color> colorMap = new HashMap<>();
     private boolean isDark;
+
+    public void forEachColor(BiConsumer<String, Color> action) {
+        colorMap.forEach(action);
+    }
 
     public void setColor(String key, Color color) {
         colorMap.put(key, color);
