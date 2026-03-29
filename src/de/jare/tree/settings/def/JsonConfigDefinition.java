@@ -17,6 +17,8 @@ import de.jare.tree.settings.theme.*;
 
 import static de.jare.jsoncasted.model.JsonCollectionType.ARRAY;
 import static de.jare.jsoncasted.model.JsonCollectionType.LIST;
+import java.awt.Color;
+import java.awt.Font;
 
 public class JsonConfigDefinition implements JsonItemDefinition {
 
@@ -38,35 +40,51 @@ public class JsonConfigDefinition implements JsonItemDefinition {
 
         final JsonClass asString = model.getJsonClass("String");
         final JsonClass asBoolean = model.getJsonClass("Boolean");
+        final JsonClass asInt = model.getJsonClass("int");
 
-        JsonMap stringArrayMap = model.newRawJsonMap((new JsonInstance()).getClass(), asString, ARRAY);
+        JsonClass font = model.newJsonReflect(Font.class);
+        font.addCParam("name", asString);
+        font.addCParam("style", asInt);
+        font.addCParam("size", asInt);
+
+        JsonMap fontMap = model.newRawJsonMap((new JsonInstance<Font>()).getClass(), font);
+
+        JsonClass color = model.newJsonReflect(Color.class);
+        color.addCParam("r", asInt, "getRed");
+        color.addCParam("g", asInt, "getBlue");
+        color.addCParam("b", asInt, "getGreen");
+
+        JsonMap colorMap = model.newRawJsonMap((new JsonInstance<Color>()).getClass(), color);
 
         JsonClass folderType = model.newJsonEnumByName(FolderType.class);
 
-        JsonClass agentPreferences = model.newJsonReflect(AgentPreferences.class);
-        JsonClass userPreferences = model.newJsonReflect(UserPreferences.class);
-        JsonClass windowLayout = model.newJsonReflect(WindowLayout.class);
-
+        //JsonClass userPreferences = model.newJsonReflect(UserPreferences.class);
+        //JsonClass windowLayout = model.newJsonReflect(WindowLayout.class);
         JsonClass colorScheme = model.newJsonReflect(ColorScheme.class);
+        colorScheme.addField("colorMap", colorMap);
+        colorScheme.addField("dark", asBoolean);
+
         JsonClass fontSettings = model.newJsonReflect(FontSettings.class);
+        fontSettings.addField("fontMap", fontMap);
 
         JsonClass theme = model.newJsonReflect(Theme.class);
-        theme.addField("id", asString);
-        theme.addField("displayName", asString);
-        theme.addField("dark", asBoolean);
-        theme.addField("colorScheme", colorScheme);
-        theme.addField("fontSettings", fontSettings);
+        theme.addField("themeId", asString);
+        theme.addField("themeName", asString);
+        theme.addField("colors", colorScheme);
+        theme.addField("fonts", fontSettings);
 
         themeSuiteRoot = model.newJsonReflect(ThemeSuite.class);
-        themeSuiteRoot.addField("shownTheme", asString);
-        themeSuiteRoot.addField("themes", theme, LIST);
+        themeSuiteRoot.addField("availableThemes", theme, LIST);
 
         JsonClass projektEntry = model.newJsonReflect(ProjektEntry.class);
-        projektEntry.addField("name", asString);
-        projektEntry.addField("path", asString);
+        projektEntry.addField("projectName", asString);
+        projektEntry.addField("projectPath", asString);
+
+        JsonClass agentPreferences = model.newJsonReflect(AgentPreferences.class);
 
         JsonClass rootSetting = model.newJsonReflect(RootSetting.class);
         rootSetting.addField("folderType", folderType);
+        rootSetting.addField("folderName", asString);
         rootSetting.addField("folderPath", asString);
 
         projectSettingsRoot = model.newJsonReflect(ProjectSettings.class, projektEntry);
@@ -75,11 +93,8 @@ public class JsonConfigDefinition implements JsonItemDefinition {
 
         woodSettingsRoot = model.newJsonReflect(WoodSettings.class);
         woodSettingsRoot.addField("themeId", asString);
-        woodSettingsRoot.addField("shownTheme", asString);
         woodSettingsRoot.addField("knownProjects", projektEntry, LIST);
         woodSettingsRoot.addField("agentPreferences", agentPreferences);
-        woodSettingsRoot.addField("userPreferences", userPreferences);
-        woodSettingsRoot.addField("windowLayout", windowLayout);
     }
 
     @Override

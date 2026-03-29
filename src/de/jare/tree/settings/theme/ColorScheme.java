@@ -6,49 +6,50 @@
  */
 package de.jare.tree.settings.theme;
 
-import java.awt.*;
+import java.awt.Color;
 import java.util.HashMap;
 import java.util.Map;
 import javax.swing.UIManager;
-import java.util.Map;
 
 public class ColorScheme {
 
-    private final Map<String, Color> colors = new HashMap<>();
+    private final Map<String, Color> colorMap = new HashMap<>();
+    private boolean isDark;
 
     public void setColor(String key, Color color) {
-        colors.put(key, color);
+        colorMap.put(key, color);
     }
 
     public Color getColor(String key) {
-        return colors.get(key);
+        return colorMap.get(key);
     }
 
     public boolean hasColor(String key) {
-        return colors.containsKey(key);
+        return colorMap.containsKey(key);
     }
 
     public void accept() {
-        for (Map.Entry<String, Color> entry : colors.entrySet()) {
+        for (Map.Entry<String, Color> entry : colorMap.entrySet()) {
             UIManager.put(entry.getKey(), entry.getValue());
         }
     }
 
     public void resetDefault() {
-        colors.clear();
+        colorMap.clear();
         for (Object key : UIManager.getDefaults().keySet()) {
             Object value = UIManager.getDefaults().get(key);
             if (key instanceof String && value instanceof Color) {
-                colors.put((String) key, (Color) value);
+                colorMap.put((String) key, (Color) value);
             }
         }
     }
 
     public void invert() {
-        for (Map.Entry<String, Color> entry : colors.entrySet()) {
+        for (Map.Entry<String, Color> entry : colorMap.entrySet()) {
             Color c = entry.getValue();
             Color inverted = new Color(255 - c.getRed(), 255 - c.getGreen(), 255 - c.getBlue(), c.getAlpha());
-            colors.put(entry.getKey(), inverted);
+            colorMap.put(entry.getKey(), inverted);
         }
+        isDark = !isDark;
     }
 }

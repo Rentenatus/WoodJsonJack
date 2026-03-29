@@ -6,51 +6,51 @@
  */
 package de.jare.tree.settings.theme;
 
+import java.awt.Font;
 import javax.swing.*;
-import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
 public class FontSettings {
 
-    private final Map<String, Font> fonts = new HashMap<>();
+    private Map<String, Font> fontMap = new HashMap<>();
 
     public void setFont(String key, Font font) {
-        fonts.put(key, font);
+        fontMap.put(key, font);
     }
 
     public Font getFont(String key) {
-        return fonts.get(key);
+        return fontMap.get(key);
     }
 
     public boolean hasFont(String key) {
-        return fonts.containsKey(key);
+        return fontMap.containsKey(key);
     }
 
     // Überträgt die gespeicherten Fonts in den UIManager
     public void accept() {
-        for (Map.Entry<String, Font> entry : fonts.entrySet()) {
+        for (Map.Entry<String, Font> entry : fontMap.entrySet()) {
             UIManager.put(entry.getKey(), entry.getValue());
         }
     }
 
     // Lädt alle aktuellen Font-Defaults aus dem UIManager
     public void resetDefault() {
-        fonts.clear();
+        fontMap.clear();
         for (Object key : UIManager.getDefaults().keySet()) {
             Object value = UIManager.getDefaults().get(key);
             if (key instanceof String && value instanceof Font) {
-                fonts.put((String) key, (Font) value);
+                fontMap.put((String) key, (Font) value);
             }
         }
     }
 
     // Skaliert alle Fonts um den angegebenen Faktor
     public void scale(float factor) {
-        for (Map.Entry<String, Font> entry : fonts.entrySet()) {
+        for (Map.Entry<String, Font> entry : fontMap.entrySet()) {
             Font f = entry.getValue();
             Font scaled = f.deriveFont(f.getSize2D() * factor);
-            fonts.put(entry.getKey(), scaled);
+            fontMap.put(entry.getKey(), scaled);
         }
     }
 }
