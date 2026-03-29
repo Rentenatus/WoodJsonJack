@@ -42,7 +42,8 @@ public class ThemesPreferencesPane extends JPanel {
     private final JButton newThemeButton;
     private final JButton duplicateThemeButton;
 
-    private final JButton restoreDefaultsButton;
+    private final JButton applyButton;
+    private final JButton restoreButton;
     private final JButton invertColorsButton;
 
     private final JTable colorsTable;
@@ -54,8 +55,8 @@ public class ThemesPreferencesPane extends JPanel {
     private final JPanel previewPane;
 
     private JTextField themeIdField;
+    private JTextField themeNameField;
     private JComboBox<String> themeVariantComboBox1, themeVariantComboBox2;
-    
 
     private de.jare.tree.settings.theme.Theme activeTheme;
     private de.jare.tree.settings.theme.Theme workTheme;
@@ -77,7 +78,8 @@ public class ThemesPreferencesPane extends JPanel {
         this.newThemeButton = new JButton("New Theme");
         this.duplicateThemeButton = new JButton("Duplicate");
 
-        this.restoreDefaultsButton = new JButton("Restore defaults");
+        this.applyButton = new JButton("Apply");
+        this.restoreButton = new JButton("Restore");
         this.invertColorsButton = new JButton("Invert colors");
 
         this.colorsTableModel = new DefaultTableModel(new Object[]{"Key", "Value"}, 0);
@@ -167,6 +169,20 @@ public class ThemesPreferencesPane extends JPanel {
 
         updateColorsTable(theme.getColors());
         updateFontsTable(theme.getFonts());
+        themeIdField.setText(theme.getThemeId());
+        themeNameField.setText(theme.getThemeName());
+        boolean isDark = theme.getColors().isDark();
+        themeVariantComboBox1.setSelectedItem(isDark ? "Dark" : "Light");
+        themeVariantComboBox2.setSelectedItem(isDark ? "Dark" : "Light");
+    }
+
+    private void updateThemeVariantFromComboBox() {
+        if (workTheme == null) {
+            return;
+        }
+        String selectedVariant = (String) themeVariantComboBox1.getSelectedItem();
+        boolean isDark = "Dark".equals(selectedVariant);
+        workTheme.getColors().setDark(isDark);
     }
 
     private void updateColorsTable(ColorScheme colorScheme) {
@@ -196,7 +212,8 @@ public class ThemesPreferencesPane extends JPanel {
         detailsContent.add(previewWrapperPane, BorderLayout.SOUTH);
 
         themeDetailsButtonPane.add(invertColorsButton);
-        themeDetailsButtonPane.add(restoreDefaultsButton);
+        themeDetailsButtonPane.add(applyButton);
+        themeDetailsButtonPane.add(restoreButton);
 
         themeDetailsPane.add(detailsContent, BorderLayout.CENTER);
         themeDetailsPane.add(themeDetailsButtonPane, BorderLayout.SOUTH);
@@ -236,12 +253,14 @@ public class ThemesPreferencesPane extends JPanel {
         themeIdField = new JTextField("default-light");
         formPanel.add(themeIdField);
 
-        formPanel.add(new JLabel("Project name"));
-        formPanel.add(new JTextField("Wood JSON Jack"));
+        formPanel.add(new JLabel("Theme Name"));
+        themeNameField = new JTextField("Default Light");
+        formPanel.add(themeNameField);
 
         formPanel.add(new JLabel("Theme variant"));
         themeVariantComboBox2 = new JComboBox<>(new String[]{"Light", "Dark"});
         formPanel.add(themeVariantComboBox2);
+        themeVariantComboBox2.addActionListener(e -> updateThemeVariantFromComboBox());
 
         JPanel samplePanel = new JPanel(new GridLayout(1, 2, 8, 8));
         samplePanel.setBorder(BorderFactory.createTitledBorder("Sample Elements"));
@@ -289,6 +308,7 @@ public class ThemesPreferencesPane extends JPanel {
         controlsPanel.add(new JLabel("Theme variant"));
         themeVariantComboBox1 = new JComboBox<>(new String[]{"Light", "Dark"});
         controlsPanel.add(themeVariantComboBox1);
+        themeVariantComboBox1.addActionListener(e -> updateThemeVariantFromComboBox());
 
         samplePanel.add(structurePanel);
         samplePanel.add(controlsPanel);
@@ -309,6 +329,8 @@ public class ThemesPreferencesPane extends JPanel {
         buttonPane.add(newThemeButton);
 
         duplicateThemeButton.addActionListener(e -> duplicateCurrentTheme());
+        applyButton.addActionListener(e -> apply());
+        restoreButton.addActionListener(e -> restore());
 
         return buttonPane;
     }
@@ -330,6 +352,31 @@ public class ThemesPreferencesPane extends JPanel {
 
         themeSuite.getAvailableThemes().add(newTheme);
         themesListModel.addElement(newTheme);
+    }
+
+    private void accept() {
+        if (activeTheme == null || workTheme == null) {
+            return;
+        }
+        activeTheme.setColors(workTheme.getColors());
+        activeTheme.setFonts(workTheme.getFonts());
+        activeTheme.setThemeId(workTheme.getThemeId());
+        activeTheme.setThemeName(workTheme.getThemeName());
+    }
+
+    private void apply() {
+        accept();
+    }
+
+    private void restore() {
+        if (activeTheme == null || workTheme == null) {
+            return;
+        }
+        workTheme.setColors(activeTheme.getColors());
+        workTheme.setFonts(activeTheme.getFonts());
+        workTheme.setThemeId(activeTheme.getThemeId());
+        workTheme.setThemeName(activeTheme.getThemeName());
+        loadThemeDetails(workTheme);
     }
 
     private void fillDummyData() {
@@ -398,8 +445,12 @@ public class ThemesPreferencesPane extends JPanel {
         return duplicateThemeButton;
     }
 
-    public JButton getRestoreDefaultsButton() {
-        return restoreDefaultsButton;
+    public JButton getApplyButton() {
+        return applyButton;
+    }
+
+    public JButton getRestoreButton() {
+        return restoreButton;
     }
 
     public JButton getInvertColorsButton() {

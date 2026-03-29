@@ -22,7 +22,7 @@ public class ColorScheme {
     }
 
     private final Map<String, Color> colorMap = new HashMap<>();
-    private boolean isDark;
+    private boolean dark;
 
     public void forEachColor(BiConsumer<String, Color> action) {
         colorMap.forEach(action);
@@ -38,6 +38,14 @@ public class ColorScheme {
 
     public boolean hasColor(String key) {
         return colorMap.containsKey(key);
+    }
+
+    public boolean isDark() {
+        return dark;
+    }
+
+    public void setDark(boolean dark) {
+        this.dark = dark;
     }
 
     public void accept() {
@@ -61,7 +69,7 @@ public class ColorScheme {
         this.colorMap.forEach((key, value) -> {
             copy.setColor(key, value);
         });
-        copy.isDark = this.isDark;
+        copy.dark = this.dark;
         return copy;
     }
 
@@ -71,6 +79,6 @@ public class ColorScheme {
             Color inverted = new Color(255 - c.getRed(), 255 - c.getGreen(), 255 - c.getBlue(), c.getAlpha());
             colorMap.put(entry.getKey(), inverted);
         }
-        isDark = !isDark;
+        dark = !dark;
     }
 }
