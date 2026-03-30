@@ -24,6 +24,10 @@ public class FontSettings {
     public void forEachFont(BiConsumer<String, Font> action) {
         fontMap.forEach(action);
     }
+    
+    public Map<String, Font> getFontMap() {
+        return fontMap;
+    }
 
     public Font getFont(String key) {
         return fontMap.get(key);
