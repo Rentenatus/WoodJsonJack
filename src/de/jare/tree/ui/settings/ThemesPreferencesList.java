@@ -9,20 +9,20 @@ import javax.swing.*;
 
 public class ThemesPreferencesList extends JPanel {
 
-    private final ThemeSuite themeSuite;
     private final DefaultListModel<Theme> themesListModel;
     private final JList<Theme> themesList;
 
     private Theme selectedTheme;
     private ThemeListener themeListener;
+    private ThemesModel themesModel;
 
     public interface ThemeListener {
         void onThemeSelected(Theme theme);
     }
 
-    public ThemesPreferencesList(ThemeSuite themeSuite) {
+    public ThemesPreferencesList(ThemesModel themesModel) {
         super(new BorderLayout(8, 8));
-        this.themeSuite = themeSuite;
+        this.themesModel = themesModel;
         this.themesListModel = new DefaultListModel<>();
         this.themesList = new JList<>(themesListModel);
         
@@ -82,12 +82,12 @@ public class ThemesPreferencesList extends JPanel {
     }
 
     public void updateThemesList() {
-        if (themeSuite == null) {
+        if (themesModel == null || themesModel.getThemeSuite() == null) {
             return;
         }
 
         themesListModel.clear();
-        for (Theme theme : themeSuite.getAvailableThemes()) {
+        for (Theme theme : themesModel.getAllThemes()) {
             themesListModel.addElement(theme);
         }
 
@@ -128,7 +128,7 @@ public class ThemesPreferencesList extends JPanel {
     }
 
     public void duplicateCurrentTheme() {
-        if (themeSuite == null) {
+        if (themesModel == null || themesModel.getThemeSuite() == null) {
             return;
         }
 
@@ -142,7 +142,7 @@ public class ThemesPreferencesList extends JPanel {
         newTheme.setColors(selectedTheme.getColors());
         newTheme.setFonts(selectedTheme.getFonts());
 
-        themeSuite.getAvailableThemes().add(newTheme);
+        themesModel.getThemeSuite().getAvailableThemes().add(newTheme);
         themesListModel.addElement(newTheme);
     }
 }

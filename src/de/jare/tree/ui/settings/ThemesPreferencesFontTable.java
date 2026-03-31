@@ -5,6 +5,7 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.*;
+import javax.swing.event.ChangeListener;
 
 public class ThemesPreferencesFontTable extends JPanel {
 
@@ -13,6 +14,7 @@ public class ThemesPreferencesFontTable extends JPanel {
 
     private FontSettings currentFontSettings;
     private FontTableListener fontTableListener;
+    private ChangeListener changeListener;
 
     public interface FontTableListener {
 
@@ -128,6 +130,11 @@ public class ThemesPreferencesFontTable extends JPanel {
         if (fontTableListener != null) {
             fontTableListener.onFontsUpdated(fontSettings);
         }
+        
+        // Notify change listener
+        if (changeListener != null) {
+            changeListener.stateChanged(new javax.swing.event.ChangeEvent(this));
+        }
     }
 
     private void groupFonts() {
@@ -171,5 +178,9 @@ public class ThemesPreferencesFontTable extends JPanel {
 
     public void setFontTableListener(FontTableListener listener) {
         this.fontTableListener = listener;
+    }
+    
+    public void setChangeListener(ChangeListener listener) {
+        this.changeListener = listener;
     }
 }

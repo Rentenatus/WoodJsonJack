@@ -30,7 +30,7 @@ public class PreferencesDialog extends JDialog {
         this.tabbedPane = new JTabbedPane();
 
         this.woodJsonJackPane = new JPanel(new BorderLayout());
-        this.themesPane = new ThemesPreferencesPane(themeSuite);
+        this.themesPane = new ThemesPreferencesPane(new ThemesModel(themeSuite));
         this.projectsPane = new JPanel(new BorderLayout());
 
         buildUi();

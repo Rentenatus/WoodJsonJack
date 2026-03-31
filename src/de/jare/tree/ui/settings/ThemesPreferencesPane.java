@@ -20,7 +20,7 @@ import javax.swing.table.DefaultTableModel;
 
 public class ThemesPreferencesPane extends JPanel {
 
-    private final ThemeSuite themeSuite;
+    private final ThemesModel themesModel;
 
     private final ThemesPreferencesList themesPreferencesList;
     private final ThemesPreferencesColorTable themesPreferencesColorTable;
@@ -40,15 +40,12 @@ public class ThemesPreferencesPane extends JPanel {
     private final JButton restoreButton;
     private final JButton invertColorsButton;
 
-    private de.jare.tree.settings.theme.Theme activeTheme;
-    private de.jare.tree.settings.theme.Theme workTheme;
-
-    public ThemesPreferencesPane(ThemeSuite themeSuite) {
+    public ThemesPreferencesPane(ThemesModel themesModel) {
         super(new BorderLayout(8, 8));
 
-        this.themeSuite = themeSuite;
+        this.themesModel = themesModel;
 
-        this.themesPreferencesList = new ThemesPreferencesList(themeSuite);
+        this.themesPreferencesList = new ThemesPreferencesList(themesModel);
         this.themesPreferencesColorTable = new ThemesPreferencesColorTable();
         this.themesPreferencesFontTable = new ThemesPreferencesFontTable();
         this.themesPreferencesPreviewPane = new ThemesPreferencesPreviewPane();
@@ -73,25 +70,31 @@ public class ThemesPreferencesPane extends JPanel {
     private void setupListeners() {
         themesPreferencesList.setThemeListener(selectedTheme -> {
             if (selectedTheme != null) {
-                activeTheme = selectedTheme;
-                workTheme = selectedTheme.deepCopy();
-                loadThemeDetails(workTheme);
+                themesModel.setActiveTheme(selectedTheme);
+                loadThemeDetails(themesModel.getWorkTheme());
             }
         });
 
         themesPreferencesColorTable.setColorTableListener(colorScheme -> {
+            de.jare.tree.settings.theme.Theme workTheme = themesModel.getWorkTheme();
             if (workTheme != null) {
                 workTheme.setColors(colorScheme);
             }
         });
 
         themesPreferencesFontTable.setFontTableListener(fontSettings -> {
+            de.jare.tree.settings.theme.Theme workTheme = themesModel.getWorkTheme();
             if (workTheme != null) {
                 workTheme.setFonts(fontSettings);
             }
         });
+        
+        // Register change listener for preview updates
+        themesPreferencesColorTable.setChangeListener(themesPreferencesPreviewPane);
+        themesPreferencesFontTable.setChangeListener(themesPreferencesPreviewPane);
 
         themesPreferencesPreviewPane.setPreviewPaneListener(isDark -> {
+            de.jare.tree.settings.theme.Theme workTheme = themesModel.getWorkTheme();
             if (workTheme != null) {
                 workTheme.getColors().setDark(isDark);
             }
@@ -170,32 +173,17 @@ public class ThemesPreferencesPane extends JPanel {
         themesPreferencesList.duplicateCurrentTheme();
     }
 
-    private void accept() {
-        if (activeTheme == null || workTheme == null) {
-            return;
-        }
-        activeTheme.setColors(workTheme.getColors().deepCopy());
-        activeTheme.setFonts(workTheme.getFonts().deepCopy());
-        activeTheme.setThemeId(workTheme.getThemeId());
-        activeTheme.setThemeName(workTheme.getThemeName());
-    }
-
     private void apply() {
-        accept();
+        themesModel.accept();
     }
 
     private void restore() {
-        if (activeTheme == null || workTheme == null) {
-            return;
-        }
-        workTheme.setColors(activeTheme.getColors().deepCopy());
-        workTheme.setFonts(activeTheme.getFonts().deepCopy());
-        workTheme.setThemeId(activeTheme.getThemeId());
-        workTheme.setThemeName(activeTheme.getThemeName());
-        loadThemeDetails(workTheme);
+        themesModel.restore();
+        loadThemeDetails(themesModel.getWorkTheme());
     }
     
     private void invertColors() {
+        de.jare.tree.settings.theme.Theme workTheme = themesModel.getWorkTheme();
         if (workTheme == null) {
             return;
         }
@@ -203,8 +191,8 @@ public class ThemesPreferencesPane extends JPanel {
         themesPreferencesColorTable.updateColorsTable(workTheme.getColors());
     }
 
-    public void setThemes(Iterable<Theme> themeNames) {
-        themesPreferencesList.setThemes(themeNames);
+    public void setThemes(Iterable<Theme> themes) {
+        themesPreferencesList.setThemes(themes);
     }
 
     public DefaultListModel<Theme> getThemesListModel() {
@@ -277,5 +265,9 @@ public class ThemesPreferencesPane extends JPanel {
 
     public JComboBox<String> getThemeVariantComboBox() {
         return themesPreferencesPreviewPane.getThemeVariantComboBox();
+    }
+
+    public ThemesModel getThemesModel() {
+        return themesModel;
     }
 }

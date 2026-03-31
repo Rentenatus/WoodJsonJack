@@ -2,14 +2,19 @@ package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.Theme;
 import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 
-public class ThemesPreferencesPreviewPane extends JPanel {
+public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListener {
 
     private final JPanel previewPane;
     private final JPanel previewContent;
+    private final PreviewPanel samplePanel;
 
     private JTextField themeIdField;
     private JTextField themeNameField;
@@ -17,6 +22,15 @@ public class ThemesPreferencesPreviewPane extends JPanel {
 
     private Theme currentTheme;
     private PreviewPaneListener previewPaneListener;
+    
+    private UIDefaults previewDefaults;
+    
+    @Override
+    public void stateChanged(ChangeEvent e) {
+        if (currentTheme != null) {
+            updatePreviewDefaults(currentTheme);
+        }
+    }
 
     public interface PreviewPaneListener {
         void onThemeVariantChanged(boolean isDark);
@@ -26,8 +40,77 @@ public class ThemesPreferencesPreviewPane extends JPanel {
         super(new BorderLayout(8, 8));
         this.previewPane = new JPanel(new BorderLayout(8, 8));
         this.previewContent = new JPanel(new BorderLayout(8, 8));
+        this.previewDefaults = new UIDefaults();
+        this.samplePanel = new PreviewPanel();
         
         buildUi();
+    }
+    
+    private class PreviewPanel extends JPanel {
+        public PreviewPanel() {
+            super(new GridLayout(1, 2, 8, 8));
+            setBorder(BorderFactory.createTitledBorder("Sample Elements"));
+        }
+        
+        @Override
+        public void addNotify() {
+            super.addNotify();
+            updateUIFromDefaults();
+        }
+        
+        @Override
+        public void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            updateUIFromDefaults();
+        }
+        
+        private void updateUIFromDefaults() {
+            // Apply preview defaults to all children
+            for (Component comp : getComponents()) {
+                if (comp instanceof JComponent jComp) {
+                    applyDefaultsToComponent(jComp);
+                }
+            }
+        }
+        
+        private void applyDefaultsToComponent(JComponent comp) {
+            // Apply background
+            Object bg = previewDefaults.get("Panel.background");
+            if (bg instanceof Color) {
+                comp.setBackground((Color) bg);
+            }
+            
+            // Apply foreground
+            Object fg = previewDefaults.get("Panel.foreground");
+            if (fg instanceof Color) {
+                comp.setForeground((Color) fg);
+            }
+            
+            // Apply font
+            Object font = previewDefaults.get("Panel.font");
+            if (font instanceof Font) {
+                comp.setFont((Font) font);
+            }
+            
+            // Recursively apply to children
+            if (comp instanceof JScrollPane scrollPane) {
+                JViewport viewport = scrollPane.getViewport();
+                if (viewport != null) {
+                    Component view = viewport.getView();
+                    if (view instanceof JComponent jView) {
+                        applyDefaultsToComponent(jView);
+                    }
+                }
+            }
+            
+            if (comp instanceof Container container) {
+                for (Component child : container.getComponents()) {
+                    if (child instanceof JComponent jChild) {
+                        applyDefaultsToComponent(jChild);
+                    }
+                }
+            }
+        }
     }
 
     private void buildUi() {
@@ -56,9 +139,6 @@ public class ThemesPreferencesPreviewPane extends JPanel {
         themeVariantComboBox2 = new JComboBox<>(new String[]{"Light", "Dark"});
         formPanel.add(themeVariantComboBox2);
         themeVariantComboBox2.addActionListener(e -> updateThemeVariantFromComboBox());
-
-        JPanel samplePanel = new JPanel(new GridLayout(1, 2, 8, 8));
-        samplePanel.setBorder(BorderFactory.createTitledBorder("Sample Elements"));
 
         JPanel structurePanel = new JPanel(new GridLayout(2, 1, 6, 6));
 
@@ -138,6 +218,38 @@ public class ThemesPreferencesPreviewPane extends JPanel {
         boolean isDark = theme.getColors().isDark();
         themeVariantComboBox1.setSelectedItem(isDark ? "Dark" : "Light");
         themeVariantComboBox2.setSelectedItem(isDark ? "Dark" : "Light");
+        
+        // Update preview defaults from theme
+        updatePreviewDefaults(theme);
+    }
+    
+    private void updatePreviewDefaults(Theme theme) {
+        previewDefaults.clear();
+        
+        // Copy all colors from theme to preview defaults
+//        for (Map.Entry<Object, Object> entry : UIManager.getDefaults().entrySet()) {
+//            String key = String.valueOf(entry.getKey());
+//            Object value = entry.getValue();
+//            
+//            if (value instanceof Color) {
+//                Color color = (Color) value;
+//                previewDefaults.put(key, color);
+//            }
+//        }
+        
+        // Apply theme colors to preview defaults
+        for (Map.Entry<String, Color> entry : theme.getColors().getColorMap().entrySet()) {
+            previewDefaults.put(entry.getKey(), entry.getValue());
+        }
+        
+        // Apply theme fonts to preview defaults
+        for (Map.Entry<String, Font> entry : theme.getFonts().getFontMap().entrySet()) {
+            previewDefaults.put(entry.getKey(), entry.getValue());
+        }
+        
+        // Force UI update
+        samplePanel.revalidate();
+        samplePanel.repaint();
     }
 
     public JPanel getPreviewPane() {

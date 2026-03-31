@@ -5,6 +5,7 @@ import java.awt.*;
 import java.util.*;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.event.ChangeListener;
 
 public class ThemesPreferencesColorTable extends JPanel {
 
@@ -13,6 +14,7 @@ public class ThemesPreferencesColorTable extends JPanel {
 
     private ColorScheme currentColorScheme; 
     private ColorTableListener colorTableListener;
+    private ChangeListener changeListener;
 
     public interface ColorTableListener {
 
@@ -133,6 +135,11 @@ public class ThemesPreferencesColorTable extends JPanel {
         if (colorTableListener != null) {
             colorTableListener.onColorsUpdated(colorScheme);
         }
+        
+        // Notify change listener
+        if (changeListener != null) {
+            changeListener.stateChanged(new javax.swing.event.ChangeEvent(this));
+        }
     }
 
     private void groupColors() {
@@ -159,6 +166,10 @@ public class ThemesPreferencesColorTable extends JPanel {
 
     public void setColorTableListener(ColorTableListener listener) {
         this.colorTableListener = listener;
+    }
+    
+    public void setChangeListener(ChangeListener listener) {
+        this.changeListener = listener;
     }
 
     private static class ColorSwatchRenderer extends javax.swing.table.DefaultTableCellRenderer {
