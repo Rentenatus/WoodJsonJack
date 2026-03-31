@@ -102,7 +102,6 @@ public class ThemesPreferencesPane extends JPanel {
         if (theme == null) {
             return;
         }
-
         themesPreferencesColorTable.updateColorsTable(theme.getColors());
         themesPreferencesFontTable.updateFontsTable(theme.getFonts());
         themesPreferencesPreviewPane.loadThemeDetails(theme);
@@ -162,6 +161,7 @@ public class ThemesPreferencesPane extends JPanel {
         duplicateThemeButton.addActionListener(e -> duplicateCurrentTheme());
         applyButton.addActionListener(e -> apply());
         restoreButton.addActionListener(e -> restore());
+        invertColorsButton.addActionListener(e -> invertColors());
 
         return buttonPane;
     }
@@ -174,8 +174,8 @@ public class ThemesPreferencesPane extends JPanel {
         if (activeTheme == null || workTheme == null) {
             return;
         }
-        activeTheme.setColors(workTheme.getColors());
-        activeTheme.setFonts(workTheme.getFonts());
+        activeTheme.setColors(workTheme.getColors().deepCopy());
+        activeTheme.setFonts(workTheme.getFonts().deepCopy());
         activeTheme.setThemeId(workTheme.getThemeId());
         activeTheme.setThemeName(workTheme.getThemeName());
     }
@@ -188,11 +188,19 @@ public class ThemesPreferencesPane extends JPanel {
         if (activeTheme == null || workTheme == null) {
             return;
         }
-        workTheme.setColors(activeTheme.getColors());
-        workTheme.setFonts(activeTheme.getFonts());
+        workTheme.setColors(activeTheme.getColors().deepCopy());
+        workTheme.setFonts(activeTheme.getFonts().deepCopy());
         workTheme.setThemeId(activeTheme.getThemeId());
         workTheme.setThemeName(activeTheme.getThemeName());
         loadThemeDetails(workTheme);
+    }
+    
+    private void invertColors() {
+        if (workTheme == null) {
+            return;
+        }
+        workTheme.getColors().invert();
+        themesPreferencesColorTable.updateColorsTable(workTheme.getColors());
     }
 
     public void setThemes(Iterable<Theme> themeNames) {

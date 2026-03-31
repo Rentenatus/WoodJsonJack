@@ -120,7 +120,7 @@ public class ThemesPreferencesColorTable extends JPanel {
 
         for (String key : sortedKeys) {
             Color value = colorScheme.getColor(key);
-            System.out.println(key + "_" + ColorScheme.colorToHex(value));
+            //System.out.println(key + ", " + ColorScheme.colorToHex(value));
             colorsTableModel.addRow(new Object[]{key, ColorScheme.colorToHex(value), value});
         }
 
@@ -136,75 +136,12 @@ public class ThemesPreferencesColorTable extends JPanel {
     }
 
     private void groupColors() {
-        // First, collect all keys that should be grouped and calculate averages
-        Map<String, Color> groupColors = new HashMap<>();
-        Set<String> keysToRemove = new HashSet<>();
-        
-        for (String groupKey : ColorScheme.GROUP_MAPPING.keySet()) {
-            String[] keys = ColorScheme.GROUP_MAPPING.get(groupKey);
-
-            // Calculate average color
-            int redSum = 0, greenSum = 0, blueSum = 0;
-            int count = 0;
-
-            for (String key : keys) {
-                if (currentColorScheme.hasColor(key)) {
-                    Color color = currentColorScheme.getColor(key);
-                    redSum += color.getRed();
-                    greenSum += color.getGreen();
-                    blueSum += color.getBlue();
-                    count++;
-                    keysToRemove.add(key);
-                }
-            }
-
-            if (count > 0) {
-                int avgRed = redSum / count;
-                int avgGreen = greenSum / count;
-                int avgBlue = blueSum / count;
-                Color averageColor = new Color(avgRed, avgGreen, avgBlue);
-                groupColors.put(groupKey, averageColor);
-            }
-        }
-
-        // Clear all existing colors
-        currentColorScheme.getColorMap().clear();
-        
-        // Add only group colors
-        for (Map.Entry<String, Color> entry : groupColors.entrySet()) {
-            currentColorScheme.setColor(entry.getKey(), entry.getValue());
-        }
-
-        // Refresh table
+        currentColorScheme.groupColors();
         updateColorsTable(currentColorScheme);
     }
 
     private void splitColors() {
-        // First, collect all group colors to split
-        Map<String, Color> groupsToSplit = new HashMap<>();
-        
-        for (String groupKey : ColorScheme.GROUP_MAPPING.keySet()) {
-            if (currentColorScheme.hasColor(groupKey)) {
-                groupsToSplit.put(groupKey, currentColorScheme.getColor(groupKey));
-            }
-        }
-        
-        // Split all group colors into individual keys
-        for (Map.Entry<String, Color> entry : groupsToSplit.entrySet()) {
-            String groupKey = entry.getKey();
-            Color groupColor = entry.getValue();
-            String[] keys = ColorScheme.GROUP_MAPPING.get(groupKey);
-
-            // Set individual colors to group color
-            for (String key : keys) {
-                currentColorScheme.setColor(key, groupColor);
-            }
-
-            // Remove group color
-            currentColorScheme.getColorMap().remove(groupKey);
-        }
-
-        // Refresh table
+        currentColorScheme.splitColors();
         updateColorsTable(currentColorScheme);
     }
 

@@ -8,7 +8,9 @@ package de.jare.tree.settings.theme;
 
 import java.awt.Color;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import javax.swing.UIManager;
 
@@ -246,6 +248,7 @@ public class ColorScheme {
                 colorMap.put((String) key, (Color) value);
             }
         }
+        groupColors();
     }
 
     public ColorScheme deepCopy() {
@@ -264,5 +267,72 @@ public class ColorScheme {
             colorMap.put(entry.getKey(), inverted);
         }
         dark = !dark;
+    }
+
+    public void groupColors() {
+        // First, collect all keys that should be grouped and calculate averages
+        Map<String, Color> groupColors = new HashMap<>();
+        Set<String> keysToRemove = new HashSet<>();
+
+        for (String groupKey : GROUP_MAPPING.keySet()) {
+            String[] keys = GROUP_MAPPING.get(groupKey);
+
+            // Calculate average color
+            int redSum = 0, greenSum = 0, blueSum = 0;
+            int count = 0;
+
+            for (String key : keys) {
+                if (hasColor(key)) {
+                    Color color = getColor(key);
+                    redSum += color.getRed();
+                    greenSum += color.getGreen();
+                    blueSum += color.getBlue();
+                    count++;
+                    keysToRemove.add(key);
+                }
+            }
+
+            if (count > 0) {
+                int avgRed = redSum / count;
+                int avgGreen = greenSum / count;
+                int avgBlue = blueSum / count;
+                Color averageColor = new Color(avgRed, avgGreen, avgBlue);
+                groupColors.put(groupKey, averageColor);
+            }
+        }
+
+        // Clear all existing colors
+        colorMap.clear();
+
+        // Add only group colors
+        for (Map.Entry<String, Color> entry : groupColors.entrySet()) {
+            setColor(entry.getKey(), entry.getValue());
+        }
+    }
+
+    public void splitColors() {
+        // First, collect all group colors to split
+        Map<String, Color> groupsToSplit = new HashMap<>();
+
+        for (String groupKey : GROUP_MAPPING.keySet()) {
+            if (hasColor(groupKey)) {
+                groupsToSplit.put(groupKey, getColor(groupKey));
+            }
+        }
+
+        // Split all group colors into individual keys
+        for (Map.Entry<String, Color> entry : groupsToSplit.entrySet()) {
+            String groupKey = entry.getKey();
+            Color groupColor = entry.getValue();
+            String[] keys = GROUP_MAPPING.get(groupKey);
+
+            // Set individual colors to group color
+            for (String key : keys) {
+                setColor(key, groupColor);
+            }
+
+            // Remove group color
+            colorMap.remove(groupKey);
+        }
     }
 }

@@ -132,7 +132,6 @@ public class ThemesPreferencesPreviewPane extends JPanel {
         if (theme == null) {
             return;
         }
-
         this.currentTheme = theme;
         themeIdField.setText(theme.getThemeId());
         themeNameField.setText(theme.getThemeName());
