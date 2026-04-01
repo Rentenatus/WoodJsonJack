@@ -558,55 +558,6 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
     }
 
     /**
-     * Custom table cell editor that uses preview defaults colors
-     */
-    private class PreviewTableCellEditor extends javax.swing.AbstractCellEditor implements javax.swing.table.TableCellEditor {
-
-        private final javax.swing.JTextField editorComponent = new javax.swing.JTextField();
-
-        public PreviewTableCellEditor() {
-            editorComponent.setBorder(javax.swing.BorderFactory.createLineBorder(Color.BLACK, 1));
-        }
-
-        @Override
-        public java.awt.Component getTableCellEditorComponent(javax.swing.JTable table, Object value,
-                boolean isSelected, int row, int column) {
-
-            // Apply selection colors (editor is activated when cell is selected)
-            Object selFg = previewDefaults.get("Table.selectionForeground");
-            Object selBg = previewDefaults.get("Table.selectionBackground");
-            Object font = previewDefaults.get("Table.font");
-
-            if (selBg instanceof Color) {
-                editorComponent.setBackground((Color) selBg);
-            } else {
-                editorComponent.setBackground(Color.BLUE);
-            }
-
-            if (selFg instanceof Color) {
-                editorComponent.setForeground((Color) selFg);
-            } else {
-                editorComponent.setForeground(Color.WHITE);
-            }
-
-            if (font instanceof Font) {
-                editorComponent.setFont((Font) font);
-            }
-
-            editorComponent.setOpaque(true);
-            editorComponent.setText(value != null ? value.toString() : "");
-            editorComponent.selectAll();
-
-            return editorComponent;
-        }
-
-        @Override
-        public Object getCellEditorValue() {
-            return editorComponent.getText();
-        }
-    }
-
-    /**
      * Custom combobox renderer that uses preview defaults colors
      */
     private class PreviewComboBoxRenderer extends javax.swing.plaf.basic.BasicComboBoxRenderer {
