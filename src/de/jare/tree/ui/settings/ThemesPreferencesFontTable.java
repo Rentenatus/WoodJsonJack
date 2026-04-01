@@ -1,6 +1,13 @@
+/* <copyright> 
+ * Copyright (c) 2026, Janusch Rentenatus. This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ * </copyright>
+ */
 package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.FontSettings;
+import de.jare.tree.ui.swing.BorderFactoryColored;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -102,7 +109,7 @@ public class ThemesPreferencesFontTable extends JPanel {
 
     private void buildUi() {
         JScrollPane fontsScrollPane = new JScrollPane(fontsTable);
-        fontsScrollPane.setBorder(BorderFactory.createTitledBorder("Fonts"));
+        fontsScrollPane.setBorder(BorderFactoryColored.createTitledBorder("Fonts", "Panel.foreground", "Panel.font"));
         fontsScrollPane.setMinimumSize(new Dimension(180, 120));
 
         add(fontsScrollPane, BorderLayout.CENTER);
@@ -111,6 +118,7 @@ public class ThemesPreferencesFontTable extends JPanel {
     public void updateFontsTable(FontSettings fontSettings) {
         this.currentFontSettings = fontSettings;
         fontsTableModel.setRowCount(0);
+
         final Set<String> keySet = fontSettings.getFontMap().keySet();
 
         // Sort keys alphabetically
@@ -130,7 +138,7 @@ public class ThemesPreferencesFontTable extends JPanel {
         if (fontTableListener != null) {
             fontTableListener.onFontsUpdated(fontSettings);
         }
-        
+
         // Notify change listener
         if (changeListener != null) {
             changeListener.stateChanged(new javax.swing.event.ChangeEvent(this));
@@ -179,7 +187,7 @@ public class ThemesPreferencesFontTable extends JPanel {
     public void setFontTableListener(FontTableListener listener) {
         this.fontTableListener = listener;
     }
-    
+
     public void setChangeListener(ChangeListener listener) {
         this.changeListener = listener;
     }

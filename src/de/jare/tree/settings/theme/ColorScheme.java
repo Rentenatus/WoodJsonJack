@@ -40,7 +40,6 @@ public class ColorScheme {
         "desktop"
     }),
             Map.entry("group.background.weak", new String[]{
-        "Button.background",
         "CheckBox.background",
         "ComboBox.background",
         "InternalFrame.borderColor",
@@ -69,7 +68,6 @@ public class ColorScheme {
         "windowBorder"
     }),
             Map.entry("group.foreground.primary", new String[]{
-        "Button.foreground",
         "CheckBox.foreground",
         "ColorChooser.foreground",
         "ComboBox.foreground",
@@ -105,7 +103,6 @@ public class ColorScheme {
         "windowText"
     }),
             Map.entry("group.foreground.disabled", new String[]{
-        "Button.disabledText",
         "CheckBox.disabledText",
         "CheckBoxMenuItem.disabledForeground",
         "ComboBox.disabledForeground",
@@ -120,7 +117,6 @@ public class ColorScheme {
         "textInactiveText"
     }),
             Map.entry("group.selection.background", new String[]{
-        "Button.select",
         "CheckBox.select",
         "ComboBox.selectionBackground",
         "CheckBoxMenuItem.selectionBackground",
@@ -159,14 +155,12 @@ public class ColorScheme {
         "textHighlightText"
     }),
             Map.entry("group.focus", new String[]{
-        "Button.focus",
         "CheckBox.focus",
         "RadioButton.focus",
         "Slider.focus",
         "ToggleButton.focus"
     }),
             Map.entry("group.border.dark", new String[]{
-        "Button.darkShadow",
         "RadioButton.darkShadow",
         "ToggleButton.darkShadow",
         "ScrollBar.darkShadow",
@@ -175,8 +169,6 @@ public class ColorScheme {
         "ToolBar.darkShadow"
     }),
             Map.entry("group.border.light", new String[]{
-        "Button.highlight",
-        "Button.light",
         "RadioButton.highlight",
         "RadioButton.light",
         "ToggleButton.highlight",
@@ -192,7 +184,6 @@ public class ColorScheme {
         "controlLtHighlight"
     }),
             Map.entry("group.shadow", new String[]{
-        "Button.shadow",
         "RadioButton.shadow",
         "ToggleButton.shadow",
         "ScrollBar.shadow",
@@ -200,11 +191,29 @@ public class ColorScheme {
         "SplitPane.shadow",
         "TextField.shadow",
         "ToolBar.shadow"
-    })
+    }),
+            Map.entry("group.button.background.weak", new String[]{
+        "Button.background"}),
+            Map.entry("group.button.foreground.primary", new String[]{
+        "Button.foreground"}),
+            Map.entry("group.button.foreground.disabled", new String[]{
+        "Button.disabledText"}),
+            Map.entry("group.button.selection.background", new String[]{
+        "Button.select"}),
+            Map.entry("group.button.focus", new String[]{
+        "Button.focus"}),
+            Map.entry("group.button.border.dark", new String[]{
+        "Button.darkShadow"}),
+            Map.entry("group.button.border.light", new String[]{
+        "Button.highlight",
+        "Button.light"}),
+            Map.entry("group.button.shadow", new String[]{
+        "Button.shadow"})
     );
 
     private final Map<String, Color> colorMap = new HashMap<>();
     private boolean dark;
+    private boolean isGrouped = false;
 
     public void forEachColor(BiConsumer<String, Color> action) {
         colorMap.forEach(action);
@@ -234,6 +243,26 @@ public class ColorScheme {
         this.dark = dark;
     }
 
+    public boolean isGrouped() {
+        return isGrouped;
+    }
+
+    /**
+     * Returns a detailed (split) color scheme. If already split, returns this
+     * instance. If grouped, returns a deep copy with colors split. This ensures
+     * the caller always gets individual color keys, not groups.
+     */
+    public ColorScheme getDetailedScheme() {
+        if (!isGrouped) {
+            // Already detailed, return self
+            return this;
+        }
+        // Create detailed copy
+        ColorScheme detailed = this.deepCopy();
+        detailed.splitColors();
+        return detailed;
+    }
+
     public void accept() {
         for (Map.Entry<String, Color> entry : colorMap.entrySet()) {
             UIManager.put(entry.getKey(), entry.getValue());
@@ -248,6 +277,7 @@ public class ColorScheme {
                 colorMap.put((String) key, (Color) value);
             }
         }
+        isGrouped = false;
         groupColors();
     }
 
@@ -257,6 +287,7 @@ public class ColorScheme {
             copy.setColor(key, value);
         });
         copy.dark = this.dark;
+        copy.isGrouped = this.isGrouped;
         return copy;
     }
 
@@ -270,6 +301,11 @@ public class ColorScheme {
     }
 
     public void groupColors() {
+        // Skip if already grouped
+        if (isGrouped) {
+            return;
+        }
+
         // First, collect all keys that should be grouped and calculate averages
         Map<String, Color> groupColors = new HashMap<>();
         Set<String> keysToRemove = new HashSet<>();
@@ -308,9 +344,16 @@ public class ColorScheme {
         for (Map.Entry<String, Color> entry : groupColors.entrySet()) {
             setColor(entry.getKey(), entry.getValue());
         }
+
+        isGrouped = true;
     }
 
     public void splitColors() {
+        // Skip if already split
+        if (!isGrouped) {
+            return;
+        }
+
         // First, collect all group colors to split
         Map<String, Color> groupsToSplit = new HashMap<>();
 
@@ -334,5 +377,7 @@ public class ColorScheme {
             // Remove group color
             colorMap.remove(groupKey);
         }
+
+        isGrouped = false;
     }
 }

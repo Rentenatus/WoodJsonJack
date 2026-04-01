@@ -1,7 +1,14 @@
+/* <copyright> 
+ * Copyright (c) 2026, Janusch Rentenatus. This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ * </copyright>
+ */
 package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.Theme;
 import de.jare.tree.settings.theme.ThemeSuite;
+import de.jare.tree.ui.swing.BorderFactoryColored;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -88,7 +95,7 @@ public class ThemesPreferencesPane extends JPanel {
                 workTheme.setFonts(fontSettings);
             }
         });
-        
+
         // Register change listener for preview updates
         themesPreferencesColorTable.setChangeListener(themesPreferencesPreviewPane);
         themesPreferencesFontTable.setChangeListener(themesPreferencesPreviewPane);
@@ -130,7 +137,7 @@ public class ThemesPreferencesPane extends JPanel {
     }
 
     private void buildThemeDetailsPane() {
-        themeDetailsPane.setBorder(BorderFactory.createTitledBorder("Theme Details"));
+        themeDetailsPane.setBorder(BorderFactoryColored.createTitledBorder("Theme Details", "Panel.foreground", "Panel.font"));
 
         JPanel detailsContent = new JPanel(new BorderLayout(8, 8));
 
@@ -181,7 +188,7 @@ public class ThemesPreferencesPane extends JPanel {
         themesModel.restore();
         loadThemeDetails(themesModel.getWorkTheme());
     }
-    
+
     private void invertColors() {
         de.jare.tree.settings.theme.Theme workTheme = themesModel.getWorkTheme();
         if (workTheme == null) {

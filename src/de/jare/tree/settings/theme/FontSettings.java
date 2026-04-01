@@ -68,6 +68,7 @@ public class FontSettings {
     );
 
     private Map<String, Font> fontMap = new HashMap<>();
+    private boolean isGrouped = false;
 
     public void setFont(String key, Font font) {
         fontMap.put(key, font);
@@ -106,6 +107,7 @@ public class FontSettings {
                 fontMap.put((String) key, (Font) value);
             }
         }
+        isGrouped = false;
         groupFonts();
     }
 
@@ -123,10 +125,16 @@ public class FontSettings {
         this.fontMap.forEach((key, value) -> {
             copy.setFont(key, value);
         });
+        copy.isGrouped = this.isGrouped;
         return copy;
     }
 
     public void groupFonts() {
+        // Skip if already grouped
+        if (isGrouped) {
+            return;
+        }
+
         // First, collect all keys that should be grouped and calculate average fonts
         Map<String, Font> groupFonts = new HashMap<>();
         Set<String> keysToRemove = new HashSet<>();
@@ -158,9 +166,16 @@ public class FontSettings {
         for (Map.Entry<String, Font> entry : groupFonts.entrySet()) {
             setFont(entry.getKey(), entry.getValue());
         }
+
+        isGrouped = true;
     }
 
     public void splitFonts() {
+        // Skip if already split
+        if (!isGrouped) {
+            return;
+        }
+
         // First, collect all group fonts to split
         Map<String, Font> groupsToSplit = new HashMap<>();
 
@@ -184,6 +199,8 @@ public class FontSettings {
             // Remove group font
             fontMap.remove(groupKey);
         }
+
+        isGrouped = false;
     }
 
     private Font calculateAverageFont(Set<Font> fonts) {
@@ -204,5 +221,25 @@ public class FontSettings {
         int averageSize = Math.round(sizeSum / fonts.size());
 
         return new Font(fontName, fontStyle, averageSize);
+    }
+
+    public boolean isGrouped() {
+        return isGrouped;
+    }
+
+    /**
+     * Returns a detailed (split) font settings. If already split, returns this
+     * instance. If grouped, returns a deep copy with fonts split. This ensures
+     * the caller always gets individual font keys, not groups.
+     */
+    public FontSettings getDetailedFonts() {
+        if (!isGrouped) {
+            // Already detailed, return self
+            return this;
+        }
+        // Create detailed copy
+        FontSettings detailed = this.deepCopy();
+        detailed.splitFonts();
+        return detailed;
     }
 }

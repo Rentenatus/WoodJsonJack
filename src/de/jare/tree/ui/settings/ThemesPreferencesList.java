@@ -1,7 +1,14 @@
+/* <copyright> 
+ * Copyright (c) 2026, Janusch Rentenatus. This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ * </copyright>
+ */
 package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.Theme;
 import de.jare.tree.settings.theme.ThemeSuite;
+import de.jare.tree.ui.swing.BorderFactoryColored;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -17,6 +24,7 @@ public class ThemesPreferencesList extends JPanel {
     private ThemesModel themesModel;
 
     public interface ThemeListener {
+
         void onThemeSelected(Theme theme);
     }
 
@@ -25,7 +33,7 @@ public class ThemesPreferencesList extends JPanel {
         this.themesModel = themesModel;
         this.themesListModel = new DefaultListModel<>();
         this.themesList = new JList<>(themesListModel);
-        
+
         buildUi();
         updateThemesList();
     }
@@ -39,13 +47,13 @@ public class ThemesPreferencesList extends JPanel {
                 if (value instanceof Theme) {
                     Theme theme = (Theme) value;
                     setText(theme.getThemeName());
-                    
+
                     // Create a box around the theme name
-                    setBorder(BorderFactory.createLineBorder(getBackground()));
-                    
+                    setBorder(BorderFactoryColored.createLineBorder("Panel.background"));
+
                     // If this is the active theme, use font color for the border
                     if (theme.equals(ThemesPreferencesList.this.selectedTheme)) {
-                        setBorder(BorderFactory.createLineBorder(getForeground()));
+                        setBorder(BorderFactoryColored.createLineBorder("Panel.foreground"));
                     }
                 }
                 return this;
@@ -75,9 +83,9 @@ public class ThemesPreferencesList extends JPanel {
         });
 
         JScrollPane themesListScrollPane = new JScrollPane(themesList);
-        themesListScrollPane.setBorder(BorderFactory.createTitledBorder("Available Themes"));
+        themesListScrollPane.setBorder(BorderFactoryColored.createTitledBorder("Available Themes", "Panel.foreground", "Panel.font"));
         themesListScrollPane.setPreferredSize(new Dimension(220, 300));
-        
+
         add(themesListScrollPane, BorderLayout.CENTER);
     }
 

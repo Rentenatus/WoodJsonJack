@@ -1,6 +1,13 @@
+/* <copyright> 
+ * Copyright (c) 2026, Janusch Rentenatus. This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ * </copyright>
+ */
 package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.ColorScheme;
+import de.jare.tree.ui.swing.BorderFactoryColored;
 import java.awt.*;
 import java.util.*;
 import javax.swing.*;
@@ -12,7 +19,7 @@ public class ThemesPreferencesColorTable extends JPanel {
     private final DefaultTableModel colorsTableModel;
     private final JTable colorsTable;
 
-    private ColorScheme currentColorScheme; 
+    private ColorScheme currentColorScheme;
     private ColorTableListener colorTableListener;
     private ChangeListener changeListener;
 
@@ -105,7 +112,7 @@ public class ThemesPreferencesColorTable extends JPanel {
 
     private void buildUi() {
         JScrollPane colorsScrollPane = new JScrollPane(colorsTable);
-        colorsScrollPane.setBorder(BorderFactory.createTitledBorder("Colors"));
+        colorsScrollPane.setBorder(BorderFactoryColored.createTitledBorder("Colors", "Panel.foreground", "Panel.font"));
         colorsScrollPane.setMinimumSize(new Dimension(180, 120));
 
         add(colorsScrollPane, BorderLayout.CENTER);
@@ -114,6 +121,7 @@ public class ThemesPreferencesColorTable extends JPanel {
     public void updateColorsTable(ColorScheme colorScheme) {
         this.currentColorScheme = colorScheme;
         colorsTableModel.setRowCount(0);
+
         final Set<String> keySet = colorScheme.getColorMap().keySet();
 
         // Sort keys alphabetically
@@ -135,7 +143,7 @@ public class ThemesPreferencesColorTable extends JPanel {
         if (colorTableListener != null) {
             colorTableListener.onColorsUpdated(colorScheme);
         }
-        
+
         // Notify change listener
         if (changeListener != null) {
             changeListener.stateChanged(new javax.swing.event.ChangeEvent(this));
@@ -167,7 +175,7 @@ public class ThemesPreferencesColorTable extends JPanel {
     public void setColorTableListener(ColorTableListener listener) {
         this.colorTableListener = listener;
     }
-    
+
     public void setChangeListener(ChangeListener listener) {
         this.changeListener = listener;
     }
@@ -184,7 +192,7 @@ public class ThemesPreferencesColorTable extends JPanel {
                 // Set background color
                 setBackground(color);
                 // Set border
-                setBorder(BorderFactory.createLineBorder(table.getForeground(), 1));
+                setBorder(BorderFactoryColored.createLineBorder("Panel.foreground", 1));
                 // Set preferred size
                 setPreferredSize(new Dimension(30, 20));
                 setOpaque(true);
