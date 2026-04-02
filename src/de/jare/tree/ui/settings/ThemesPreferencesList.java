@@ -8,7 +8,7 @@ package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.Theme;
 import de.jare.tree.settings.theme.ThemeSuite;
-import de.jare.tree.ui.swing.BorderFactoryColored;
+import javax.swing.BorderFactory;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -49,11 +49,11 @@ public class ThemesPreferencesList extends JPanel {
                     setText(theme.getThemeName());
 
                     // Create a box around the theme name
-                    setBorder(BorderFactoryColored.createLineBorder("Panel.background"));
+                    setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 
                     // If this is the active theme, use font color for the border
                     if (theme.equals(ThemesPreferencesList.this.selectedTheme)) {
-                        setBorder(BorderFactoryColored.createLineBorder("Panel.foreground"));
+                        setBorder(BorderFactory.createLineBorder(Color.BLACK));
                     }
                 }
                 return this;
@@ -83,7 +83,7 @@ public class ThemesPreferencesList extends JPanel {
         });
 
         JScrollPane themesListScrollPane = new JScrollPane(themesList);
-        themesListScrollPane.setBorder(BorderFactoryColored.createTitledBorder("Available Themes", "Panel.foreground", "Panel.font"));
+        themesListScrollPane.setBorder(BorderFactory.createTitledBorder("Available Themes"));
         themesListScrollPane.setPreferredSize(new Dimension(220, 300));
 
         add(themesListScrollPane, BorderLayout.CENTER);

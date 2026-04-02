@@ -8,11 +8,12 @@ package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.ColorScheme;
 import de.jare.tree.settings.theme.Theme;
-import de.jare.tree.ui.swing.BorderFactoryColored;
+import javax.swing.BorderFactory;
 import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
@@ -59,7 +60,7 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
 
         public PreviewPanel() {
             super(new GridLayout(1, 2, 8, 8));
-            setBorder(BorderFactoryColored.createTitledBorder("Sample Elements", "Panel.foreground", "Panel.font"));
+            setBorder(BorderFactory.createTitledBorder("Sample Elements"));
         }
 
         @Override
@@ -222,13 +223,13 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
         private void updateAllTitledBorders(Component comp) {
             if (comp instanceof JComponent jComp) {
                 javax.swing.border.Border border = jComp.getBorder();
-                if (border instanceof de.jare.tree.ui.swing.TitledBorderColored titledBorder) {
+                if (border instanceof  TitledBorder  titledBorder) {
                     Object fg = previewDefaults.get("Panel.foreground");
                     Object font = previewDefaults.get("Panel.font");
-                    titledBorder.applyDirectColors(
-                            fg instanceof Color ? (Color) fg : null,
-                            font instanceof Font ? (Font) font : null
-                    );
+//                    titledBorder.applyDirectColors(
+//                            fg instanceof Color ? (Color) fg : null,
+//                            font instanceof Font ? (Font) font : null
+//                    );
                 } else if (border instanceof javax.swing.border.TitledBorder titledBorder) {
                     Object fg = previewDefaults.get("Panel.foreground");
                     Object font = previewDefaults.get("Panel.font");
@@ -250,7 +251,7 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
     }
 
     private void buildUi() {
-        previewPane.setBorder(BorderFactoryColored.createTitledBorder("Application Preview", "Panel.foreground", "Panel.font"));
+        previewPane.setBorder(BorderFactory.createTitledBorder("Application Preview"));
         previewPane.add(buildPreviewContent(), BorderLayout.CENTER);
 
         add(previewPane, BorderLayout.CENTER);
@@ -262,7 +263,7 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
         JPanel centerPanel = new JPanel(new GridLayout(1, 2, 8, 8));
 
         JPanel formPanel = new JPanel(new GridLayout(0, 1, 6, 6));
-        formPanel.setBorder(BorderFactoryColored.createTitledBorder("Form", "Panel.foreground", "Panel.font"));
+        formPanel.setBorder(BorderFactory.createTitledBorder("Form"));
         formPanel.add(new JLabel("Theme ID"));
         themeIdField = new JTextField("default-light");
         formPanel.add(themeIdField);
@@ -293,7 +294,7 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
         JScrollPane treeScrollPane = new JScrollPane(sampleTree);
         treeScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         treeScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
-        treeScrollPane.setBorder(BorderFactoryColored.createTitledBorder("Tree", "Panel.foreground", "Panel.font"));
+        treeScrollPane.setBorder(BorderFactory.createTitledBorder("Tree"));
 
         DefaultTableModel sampleTableModel = new DefaultTableModel(
                 new Object[]{"Name", "Type"},
@@ -311,7 +312,7 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
         JTable sampleTable = new JTable(sampleTableModel);
         sampleTable.setDefaultRenderer(Object.class, new PreviewTableCellRenderer());
         JScrollPane sampleTableScrollPane = new JScrollPane(sampleTable);
-        sampleTableScrollPane.setBorder(BorderFactoryColored.createTitledBorder("Table", "Panel.foreground", "Panel.font"));
+        sampleTableScrollPane.setBorder(BorderFactory.createTitledBorder("Table"));
         // Update scrollbar colors
         updateScrollPaneColors(sampleTableScrollPane);
 

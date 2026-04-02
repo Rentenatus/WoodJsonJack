@@ -7,7 +7,7 @@
 package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.FontSettings;
-import de.jare.tree.ui.swing.BorderFactoryColored;
+import javax.swing.BorderFactory;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -109,7 +109,7 @@ public class ThemesPreferencesFontTable extends JPanel {
 
     private void buildUi() {
         JScrollPane fontsScrollPane = new JScrollPane(fontsTable);
-        fontsScrollPane.setBorder(BorderFactoryColored.createTitledBorder("Fonts", "Panel.foreground", "Panel.font"));
+        fontsScrollPane.setBorder(BorderFactory.createTitledBorder("Fonts"));
         fontsScrollPane.setMinimumSize(new Dimension(180, 120));
 
         add(fontsScrollPane, BorderLayout.CENTER);

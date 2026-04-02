@@ -7,7 +7,7 @@
 package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.ColorScheme;
-import de.jare.tree.ui.swing.BorderFactoryColored;
+import javax.swing.BorderFactory;
 import java.awt.*;
 import java.util.*;
 import javax.swing.*;
@@ -112,7 +112,7 @@ public class ThemesPreferencesColorTable extends JPanel {
 
     private void buildUi() {
         JScrollPane colorsScrollPane = new JScrollPane(colorsTable);
-        colorsScrollPane.setBorder(BorderFactoryColored.createTitledBorder("Colors", "Panel.foreground", "Panel.font"));
+        colorsScrollPane.setBorder(BorderFactory.createTitledBorder("Colors"));
         colorsScrollPane.setMinimumSize(new Dimension(180, 120));
 
         add(colorsScrollPane, BorderLayout.CENTER);
@@ -192,7 +192,7 @@ public class ThemesPreferencesColorTable extends JPanel {
                 // Set background color
                 setBackground(color);
                 // Set border
-                setBorder(BorderFactoryColored.createLineBorder("Panel.foreground", 1));
+                setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
                 // Set preferred size
                 setPreferredSize(new Dimension(30, 20));
                 setOpaque(true);

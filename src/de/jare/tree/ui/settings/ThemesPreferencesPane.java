@@ -8,7 +8,7 @@ package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.Theme;
 import de.jare.tree.settings.theme.ThemeSuite;
-import de.jare.tree.ui.swing.BorderFactoryColored;
+import javax.swing.BorderFactory;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -137,7 +137,7 @@ public class ThemesPreferencesPane extends JPanel {
     }
 
     private void buildThemeDetailsPane() {
-        themeDetailsPane.setBorder(BorderFactoryColored.createTitledBorder("Theme Details", "Panel.foreground", "Panel.font"));
+        themeDetailsPane.setBorder(BorderFactory.createTitledBorder("Theme Details"));
 
         JPanel detailsContent = new JPanel(new BorderLayout(8, 8));
 
