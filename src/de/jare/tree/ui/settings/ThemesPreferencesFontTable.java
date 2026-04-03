@@ -47,64 +47,16 @@ public class ThemesPreferencesFontTable extends JPanel {
     private void setupContextMenu() {
         JPopupMenu popupMenu = new JPopupMenu();
 
-        JMenuItem groupFontsItem = new JMenuItem("Group Fonts");
-        groupFontsItem.addActionListener(e -> groupFonts());
+        JMenuItem groupFontsItem = new JMenuItem("xxx");
+        //groupFontsItem.addActionListener(e -> groupFonts());
         popupMenu.add(groupFontsItem);
 
-        JMenuItem splitFontsItem = new JMenuItem("Split Fonts");
-        splitFontsItem.addActionListener(e -> splitFonts());
+        JMenuItem splitFontsItem = new JMenuItem("yyy");
+        //splitFontsItem.addActionListener(e -> splitFonts());
         popupMenu.add(splitFontsItem);
 
         fontsTable.setComponentPopupMenu(popupMenu);
 
-        // Update enabled state based on current state
-        updateMenuItemsEnabledState();
-    }
-
-    private void updateMenuItemsEnabledState() {
-        JPopupMenu popupMenu = (JPopupMenu) fontsTable.getComponentPopupMenu();
-        if (popupMenu != null) {
-            boolean hasGroupKeys = hasGroupKeys();
-            boolean hasIndividualKeys = hasIndividualKeys();
-
-            for (Component comp : popupMenu.getComponents()) {
-                if (comp instanceof JMenuItem menuItem) {
-                    String text = menuItem.getText();
-                    if ("Group Fonts".equals(text)) {
-                        menuItem.setEnabled(hasIndividualKeys && !hasGroupKeys);
-                    } else if ("Split Fonts".equals(text)) {
-                        menuItem.setEnabled(hasGroupKeys);
-                    }
-                }
-            }
-        }
-    }
-
-    private boolean hasGroupKeys() {
-        if (currentFontSettings == null) {
-            return false;
-        }
-        for (String groupKey : FontSettings.GROUP_MAPPING.keySet()) {
-            if (currentFontSettings.hasFont(groupKey)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hasIndividualKeys() {
-        if (currentFontSettings == null) {
-            return false;
-        }
-        for (String groupKey : FontSettings.GROUP_MAPPING.keySet()) {
-            String[] keys = FontSettings.GROUP_MAPPING.get(groupKey);
-            for (String key : keys) {
-                if (currentFontSettings.hasFont(key)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private void buildUi() {
@@ -132,9 +84,6 @@ public class ThemesPreferencesFontTable extends JPanel {
             fontsTableModel.addRow(new Object[]{key, value.getFontName(), style, value.getSize()});
         }
 
-        // Update menu items enabled state
-        updateMenuItemsEnabledState();
-
         if (fontTableListener != null) {
             fontTableListener.onFontsUpdated(fontSettings);
         }
@@ -143,16 +92,6 @@ public class ThemesPreferencesFontTable extends JPanel {
         if (changeListener != null) {
             changeListener.stateChanged(new javax.swing.event.ChangeEvent(this));
         }
-    }
-
-    private void groupFonts() {
-        currentFontSettings.groupFonts();
-        updateFontsTable(currentFontSettings);
-    }
-
-    private void splitFonts() {
-        currentFontSettings.splitFonts();
-        updateFontsTable(currentFontSettings);
     }
 
     private String getFontStyleDescription(int style) {

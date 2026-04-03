@@ -23,6 +23,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import javax.swing.JMenuItem;
 
 public class ThemesPreferencesPane extends JPanel implements ChangeListener {
 
@@ -134,6 +135,10 @@ public class ThemesPreferencesPane extends JPanel implements ChangeListener {
 
     private void buildThemeDetailsPane() {
         themeDetailsPane.setBorder(BorderFactory.createTitledBorder("Theme Details"));
+
+        JMenuItem groupColorsItem = new JMenuItem("Invert Colors");
+        groupColorsItem.addActionListener(e -> invertColors());
+        themesPreferencesColorTable.addPopupMenuItem(groupColorsItem);
 
         JPanel detailsContent = new JPanel(new GridLayout(2, 2, 8, 8));
         detailsContent.add(themesPreferencesColorTable);

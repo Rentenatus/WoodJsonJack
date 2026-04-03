@@ -16,56 +16,13 @@ import java.util.HashSet;
 
 public class FontSettings {
 
-    final public static Map<String, String[]> GROUP_MAPPING = Map.ofEntries(
-            Map.entry("group.weak", new String[]{
-        "ColorChooser.font",
-        "EditorPane.font",
-        "FormattedTextField.font",
-        "OptionPane.font",
-        "Panel.font",
-        "PasswordField.font",
-        "ScrollPane.font",
-        "Table.font",
-        "TableHeader.font",
-        "TextArea.font",
-        "TextField.font",
-        "TextPane.font",
-        "ToolTip.font",
-        "Tree.font",
-        "Viewport.font"
-    }),
-            Map.entry("group.strong", new String[]{
-        "Button.font",
-        "CheckBox.font",
-        "CheckBoxMenuItem.font",
-        "ComboBox.font",
-        "DesktopIcon.font",
-        "Label.font",
-        "List.font",
-        "Menu.font",
-        "MenuBar.font",
-        "MenuItem.font",
-        "PopupMenu.font",
-        "ProgressBar.font",
-        "RadioButton.font",
-        "RadioButtonMenuItem.font",
-        "Slider.font",
-        "Spinner.font",
-        "TabbedPane.font",
-        "TitledBorder.font",
-        "ToggleButton.font",
-        "ToolBar.font"
-    }),
-            Map.entry("group.accelerator", new String[]{
-        "CheckBoxMenuItem.acceleratorFont",
-        "Menu.acceleratorFont",
-        "MenuItem.acceleratorFont",
-        "RadioButtonMenuItem.acceleratorFont"
-    }),
-            Map.entry("group.title", new String[]{
-        "InternalFrame.titleFont"
-    })
-    );
+    final public static String[] FONT_LIST = new String[]{
+        "light.fore.okay",
+        "light.fore.warning",
+        "light.fore.error",
+        "dark.fore.okay",
+        "dark.fore.warning",
+        "dark.fore.error",};
 
     private Map<String, Font> fontMap = new HashMap<>();
     private boolean isGrouped = false;
@@ -101,14 +58,17 @@ public class FontSettings {
     // Lädt alle aktuellen Font-Defaults aus dem UIManager
     public void resetDefault() {
         fontMap.clear();
-        for (Object key : UIManager.getDefaults().keySet()) {
-            Object value = UIManager.getDefaults().get(key);
-            if (key instanceof String && value instanceof Font) {
-                fontMap.put((String) key, (Font) value);
-            }
-        }
-        isGrouped = false;
-        groupFonts();
+        Font font = (Font) UIManager.getDefaults().get("EditorPane.font");
+        fontMap.put("light.fore.okay", font);
+        fontMap.put("light.fore.warning", font);
+        fontMap.put("light.fore.error", font);
+        fontMap.put("light.fore.property", font);
+        fontMap.put("light.fore.object", font);
+        fontMap.put("dark.fore.okay", font);
+        fontMap.put("dark.fore.warning", font);
+        fontMap.put("dark.fore.error", font);
+        fontMap.put("dark.fore.property", font);
+        fontMap.put("dark.fore.object", font);
     }
 
     // Skaliert alle Fonts um den angegebenen Faktor
@@ -127,80 +87,6 @@ public class FontSettings {
         });
         copy.isGrouped = this.isGrouped;
         return copy;
-    }
-
-    public void groupFonts() {
-        // Skip if already grouped
-        if (isGrouped) {
-            return;
-        }
-
-        // First, collect all keys that should be grouped and calculate average fonts
-        Map<String, Font> groupFonts = new HashMap<>();
-        Set<String> keysToRemove = new HashSet<>();
-
-        for (String groupKey : GROUP_MAPPING.keySet()) {
-            String[] keys = GROUP_MAPPING.get(groupKey);
-
-            // Collect all fonts from individual keys
-            Set<Font> fonts = new HashSet<>();
-
-            for (String key : keys) {
-                if (hasFont(key)) {
-                    fonts.add(getFont(key));
-                    keysToRemove.add(key);
-                }
-            }
-
-            if (!fonts.isEmpty()) {
-                // Calculate average font
-                Font averageFont = calculateAverageFont(fonts);
-                groupFonts.put(groupKey, averageFont);
-            }
-        }
-
-        // Clear all existing fonts
-        fontMap.clear();
-
-        // Add only group fonts
-        for (Map.Entry<String, Font> entry : groupFonts.entrySet()) {
-            setFont(entry.getKey(), entry.getValue());
-        }
-
-        isGrouped = true;
-    }
-
-    public void splitFonts() {
-        // Skip if already split
-        if (!isGrouped) {
-            return;
-        }
-
-        // First, collect all group fonts to split
-        Map<String, Font> groupsToSplit = new HashMap<>();
-
-        for (String groupKey : GROUP_MAPPING.keySet()) {
-            if (hasFont(groupKey)) {
-                groupsToSplit.put(groupKey, getFont(groupKey));
-            }
-        }
-
-        // Split all group fonts into individual keys
-        for (Map.Entry<String, Font> entry : groupsToSplit.entrySet()) {
-            String groupKey = entry.getKey();
-            Font groupFont = entry.getValue();
-            String[] keys = GROUP_MAPPING.get(groupKey);
-
-            // Set individual fonts to group font
-            for (String key : keys) {
-                setFont(key, groupFont);
-            }
-
-            // Remove group font
-            fontMap.remove(groupKey);
-        }
-
-        isGrouped = false;
     }
 
     private Font calculateAverageFont(Set<Font> fonts) {
@@ -227,19 +113,4 @@ public class FontSettings {
         return isGrouped;
     }
 
-    /**
-     * Returns a detailed (split) font settings. If already split, returns this
-     * instance. If grouped, returns a deep copy with fonts split. This ensures
-     * the caller always gets individual font keys, not groups.
-     */
-    public FontSettings getDetailedFonts() {
-        if (!isGrouped) {
-            // Already detailed, return self
-            return this;
-        }
-        // Create detailed copy
-        FontSettings detailed = this.deepCopy();
-        detailed.splitFonts();
-        return detailed;
-    }
 }

@@ -10,19 +10,16 @@ import de.jare.tree.control.MasterControl;
 import de.jare.tree.settings.theme.ColorScheme;
 import de.jare.tree.settings.theme.Theme;
 import de.jare.tree.ui.WoodEditTree;
-
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Font;
+import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.plaf.ColorUIResource;
-import javax.swing.plaf.FontUIResource;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Font;
-import java.util.Map;
 
 public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListener {
 
@@ -39,7 +36,7 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
 
         setBorder(BorderFactory.createTitledBorder("Preview"));
 
-        previewMasterControl.setActiveEditor(previewTree,this);
+        previewMasterControl.setActiveEditor(previewTree, this);
         expandAllRows();
 
         JScrollPane scrollPane = new JScrollPane(previewTree);
@@ -73,23 +70,9 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
             return;
         }
 
-        ColorScheme detailedScheme = theme.getColors().getDetailedScheme();
+        ColorScheme detailedScheme = theme.getColors();
 
-        for (Map.Entry<String, Color> entry : detailedScheme.getColorMap().entrySet()) {
-            Color color = entry.getValue();
-            if (color != null) {
-                //UIManager.put(entry.getKey(), new ColorUIResource(color));
-            }
-        }
-
-        for (Map.Entry<String, Font> entry : theme.getFonts().getFontMap().entrySet()) {
-            Font font = entry.getValue();
-            if (font != null) {
-                //UIManager.put(entry.getKey(), new FontUIResource(font));
-            }
-        }
-
-        SwingUtilities.updateComponentTreeUI(this);
+        // ToDo..
         revalidate();
         repaint();
     }

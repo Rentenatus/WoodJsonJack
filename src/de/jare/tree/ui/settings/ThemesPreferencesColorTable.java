@@ -18,6 +18,7 @@ public class ThemesPreferencesColorTable extends JPanel {
 
     private final DefaultTableModel colorsTableModel;
     private final JTable colorsTable;
+    JPopupMenu popupMenu;
 
     private ColorScheme currentColorScheme;
     private ColorTableListener colorTableListener;
@@ -48,15 +49,7 @@ public class ThemesPreferencesColorTable extends JPanel {
     }
 
     private void setupContextMenu() {
-        JPopupMenu popupMenu = new JPopupMenu();
-
-        JMenuItem groupColorsItem = new JMenuItem("Group Colors");
-        groupColorsItem.addActionListener(e -> groupColors());
-        popupMenu.add(groupColorsItem);
-
-        JMenuItem splitColorsItem = new JMenuItem("Split Colors");
-        splitColorsItem.addActionListener(e -> splitColors());
-        popupMenu.add(splitColorsItem);
+        popupMenu = new JPopupMenu();
 
         colorsTable.setComponentPopupMenu(popupMenu);
 
@@ -64,50 +57,25 @@ public class ThemesPreferencesColorTable extends JPanel {
         updateMenuItemsEnabledState();
     }
 
+    public void addPopupMenuItem(JMenuItem groupColorsItem) {
+        popupMenu.add(groupColorsItem);
+    }
+
     private void updateMenuItemsEnabledState() {
         JPopupMenu popupMenu = (JPopupMenu) colorsTable.getComponentPopupMenu();
         if (popupMenu != null) {
-            boolean hasGroupKeys = hasGroupKeys();
-            boolean hasIndividualKeys = hasIndividualKeys();
 
             for (Component comp : popupMenu.getComponents()) {
                 if (comp instanceof JMenuItem menuItem) {
                     String text = menuItem.getText();
                     if ("Group Colors".equals(text)) {
-                        menuItem.setEnabled(hasIndividualKeys && !hasGroupKeys);
+                        menuItem.setEnabled(false);
                     } else if ("Split Colors".equals(text)) {
-                        menuItem.setEnabled(hasGroupKeys);
+                        menuItem.setEnabled(false);
                     }
                 }
             }
         }
-    }
-
-    private boolean hasGroupKeys() {
-        if (currentColorScheme == null) {
-            return false;
-        }
-        for (String groupKey : ColorScheme.GROUP_MAPPING.keySet()) {
-            if (currentColorScheme.hasColor(groupKey)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hasIndividualKeys() {
-        if (currentColorScheme == null) {
-            return false;
-        }
-        for (String groupKey : ColorScheme.GROUP_MAPPING.keySet()) {
-            String[] keys = ColorScheme.GROUP_MAPPING.get(groupKey);
-            for (String key : keys) {
-                if (currentColorScheme.hasColor(key)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     private void buildUi() {
@@ -148,16 +116,6 @@ public class ThemesPreferencesColorTable extends JPanel {
         if (changeListener != null) {
             changeListener.stateChanged(new javax.swing.event.ChangeEvent(this));
         }
-    }
-
-    private void groupColors() {
-        currentColorScheme.groupColors();
-        updateColorsTable(currentColorScheme);
-    }
-
-    private void splitColors() {
-        currentColorScheme.splitColors();
-        updateColorsTable(currentColorScheme);
     }
 
     public DefaultTableModel getColorsTableModel() {

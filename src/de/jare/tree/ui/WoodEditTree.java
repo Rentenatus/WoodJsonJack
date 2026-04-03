@@ -15,6 +15,7 @@ import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
 import de.jare.tree.data.JsonObjectData;
+import de.jare.tree.data.JsonPropertyData;
 import de.jare.tree.data.JsonTreeNodeData;
 import javax.swing.*;
 import javax.swing.tree.*;
@@ -38,6 +39,7 @@ public class WoodEditTree extends JTree implements TreeFocusListener, ContentLis
         for (String propName : propNames) {
             JsonTreeNodeData childData = ((JsonTreeNodeData) root.getUserObject())
                     .createChild(propName);
+            ((JsonPropertyData)childData).setPrimValue("Value of "+propName);
             root.add(new DefaultMutableTreeNode(childData));
         }
 
