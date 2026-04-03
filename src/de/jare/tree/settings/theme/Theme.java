@@ -6,6 +6,9 @@
  */
 package de.jare.tree.settings.theme;
 
+import java.awt.Color;
+import java.awt.Font;
+
 public class Theme {
 
     private String themeId;
@@ -64,6 +67,19 @@ public class Theme {
 
     public void setFonts(FontSettings fonts) {
         this.fonts = fonts;
+    }
+
+    public Color getColor(String key) {
+        return getColors().getColor(key);
+    }
+
+    public Font getFont(String key) {
+        return getFonts().getFont(key);
+    }
+
+    public void resetDefault() {
+        colors.resetDefault();
+        fonts.resetDefault();
     }
 
 }

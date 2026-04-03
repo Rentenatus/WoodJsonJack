@@ -165,11 +165,11 @@ public sealed interface JsonTreeNodeData permits JsonObjectData, JsonPropertyDat
     String getInfoText();
 
     /**
-     * Returns the foreground color in which the editable text of this node
+     * Returns the foreground color key in which the editable text of this node
      * should be rendered in the tree.
      *
-     * @return desired foreground color for the editable text
+     * @return desired foreground color key for the editable text
      */
-    Color getForecolor();
+    String getForecolorKey();
 
 }

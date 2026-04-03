@@ -10,6 +10,7 @@ import de.jare.tree.control.UndoManager;
 import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.commands.WoodCommandEditNodeData;
 import de.jare.tree.data.JsonTreeNodeData;
+import de.jare.tree.settings.WoodSettings;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
@@ -58,10 +59,11 @@ public class JsonTreeCellEditor extends AbstractCellEditor implements TreeCellEd
 
         currentData = null;
         if (value instanceof DefaultMutableTreeNode dmtn
-                && dmtn.getUserObject() instanceof JsonTreeNodeData d) {
-            currentData = d;
-            textField.setText(d.getEditText());
-            textField.setForeground(d.getForecolor());
+                && dmtn.getUserObject() instanceof JsonTreeNodeData data) {
+            currentData = data;
+            textField.setText(data.getEditText());
+            String foreKey = "light." + data.getForecolorKey();
+            textField.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
         } else {
             textField.setText("");
             textField.setForeground(tree.getForeground());

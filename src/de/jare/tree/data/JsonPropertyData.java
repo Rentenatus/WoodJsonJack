@@ -122,8 +122,8 @@ public final class JsonPropertyData implements JsonTreeNodeData {
     }
 
     @Override
-    public Color getForecolor() {
-        return Color.BLUE;
+    public String getForecolorKey(){
+        return "fore.property";
     }
 
 }

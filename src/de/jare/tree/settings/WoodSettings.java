@@ -13,6 +13,8 @@ import java.util.List;
 
 public class WoodSettings {
 
+    public final static WoodSettings INSTANCE = new WoodSettings();
+
     // UI
     private String themeId;
 
@@ -32,6 +34,8 @@ public class WoodSettings {
     public WoodSettings() {
         this.agentPreferences = new AgentPreferences();
         this.userPreferences = new UserPreferences();
+        this.shownTheme = new Theme();
+        this.shownTheme.resetDefault();
     }
 
     public AgentPreferences getAgentPreferences() {
@@ -55,6 +59,18 @@ public class WoodSettings {
             themeId = "swing";
         }
         shownTheme = themeSuite.getOrCreate(themeId);
+    }
+
+    public String getThemeId() {
+        return themeId;
+    }
+
+    public Theme getShownTheme() {
+        return shownTheme;
+    }
+
+    public List<ProjektEntry> getKnownProjects() {
+        return knownProjects;
     }
 
 }

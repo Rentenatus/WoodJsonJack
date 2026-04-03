@@ -7,6 +7,7 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.data.JsonTreeNodeData;
+import de.jare.tree.settings.WoodSettings;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -46,7 +47,8 @@ public class JsonTreeCellRenderer implements TreeCellRenderer {
 
         if (data != null) {
             editLabel.setText(data.getEditText());
-            editLabel.setForeground(data.getForecolor());
+            String foreKey = "light." + data.getForecolorKey();
+            editLabel.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
             infoLabel.setText(data.getInfoText());
         } else {
             editLabel.setText(String.valueOf(value));
@@ -69,7 +71,8 @@ public class JsonTreeCellRenderer implements TreeCellRenderer {
 
         // Edit-Label bekommt f�r Lesbarkeit die gleiche Grundfarbe wie der Tree
         if (!selected) {
-            editLabel.setForeground(data != null ? data.getForecolor() : fg);
+            String foreKey = data != null ? "light." + data.getForecolorKey() : null;
+            editLabel.setForeground(data != null ? WoodSettings.INSTANCE.getShownTheme().getColor(foreKey) : fg);
         } else {
             editLabel.setForeground(fg);
         }
