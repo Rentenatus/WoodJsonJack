@@ -212,7 +212,6 @@ public class ColorScheme {
     );
 
     private final Map<String, Color> colorMap = new HashMap<>();
-    private boolean dark;
     private boolean isGrouped = false;
 
     public void forEachColor(BiConsumer<String, Color> action) {
@@ -235,13 +234,7 @@ public class ColorScheme {
         return colorMap.containsKey(key);
     }
 
-    public boolean isDark() {
-        return dark;
-    }
 
-    public void setDark(boolean dark) {
-        this.dark = dark;
-    }
 
     public boolean isGrouped() {
         return isGrouped;
@@ -286,7 +279,6 @@ public class ColorScheme {
         this.colorMap.forEach((key, value) -> {
             copy.setColor(key, value);
         });
-        copy.dark = this.dark;
         copy.isGrouped = this.isGrouped;
         return copy;
     }
@@ -297,7 +289,6 @@ public class ColorScheme {
             Color inverted = new Color(255 - c.getRed(), 255 - c.getGreen(), 255 - c.getBlue(), c.getAlpha());
             colorMap.put(entry.getKey(), inverted);
         }
-        dark = !dark;
     }
 
     public void groupColors() {

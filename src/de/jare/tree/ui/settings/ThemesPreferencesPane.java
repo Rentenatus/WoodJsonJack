@@ -1,4 +1,4 @@
-/* <copyright> 
+/* <copyright>
  * Copyright (c) 2026, Janusch Rentenatus. This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v20.html
@@ -7,25 +7,24 @@
 package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.Theme;
-import de.jare.tree.settings.theme.ThemeSuite;
-import javax.swing.BorderFactory;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.GridLayout;
+
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
+import java.awt.GridLayout;
 
-public class ThemesPreferencesPane extends JPanel {
+public class ThemesPreferencesPane extends JPanel implements ChangeListener {
 
     private final ThemesModel themesModel;
 
@@ -46,6 +45,11 @@ public class ThemesPreferencesPane extends JPanel {
     private final JButton applyButton;
     private final JButton restoreButton;
     private final JButton invertColorsButton;
+
+    private JTextField themeIdField;
+    private JTextField themeNameField;
+
+    private Theme currentTheme;
 
     public ThemesPreferencesPane(ThemesModel themesModel) {
         super(new BorderLayout(8, 8));
@@ -74,6 +78,13 @@ public class ThemesPreferencesPane extends JPanel {
         setupListeners();
     }
 
+    @Override
+    public void stateChanged(ChangeEvent e) {
+        if (currentTheme != null) {
+            themesPreferencesPreviewPane.loadThemeDetails(currentTheme);
+        }
+    }
+
     private void setupListeners() {
         themesPreferencesList.setThemeListener(selectedTheme -> {
             if (selectedTheme != null) {
@@ -83,38 +94,23 @@ public class ThemesPreferencesPane extends JPanel {
         });
 
         themesPreferencesColorTable.setColorTableListener(colorScheme -> {
-            de.jare.tree.settings.theme.Theme workTheme = themesModel.getWorkTheme();
+            Theme workTheme = themesModel.getWorkTheme();
             if (workTheme != null) {
                 workTheme.setColors(colorScheme);
+                currentTheme = workTheme;
             }
         });
 
         themesPreferencesFontTable.setFontTableListener(fontSettings -> {
-            de.jare.tree.settings.theme.Theme workTheme = themesModel.getWorkTheme();
+            Theme workTheme = themesModel.getWorkTheme();
             if (workTheme != null) {
                 workTheme.setFonts(fontSettings);
+                currentTheme = workTheme;
             }
         });
 
-        // Register change listener for preview updates
         themesPreferencesColorTable.setChangeListener(themesPreferencesPreviewPane);
         themesPreferencesFontTable.setChangeListener(themesPreferencesPreviewPane);
-
-        themesPreferencesPreviewPane.setPreviewPaneListener(isDark -> {
-            de.jare.tree.settings.theme.Theme workTheme = themesModel.getWorkTheme();
-            if (workTheme != null) {
-                workTheme.getColors().setDark(isDark);
-            }
-        });
-    }
-
-    private void loadThemeDetails(de.jare.tree.settings.theme.Theme theme) {
-        if (theme == null) {
-            return;
-        }
-        themesPreferencesColorTable.updateColorsTable(theme.getColors());
-        themesPreferencesFontTable.updateFontsTable(theme.getFonts());
-        themesPreferencesPreviewPane.loadThemeDetails(theme);
     }
 
     private void buildUi() {
@@ -139,18 +135,11 @@ public class ThemesPreferencesPane extends JPanel {
     private void buildThemeDetailsPane() {
         themeDetailsPane.setBorder(BorderFactory.createTitledBorder("Theme Details"));
 
-        JPanel detailsContent = new JPanel(new BorderLayout(8, 8));
-
-        JPanel tablesPane = new JPanel(new GridLayout(1, 2, 8, 8));
-        tablesPane.add(themesPreferencesColorTable);
-        tablesPane.add(themesPreferencesFontTable);
-
-        JPanel previewWrapperPane = new JPanel(new BorderLayout(8, 8));
-        previewWrapperPane.add(themesPreferencesPreviewPane, BorderLayout.CENTER);
-        previewWrapperPane.setPreferredSize(new Dimension(10, 260));
-
-        detailsContent.add(tablesPane, BorderLayout.CENTER);
-        detailsContent.add(previewWrapperPane, BorderLayout.SOUTH);
+        JPanel detailsContent = new JPanel(new GridLayout(2, 2, 8, 8));
+        detailsContent.add(themesPreferencesColorTable);
+        detailsContent.add(themesPreferencesFontTable);
+        detailsContent.add(buildFormPanel());
+        detailsContent.add(themesPreferencesPreviewPane);
 
         themeDetailsButtonPane.add(invertColorsButton);
         themeDetailsButtonPane.add(applyButton);
@@ -158,6 +147,21 @@ public class ThemesPreferencesPane extends JPanel {
 
         themeDetailsPane.add(detailsContent, BorderLayout.CENTER);
         themeDetailsPane.add(themeDetailsButtonPane, BorderLayout.SOUTH);
+    }
+
+    private JPanel buildFormPanel() {
+        JPanel panel = new JPanel(new GridLayout(0, 1, 6, 6));
+        panel.setBorder(BorderFactory.createTitledBorder("Form"));
+
+        panel.add(new JLabel("Theme ID"));
+        themeIdField = new JTextField("default-light");
+        panel.add(themeIdField);
+
+        panel.add(new JLabel("Theme Name"));
+        themeNameField = new JTextField("Default Light");
+        panel.add(themeNameField);
+
+        return panel;
     }
 
     private JPanel buildOuterButtonPane() {
@@ -176,6 +180,25 @@ public class ThemesPreferencesPane extends JPanel {
         return buttonPane;
     }
 
+    private void loadThemeDetails(Theme theme) {
+        if (theme == null) {
+            return;
+        }
+
+        currentTheme = theme;
+        themesPreferencesColorTable.updateColorsTable(theme.getColors());
+        themesPreferencesFontTable.updateFontsTable(theme.getFonts());
+
+        if (themeIdField != null) {
+            themeIdField.setText(theme.getThemeId());
+        }
+        if (themeNameField != null) {
+            themeNameField.setText(theme.getThemeName());
+        }
+
+        themesPreferencesPreviewPane.loadThemeDetails(theme);
+    }
+
     private void duplicateCurrentTheme() {
         themesPreferencesList.duplicateCurrentTheme();
     }
@@ -190,12 +213,15 @@ public class ThemesPreferencesPane extends JPanel {
     }
 
     private void invertColors() {
-        de.jare.tree.settings.theme.Theme workTheme = themesModel.getWorkTheme();
+        Theme workTheme = themesModel.getWorkTheme();
         if (workTheme == null) {
             return;
         }
+
         workTheme.getColors().invert();
         themesPreferencesColorTable.updateColorsTable(workTheme.getColors());
+        currentTheme = workTheme;
+        themesPreferencesPreviewPane.loadThemeDetails(workTheme);
     }
 
     public void setThemes(Iterable<Theme> themes) {
@@ -263,15 +289,15 @@ public class ThemesPreferencesPane extends JPanel {
     }
 
     public JPanel getPreviewPane() {
-        return themesPreferencesPreviewPane.getPreviewPane();
+        return themesPreferencesPreviewPane;
     }
 
     public JTextField getThemeIdField() {
-        return themesPreferencesPreviewPane.getThemeIdField();
+        return themeIdField;
     }
 
-    public JComboBox<String> getThemeVariantComboBox() {
-        return themesPreferencesPreviewPane.getThemeVariantComboBox();
+    public JTextField getThemeNameField() {
+        return themeNameField;
     }
 
     public ThemesModel getThemesModel() {
