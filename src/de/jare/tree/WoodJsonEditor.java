@@ -6,12 +6,14 @@
  */
 package de.jare.tree;
 
+import com.formdev.flatlaf.FlatLightLaf;
 import de.jare.tree.ui.WoodWindow;
 import javax.swing.*;
 
 public class WoodJsonEditor {
 
     public static void main(String[] args) {
+        FlatLightLaf.setup();
         SwingUtilities.invokeLater(WoodWindow::new);
     }
 
