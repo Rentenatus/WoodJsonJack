@@ -18,8 +18,8 @@ public class WoodWindow extends JFrame {
 
     private final MasterControl master;
     private final JTabbedPane centerTabs;
-    private final WoodEditTree editorTree1;
-    private final WoodEditTree editorTree2;
+    private final WoodEditTreeContainer editorTree1;
+    private final WoodEditTreeContainer editorTree2;
     private final SettingsService settingsService;
     private final WoodSettings settings;
     private final ThemeSuite themeSuite;
@@ -51,8 +51,8 @@ public class WoodWindow extends JFrame {
         // Center: editor tabs + upper toolbar
         centerTabs = new JTabbedPane();
 
-        editorTree1 = new WoodEditTree(master, "Root1", "Scene1", "Character1", "Scene2", "Character2", "Scene3", "Character3");
-        editorTree2 = new WoodEditTree(master, "Root2", "Scene4", "Character4");
+        editorTree1 = new WoodEditTreeContainer(master, "Root1", "Scene1", "Character1", "Scene2", "Character2", "Scene3", "Character3");
+        editorTree2 = new WoodEditTreeContainer(master, "Root2", "Scene4", "Character4");
 
         centerTabs.addTab("Tree Editor 1", new JScrollPane(editorTree1));
         centerTabs.addTab("Tree Editor 2", new JScrollPane(editorTree2));
@@ -72,20 +72,20 @@ public class WoodWindow extends JFrame {
             int idx = centerTabs.getSelectedIndex();
             WoodEditTree editor = switch (idx) {
                 case 0 ->
-                    editorTree1;
+                    editorTree1.getLeftTree();
                 case 1 ->
-                    editorTree2;
+                    editorTree2.getLeftTree();
                 default ->
                     null;
             };
             master.setActiveEditor(editor, this);
         });
         // initial
-        master.setActiveEditor(editorTree1, master);
+        master.setActiveEditor(editorTree1.getLeftTree(), master);
 
         WoodEditPopup popup = new WoodEditPopup(master);
-        WoodEditPopup.installOn(editorTree1.getTree(), popup);
-        WoodEditPopup.installOn(editorTree2.getTree(), popup);
+        WoodEditPopup.installOn(editorTree1.getLeftTree().getTree(), popup);
+        WoodEditPopup.installOn(editorTree2.getLeftTree().getTree(), popup);
 
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();

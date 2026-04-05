@@ -27,6 +27,8 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     private final MasterControl master;
     private final JTree tree;
     private final JPanel headerPanel;
+    private final JLabel resourceLabel;
+    private final JCheckBox linkCheckBox;
 
     public WoodEditTree(String rootName, String... propNames) {
         this(null, rootName, propNames);
@@ -35,9 +37,27 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     public WoodEditTree(MasterControl master, String rootName, String... propNames) {
         this.master = master;
 
-        // Header-Panel für zukünftige Labels und Icons
+        // Header-Panel für Labels und Icons
         headerPanel = new JPanel();
-        headerPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
+        headerPanel.setLayout(new BorderLayout());
+        
+        // Linkes Panel für das Label
+        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        headerPanel.add(leftPanel, BorderLayout.WEST);
+        
+        // Rechtes Panel für die Checkbox
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        headerPanel.add(rightPanel, BorderLayout.EAST);
+
+        // Label für Ressourceninfo
+        resourceLabel = new JLabel("this = noname");
+        leftPanel.add(resourceLabel);
+
+        // Checkbox für Link-Ansicht
+          linkCheckBox = new JCheckBox();
+        linkCheckBox.setSelectedIcon(new ImageIcon(getClass().getResource("/icons/link_view.png")));
+        linkCheckBox.setIcon(new ImageIcon(getClass().getResource("/icons/no_link.png")));
+        rightPanel.add(linkCheckBox);
 
         // JTree initialisieren
         DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(new JsonObjectData("{" + rootName + "}"));
@@ -87,6 +107,10 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     public MasterControl getMaster() {
         return master;
     }
+    
+    protected JCheckBox getLinkCheckBox(){
+        return linkCheckBox;
+    }
 
     @Override
     public JTree getTree() {
@@ -100,6 +124,14 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
 
     JPanel getHeaderPanel() {
         return headerPanel;
+    }
+
+    JLabel getResourceLabel() {
+        return resourceLabel;
+    }
+
+    void setResourceInfo(String text) {
+        resourceLabel.setText(text);
     }
 
     @Override
