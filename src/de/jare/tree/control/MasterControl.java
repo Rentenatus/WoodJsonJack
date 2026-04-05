@@ -8,10 +8,10 @@ package de.jare.tree.control;
 
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
-import de.jare.tree.ui.WoodClipboardTree;
-import javax.swing.JTree;
-import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.tree.ui.WoodClipboardTree;
 
 public class MasterControl {
 
@@ -91,7 +91,7 @@ public class MasterControl {
     }
 
     // Vom UI (z.B. JTabbedPane) gerufen, wenn ein Tab gew?hlt wird
-    public void setActiveEditor(JTree editor, Object trigger) {
+    public void setActiveEditor(TreeFocusComponent editor, Object trigger) {
         Object previous = this.activeEditor;
         if (previous == editor) {
             return;

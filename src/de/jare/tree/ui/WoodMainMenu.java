@@ -13,6 +13,8 @@ import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.data.JsonTreeNodeData;
 import java.awt.event.KeyEvent;
 import javax.swing.*;
@@ -101,7 +103,7 @@ public class WoodMainMenu extends JMenuBar {
         add(helpMenu);
         add(infoMenu);
 
-        master.addSelectionListener(7, new de.jare.tree.control.listeners.TreeFocusListener() {
+        master.addSelectionListener(7, new TreeFocusListener() {
             @Override
             public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
                 boolean enableCutDelete = !rootSelected && node instanceof DefaultMutableTreeNode;
@@ -119,7 +121,7 @@ public class WoodMainMenu extends JMenuBar {
             }
 
             @Override
-            public void onEditorSelected(JTree editor, Object trigger) {
+            public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
                 // hier könntest du bei Editorwechsel ggf. alles disablen,
                 // wenn kein aktiver JSON-Editor offen ist
             }

@@ -9,15 +9,15 @@ package de.jare.tree.ui;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.UndoManager;
 import de.jare.tree.control.commands.WoodCommand;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
 import java.awt.BorderLayout;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.TreeModel;
-import de.jare.tree.control.listeners.TreeFocusListener;
 
 public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeFocusListener {
 
@@ -74,7 +74,7 @@ public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     }
 
     @Override
-    public void onEditorSelected(JTree editor, Object trigger) {
+    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
         undoModel.setUndoManModel(undoMan.getActiveManager());
         selectCurrent();
     }

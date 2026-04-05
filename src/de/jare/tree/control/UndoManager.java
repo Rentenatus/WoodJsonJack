@@ -7,14 +7,13 @@
 package de.jare.tree.control;
 
 import de.jare.tree.control.commands.WoodCommand;
-
-import javax.swing.JTree;
-import javax.swing.tree.TreeModel;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.listeners.UndoRedoListener;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import de.jare.tree.control.listeners.UndoRedoListener;
-import de.jare.tree.control.listeners.TreeFocusListener;
+import javax.swing.tree.TreeModel;
 
 /**
  * Global undo/redo dispatcher that keeps one {@link UndoManagerModel} per
@@ -33,7 +32,7 @@ public class UndoManager implements TreeFocusListener {
     }
 
     @Override
-    public void onEditorSelected(JTree editor, Object trigger) {
+    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
         setActiveModel(editor != null ? editor.getModel() : null);
     }
 

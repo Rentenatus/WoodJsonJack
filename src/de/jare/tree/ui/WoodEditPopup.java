@@ -13,6 +13,8 @@ import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.data.JsonTreeNodeData;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -48,7 +50,7 @@ public class WoodEditPopup extends JPopupMenu {
         add(cutItem);
         add(pasteItem);
 
-        master.addSelectionListener(8, new de.jare.tree.control.listeners.TreeFocusListener() {
+        master.addSelectionListener(8, new TreeFocusListener() {
             @Override
             public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
                 boolean enableCutDelete = !rootSelected && node != null;
@@ -66,7 +68,7 @@ public class WoodEditPopup extends JPopupMenu {
             }
 
             @Override
-            public void onEditorSelected(JTree editor, Object trigger) {
+            public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
                 // optional: Menü bei Editorwechsel anpassen
             }
         });

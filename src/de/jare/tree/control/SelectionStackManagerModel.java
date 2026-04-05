@@ -1,13 +1,13 @@
 package de.jare.tree.control;
 
-import javax.swing.JTree;
-import javax.swing.tree.TreeModel;
+import de.jare.tree.control.listeners.TreeFocusComponent;
 import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
+import javax.swing.tree.TreeModel;
 
 /**
  * Model für den Selektions-Stack eines einzelnen JTree.
@@ -18,7 +18,7 @@ import java.util.Objects;
  */
 public class SelectionStackManagerModel {
 
-    private final WeakReference<JTree> weakTree;
+    private final WeakReference<TreeFocusComponent> weakTree;
 
     /**
      * Stack der Selektions-Einträge. Die "Vergangenheit" (ältere Selektionen)
@@ -32,11 +32,11 @@ public class SelectionStackManagerModel {
      */
     private int currentPos = -1;
 
-    public SelectionStackManagerModel(JTree tree) {
+    public SelectionStackManagerModel(TreeFocusComponent tree) {
         this.weakTree = new WeakReference<>(Objects.requireNonNull(tree));
     }
 
-    public JTree getTree() {
+    public TreeFocusComponent getTree() {
         return weakTree.get();
     }
 
@@ -45,7 +45,7 @@ public class SelectionStackManagerModel {
      * (Identitätsvergleich des TreeModel des gespeicherten JTree.)
      */
     public boolean isFor(TreeModel model) {
-        JTree tree = getTree();
+        TreeFocusComponent tree = getTree();
         return tree != null && tree.getModel() == model;
     }
 

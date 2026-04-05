@@ -6,9 +6,20 @@
  */
 package de.jare.tree.control.listeners;
 
-public interface TreeFocusListener {
+import de.jare.tree.control.MasterControl;
+import javax.swing.JTree;
+import javax.swing.tree.TreeModel;
 
-    void onNodeSelected(Object node, Object trigger, boolean rootSelected);
+/**
+ *
+ * @author Janusch Rentenatus
+ */
+public interface TreeFocusComponent {
 
-    void onEditorSelected(TreeFocusComponent editor, Object trigger);
+    public JTree getTree();
+
+    public TreeModel getModel();
+
+    public MasterControl getMaster();
+
 }

@@ -11,6 +11,7 @@ import de.jare.tree.control.SelectionStackManager;
 import de.jare.tree.control.UndoManager;
 import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.listeners.ContentListener;
+import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
 import java.awt.Dimension;
@@ -143,7 +144,7 @@ public class WoodUpperToolbar extends JPanel implements ContentListener, TreeFoc
     }
 
     @Override
-    public void onEditorSelected(JTree editor, Object trigger) {
+    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
         updateButtons();
         updateToolTips();
     }

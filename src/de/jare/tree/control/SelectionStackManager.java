@@ -1,14 +1,12 @@
 package de.jare.tree.control;
 
 import de.jare.ndimcol.primlong.SortedSeasonSetLong;
+import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.data.JsonTreeNodeData;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-
-import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
 
@@ -31,13 +29,13 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
         if (ignoreSelectionChanges || activeManager == null) {
             return;
         }
-        JTree tree = activeManager.getTree();
+        TreeFocusComponent tree = activeManager.getTree();
         if (tree == null) {
             return;
         }
 
         // alle aktuell selektierten Pfade einsammeln
-        TreePath[] paths = tree.getSelectionPaths();
+        TreePath[] paths = tree.getTree().getSelectionPaths();
         if (paths == null || paths.length == 0) {
             return;
         }
@@ -85,7 +83,7 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
     }
 
     @Override
-    public void onEditorSelected(JTree editor, Object trigger) {
+    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
         setActiveModel(editor);
     }
 
@@ -95,7 +93,7 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
      *
      * @param tree active tree, may be {@code null}
      */
-    public void setActiveModel(JTree tree) {
+    public void setActiveModel(TreeFocusComponent tree) {
         if (tree == null) {
             this.activeManager = null;
         } else {
@@ -125,13 +123,13 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
      * removes all manager instances whose JTree has already been garbage
      * collected.
      */
-    private SelectionStackManagerModel getManager(JTree tree) {
+    private SelectionStackManagerModel getManager(TreeFocusComponent tree) {
         // remove dead managers and search for existing one
         SelectionStackManagerModel found = null;
         Iterator<SelectionStackManagerModel> it = managers.iterator();
         while (it.hasNext()) {
             SelectionStackManagerModel next = it.next();
-            JTree jt = next.getTree();
+            TreeFocusComponent jt = next.getTree();
             if (jt == null) {
                 // JTree was GC'ed, drop this manager
                 it.remove();
@@ -200,7 +198,7 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
      * Stellt die Selektion anhand der editIds wieder her. Verhindert, dass
      * diese programmatische Änderung erneut im Stack landet.
      */
-    private void restoreSelection(JTree editTree, SelectionStackEntry entry) {
+    private void restoreSelection(TreeFocusComponent editTree, SelectionStackEntry entry) {
         if (editTree == null) {
             return;
         }
@@ -213,9 +211,9 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
                     paths.add(new TreePath(node.getPath()));
                 }
             }
-            editTree.clearSelection();
+            editTree.getTree().clearSelection();
             if (!paths.isEmpty()) {
-                editTree.setSelectionPaths(paths.toArray(TreePath[]::new));
+                editTree.getTree().setSelectionPaths(paths.toArray(TreePath[]::new));
             }
         } finally {
             ignoreSelectionChanges = false;
@@ -224,6 +222,9 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
 
     /**
      * Labels für Tooltip/Popup des Backward-Buttons (max-Einträge).
+     *
+     * @param max
+     * @return
      */
     public List<String> getBackwardLabels(int max) {
         if (activeManager == null) {
@@ -234,6 +235,9 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
 
     /**
      * Labels für Tooltip/Popup des Forward-Buttons (max-Einträge).
+     *
+     * @param max
+     * @return
      */
     public List<String> getForwardLabels(int max) {
         if (activeManager == null) {

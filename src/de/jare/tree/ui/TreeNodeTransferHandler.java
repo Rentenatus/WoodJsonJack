@@ -8,6 +8,7 @@ package de.jare.tree.ui;
 
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.commands.WoodCommandMoveNodes;
+import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.data.JsonTreeNodeData;
 import de.jare.tree.data.WoodUtils;
 
@@ -130,7 +131,7 @@ class TreeNodeTransferHandler extends TransferHandler {
             int startIndex = index;
 
             // 1. Undo-Command registrieren (vor der physischen Änderung!)
-            if (tree instanceof WoodEditTree editTree
+            if (tree instanceof TreeFocusComponent editTree
                     && nodesToMove != null
                     && sourceParents != null) {
                 MasterControl master = editTree.getMaster();

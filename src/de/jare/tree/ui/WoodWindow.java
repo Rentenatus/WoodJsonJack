@@ -70,7 +70,7 @@ public class WoodWindow extends JFrame {
         // Tab-Wechsel steuert aktiven Editor
         centerTabs.addChangeListener(e -> {
             int idx = centerTabs.getSelectedIndex();
-            JTree editor = switch (idx) {
+            WoodEditTree editor = switch (idx) {
                 case 0 ->
                     editorTree1;
                 case 1 ->
@@ -84,8 +84,8 @@ public class WoodWindow extends JFrame {
         master.setActiveEditor(editorTree1, master);
 
         WoodEditPopup popup = new WoodEditPopup(master);
-        WoodEditPopup.installOn(editorTree1, popup);
-        WoodEditPopup.installOn(editorTree2, popup);
+        WoodEditPopup.installOn(editorTree1.getTree(), popup);
+        WoodEditPopup.installOn(editorTree2.getTree(), popup);
 
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
@@ -130,9 +130,9 @@ public class WoodWindow extends JFrame {
         propertyTable.setFillsViewportHeight(true);
         propertyTable.getTableHeader().setVisible(false); // keine ?berschrift anzeigen
 
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JScrollPane(propertyTable), BorderLayout.CENTER);
-        return panel;
+        JPanel borderedPanel = new JPanel(new BorderLayout());
+        borderedPanel.add(new JScrollPane(propertyTable), BorderLayout.CENTER);
+        return borderedPanel;
     }
 
     private WoodUndoPanel panel;
@@ -146,9 +146,9 @@ public class WoodWindow extends JFrame {
 
     private JPanel createClipboardPanel() {
         clipboardTree = new WoodClipboardTree();
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JScrollPane(clipboardTree), BorderLayout.CENTER);
-        return panel;
+        JPanel borderedPanel = new JPanel(new BorderLayout());
+        borderedPanel.add(new JScrollPane(clipboardTree), BorderLayout.CENTER);
+        return borderedPanel;
     }
 
     public WoodClipboardTree getClipboardTree() {
@@ -156,13 +156,13 @@ public class WoodWindow extends JFrame {
     }
 
     private JPanel createKIAssistant() {
-        JPanel panel = new JPanel(new BorderLayout());
+        JPanel borderedPanel = new JPanel(new BorderLayout());
         JTextArea prompt = new JTextArea(5, 20);
         prompt.setText("KI-Prompt hier...");
         JButton askBtn = new JButton("KI fragen");
-        panel.add(new JScrollPane(prompt), BorderLayout.CENTER);
-        panel.add(askBtn, BorderLayout.SOUTH);
-        return panel;
+        borderedPanel.add(new JScrollPane(prompt), BorderLayout.CENTER);
+        borderedPanel.add(askBtn, BorderLayout.SOUTH);
+        return borderedPanel;
     }
 
     public void openPreferences() {

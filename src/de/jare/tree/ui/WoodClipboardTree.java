@@ -7,6 +7,7 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.control.commands.WoodCommandAddNodes;
+import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.data.JsonTreeNodeData;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -52,7 +53,7 @@ public class WoodClipboardTree extends JTree {
         showClipboardContent(clipboardNodes);
     }
 
-    public void pasteClipboard(WoodEditTree trigger, TreePath path) {
+    public void pasteClipboard(TreeFocusComponent trigger, TreePath path) {
         if (clipboardNodes == null || clipboardNodes.length == 0) {
             return;
         }
@@ -87,8 +88,8 @@ public class WoodClipboardTree extends JTree {
 
         if (lastCopy != null) {
             TreePath newPath = new TreePath(lastCopy.getPath());
-            trigger.setSelectionPath(newPath);
-            trigger.scrollPathToVisible(newPath);
+            trigger.getTree().setSelectionPath(newPath);
+            trigger.getTree().scrollPathToVisible(newPath);
         }
     }
 

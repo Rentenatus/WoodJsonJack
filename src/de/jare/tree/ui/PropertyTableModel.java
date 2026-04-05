@@ -6,9 +6,11 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.tree.control.listeners.TreeFocusComponent;
 import javax.swing.JTree;
 import javax.swing.table.AbstractTableModel;
 import de.jare.tree.control.listeners.TreeFocusListener;
+import javax.swing.JComponent;
 
 public class PropertyTableModel extends AbstractTableModel implements TreeFocusListener {
 
@@ -57,7 +59,7 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
     }
 
     @Override
-    public void onEditorSelected(JTree editor, Object trigger) {
+    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
         // NoOp
     }
 
@@ -69,12 +71,12 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
             return;
         }
 
-        Object[][] data = {
+        Object[][] arr = {
             {"x", node.toString(), "String"},
             {"y", 0, "int"},
             {"z", 0, "int"}
         };
-        setProperties(data);
+        setProperties(arr);
     }
 
     // Zum sp�teren Anpassen der Daten (z.B. je nach Node)

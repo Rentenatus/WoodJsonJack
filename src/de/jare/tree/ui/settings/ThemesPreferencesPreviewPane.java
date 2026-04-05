@@ -11,13 +11,9 @@ import de.jare.tree.settings.theme.ColorScheme;
 import de.jare.tree.settings.theme.Theme;
 import de.jare.tree.ui.WoodEditTree;
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Font;
-import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
@@ -60,8 +56,8 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
     }
 
     private void expandAllRows() {
-        for (int row = 0; row < previewTree.getRowCount(); row++) {
-            previewTree.expandRow(row);
+        for (int row = 0; row < previewTree.getTree().getRowCount(); row++) {
+            previewTree.getTree().expandRow(row);
         }
     }
 
