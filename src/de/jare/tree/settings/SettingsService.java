@@ -7,6 +7,7 @@
 package de.jare.tree.settings;
 
 import de.jare.jsoncasted.item.JsonItem;
+import de.jare.jsoncasted.item.builder.JsonBuilder;
 import de.jare.jsoncasted.model.JsonBuildException;
 import de.jare.jsoncasted.parserwriter.JsonParseException;
 import de.jare.jsoncasted.parserwriter.JsonParser;
@@ -43,9 +44,10 @@ public class SettingsService {
         return new File(getGlobalSettingsDir(), "themes.json");
     }
 
-public File getProjectSettingsFile(File projectDir) {
-    return new File(new File(projectDir, ".woodjj"), "project.json");
-}
+    public File getProjectSettingsFile(File projectDir) {
+        return new File(new File(projectDir, ".woodjj"), "project.json");
+    }
+
     public WoodSettings loadWoodSettings(boolean resetDefaults) {
         try {
             File file = getWoodSettingsFile();
@@ -54,7 +56,7 @@ public File getProjectSettingsFile(File projectDir) {
             }
             try {
                 JsonItem item = JsonParser.parse(file, definition, definition.getWoodSettingsRoot());
-                return (WoodSettings) item.buildInstance();
+                return (WoodSettings) JsonBuilder.buildInstance(definition.getModel(), item);
             } catch (JsonParseException | JsonBuildException | NullPointerException ex) {
                 WoodSettings defaults = createDefaultWoodSettings();
                 saveWoodSettings(file, defaults);
@@ -75,7 +77,7 @@ public File getProjectSettingsFile(File projectDir) {
 
             try {
                 JsonItem item = JsonParser.parse(file, definition, definition.getThemeSuiteRoot());
-                return (ThemeSuite) item.buildInstance();
+                return (ThemeSuite) JsonBuilder.buildInstance(definition.getModel(), item);
             } catch (JsonParseException | JsonBuildException | NullPointerException ex) {
                 ThemeSuite defaults = createDefaultThemeSuite();
                 saveThemeSuite(file, defaults);
@@ -95,7 +97,7 @@ public File getProjectSettingsFile(File projectDir) {
 
         try {
             JsonItem item = JsonParser.parse(file, definition, definition.getProjectSettingsRoot());
-            return (ProjectSettings) item.buildInstance();
+            return (ProjectSettings) JsonBuilder.buildInstance(definition.getModel(), item);
         } catch (JsonParseException | JsonBuildException | NullPointerException ex) {
             ProjectSettings defaults = createDefaultProjectSettings("New Project", file.getPath());
             saveProjectSettings(file, defaults);
