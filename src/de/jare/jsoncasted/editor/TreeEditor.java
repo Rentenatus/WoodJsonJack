@@ -242,7 +242,7 @@ public class TreeEditor {
         if (rootNode == null) {
             throw new IllegalArgumentException("Resource has no root node");
         }
-        return convertJsonNodeToEditNode(rootNode);
+        return convertJsonNodeToEditNode(rootNode, null);
     }
 
     /**
@@ -256,7 +256,7 @@ public class TreeEditor {
         if (node == null) {
             throw new IllegalArgumentException("Node cannot be null");
         }
-        return convertJsonNodeToEditNode(node);
+        return convertJsonNodeToEditNode(node, null);
     }
 
     /**
@@ -285,40 +285,36 @@ public class TreeEditor {
      * Converts a JsonNode to an EditNode recursively.
      * 
      * Mapping:
-     * - OBJECT -> EditNodeObject with EditNodeProperty children
-     * - ARRAY -> EditNodeObject with indexed EditNodeProperty children  
-     * - STRING, NUMBER, LONG, BOOLEAN -> EditNodeProperty with primValue
+     * - OBJECT -> EditNodeObject (name from context, empty if root)
+     * - ARRAY -> EditNodeObject with name="__array__"
+     * - STRING, NUMBER, LONG, BOOLEAN -> EditNodeProperty with propName from context
      * - NULL -> EditNodeProperty with null primValue
      * 
      * @param jsonNode the JsonNode to convert
+     * @param propertyName the name/key for this node (for object properties)
      * @return the corresponding EditNode
      */
-    private static EditNode convertJsonNodeToEditNode(JsonNode jsonNode) {
+    private static EditNode convertJsonNodeToEditNode(JsonNode jsonNode, String propertyName) {
         JsonNodeType type = jsonNode.getType();
         
         if (type == JsonNodeType.OBJECT) {
-            EditNodeObject editNode = new EditNodeObject("object");
+            EditNodeObject editNode = new EditNodeObject(propertyName != null ? propertyName : "");
             Map<String, JsonNode> objectValues = jsonNode.asObjectValues();
             if (objectValues != null) {
                 for (Map.Entry<String, JsonNode> entry : objectValues.entrySet()) {
-                    EditNode child = convertJsonNodeToEditNode(entry.getValue());
-                    if (child instanceof EditNodeProperty) {
-                        ((EditNodeProperty) child).setPropName(entry.getKey());
-                    }
+                    EditNode child = convertJsonNodeToEditNode(entry.getValue(), entry.getKey());
                     editNode.addChild(child);
                 }
             }
             return editNode;
         } 
         else if (type == JsonNodeType.ARRAY) {
-            EditNodeObject editNode = new EditNodeObject("array");
+            EditNodeObject editNode = new EditNodeObject("__array__");
             List<JsonNode> arrayValues = jsonNode.asArray();
             if (arrayValues != null) {
                 for (int i = 0; i < arrayValues.size(); i++) {
-                    EditNode child = convertJsonNodeToEditNode(arrayValues.get(i));
-                    if (child instanceof EditNodeProperty) {
-                        ((EditNodeProperty) child).setPropName(String.valueOf(i));
-                    }
+                    // For arrays, property name is the index
+                    EditNode child = convertJsonNodeToEditNode(arrayValues.get(i), null);
                     editNode.addChild(child);
                 }
             }
@@ -326,9 +322,10 @@ public class TreeEditor {
         } 
         else {
             // Primitive types: STRING, NUMBER, LONG, BOOLEAN, NULL
-            EditNodeProperty editNode = new EditNodeProperty("");
+            EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : "");
             String value = convertJsonValueToString(jsonNode);
             editNode.setPrimValue(value);
+            // Store type hint for export
             editNode.setType(type.name().toLowerCase());
             return editNode;
         }
@@ -389,18 +386,9 @@ public class TreeEditor {
      * Converts an EditNode to a JsonNode recursively.
      * 
      * Mapping:
-     * - EditNodeObject -> JsonNode.OBJECT (if it represents an object/array structure)
-     * - EditNodeProperty -> JsonNode with primitive value or nested object
-     * 
-     * For EditNodeObject:
-     * - If name is "object": treat as JSON object, children become properties
-     * - If name is "array": treat as JSON array, children become elements
-     * - Otherwise: treat as object with primValue as a field
-     * 
-     * For EditNodeProperty:
-     * - Uses propName as key, primValue as value
-     * - Type field determines the JsonNode type
-     * - If has children and is an object container: create nested object
+     * - EditNodeObject with name="__array__" -> JsonNode.ARRAY
+     * - EditNodeObject (other) -> JsonNode.OBJECT
+     * - EditNodeProperty -> primitive value (based on type field) or nested object
      * 
      * @param editNode the EditNode to convert
      * @return the corresponding JsonNode
@@ -411,7 +399,7 @@ public class TreeEditor {
             String name = obj.getName();
             
             // Check if this is an array representation
-            if ("array".equals(name) || "[]".equals(name)) {
+            if ("__array__".equals(name)) {
                 JsonNode arrayNode = JsonNode.arrayNode();
                 for (int i = 0; i < obj.getChildCount(); i++) {
                     EditNode child = obj.getChildAt(i);
@@ -426,24 +414,14 @@ public class TreeEditor {
             // Default: treat as object
             JsonNode objectNode = JsonNode.objectNode();
             
-            // If the object has a primitive value (primValue), add it as a special field
-            String primValue = obj.getPrimValue();
-            if (primValue != null && !primValue.isEmpty()) {
-                objectNode.put("_value", JsonNode.stringNode(primValue));
-            }
-            
-            // Convert children to properties
+            // Convert children - they can be either EditNodeObject or EditNodeProperty
             for (int i = 0; i < obj.getChildCount(); i++) {
                 EditNode child = obj.getChildAt(i);
                 JsonNode jsonChild = convertEditNodeToJsonNode(child);
                 if (jsonChild != null) {
-                    String childName = child.getName();
-                    // Use propName if available (for EditNodeProperty as direct child of object)
-                    if (child instanceof EditNodeProperty && childName.isEmpty()) {
-                        childName = ((EditNodeProperty) child).getPropName();
-                    }
-                    if (childName != null && !childName.isEmpty()) {
-                        objectNode.put(childName, jsonChild);
+                    String key = getPropertyName(child);
+                    if (key != null && !key.isEmpty()) {
+                        objectNode.put(key, jsonChild);
                     } else {
                         // For unnamed children, use index as key
                         objectNode.put(String.valueOf(i), jsonChild);
@@ -456,23 +434,39 @@ public class TreeEditor {
             EditNodeProperty prop = (EditNodeProperty) editNode;
             String primValue = prop.getPrimValue();
             String type = prop.getType();
-            String propName = prop.getPropName();
             
-            // If the property has children, it represents a nested object
+            // If the property has children, it represents a nested structure
+            // Check if children represent an object or array
             if (prop.getChildCount() > 0) {
-                JsonNode objectNode = JsonNode.objectNode();
-                for (int i = 0; i < prop.getChildCount(); i++) {
-                    EditNode child = prop.getChildAt(i);
-                    JsonNode jsonChild = convertEditNodeToJsonNode(child);
-                    if (jsonChild != null) {
-                        String childName = child.getName();
-                        if (childName == null || childName.isEmpty()) {
-                            childName = String.valueOf(i);
+                EditNode firstChild = prop.getChildAt(0);
+                if (firstChild instanceof EditNodeObject && "__array__".equals(((EditNodeObject) firstChild).getName())) {
+                    // Children form an array
+                    JsonNode arrayNode = JsonNode.arrayNode();
+                    for (int i = 0; i < prop.getChildCount(); i++) {
+                        EditNode child = prop.getChildAt(i);
+                        JsonNode jsonChild = convertEditNodeToJsonNode(child);
+                        if (jsonChild != null) {
+                            arrayNode.add(jsonChild);
                         }
-                        objectNode.put(childName, jsonChild);
                     }
+                    return arrayNode;
+                } else {
+                    // Children form an object
+                    JsonNode objectNode = JsonNode.objectNode();
+                    for (int i = 0; i < prop.getChildCount(); i++) {
+                        EditNode child = prop.getChildAt(i);
+                        JsonNode jsonChild = convertEditNodeToJsonNode(child);
+                        if (jsonChild != null) {
+                            String key = getPropertyName(child);
+                            if (key != null && !key.isEmpty()) {
+                                objectNode.put(key, jsonChild);
+                            } else {
+                                objectNode.put(String.valueOf(i), jsonChild);
+                            }
+                        }
+                    }
+                    return objectNode;
                 }
-                return objectNode;
             }
             
             // Primitive value - determine type from type field or value
@@ -511,6 +505,30 @@ public class TreeEditor {
             // Fallback for any other EditNode type
             return JsonNode.nullNode();
         }
+    }
+
+    /**
+     * Extracts the property name from an EditNode.
+     * For EditNodeProperty, uses propName. For EditNodeObject, uses name.
+     * For unnamed nodes, returns empty string.
+     * 
+     * @param node the EditNode
+     * @return the property name/key, or empty string
+     */
+    private String getPropertyName(EditNode node) {
+        if (node instanceof EditNodeProperty) {
+            String propName = ((EditNodeProperty) node).getPropName();
+            if (propName != null && !propName.isEmpty()) {
+                return propName;
+            }
+        }
+        if (node instanceof EditNodeObject) {
+            String name = ((EditNodeObject) node).getName();
+            if (name != null && !name.isEmpty() && !"__array__".equals(name)) {
+                return name;
+            }
+        }
+        return "";
     }
 
     @Override
