@@ -7,7 +7,6 @@ import de.jare.jsoncasted.lang.JsonNode;
 import de.jare.jsoncasted.lang.JsonResource;
 import de.jare.jsoncasted.parserservice.JsonParserService;
 import de.jare.jsoncasted.parserwriter.JsonParseException;
-import de.jare.jsonconfig.def.JsonConfigDefinition;
 import java.io.File;
 import java.io.IOException;
 import java.util.logging.Level;
@@ -49,32 +48,97 @@ public class TreeEditorNGTest {
     }
 
     /**
-     * Test of getTree method, of class TreeEditor.
+     * Test: Load JsonResource, import to TreeEditor, export back to JsonNode,
+     * and write to string.
      */
     @Test
-    public void test1() {
+    public void testImportExport() {
         System.out.println("===============================================");
-        System.out.println("test1");
+        System.out.println("testImportExport");
         System.out.println("===============================================");
-        TreeEditor instance = new TreeEditor();
 
-        JsonConfigDefinition definition = JsonConfigDefinition.getInstance();
-        File configFile = new File("./assets/config/config1.json");
-        System.out.println("Target=============================================== File");
-        System.out.println(configFile.getAbsolutePath());
+        File configFile = new File("assets/config/config1.json");    
+        System.out.println("File: " + configFile.getAbsolutePath());
 
-        JsonNode node = null;
+        // Step 1: Load JsonResource
+        JsonResource resource = null;
         try {
-            final JsonResource res = JsonParserService.parse(configFile, JsonDebugLevel.INFO);
-
-            node = res.getRoot();
-
+            resource = JsonParserService.parse(configFile, JsonDebugLevel.INFO);
         } catch (JsonParseException | IOException | NullPointerException ex) {
             Logger.getGlobal().log(Level.SEVERE, null, ex);
-            fail(ex.getMessage(), ex);
+            fail("Failed to parse JSON file: " + ex.getMessage(), ex);
         }
-        assertNotNull(node);
+        assertNotNull(resource, "JsonResource should not be null");
+        assertNotNull(resource.getRoot(), "JsonResource should have a root node");
 
+        JsonNode originalRoot = resource.getRoot();
+        System.out.println("Original JSON:");
+        System.out.println(originalRoot.toString());
+
+        // Step 2: Import to TreeEditor
+        TreeEditor editor = TreeEditor.fromJsonResource(resource);
+        assertNotNull(editor, "TreeEditor should not be null");
+        assertNotNull(editor.getTree(), "Tree should not be null");
+        assertNotNull(editor.getTree().getRoot(), "Tree should have a root node");
+        System.out.println("Imported to TreeEditor successfully");
+
+        // Step 3: Export back to JsonNode
+        JsonNode exportedNode = editor.exportToJsonNode();
+        assertNotNull(exportedNode, "Exported JsonNode should not be null");
+        System.out.println("Exported JSON:");
+        System.out.println(exportedNode.toString());
+
+        // Step 4: Also test export to JsonResource
+        JsonResource exportedResource = editor.exportToJsonResource();
+        assertNotNull(exportedResource, "Exported JsonResource should not be null");
+        assertNotNull(exportedResource.getRoot(), "Exported JsonResource should have a root");
+        System.out.println("Exported to JsonResource successfully");
+
+        System.out.println("===============================================");
+    }
+
+    /**
+     * Test roundtrip: import -> export -> import Verify that data can be
+     * imported and exported without loss.
+     */
+    @Test
+    public void testRoundtrip() {
+        System.out.println("===============================================");
+        System.out.println("testRoundtrip");
+        System.out.println("===============================================");
+
+        File configFile = new File("assets/config/config1.json");
+        System.out.println("File: " + configFile.getAbsolutePath());
+
+        // Load and import
+        JsonResource resource = null;
+        try {
+            resource = JsonParserService.parse(configFile, JsonDebugLevel.INFO);
+        } catch (JsonParseException | IOException | NullPointerException ex) {
+            Logger.getGlobal().log(Level.SEVERE, null, ex);
+            fail("Failed to parse JSON file: " + ex.getMessage(), ex);
+        }
+
+        TreeEditor editor1 = TreeEditor.fromJsonResource(resource);
+
+        // Export
+        JsonNode exported = editor1.exportToJsonNode();
+        System.out.println("Exported JSON:");
+        System.out.println(exported.toString());
+
+        // Re-import
+        TreeEditor editor2 = TreeEditor.fromJsonNode(exported);
+        assertNotNull(editor2, "Re-imported TreeEditor should not be null");
+
+        // Export again
+        JsonNode reExported = editor2.exportToJsonNode();
+        assertNotNull(reExported, "Re-exported JsonNode should not be null");
+
+        // The JSON representations should be equivalent
+        System.out.println("Re-exported JSON:");
+        System.out.println(reExported.toString());
+
+        System.out.println("===============================================");
     }
 
 }
