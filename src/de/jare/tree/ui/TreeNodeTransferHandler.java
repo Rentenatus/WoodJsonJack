@@ -11,7 +11,7 @@ import de.jare.tree.control.commands.WoodCommandMoveNodes;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.data.JsonTreeNodeData;
 import de.jare.tree.data.WoodUtils;
-
+import java.awt.Container;
 import java.awt.datatransfer.*;
 import java.io.IOException;
 import javax.swing.*;
@@ -131,7 +131,11 @@ class TreeNodeTransferHandler extends TransferHandler {
             int startIndex = index;
 
             // 1. Undo-Command registrieren (vor der physischen Änderung!)
-            if (tree instanceof TreeFocusComponent editTree
+            Container container = tree.getParent();
+            while (container!=null && !(container instanceof TreeFocusComponent)){
+                container = container.getParent();
+            }
+            if (container instanceof TreeFocusComponent editTree
                     && nodesToMove != null
                     && sourceParents != null) {
                 MasterControl master = editTree.getMaster();

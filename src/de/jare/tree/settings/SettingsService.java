@@ -56,7 +56,7 @@ public class SettingsService {
             }
             try {
                 JsonItem item = JsonParser.parse(file, definition, definition.getWoodSettingsRoot());
-                return (WoodSettings) JsonBuilder.buildInstance(definition.getModel(), item);
+                return (WoodSettings) JsonBuilder.buildInstance(definition.getModel(), true, item);
             } catch (JsonParseException | JsonBuildException | NullPointerException ex) {
                 WoodSettings defaults = createDefaultWoodSettings();
                 saveWoodSettings(file, defaults);
@@ -77,7 +77,7 @@ public class SettingsService {
 
             try {
                 JsonItem item = JsonParser.parse(file, definition, definition.getThemeSuiteRoot());
-                return (ThemeSuite) JsonBuilder.buildInstance(definition.getModel(), item);
+                return (ThemeSuite) JsonBuilder.buildInstance(definition.getModel(), true, item);
             } catch (JsonParseException | JsonBuildException | NullPointerException ex) {
                 ThemeSuite defaults = createDefaultThemeSuite();
                 saveThemeSuite(file, defaults);
@@ -97,7 +97,7 @@ public class SettingsService {
 
         try {
             JsonItem item = JsonParser.parse(file, definition, definition.getProjectSettingsRoot());
-            return (ProjectSettings) JsonBuilder.buildInstance(definition.getModel(), item);
+            return (ProjectSettings) JsonBuilder.buildInstance(definition.getModel(), true, item);
         } catch (JsonParseException | JsonBuildException | NullPointerException ex) {
             ProjectSettings defaults = createDefaultProjectSettings("New Project", file.getPath());
             saveProjectSettings(file, defaults);

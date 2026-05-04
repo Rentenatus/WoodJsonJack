@@ -77,12 +77,12 @@ public class WoodMainMenu extends JMenuBar {
         editMenu.add(deleteNodeItem);
         editMenu.add(renameNodeItem);
 
-        JMenu helpMenu = new JMenu("Help");
+        JMenu optionsMenu = new JMenu("Options");
         JMenuItem preferencesItem = new JMenuItem("Preferences");
 
         preferencesItem.addActionListener(e -> openPreferences());
 
-        helpMenu.add(preferencesItem);
+        optionsMenu.add(preferencesItem);
 
         // Info-Menü
         JMenu infoMenu = new JMenu("Info");
@@ -100,7 +100,7 @@ public class WoodMainMenu extends JMenuBar {
 
         add(projectMenu);
         add(editMenu);
-        add(helpMenu);
+        add(optionsMenu);
         add(infoMenu);
 
         master.addSelectionListener(7, new TreeFocusListener() {

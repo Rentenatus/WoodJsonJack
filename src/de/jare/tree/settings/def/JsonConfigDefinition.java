@@ -1,6 +1,8 @@
 package de.jare.tree.settings.def;
 
 import de.jare.jsoncasted.lang.JsonInstance;
+import static de.jare.jsoncasted.model.JsonCollectionType.ARRAY;
+import static de.jare.jsoncasted.model.JsonCollectionType.LIST;
 import de.jare.jsoncasted.model.JsonModel;
 import de.jare.jsoncasted.model.item.JsonClass;
 import de.jare.jsoncasted.model.item.JsonMap;
@@ -14,9 +16,6 @@ import de.jare.tree.settings.project.ProjectSettings;
 import de.jare.tree.settings.project.ProjektEntry;
 import de.jare.tree.settings.project.RootSetting;
 import de.jare.tree.settings.theme.*;
-
-import static de.jare.jsoncasted.model.JsonCollectionType.ARRAY;
-import static de.jare.jsoncasted.model.JsonCollectionType.LIST;
 import java.awt.Color;
 import java.awt.Font;
 
@@ -42,65 +41,65 @@ public class JsonConfigDefinition implements JsonItemDefinition {
         final JsonClass asBoolean = model.getJsonClass("Boolean");
         final JsonClass asInt = model.getJsonClass("int");
 
-        JsonClass font = model.newJsonReflect(Font.class);
+        JsonClass font = model.newJsonReflect(Font.class, null);
         font.addCParam("name", asString);
         font.addCParam("style", asInt);
         font.addCParam("size", asInt);
 
-        JsonMap fontMap = model.newRawJsonMap((new JsonInstance<Font>()).getClass(), font);
+        JsonMap fontMap = model.newRawJsonMap((new JsonInstance<Font>()).getClass(), null, font);
 
-        JsonClass color = model.newJsonReflect(Color.class);
+        JsonClass color = model.newJsonReflect(Color.class, null);
         color.addCParam("r", asInt, "getRed");
         color.addCParam("g", asInt, "getBlue");
         color.addCParam("b", asInt, "getGreen");
 
-        JsonMap colorMap = model.newRawJsonMap((new JsonInstance<Color>()).getClass(), color);
+        JsonMap colorMap = model.newRawJsonMap((new JsonInstance<Color>()).getClass(), null, color);
 
-        JsonClass folderType = model.newJsonEnumByName(FolderType.class);
+        JsonClass folderType = model.newJsonEnumByName(FolderType.class, null);
 
-        JsonClass userPreferences = model.newJsonReflect(UserPreferences.class);
+        JsonClass userPreferences = model.newJsonReflect(UserPreferences.class, null);
         userPreferences.addField("uiLanguage", asString);
         userPreferences.addField("showTips", asBoolean);
         userPreferences.addField("autoSave", asBoolean);
 
         //JsonClass windowLayout = model.newJsonReflect(WindowLayout.class);
-        JsonClass colorScheme = model.newJsonReflect(ColorScheme.class);
+        JsonClass colorScheme = model.newJsonReflect(ColorScheme.class, null);
         colorScheme.addField("colorMap", colorMap);
         colorScheme.addField("dark", asBoolean);
 
-        JsonClass fontSettings = model.newJsonReflect(FontSettings.class);
+        JsonClass fontSettings = model.newJsonReflect(FontSettings.class, null);
         fontSettings.addField("fontMap", fontMap);
 
-        JsonClass theme = model.newJsonReflect(Theme.class);
+        JsonClass theme = model.newJsonReflect(Theme.class, null);
         theme.addField("themeId", asString);
         theme.addField("themeName", asString);
         theme.addField("colors", colorScheme);
         theme.addField("fonts", fontSettings);
 
-        themeSuiteRoot = model.newJsonReflect(ThemeSuite.class);
+        themeSuiteRoot = model.newJsonReflect(ThemeSuite.class, null);
         themeSuiteRoot.addField("availableThemes", theme, LIST);
 
-        JsonClass projektEntry = model.newJsonReflect(ProjektEntry.class);
+        JsonClass projektEntry = model.newJsonReflect(ProjektEntry.class, null);
         projektEntry.addField("projectName", asString);
         projektEntry.addField("projectPath", asString);
 
-        JsonClass agentPreferences = model.newJsonReflect(AgentPreferences.class);
+        JsonClass agentPreferences = model.newJsonReflect(AgentPreferences.class, null);
         agentPreferences.addField("apiKey", asString);
         agentPreferences.addField("defaultBehavior", asString);
         agentPreferences.addField("maxRetries", asInt);
         agentPreferences.addField("modelList", asString, LIST);
         agentPreferences.addField("prioritizedModel", asString);
 
-        JsonClass rootSetting = model.newJsonReflect(RootSetting.class);
+        JsonClass rootSetting = model.newJsonReflect(RootSetting.class, null);
         rootSetting.addField("folderType", folderType);
         rootSetting.addField("folderName", asString);
         rootSetting.addField("folderPath", asString);
 
-        projectSettingsRoot = model.newJsonReflect(ProjectSettings.class, projektEntry);
+        projectSettingsRoot = model.newJsonReflect(ProjectSettings.class, null, projektEntry);
         projectSettingsRoot.addField("rootSettings", rootSetting, LIST);
         projectSettingsRoot.addField("openedFiles", asString, ARRAY);
 
-        woodSettingsRoot = model.newJsonReflect(WoodSettings.class);
+        woodSettingsRoot = model.newJsonReflect(WoodSettings.class, null);
         woodSettingsRoot.addField("themeId", asString);
         woodSettingsRoot.addField("knownProjects", projektEntry, LIST);
         woodSettingsRoot.addField("agentPreferences", agentPreferences);
