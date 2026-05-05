@@ -6,11 +6,10 @@
  */
 package de.jare.tree.control.commands;
 
-import de.jare.tree.data.JsonTreeNodeData;
-
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeModel;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 public abstract class AbstractNodeMovementCommand implements WoodCommand {
 
@@ -81,12 +80,12 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
             DefaultMutableTreeNode snapNode) {
         boolean warwas = false;
         Object uo = snapNode.getUserObject();
-        if (uo instanceof JsonTreeNodeData data) {
+        if (uo instanceof EditNode data) {
             long id = data.getEditId();
             DefaultMutableTreeNode existing = findNodeByEditId(root, id);
             if (existing != null) {
                 // editId kollidiert -> neu generieren
-                JsonTreeNodeData newData = data.deepCopy(true); // regenerateEditId = true
+                EditNode newData = data.deepCopy(true); // regenerateEditId = true
                 snapNode.setUserObject(newData);
                 warwas = true;
             }
@@ -151,7 +150,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
             }
 
             Object snapUo = e.snapshot.getUserObject();
-            if (!(snapUo instanceof JsonTreeNodeData snapData)) {
+            if (!(snapUo instanceof EditNode snapData)) {
                 failed++;
                 continue;
             }
@@ -161,7 +160,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
             for (int c = 0; c < parent.getChildCount(); c++) {
                 DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(c);
                 Object uo = child.getUserObject();
-                if (uo instanceof JsonTreeNodeData data && data.getEditId() == snapEditId) {
+                if (uo instanceof EditNode data && data.getEditId() == snapEditId) {
                     toRemove = child;
                     break;
                 }
@@ -200,7 +199,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
                 continue;
             }
             Object snapUo = e.snapshot.getUserObject();
-            if (!(snapUo instanceof JsonTreeNodeData snapData)) {
+            if (!(snapUo instanceof EditNode snapData)) {
                 anyError = true;
                 continue;
             }
@@ -211,7 +210,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
             for (int i = 0; i < parent.getChildCount(); i++) {
                 DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(i);
                 Object uo = child.getUserObject();
-                if (uo instanceof JsonTreeNodeData data && data.getEditId() == snapEditId) {
+                if (uo instanceof EditNode data && data.getEditId() == snapEditId) {
                     found = child;
                     foundIdx = i;
                     break;

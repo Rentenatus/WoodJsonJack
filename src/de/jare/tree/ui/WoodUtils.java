@@ -4,7 +4,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  * </copyright>
  */
-package de.jare.tree.data;
+package de.jare.tree.ui;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 

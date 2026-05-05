@@ -15,12 +15,12 @@ import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
-import de.jare.tree.data.JsonObjectData;
-import de.jare.tree.data.JsonPropertyData;
-import de.jare.tree.data.JsonTreeNodeData;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.tree.*;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
 
@@ -40,11 +40,11 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         // Header-Panel für Labels und Icons
         headerPanel = new JPanel();
         headerPanel.setLayout(new BorderLayout());
-        
+
         // Linkes Panel für das Label
         JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         headerPanel.add(leftPanel, BorderLayout.WEST);
-        
+
         // Rechtes Panel für die Checkbox
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         headerPanel.add(rightPanel, BorderLayout.EAST);
@@ -54,13 +54,13 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         leftPanel.add(resourceLabel);
 
         // Checkbox für Link-Ansicht
-          linkCheckBox = new JCheckBox();
+        linkCheckBox = new JCheckBox();
         linkCheckBox.setSelectedIcon(new ImageIcon(getClass().getResource("/icons/link_view.png")));
         linkCheckBox.setIcon(new ImageIcon(getClass().getResource("/icons/no_link.png")));
         rightPanel.add(linkCheckBox);
 
         // JTree initialisieren
-        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(new JsonObjectData("{" + rootName + "}"));
+        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(new EditNodeObject("{" + rootName + "}"));
         tree = new JTree(rootNode);
         tree.setShowsRootHandles(true);
         tree.setCellRenderer(new JsonTreeCellRenderer());
@@ -90,9 +90,9 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         // Root-Knoten und optionale Demo-Properties
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
         for (String propName : propNames) {
-            JsonTreeNodeData childData = ((JsonTreeNodeData) root.getUserObject())
+            EditNode childData = ((EditNode) root.getUserObject())
                     .createChild(propName);
-            ((JsonPropertyData) childData).setPrimValue("Value of " + propName);
+            ((EditNodeProperty) childData).setPrimValue("Value of " + propName);
             root.add(new DefaultMutableTreeNode(childData));
         }
 
@@ -107,8 +107,8 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     public MasterControl getMaster() {
         return master;
     }
-    
-    protected JCheckBox getLinkCheckBox(){
+
+    protected JCheckBox getLinkCheckBox() {
         return linkCheckBox;
     }
 
@@ -245,12 +245,12 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         }
         DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
         Object uo = selected.getUserObject();
-        if (!(uo instanceof JsonTreeNodeData data)) {
+        if (!(uo instanceof EditNode data)) {
             return; // Sicherheitsnetz
         }
 
         // neuen Kind-Knoten erzeugen
-        JsonTreeNodeData childData = data.createChild("new");
+        EditNode childData = data.createChild("new");
         DefaultMutableTreeNode child = new DefaultMutableTreeNode(childData);
         selected.add(child);
         ((DefaultTreeModel) tree.getModel()).reload(selected);
@@ -278,8 +278,8 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         DefaultMutableTreeNode parent = (DefaultMutableTreeNode) selected.getParent();
         int idx = parent.getIndex(selected);
 
-        if (selected.getUserObject() instanceof JsonTreeNodeData selectedData) {
-            if (parent.getUserObject() instanceof JsonTreeNodeData parentData) {
+        if (selected.getUserObject() instanceof EditNode selectedData) {
+            if (parent.getUserObject() instanceof EditNode parentData) {
                 selectedData.sayOnRemoved(parentData);
             }
         }
@@ -365,7 +365,7 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
 
         DefaultMutableTreeNode target = (DefaultMutableTreeNode) path.getLastPathComponent();
         Object targetUo = target.getUserObject();
-        if (!(targetUo instanceof JsonTreeNodeData targetData)) {
+        if (!(targetUo instanceof EditNode targetData)) {
             return;
         }
 

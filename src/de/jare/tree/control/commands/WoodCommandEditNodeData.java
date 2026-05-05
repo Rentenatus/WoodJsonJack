@@ -6,10 +6,10 @@
  */
 package de.jare.tree.control.commands;
 
-import de.jare.tree.data.JsonTreeNodeData;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeModel;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
  * Command that edits a single JsonTreeNodeData identified by its editId.
@@ -22,8 +22,8 @@ import javax.swing.tree.TreeModel;
 public class WoodCommandEditNodeData implements WoodCommand {
 
     private final long editId;
-    private final JsonTreeNodeData oldState;
-    private final JsonTreeNodeData newState;
+    private final EditNode oldState;
+    private final EditNode newState;
     private final String description;
     private String status;
     private boolean skipped;
@@ -38,9 +38,9 @@ public class WoodCommandEditNodeData implements WoodCommand {
      * @param newState deep copy of the state after the change; must not be null
      */
     public WoodCommandEditNodeData(
-            JsonTreeNodeData current,
-            JsonTreeNodeData oldState,
-            JsonTreeNodeData newState) {
+            EditNode current,
+            EditNode oldState,
+            EditNode newState) {
         if (current == null || oldState == null || newState == null) {
             throw new IllegalArgumentException("model, current, oldState and newState must not be null");
         }
@@ -89,7 +89,7 @@ public class WoodCommandEditNodeData implements WoodCommand {
         return "Edit";
     }
 
-    private void applyState(TreeModel model, JsonTreeNodeData source, String newStatus) {
+    private void applyState(TreeModel model, EditNode source, String newStatus) {
         if (model == null) {
             return;
         }

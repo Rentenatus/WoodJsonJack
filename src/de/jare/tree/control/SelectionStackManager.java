@@ -3,12 +3,12 @@ package de.jare.tree.control;
 import de.jare.ndimcol.primlong.SortedSeasonSetLong;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
-import de.jare.tree.data.JsonTreeNodeData;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
  * Globaler Selektions-Stack-Manager.
@@ -46,7 +46,7 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
             Object last = path.getLastPathComponent();
             if (last instanceof DefaultMutableTreeNode dmtn) {
                 Object userObject = dmtn.getUserObject();
-                if (userObject instanceof JsonTreeNodeData userData) {
+                if (userObject instanceof EditNode userData) {
                     long editId = userData.getEditId();
                     newEditIds.add(editId);
                     checkIds.add(editId);

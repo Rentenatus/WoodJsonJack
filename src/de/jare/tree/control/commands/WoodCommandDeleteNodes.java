@@ -6,9 +6,9 @@
  */
 package de.jare.tree.control.commands;
 
-import de.jare.tree.data.JsonTreeNodeData;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeModel;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
  * Command that deletes one or more nodes (and their subtrees).
@@ -53,7 +53,7 @@ public class WoodCommandDeleteNodes extends AbstractNodeMovementCommand {
             }
 
             Object pData = p.getUserObject();
-            if (!(pData instanceof JsonTreeNodeData parentData)) {
+            if (!(pData instanceof EditNode parentData)) {
                 throw new IllegalArgumentException("parentNodes[" + i + "] userObject must be JsonTreeNodeData");
             }
 

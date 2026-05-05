@@ -6,10 +6,9 @@
  */
 package de.jare.tree.control.commands;
 
-import de.jare.tree.data.JsonTreeNodeData;
-
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeModel;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
  * Command that moves one or more nodes (and their subtrees) to a new parent.
@@ -50,7 +49,7 @@ public class WoodCommandMoveNodes extends AbstractNodeMovementCommand {
         }
 
         Object trgData = trgNode.getUserObject();
-        if (!(trgData instanceof JsonTreeNodeData trgJson)) {
+        if (!(trgData instanceof EditNode trgJson)) {
             throw new IllegalArgumentException("trgNode userObject must be JsonTreeNodeData");
         }
         long trgParentEditId = trgJson.getEditId();
@@ -74,7 +73,7 @@ public class WoodCommandMoveNodes extends AbstractNodeMovementCommand {
             }
 
             Object pData = p.getUserObject();
-            if (!(pData instanceof JsonTreeNodeData srcJson)) {
+            if (!(pData instanceof EditNode srcJson)) {
                 throw new IllegalArgumentException("parentNodes[" + i + "] userObject must be JsonTreeNodeData");
             }
 

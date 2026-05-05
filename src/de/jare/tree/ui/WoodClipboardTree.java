@@ -8,11 +8,11 @@ package de.jare.tree.ui;
 
 import de.jare.tree.control.commands.WoodCommandAddNodes;
 import de.jare.tree.control.listeners.TreeFocusComponent;
-import de.jare.tree.data.JsonTreeNodeData;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 public class WoodClipboardTree extends JTree {
 
@@ -112,14 +112,14 @@ public class WoodClipboardTree extends JTree {
         }
     }
 
-    public boolean canPasteTo(JsonTreeNodeData targetData) {
+    public boolean canPasteTo(EditNode targetData) {
 
         if (targetData == null || clipboardNodes == null || clipboardNodes.length == 0) {
             return false;
         }
         for (DefaultMutableTreeNode candidate : clipboardNodes) {
             Object clipUo = candidate.getUserObject();
-            if (!(clipUo instanceof JsonTreeNodeData clipData)) {
+            if (!(clipUo instanceof EditNode clipData)) {
                 return false;
             }
             if (!targetData.canBeChildOf(clipData)) {
@@ -140,7 +140,7 @@ public class WoodClipboardTree extends JTree {
 
     private DefaultMutableTreeNode deepCopy(DefaultMutableTreeNode original, boolean regenerateEditId) {
         Object userObject = original.getUserObject();
-        if (userObject instanceof JsonTreeNodeData originalData) {
+        if (userObject instanceof EditNode originalData) {
             userObject = originalData.deepCopy(regenerateEditId);
         } else {
             userObject = String.valueOf(userObject);

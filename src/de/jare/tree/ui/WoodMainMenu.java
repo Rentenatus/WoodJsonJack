@@ -15,10 +15,10 @@ import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
-import de.jare.tree.data.JsonTreeNodeData;
 import java.awt.event.KeyEvent;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 public class WoodMainMenu extends JMenuBar {
 
@@ -113,7 +113,7 @@ public class WoodMainMenu extends JMenuBar {
                 boolean canPaste = false;
                 if (node instanceof DefaultMutableTreeNode dmtn) {
                     Object uo = dmtn.getUserObject();
-                    if (uo instanceof JsonTreeNodeData targetData) {
+                    if (uo instanceof EditNode targetData) {
                         canPaste = master.getClipboardTree().canPasteTo(targetData);
                     }
                 }

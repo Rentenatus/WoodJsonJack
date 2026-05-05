@@ -11,8 +11,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Represents a JSON object node in the tree structure.
- * Based on JsonObjectData with tree structure support added.
+ * Represents a JSON object node in the tree structure. Based on JsonObjectData
+ * with tree structure support added.
  */
 public final class EditNodeObject implements EditNode {
 
@@ -28,7 +28,7 @@ public final class EditNodeObject implements EditNode {
         this.primValue = null;
     }
 
-    protected EditNodeObject(long editId, String primValue, String objektInfo) {
+    public EditNodeObject(long editId, String primValue, String objektInfo) {
         this.editId = editId;
         this.objektInfo = objektInfo;
         this.primValue = primValue;
@@ -40,47 +40,74 @@ public final class EditNodeObject implements EditNode {
     }
 
     // ========== Tree structure methods ==========
-    
     @Override
-    public long getId() { return editId; }
-    
+    public long getId() {
+        return editId;
+    }
+
     @Override
-    public String getName() { return objektInfo; }
-    
+    public String getName() {
+        return objektInfo;
+    }
+
     @Override
-    public void setName(String name) { this.objektInfo = name; }
-    
+    public void setName(String name) {
+        this.objektInfo = name;
+    }
+
     @Override
-    public String getValue() { return primValue; }
-    
+    public String getValue() {
+        return primValue;
+    }
+
     @Override
-    public void setValue(String value) { this.primValue = value; }
-    
+    public void setValue(String value) {
+        this.primValue = value;
+    }
+
     @Override
-    public EditNode getParent() { return parent; }
-    
+    public EditNode getParent() {
+        return parent;
+    }
+
     @Override
-    public void setParent(EditNode parent) { this.parent = parent; }
-    
+    public void setParent(EditNode parent) {
+        this.parent = parent;
+    }
+
     @Override
-    public List<EditNode> getChildren() { return Collections.unmodifiableList(children); }
-    
+    public List<EditNode> getChildren() {
+        return Collections.unmodifiableList(children);
+    }
+
     @Override
-    public int getChildCount() { return children.size(); }
-    
+    public int getChildCount() {
+        return children.size();
+    }
+
     @Override
-    public EditNode getChildAt(int index) { return children.get(index); }
-    
+    public EditNode getChildAt(int index) {
+        return children.get(index);
+    }
+
     @Override
-    public int getChildIndex(EditNode child) { return children.indexOf(child); }
-    
+    public int getChildIndex(EditNode child) {
+        return children.indexOf(child);
+    }
+
     @Override
-    public void addChild(EditNode child) { addChild(child, children.size()); }
-    
+    public void addChild(EditNode child) {
+        addChild(child, children.size());
+    }
+
     @Override
     public void addChild(EditNode child, int index) {
-        if (child == null) throw new IllegalArgumentException("Child cannot be null");
-        if (index < 0 || index > children.size()) throw new IndexOutOfBoundsException("Index: " + index);
+        if (child == null) {
+            throw new IllegalArgumentException("Child cannot be null");
+        }
+        if (index < 0 || index > children.size()) {
+            throw new IndexOutOfBoundsException("Index: " + index);
+        }
         EditNode oldParent = child.getParent();
         if (oldParent != null && oldParent != this) {
             oldParent.removeChild(child);
@@ -88,7 +115,7 @@ public final class EditNodeObject implements EditNode {
         children.add(index, child);
         child.setParent(this);
     }
-    
+
     @Override
     public boolean removeChild(EditNode child) {
         boolean removed = children.remove(child);
@@ -99,7 +126,7 @@ public final class EditNodeObject implements EditNode {
         }
         return removed;
     }
-    
+
     @Override
     public EditNode deepCopy() {
         EditNodeObject copy = new EditNodeObject(getEditId(), primValue, objektInfo);
@@ -108,9 +135,8 @@ public final class EditNodeObject implements EditNode {
         }
         return copy;
     }
-    
+
     // ========== JsonTreeNodeData methods ==========
-    
     public String getObjektInfo() {
         return objektInfo;
     }
@@ -129,7 +155,12 @@ public final class EditNodeObject implements EditNode {
 
     @Override
     public String toString() {
-        return primValue == null ? objektInfo : primValue + " : " + objektInfo;
+        return primValue == null ? objektInfo : primValue + " : " + rightString();
+    }
+
+    @Override
+    public String rightString() {
+        return (objektInfo == null || objektInfo.isEmpty()) ? "" : ": " + objektInfo;
     }
 
     @Override
@@ -147,8 +178,8 @@ public final class EditNodeObject implements EditNode {
     @Override
     public EditNode deepCopy(boolean regenerateEditId) {
         EditNodeObject copy = new EditNodeObject(
-            regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : editId,
-            primValue, objektInfo);
+                regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : editId,
+                primValue, objektInfo);
         for (EditNode child : children) {
             copy.addChild(child.deepCopy(regenerateEditId));
         }
@@ -184,5 +215,10 @@ public final class EditNodeObject implements EditNode {
     @Override
     public void setEditText(String editText) {
         this.primValue = editText.isEmpty() ? null : editText;
+    }
+
+    @Override
+    public String getTypeKey() {
+        return "fore.object";
     }
 }

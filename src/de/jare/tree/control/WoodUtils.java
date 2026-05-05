@@ -6,10 +6,9 @@
  */
 package de.jare.tree.control;
 
-import de.jare.tree.control.commands.*;
-import de.jare.tree.data.JsonTreeNodeData;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeModel;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
  * Represents a single undoable command in the tree editor.
@@ -31,7 +30,7 @@ public interface WoodUtils {
 
     default DefaultMutableTreeNode findNodeByEditId(DefaultMutableTreeNode node, long id) {
         Object uo = node.getUserObject();
-        if (uo instanceof JsonTreeNodeData data && data.getEditId() == id) {
+        if (uo instanceof EditNode data && data.getEditId() == id) {
             return node;
         }
         for (int i = 0; i < node.getChildCount(); i++) {
@@ -46,7 +45,7 @@ public interface WoodUtils {
 
     default DefaultMutableTreeNode deepCopy(DefaultMutableTreeNode original) {
         Object uo = original.getUserObject();
-        if (uo instanceof JsonTreeNodeData data) {
+        if (uo instanceof EditNode data) {
             uo = data.deepCopy(false);
         } else {
             uo = String.valueOf(uo);

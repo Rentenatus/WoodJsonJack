@@ -6,7 +6,6 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.tree.data.JsonTreeNodeData;
 import de.jare.tree.settings.WoodSettings;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -18,6 +17,7 @@ import javax.swing.JTree;
 import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeCellRenderer;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 public class JsonTreeCellRenderer implements TreeCellRenderer {
 
@@ -39,17 +39,17 @@ public class JsonTreeCellRenderer implements TreeCellRenderer {
             JTree tree, Object value, boolean selected,
             boolean expanded, boolean leaf, int row, boolean hasFocus) {
 
-        JsonTreeNodeData data = null;
+        EditNode data = null;
         if (value instanceof DefaultMutableTreeNode dmtn
-                && dmtn.getUserObject() instanceof JsonTreeNodeData d) {
+                && dmtn.getUserObject() instanceof EditNode d) {
             data = d;
         }
 
         if (data != null) {
             editLabel.setText(data.getEditText());
-            String foreKey = "light." + data.getForecolorKey();
+            String foreKey = "light." + data.getTypeKey();
             editLabel.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
-            infoLabel.setText(data.getInfoText());
+            infoLabel.setText(data.rightString());
         } else {
             editLabel.setText(String.valueOf(value));
             editLabel.setForeground(tree.getForeground());
@@ -71,7 +71,7 @@ public class JsonTreeCellRenderer implements TreeCellRenderer {
 
         // Edit-Label bekommt f�r Lesbarkeit die gleiche Grundfarbe wie der Tree
         if (!selected) {
-            String foreKey = data != null ? "light." + data.getForecolorKey() : null;
+            String foreKey = data != null ? "light." + data.getTypeKey() : null;
             editLabel.setForeground(data != null ? WoodSettings.INSTANCE.getShownTheme().getColor(foreKey) : fg);
         } else {
             editLabel.setForeground(fg);
@@ -82,4 +82,5 @@ public class JsonTreeCellRenderer implements TreeCellRenderer {
 
         return panel;
     }
+
 }

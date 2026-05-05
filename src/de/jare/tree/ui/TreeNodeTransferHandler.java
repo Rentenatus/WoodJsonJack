@@ -9,14 +9,13 @@ package de.jare.tree.ui;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.commands.WoodCommandMoveNodes;
 import de.jare.tree.control.listeners.TreeFocusComponent;
-import de.jare.tree.data.JsonTreeNodeData;
-import de.jare.tree.data.WoodUtils;
 import java.awt.Container;
 import java.awt.datatransfer.*;
 import java.io.IOException;
 import javax.swing.*;
 import static javax.swing.TransferHandler.MOVE;
 import javax.swing.tree.*;
+import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
  * TransferHandler for moving tree nodes via drag & drop.
@@ -80,7 +79,7 @@ class TreeNodeTransferHandler extends TransferHandler {
 
         DefaultMutableTreeNode target = (DefaultMutableTreeNode) dest.getLastPathComponent();
         Object targetUo = target.getUserObject();
-        if (!(targetUo instanceof JsonTreeNodeData targetData)) {
+        if (!(targetUo instanceof EditNode targetData)) {
             return false;
         }
 
@@ -98,7 +97,7 @@ class TreeNodeTransferHandler extends TransferHandler {
             // 2. JSON-Regeln: jeder Root des Teilbaums muss Kind von target sein dürfen
             for (DefaultMutableTreeNode node : dragged) {
                 Object clipUo = node.getUserObject();
-                if (!(clipUo instanceof JsonTreeNodeData clipData)) {
+                if (!(clipUo instanceof EditNode clipData)) {
                     return false;
                 }
                 if (!clipData.canBeChildOf(targetData)) {
@@ -132,7 +131,7 @@ class TreeNodeTransferHandler extends TransferHandler {
 
             // 1. Undo-Command registrieren (vor der physischen Änderung!)
             Container container = tree.getParent();
-            while (container!=null && !(container instanceof TreeFocusComponent)){
+            while (container != null && !(container instanceof TreeFocusComponent)) {
                 container = container.getParent();
             }
             if (container instanceof TreeFocusComponent editTree
