@@ -222,6 +222,20 @@ public class HistoryManager {
     }
 
     /**
+     * Returns an iterable over the undo stack commands (from most recent to oldest).
+     */
+    public Iterable<EditCommand> getUndoCommands() {
+        return () -> undoStack.descendingIterator();
+    }
+
+    /**
+     * Returns an iterable over the redo stack commands (from most recent to oldest).
+     */
+    public Iterable<EditCommand> getRedoCommands() {
+        return () -> redoStack.descendingIterator();
+    }
+
+    /**
      * Returns the total number of commands in history.
      * 
      * @return the total size

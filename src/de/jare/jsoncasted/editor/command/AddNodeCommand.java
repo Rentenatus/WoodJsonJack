@@ -44,4 +44,5 @@ public class AddNodeCommand extends AbstractEditCommand {
     public long getParentId() { return parentId; }
     public EditNode getNode() { return node; }
     public int getIndex() { return index; }
+    public long getEditId() { return node != null ? node.getEditId() : -1; }
 }
