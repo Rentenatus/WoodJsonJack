@@ -14,13 +14,15 @@ import de.jare.jsoncasted.editor.core.EditNode;
  */
 public class EditCommandEntry {
 
-    public final long parentEditId;              // editId des Elternknotens
-    public final int index;                      // urspruenglicher Index beim Parent
-    public final EditNode snapshot; // Snapshot des geloeschten Teilbaums
+    public static class Entry {
+        public final long parentEditId;              // editId des Elternknotens
+        public final int index;                      // urspruenglicher Index beim Parent
+        public final EditNode snapshot; // Snapshot des geloeschten Teilbaums
 
-    public EditCommandEntry(long parentEditId, int index, EditNode snapshot) {
-        this.parentEditId = parentEditId;
-        this.index = index;
-        this.snapshot = snapshot;
+        public Entry(long parentEditId, int index, EditNode snapshot) {
+            this.parentEditId = parentEditId;
+            this.index = index;
+            this.snapshot = snapshot;
+        }
     }
 }

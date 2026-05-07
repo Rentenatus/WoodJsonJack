@@ -24,6 +24,8 @@ public class HistoryEvent implements EditEvent {
         UNDONE,
         /** A command was redone */
         REDONE,
+        /** A command was skipped (moved from redo to undo without execution) */
+        SKIPPED,
         /** History was cleared */
         CLEARED
     }
@@ -36,7 +38,7 @@ public class HistoryEvent implements EditEvent {
     private final int redoSize;
 
     /**
-     * Creates a new history event.
+     * Creates a new history event. 
      * 
      * @param source the source of this event
      * @param changeType the type of history change
@@ -81,7 +83,7 @@ public class HistoryEvent implements EditEvent {
     }
 
     /**
-     * Returns the type of history change.
+     * Returns the type of history change. 
      * 
      * @return the change type
      */
@@ -90,7 +92,7 @@ public class HistoryEvent implements EditEvent {
     }
 
     /**
-     * Returns the command involved in this event.
+     * Returns the command involved in this event. 
      * 
      * @return the command, may be null
      */
@@ -99,7 +101,7 @@ public class HistoryEvent implements EditEvent {
     }
 
     /**
-     * Returns the current size of the undo stack.
+     * Returns the current size of the undo stack. 
      * 
      * @return the undo stack size
      */
@@ -108,7 +110,7 @@ public class HistoryEvent implements EditEvent {
     }
 
     /**
-     * Returns the current size of the redo stack.
+     * Returns the current size of the redo stack. 
      * 
      * @return the redo stack size
      */

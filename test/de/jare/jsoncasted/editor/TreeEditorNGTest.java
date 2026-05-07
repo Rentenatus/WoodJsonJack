@@ -227,4 +227,72 @@ public class TreeEditorNGTest {
         System.out.println("===============================================");
     }
 
+    /**
+     * Test: Makes 3 changes, then undo, undo, skipRedo, redo, and a 4th change.
+     * Verifies history state at each step.
+     */
+    @Test
+    public void testSkipRedo() {
+        System.out.println("===============================================");
+        System.out.println("testSkipRedo");
+        System.out.println("===============================================");
+
+        // Create a new editor with a simple root
+        TreeEditor editor = new TreeEditor();
+        EditNode root = editor.getTree().getRoot();
+        assertNotNull(root, "Root should not be null");
+
+        // Step 1: Make 3 changes (add 3 nodes)
+        EditNodeObject node1 = new EditNodeObject("node1");
+        EditNodeObject node2 = new EditNodeObject("node2");
+        EditNodeObject node3 = new EditNodeObject("node3");
+
+        editor.execute(new AddNodeCommand(root.getEditId(), node1));
+        editor.execute(new AddNodeCommand(root.getEditId(), node2));
+        editor.execute(new AddNodeCommand(root.getEditId(), node3));
+
+        System.out.println("After 3 changes:");
+        printHistory(editor, "After 3 changes - ");
+        assertEquals(editor.getHistoryManager().getUndoSize(), 3, "After 3 changes, undo size should be 3");
+        assertEquals(editor.getHistoryManager().getRedoSize(), 0, "After 3 changes, redo size should be 0");
+
+        // Step 2: Do undo (node3 is undone)
+        editor.undo();
+        System.out.println("After first undo:");
+        printHistory(editor, "After first undo - ");
+        assertEquals(editor.getHistoryManager().getUndoSize(), 2, "After first undo, undo size should be 2");
+        assertEquals(editor.getHistoryManager().getRedoSize(), 1, "After first undo, redo size should be 1");
+
+        // Step 3: Do undo (node2 is undone)
+        editor.undo();
+        System.out.println("After second undo:");
+        printHistory(editor, "After second undo - ");
+        assertEquals(editor.getHistoryManager().getUndoSize(), 1, "After second undo, undo size should be 1");
+        assertEquals(editor.getHistoryManager().getRedoSize(), 2, "After second undo, redo size should be 2");
+
+        // Step 4: SkipRedo - skip the most recent redo (node2)
+        editor.skipRedo();
+        System.out.println("After skipRedo:");
+        printHistory(editor, "After skipRedo - ");
+        assertEquals(editor.getHistoryManager().getUndoSize(), 2, "After skipRedo, undo size should be 2");
+        assertEquals(editor.getHistoryManager().getRedoSize(), 1, "After skipRedo, redo size should be 1");
+
+        // Step 5: Do redo - should redo node3 (the remaining redo entry)
+        editor.redo();
+        System.out.println("After redo:");
+        printHistory(editor, "After redo - ");
+        assertEquals(editor.getHistoryManager().getUndoSize(), 3, "After redo, undo size should be 3");
+        assertEquals(editor.getHistoryManager().getRedoSize(), 0, "After redo, redo size should be 0");
+
+        // Step 6: Make 4th change
+        EditNodeObject node4 = new EditNodeObject("node4");
+        editor.execute(new AddNodeCommand(root.getEditId(), node4));
+        System.out.println("After 4th change:");
+        printHistory(editor, "After 4th change - ");
+        assertEquals(editor.getHistoryManager().getUndoSize(), 4, "After 4th change, undo size should be 4");
+        assertEquals(editor.getHistoryManager().getRedoSize(), 0, "After 4th change, redo size should be 0");
+
+        System.out.println("===============================================");
+    }
+
 }

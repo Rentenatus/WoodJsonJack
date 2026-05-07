@@ -12,21 +12,19 @@ import de.jare.jsoncasted.editor.core.EditTree;
 public class MoveNodeCommand extends AbstractEditCommand {
 
     private final long nodeId;
-    private final long oldParentId;
-    private final int oldIndex;
-    private final long newParentId;
-    private final int newIndex;
+    private final EditCommandEntry.Entry oldEntry;
+    private final EditCommandEntry.Entry newEntry;
 
     public MoveNodeCommand(EditNode node, long newParentId, int newIndex) {
         super(CommandType.MOVE_NODE);
         if (node == null) throw new IllegalArgumentException("Node cannot be null");
         this.nodeId = node.getEditId();
         EditNode parent = node.getParent();
-        this.oldParentId = parent != null ? parent.getEditId() : -1;
-        this.oldIndex = parent != null ? parent.getChildIndex(node) : -1;
-        this.newParentId = newParentId;
-        this.newIndex = newIndex;
-        setDescription("Move node: " + node.getEditText());
+        long oldParentId = parent != null ? parent.getEditId() : -1;
+        int oldIndex = parent != null ? parent.getChildIndex(node) : -1;
+        this.oldEntry = new EditCommandEntry.Entry(oldParentId, oldIndex, null);
+        this.newEntry = new EditCommandEntry.Entry(newParentId, newIndex, null);
+        setDescription("Move node: " + node.getName());
     }
 
     public MoveNodeCommand(EditNode node, int newIndex) {
@@ -35,17 +33,17 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
     @Override
     public void execute(EditTree tree) {
-        tree.moveNode(nodeId, newParentId, newIndex);
+        tree.moveNode(nodeId, newEntry.parentEditId, newEntry.index);
     }
 
     @Override
     public void undo(EditTree tree) {
-        tree.moveNode(nodeId, oldParentId, oldIndex);
+        tree.moveNode(nodeId, oldEntry.parentEditId, oldEntry.index);
     }
 
     public long getNodeId() { return nodeId; }
-    public long getOldParentId() { return oldParentId; }
-    public int getOldIndex() { return oldIndex; }
-    public long getNewParentId() { return newParentId; }
-    public int getNewIndex() { return newIndex; }
+    public long getOldParentId() { return oldEntry.parentEditId; }
+    public int getOldIndex() { return oldEntry.index; }
+    public long getNewParentId() { return newEntry.parentEditId; }
+    public int getNewIndex() { return newEntry.index; }
 }

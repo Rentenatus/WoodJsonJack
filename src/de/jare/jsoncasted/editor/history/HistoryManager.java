@@ -14,21 +14,21 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 /**
- * Manages the undo and redo history for the editor.
- * Keeps track of executed commands and allows undoing and redoing changes.
+ * Manages the undo and redo history for the editor. 
+ * Keeps track of executed commands and allows undoing and redoing changes. 
  */
 public class HistoryManager {
 
     private final EditTree tree;
-    private final EventBus eventBus;
+    private final EventBus eventBus; 
     
     private final Deque<EditCommand> undoStack = new ArrayDeque<>();
-    private final Deque<EditCommand> redoStack = new ArrayDeque<>();
+    private final Deque<EditCommand> redoStack = new ArrayDeque<>(); 
     
     private int limit = 100;
 
     /**
-     * Creates a new HistoryManager for the specified tree.
+     * Creates a new HistoryManager for the specified tree. 
      * 
      * @param tree the edit tree this manager operates on
      */
@@ -37,7 +37,7 @@ public class HistoryManager {
     }
 
     /**
-     * Creates a new HistoryManager with an event bus.
+     * Creates a new HistoryManager with an event bus. 
      * 
      * @param tree the edit tree this manager operates on
      * @param eventBus the event bus for firing history events
@@ -51,8 +51,8 @@ public class HistoryManager {
     }
 
     /**
-     * Executes the given command and adds it to the undo history.
-     * The redo history is cleared when a new command is executed.
+     * Executes the given command and adds it to the undo history. 
+     * The redo history is cleared when a new command is executed. 
      * 
      * @param command the command to execute
      */
@@ -86,8 +86,8 @@ public class HistoryManager {
     }
 
     /**
-     * Undoes the last executed command.
-     * The undone command is moved to the redo stack.
+     * Undoes the last executed command. 
+     * The undone command is moved to the redo stack. 
      * 
      * @return the undone command, or null if nothing to undo
      */
@@ -115,8 +115,8 @@ public class HistoryManager {
     }
 
     /**
-     * Redoes the last undone command.
-     * The redone command is moved back to the undo stack.
+     * Redoes the last undone command. 
+     * The redone command is moved back to the undo stack. 
      * 
      * @return the redone command, or null if nothing to redo
      */
@@ -144,7 +144,35 @@ public class HistoryManager {
     }
 
     /**
-     * Returns whether an undo operation is available.
+     * Skips the last undone command without executing it. 
+     * The skipped command is moved from redo stack to undo stack without execution. 
+     * 
+     * @return the skipped command, or null if nothing to skip
+     */
+    public EditCommand skipRedo() {
+        if (!canRedo()) {
+            return null;
+        }
+
+        EditCommand command = redoStack.pop();
+        undoStack.push(command);
+
+        // Fire event
+        if (eventBus != null) {
+            eventBus.fireEvent(new HistoryEvent(
+                this,
+                HistoryEvent.ChangeType.SKIPPED,
+                command,
+                undoStack.size(),
+                redoStack.size()
+            ));
+        }
+
+        return command;
+    }
+
+    /**
+     * Returns whether an undo operation is available. 
      * 
      * @return true if there are commands to undo
      */
@@ -153,7 +181,7 @@ public class HistoryManager {
     }
 
     /**
-     * Returns whether a redo operation is available.
+     * Returns whether a redo operation is available. 
      * 
      * @return true if there are commands to redo
      */
@@ -162,7 +190,7 @@ public class HistoryManager {
     }
 
     /**
-     * Clears all undo and redo history.
+     * Clears all undo and redo history. 
      */
     public void clear() {
         undoStack.clear();
@@ -181,8 +209,8 @@ public class HistoryManager {
     }
 
     /**
-     * Sets the maximum number of commands to keep in history.
-     * Older commands are discarded when the limit is exceeded.
+     * Sets the maximum number of commands to keep in history. 
+     * Older commands are discarded when the limit is exceeded. 
      * 
      * @param limit the maximum number of commands (must be > 0)
      */
@@ -195,7 +223,7 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the current history limit.
+     * Returns the current history limit. 
      * 
      * @return the limit
      */
@@ -204,7 +232,7 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the number of commands in the undo stack.
+     * Returns the number of commands in the undo stack. 
      * 
      * @return the undo stack size
      */
@@ -213,12 +241,21 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the number of commands in the redo stack.
+     * Returns the number of commands in the redo stack. 
      * 
      * @return the redo stack size
      */
     public int getRedoSize() {
         return redoStack.size();
+    }
+
+    /**
+     * Returns the total number of commands in history. 
+     * 
+     * @return the total size
+     */
+    public int getTotalSize() {
+        return undoStack.size() + redoStack.size();
     }
 
     /**
@@ -236,16 +273,7 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the total number of commands in history.
-     * 
-     * @return the total size
-     */
-    public int getTotalSize() {
-        return undoStack.size() + redoStack.size();
-    }
-
-    /**
-     * Trims the undo stack to the configured limit.
+     * Trims the undo stack to the configured limit. 
      */
     private void trimToLimit() {
         while (undoStack.size() > limit) {
@@ -254,7 +282,7 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the event bus used by this manager.
+     * Returns the event bus used by this manager. 
      * 
      * @return the event bus, may be null
      */

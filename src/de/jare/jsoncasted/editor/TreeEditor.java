@@ -149,6 +149,16 @@ public class TreeEditor {
     }
 
     /**
+     * Skips the last undone command without executing it. 
+     * The skipped command is moved from redo stack to undo stack without execution. 
+     * 
+     * @return the skipped command, or null if nothing to skip
+     */
+    public EditCommand skipRedo() {
+        return historyManager.skipRedo();
+    }
+
+    /**
      * Returns whether an undo operation is available.
      * 
      * @return true if undo is available

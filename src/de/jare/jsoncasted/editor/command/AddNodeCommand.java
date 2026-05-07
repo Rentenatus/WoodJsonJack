@@ -11,9 +11,7 @@ import de.jare.jsoncasted.editor.core.EditTree;
 
 public class AddNodeCommand extends AbstractEditCommand {
 
-    private final long parentId;
-    private final EditNode node;
-    private final int index;
+    private final EditCommandEntry.Entry entry;
 
     public AddNodeCommand(long parentId, EditNode node) {
         this(parentId, node, -1);
@@ -22,27 +20,25 @@ public class AddNodeCommand extends AbstractEditCommand {
     public AddNodeCommand(long parentId, EditNode node, int index) {
         super(CommandType.ADD_NODE);
         if (node == null) throw new IllegalArgumentException("Node cannot be null");
-        this.parentId = parentId;
-        this.node = node;
-        this.index = index;
-        setDescription("Add node: " + node.getEditText());
+        this.entry = new EditCommandEntry.Entry(parentId, index, node);
+        setDescription("Add node: " + node.getName());
     }
 
     @Override
     public void execute(EditTree tree) {
-        tree.addNode(parentId, node, index);
+        tree.addNode(entry.parentEditId, entry.snapshot, entry.index);
     }
 
     @Override
     public void undo(EditTree tree) {
-        EditNode existingNode = tree.findNodeById(node.getEditId());
+        EditNode existingNode = tree.findNodeById(entry.snapshot.getEditId());
         if (existingNode != null) {
-            tree.removeNode(node.getEditId());
+            tree.removeNode(existingNode.getEditId());
         }
     }
 
-    public long getParentId() { return parentId; }
-    public EditNode getNode() { return node; }
-    public int getIndex() { return index; }
-    public long getEditId() { return node != null ? node.getEditId() : -1; }
+    public long getParentId() { return entry.parentEditId; }
+    public EditNode getNode() { return entry.snapshot; }
+    public int getIndex() { return entry.index; }
+    public long getEditId() { return entry.snapshot != null ? entry.snapshot.getEditId() : -1; }
 }
