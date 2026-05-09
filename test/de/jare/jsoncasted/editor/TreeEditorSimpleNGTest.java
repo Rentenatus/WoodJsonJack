@@ -24,9 +24,9 @@ import org.testng.annotations.Test;
  *
  * @author Administrator
  */
-public class TreeEditorNGTest {
+public class TreeEditorSimpleNGTest {
 
-    public TreeEditorNGTest() {
+    public TreeEditorSimpleNGTest() {
     }
 
     /**
@@ -37,7 +37,7 @@ public class TreeEditorNGTest {
     @BeforeClass
     public static void setUpClass() throws Exception {
         System.out.println("===============================================");
-        System.out.println("## Start TreeEditorNGTest.");
+        System.out.println("## Start TreeEditorSimpleNGTest.");
     }
 
     /**
@@ -47,7 +47,7 @@ public class TreeEditorNGTest {
      */
     @AfterClass
     public static void tearDownClass() throws Exception {
-        System.out.println("## End TreeEditorNGTest.");
+        System.out.println("## End TreeEditorSimpleNGTest.");
         System.out.println("===============================================");
     }
 

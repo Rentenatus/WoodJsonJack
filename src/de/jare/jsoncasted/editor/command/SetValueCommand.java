@@ -19,10 +19,11 @@ public class SetValueCommand extends AbstractEditCommand {
     public SetValueCommand(EditNode node, String newValue) {
         super(CommandType.SET_VALUE);
         if (node == null) throw new IllegalArgumentException("Node cannot be null");
+        String oldValue = node.getEditText();
         this.entries = new EditCommandEntry.ValueEntry[] {
-            new EditCommandEntry.ValueEntry(node.getEditId(), node.getEditText(), newValue)
+            new EditCommandEntry.ValueEntry(node.getEditId(), oldValue, newValue)
         };
-        setDescription("Set value: " + node.getEditText() + " -> " + newValue);
+        setDescription("Set value: " + (oldValue != null ? oldValue : "null") + " -> " + (newValue != null ? newValue : "null"));
     }
 
     /**
@@ -48,15 +49,16 @@ public class SetValueCommand extends AbstractEditCommand {
         for (int i = 0; i < nodes.length; i++) {
             EditNode node = nodes[i];
             if (node == null) throw new IllegalArgumentException("Node cannot be null");
+            String oldValue = node.getEditText();
             this.entries[i] = new EditCommandEntry.ValueEntry(
                 node.getEditId(), 
-                node.getEditText(), 
+                oldValue,
                 newValues[i]
             );
         }
         
         if (nodes.length == 1) {
-            setDescription("Set value: " + entries[0].oldValue + " -> " + entries[0].newValue);
+            setDescription("Set value: " + (entries[0].oldValue != null ? entries[0].oldValue : "null") + " -> " + (entries[0].newValue != null ? entries[0].newValue : "null"));
         } else {
             setDescription("Set values for " + nodes.length + " nodes");
         }
@@ -74,7 +76,7 @@ public class SetValueCommand extends AbstractEditCommand {
         }
         this.entries = entries;
         if (entries.length == 1) {
-            setDescription("Set value: " + entries[0].oldValue + " -> " + entries[0].newValue);
+            setDescription("Set value: " + (entries[0].oldValue != null ? entries[0].oldValue : "null") + " -> " + (entries[0].newValue != null ? entries[0].newValue : "null"));
         } else {
             setDescription("Set values for " + entries.length + " nodes");
         }
@@ -84,7 +86,11 @@ public class SetValueCommand extends AbstractEditCommand {
     public void execute(EditTree tree) {
         for (EditCommandEntry.ValueEntry entry : entries) {
             EditNode node = tree.findNodeById(entry.nodeId);
-            if (node != null) node.setEditText(entry.newValue);
+            if (node != null) {
+                // Handle null by converting to empty string (EditNodeObject converts "" to null internally)
+                String newValue = entry.newValue;
+                node.setEditText(newValue != null ? newValue : "");
+            }
         }
     }
 
@@ -92,7 +98,11 @@ public class SetValueCommand extends AbstractEditCommand {
     public void undo(EditTree tree) {
         for (EditCommandEntry.ValueEntry entry : entries) {
             EditNode node = tree.findNodeById(entry.nodeId);
-            if (node != null) node.setEditText(entry.oldValue);
+            if (node != null) {
+                // Handle null by converting to empty string (EditNodeObject converts "" to null internally)
+                String oldValue = entry.oldValue;
+                node.setEditText(oldValue != null ? oldValue : "");
+            }
         }
     }
 
