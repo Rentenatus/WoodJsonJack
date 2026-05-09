@@ -19,8 +19,8 @@ import de.jare.jsoncasted.editor.core.EditNode;
  */
 public class WoodCommandMoveNodes extends AbstractNodeMovementCommand {
 
-    private final Entry[] deleteEntries;
-    private final Entry[] addEntries;
+    private final MovementEntry[] deleteEntries;
+    private final MovementEntry[] addEntries;
     private final String description;
 
     /**
@@ -55,8 +55,8 @@ public class WoodCommandMoveNodes extends AbstractNodeMovementCommand {
         long trgParentEditId = trgJson.getEditId();
 
         int length = nodesToMove.length;
-        this.deleteEntries = new Entry[length];
-        this.addEntries = new Entry[length];
+        this.deleteEntries = new MovementEntry[length];
+        this.addEntries = new MovementEntry[length];
 
         // Ziel-Indizes fortlaufend ab startIdx; -1 => beim Einf?gen ans Ende
         int lastTrgIdx = startIdx;
@@ -84,7 +84,7 @@ public class WoodCommandMoveNodes extends AbstractNodeMovementCommand {
             //System.out.println(p + "." + n + " ::: " + srcIdx);
 
             // Delete-Entry: vom urspruenglichen Parent/Index entfernen
-            deleteEntries[i] = new Entry(srcJson.getEditId(), srcIdx, deepCopy(n));
+            deleteEntries[i] = new MovementEntry(srcJson.getEditId(), srcIdx, deepCopy(n));
 
             // Add-Entry: unter Ziel-Parent einf?gen
             int trgIdx = lastTrgIdx;
@@ -94,7 +94,7 @@ public class WoodCommandMoveNodes extends AbstractNodeMovementCommand {
             } else {
                 trgIdx = -1; // beim Einf?gen ans Ende anh?ngen
             }
-            addEntries[i] = new Entry(trgParentEditId, trgIdx, deepCopy(n));
+            addEntries[i] = new MovementEntry(trgParentEditId, trgIdx, deepCopy(n));
         }
 
         if (nodesToMove.length == 1) {

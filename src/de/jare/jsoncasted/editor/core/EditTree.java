@@ -63,6 +63,29 @@ public class EditTree {
         return true;
     }
 
+    /**
+     * Adds multiple nodes to the tree efficiently.
+     * Nodes are added in the order they appear in the array.
+     *
+     * @param parentIds the parent IDs for each node
+     * @param newNodes the nodes to add
+     * @param indices the indices for each node (-1 for append)
+     * @return true if all nodes were added successfully
+     */
+    public boolean addNodes(long[] parentIds, EditNode[] newNodes, int[] indices) {
+        if (newNodes == null || parentIds == null || indices == null) {
+            throw new IllegalArgumentException("Arguments cannot be null");
+        }
+        if (newNodes.length != parentIds.length || newNodes.length != indices.length) {
+            throw new IllegalArgumentException("Arrays must have the same length");
+        }
+        
+        for (int i = 0; i < newNodes.length; i++) {
+            addNode(parentIds[i], newNodes[i], indices[i]);
+        }
+        return true;
+    }
+
     public EditNode removeNode(long nodeId) {
         EditNode node = findNodeById(nodeId);
         if (node == null) {
@@ -84,6 +107,19 @@ public class EditTree {
         }
 
         return node;
+    }
+
+    /**
+     * Removes multiple nodes from the tree efficiently.
+     * Nodes are removed in reverse order to maintain correct indices.
+     *
+     * @param nodeIds the IDs of the nodes to remove
+     */
+    public void removeNodes(long[] nodeIds) {
+        // Remove in reverse order to maintain correct indices
+        for (int i = nodeIds.length - 1; i >= 0; i--) {
+            removeNode(nodeIds[i]);
+        }
     }
 
     public boolean moveNode(long nodeId, long newParentId, int newIndex) {
@@ -112,6 +148,20 @@ public class EditTree {
         }
 
         return true;
+    }
+
+    /**
+     * Moves multiple nodes efficiently.
+     * Nodes are moved in the order they appear in the array.
+     *
+     * @param nodeIds the IDs of the nodes to move
+     * @param newParentIds the new parent IDs for each node
+     * @param newIndices the new indices for each node (-1 for append)
+     */
+    public void moveNodes(long[] nodeIds, long[] newParentIds, int[] newIndices) {
+        for (int i = 0; i < nodeIds.length; i++) {
+            moveNode(nodeIds[i], newParentIds[i], newIndices[i]);
+        }
     }
 
     public int getNodeCount() {

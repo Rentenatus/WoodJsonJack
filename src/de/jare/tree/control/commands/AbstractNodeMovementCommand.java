@@ -13,13 +13,13 @@ import de.jare.jsoncasted.editor.core.EditNode;
 
 public abstract class AbstractNodeMovementCommand implements WoodCommand {
 
-    protected static class Entry {
+    protected static class MovementEntry {
 
         final long parentEditId;              // editId des Elternknotens
         final int index;                      // ursprünglicher Index beim Parent
         final DefaultMutableTreeNode snapshot; // Snapshot des gelöschten Teilbaums
 
-        Entry(long parentEditId, int index, DefaultMutableTreeNode snapshot) {
+        MovementEntry(long parentEditId, int index, DefaultMutableTreeNode snapshot) {
             this.parentEditId = parentEditId;
             this.index = index;
             this.snapshot = snapshot;
@@ -53,7 +53,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
         return commandText;
     }
 
-    protected void checkAddNodes(TreeModel model, Entry[] entries, String newStatus) {
+    protected void checkAddNodes(TreeModel model, MovementEntry[] entries, String newStatus) {
         DefaultTreeModel dtm = asDefaultModel(model);
         if (dtm == null) {
             return;
@@ -65,7 +65,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
 
         this.status = newStatus;
         boolean warwas = false;
-        for (Entry e : entries) {
+        for (MovementEntry e : entries) {
             warwas = fixSnapshotEditIds(rootNode, e.snapshot) || warwas;
         }
         if (warwas) {
@@ -97,14 +97,14 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
         return warwas;
     }
 
-    public void addNodes(TreeModel model, Entry[] entries, String newStatus) {
+    public void addNodes(TreeModel model, MovementEntry[] entries, String newStatus) {
         DefaultTreeModel dtm = asDefaultModel(model);
         if (dtm == null) {
             return;
         }
         int done = 0;
         int failed = 0;
-        for (Entry e : entries) {
+        for (MovementEntry e : entries) {
             DefaultMutableTreeNode parent = findNodeByEditId(model, e.parentEditId);
             if (parent == null) {
                 failed++;
@@ -130,7 +130,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
         }
     }
 
-    public void deleteNodes(TreeModel model, Entry[] entries, String newStatus) {
+    public void deleteNodes(TreeModel model, MovementEntry[] entries, String newStatus) {
         DefaultTreeModel dtm = asDefaultModel(model);
         if (dtm == null) {
             return;
@@ -141,7 +141,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
         int noChild = 0;
         int failed = 0;
         for (int i = entries.length - 1; i >= 0; i--) {
-            Entry e = entries[i];
+            MovementEntry e = entries[i];
             DefaultMutableTreeNode parent = findNodeByEditId(model, e.parentEditId);
             if (parent == null) {
                 noParent++;
@@ -183,7 +183,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
         }
     }
 
-    protected void checkNodesPos(TreeModel model, Entry[] entries, String statusLabel) {
+    protected void checkNodesPos(TreeModel model, MovementEntry[] entries, String statusLabel) {
         DefaultTreeModel dtm = asDefaultModel(model);
         if (dtm == null) {
             return;
@@ -192,7 +192,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
         boolean anyReordered = false;
         boolean anyError = false;
 
-        for (Entry e : entries) {
+        for (MovementEntry e : entries) {
             DefaultMutableTreeNode parent = findNodeByEditId(model, e.parentEditId);
             if (parent == null) {
                 anyError = true;

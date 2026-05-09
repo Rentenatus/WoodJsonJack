@@ -19,7 +19,7 @@ import de.jare.jsoncasted.editor.core.EditNode;
  */
 public class WoodCommandDeleteNodes extends AbstractNodeMovementCommand {
 
-    private final Entry[] entries;
+    private final MovementEntry[] entries;
     private final String description;
 
     /**
@@ -39,7 +39,7 @@ public class WoodCommandDeleteNodes extends AbstractNodeMovementCommand {
         }
 
         int length = nodesToDelete.length;
-        this.entries = new Entry[length];
+        this.entries = new MovementEntry[length];
 
         for (int i = 0; i < length; i++) {
             DefaultMutableTreeNode n = nodesToDelete[i];
@@ -62,7 +62,7 @@ public class WoodCommandDeleteNodes extends AbstractNodeMovementCommand {
                 throw new IllegalArgumentException("nodesToDelete[" + i + "] is not a child of parentNodes[" + i + "]");
             }
 
-            entries[i] = new Entry(parentData.getEditId(), idx, deepCopy(n));
+            entries[i] = new MovementEntry(parentData.getEditId(), idx, deepCopy(n));
         }
 
         if (nodesToDelete.length == 1) {

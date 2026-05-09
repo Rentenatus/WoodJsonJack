@@ -11,32 +11,116 @@ import de.jare.jsoncasted.editor.core.EditTree;
 
 public class SetValueCommand extends AbstractEditCommand {
 
-    private final long nodeId;
-    private final String oldValue;
-    private final String newValue;
+    private final EditCommandEntry.ValueEntry[] entries;
 
+    /**
+     * Creates a command to set the value of a single node.
+     */
     public SetValueCommand(EditNode node, String newValue) {
         super(CommandType.SET_VALUE);
         if (node == null) throw new IllegalArgumentException("Node cannot be null");
-        this.nodeId = node.getEditId();
-        this.oldValue = node.getEditText();
-        this.newValue = newValue;
+        this.entries = new EditCommandEntry.ValueEntry[] {
+            new EditCommandEntry.ValueEntry(node.getEditId(), node.getEditText(), newValue)
+        };
         setDescription("Set value: " + node.getEditText() + " -> " + newValue);
+    }
+
+    /**
+     * Creates a command to set values for multiple nodes.
+     *
+     * @param nodes the nodes to update
+     * @param newValues the new values for each node
+     */
+    public SetValueCommand(EditNode[] nodes, String[] newValues) {
+        super(CommandType.SET_VALUE);
+        if (nodes == null || newValues == null) {
+            throw new IllegalArgumentException("Arguments cannot be null");
+        }
+        if (nodes.length != newValues.length) {
+            throw new IllegalArgumentException("Arrays must have the same length");
+        }
+        if (nodes.length == 0) {
+            throw new IllegalArgumentException("Arrays cannot be empty");
+        }
+        
+        this.entries = new EditCommandEntry.ValueEntry[nodes.length];
+        
+        for (int i = 0; i < nodes.length; i++) {
+            EditNode node = nodes[i];
+            if (node == null) throw new IllegalArgumentException("Node cannot be null");
+            this.entries[i] = new EditCommandEntry.ValueEntry(
+                node.getEditId(), 
+                node.getEditText(), 
+                newValues[i]
+            );
+        }
+        
+        if (nodes.length == 1) {
+            setDescription("Set value: " + entries[0].oldValue + " -> " + entries[0].newValue);
+        } else {
+            setDescription("Set values for " + nodes.length + " nodes");
+        }
+    }
+
+    /**
+     * Creates a command from value entries array.
+     *
+     * @param entries array of value entries
+     */
+    public SetValueCommand(EditCommandEntry.ValueEntry[] entries) {
+        super(CommandType.SET_VALUE);
+        if (entries == null || entries.length == 0) {
+            throw new IllegalArgumentException("Entries cannot be null or empty");
+        }
+        this.entries = entries;
+        if (entries.length == 1) {
+            setDescription("Set value: " + entries[0].oldValue + " -> " + entries[0].newValue);
+        } else {
+            setDescription("Set values for " + entries.length + " nodes");
+        }
     }
 
     @Override
     public void execute(EditTree tree) {
-        EditNode node = tree.findNodeById(nodeId);
-        if (node != null) node.setEditText(newValue);
+        for (EditCommandEntry.ValueEntry entry : entries) {
+            EditNode node = tree.findNodeById(entry.nodeId);
+            if (node != null) node.setEditText(entry.newValue);
+        }
     }
 
     @Override
     public void undo(EditTree tree) {
-        EditNode node = tree.findNodeById(nodeId);
-        if (node != null) node.setEditText(oldValue);
+        for (EditCommandEntry.ValueEntry entry : entries) {
+            EditNode node = tree.findNodeById(entry.nodeId);
+            if (node != null) node.setEditText(entry.oldValue);
+        }
     }
 
-    public long getNodeId() { return nodeId; }
-    public String getOldValue() { return oldValue; }
-    public String getNewValue() { return newValue; }
+    public EditCommandEntry.ValueEntry[] getEntries() { return entries; }
+    
+    public long[] getNodeIds() {
+        long[] ids = new long[entries.length];
+        for (int i = 0; i < entries.length; i++) {
+            ids[i] = entries[i].nodeId;
+        }
+        return ids;
+    }
+    public String[] getOldValues() {
+        String[] values = new String[entries.length];
+        for (int i = 0; i < entries.length; i++) {
+            values[i] = entries[i].oldValue;
+        }
+        return values;
+    }
+    public String[] getNewValues() {
+        String[] values = new String[entries.length];
+        for (int i = 0; i < entries.length; i++) {
+            values[i] = entries[i].newValue;
+        }
+        return values;
+    }
+    
+    public long getNodeId() { return entries[0].nodeId; }
+    public String getOldValue() { return entries[0].oldValue; }
+    public String getNewValue() { return entries[0].newValue; }
 }

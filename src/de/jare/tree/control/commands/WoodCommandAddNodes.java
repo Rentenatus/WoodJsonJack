@@ -19,7 +19,7 @@ import de.jare.jsoncasted.editor.core.EditNode;
  */
 public class WoodCommandAddNodes extends AbstractNodeMovementCommand {
 
-    private final Entry[] entries;
+    private final MovementEntry[] entries;
     private final String description;
 
     public WoodCommandAddNodes(
@@ -36,7 +36,7 @@ public class WoodCommandAddNodes extends AbstractNodeMovementCommand {
         }
 
         int length = nodesToAdd.length;
-        this.entries = new Entry[length];
+        this.entries = new MovementEntry[length];
         int lastIdx = -1;
 
         for (int i = 0; i < length; i++) {
@@ -65,7 +65,7 @@ public class WoodCommandAddNodes extends AbstractNodeMovementCommand {
                 throw new IllegalArgumentException("parentNodes[" + i + "] userObject must be JsonTreeNodeData");
             }
 
-            entries[i] = new Entry(parentData.getEditId(), idx, deepCopy(n));
+            entries[i] = new MovementEntry(parentData.getEditId(), idx, deepCopy(n));
         }
 
         this.description = (nodesToAdd.length == 1)

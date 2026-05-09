@@ -9,20 +9,39 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
- * Entry class for storing information about deleted nodes in DeleteNodeCommand.
- * Contains the parent editId, original index, and a snapshot of the deleted subtree.
+ * Entry classes for storing information in various command types.
  */
 public class EditCommandEntry {
 
-    public static class Entry {
+    /**
+     * Entry for storing information about node movements and positions.
+     * Contains the parent editId, original index, and a snapshot of the subtree.
+     */
+    public static class MovementEntry {
         public final long parentEditId;              // editId des Elternknotens
         public final int index;                      // urspruenglicher Index beim Parent
-        public final EditNode snapshot; // Snapshot des geloeschten Teilbaums
+        public final EditNode snapshot; // Snapshot des Teilbaums
 
-        public Entry(long parentEditId, int index, EditNode snapshot) {
+        public MovementEntry(long parentEditId, int index, EditNode snapshot) {
             this.parentEditId = parentEditId;
             this.index = index;
             this.snapshot = snapshot;
+        }
+    }
+
+    /**
+     * Entry for storing value change information.
+     * Contains the node id, old value, and new value.
+     */
+    public static class ValueEntry {
+        public final long nodeId;
+        public final String oldValue;
+        public final String newValue;
+
+        public ValueEntry(long nodeId, String oldValue, String newValue) {
+            this.nodeId = nodeId;
+            this.oldValue = oldValue;
+            this.newValue = newValue;
         }
     }
 }
