@@ -9,26 +9,68 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
- * Entry classes for storing information in various command types.
+ * Utility container for immutable command entry types used by edit commands.
+ *
+ * <p>
+ * Each nested entry class stores the data required to execute and undo a
+ * specific kind of command operation.</p>
  */
-public class EditCommandEntry {
+public final class EditCommandEntry {
+
+    private EditCommandEntry() {
+        throw new AssertionError("Utility class");
+    }
 
     /**
-     * Entry for storing information about node movements and positions.
-     * Contains the node editId, parent editId, original index, and a snapshot
-     * of the subtree.
+     * Immutable entry describing a node position within the tree.
+     *
+     * <p>
+     * This entry is used for add, delete, and move operations. Depending on the
+     * command type, {@code snapshot} may contain a subtree copy used for
+     * undo/redo reconstruction.</p>
      */
-    public static class MovementEntry {
+    public static final class MovementEntry {
 
-        public final long nodeId;                    // editId des Knotens
-        public final long parentEditId;              // editId des Elternknotens
-        public final int index;                      // urspruenglicher Index beim Parent
-        public final EditNode snapshot; // Snapshot des Teilbaums
+        /**
+         * The ID of the affected node, or {@code -1} if not yet known.
+         */
+        public final long nodeId;
 
+        /**
+         * The ID of the parent node.
+         */
+        public final long parentEditId;
+
+        /**
+         * The child index inside the parent, or {@code -1} for append
+         * semantics.
+         */
+        public final int index;
+
+        /**
+         * Optional snapshot of the affected subtree.
+         */
+        public final EditNode snapshot;
+
+        /**
+         * Creates a movement entry without a node ID.
+         *
+         * @param parentEditId the parent node ID
+         * @param index the child index
+         * @param snapshot an optional subtree snapshot
+         */
         public MovementEntry(long parentEditId, int index, EditNode snapshot) {
             this(-1, parentEditId, index, snapshot);
         }
 
+        /**
+         * Creates a movement entry.
+         *
+         * @param nodeId the affected node ID
+         * @param parentEditId the parent node ID
+         * @param index the child index
+         * @param snapshot an optional subtree snapshot
+         */
         public MovementEntry(long nodeId, long parentEditId, int index, EditNode snapshot) {
             this.nodeId = nodeId;
             this.parentEditId = parentEditId;
@@ -38,20 +80,39 @@ public class EditCommandEntry {
     }
 
     /**
-     * Entry for storing value change information. Contains the node id, old
-     * value, and new value.
+     * Immutable entry describing a text-based content change of a node.
+     *
+     * <p>
+     * This entry is used for commands such as rename and set-value.</p>
      */
-    public static class ValueEntry {
+    public static final class ContentEntry {
 
+        /**
+         * The ID of the affected node.
+         */
         public final long nodeId;
+
+        /**
+         * The previous value.
+         */
         public final String oldValue;
+
+        /**
+         * The new value.
+         */
         public final String newValue;
 
-        public ValueEntry(long nodeId, String oldValue, String newValue) {
+        /**
+         * Creates a content entry.
+         *
+         * @param nodeId the affected node ID
+         * @param oldValue the previous value
+         * @param newValue the new value
+         */
+        public ContentEntry(long nodeId, String oldValue, String newValue) {
             this.nodeId = nodeId;
             this.oldValue = oldValue;
             this.newValue = newValue;
         }
     }
- 
 }

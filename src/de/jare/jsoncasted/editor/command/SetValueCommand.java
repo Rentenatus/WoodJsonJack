@@ -6,17 +6,19 @@
  */
 package de.jare.jsoncasted.editor.command;
 
-import java.util.Arrays;
-
+import de.jare.jsoncasted.editor.command.EditCommandEntry.ContentEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
+import java.util.Arrays;
 
 public class SetValueCommand extends AbstractEditCommand {
 
-    private final EditCommandEntry.ValueEntry[] entries;
+    private final ContentEntry[] entries;
 
     /**
      * Creates a command to set the value of a single node.
+     * @param node
+     * @param newValue
      */
     public SetValueCommand(EditNode node, String newValue) {
         super(CommandType.SET_VALUE);
@@ -24,8 +26,8 @@ public class SetValueCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Node cannot be null");
         }
         String oldValue = node.getEditText();
-        this.entries = new EditCommandEntry.ValueEntry[]{
-            new EditCommandEntry.ValueEntry(node.getEditId(), oldValue, newValue)
+        this.entries = new ContentEntry[]{
+            new ContentEntry(node.getEditId(), oldValue, newValue)
         };
         setDescription("Set value: " + valueText(oldValue) + " -> " + valueText(newValue));
     }
@@ -48,7 +50,7 @@ public class SetValueCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Arrays cannot be empty");
         }
 
-        this.entries = new EditCommandEntry.ValueEntry[nodes.length];
+        this.entries = new ContentEntry[nodes.length];
 
         for (int i = 0; i < nodes.length; i++) {
             EditNode node = nodes[i];
@@ -56,7 +58,7 @@ public class SetValueCommand extends AbstractEditCommand {
                 throw new IllegalArgumentException("Node at index " + i + " cannot be null");
             }
             String oldValue = node.getEditText();
-            this.entries[i] = new EditCommandEntry.ValueEntry(
+            this.entries[i] = new ContentEntry(
                     node.getEditId(),
                     oldValue,
                     newValues[i]
@@ -75,7 +77,7 @@ public class SetValueCommand extends AbstractEditCommand {
      *
      * @param entries array of value entries
      */
-    public SetValueCommand(EditCommandEntry.ValueEntry[] entries) {
+    public SetValueCommand(ContentEntry[] entries) {
         super(CommandType.SET_VALUE);
         if (entries == null || entries.length == 0) {
             throw new IllegalArgumentException("Entries cannot be null or empty");
@@ -99,7 +101,7 @@ public class SetValueCommand extends AbstractEditCommand {
         EditNode[] updated = new EditNode[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
-            EditCommandEntry.ValueEntry entry = entries[i];
+            ContentEntry entry = entries[i];
             EditNode node = tree.findNodeById(entry.nodeId);
             if (node == null) {
                 throw new IllegalStateException(
@@ -130,7 +132,7 @@ public class SetValueCommand extends AbstractEditCommand {
         EditNode[] updated = new EditNode[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
-            EditCommandEntry.ValueEntry entry = entries[i];
+            ContentEntry entry = entries[i];
             EditNode node = tree.findNodeById(entry.nodeId);
             if (node == null) {
                 throw new IllegalStateException(
@@ -152,7 +154,7 @@ public class SetValueCommand extends AbstractEditCommand {
         );
     }
 
-    public EditCommandEntry.ValueEntry[] getEntries() {
+    public ContentEntry[] getEntries() {
         return Arrays.copyOf(entries, entries.length);
     }
 
@@ -192,11 +194,11 @@ public class SetValueCommand extends AbstractEditCommand {
         return entries[0].newValue;
     }
 
-    private static EditCommandEntry.ValueEntry[] copyAndValidate(EditCommandEntry.ValueEntry[] entries) {
-        EditCommandEntry.ValueEntry[] copy = new EditCommandEntry.ValueEntry[entries.length];
+    private static ContentEntry[] copyAndValidate(ContentEntry[] entries) {
+        ContentEntry[] copy = new ContentEntry[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
-            EditCommandEntry.ValueEntry entry = entries[i];
+            ContentEntry entry = entries[i];
             if (entry == null) {
                 throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
             }
@@ -204,7 +206,7 @@ public class SetValueCommand extends AbstractEditCommand {
                 throw new IllegalArgumentException("Entry nodeId at index " + i + " is invalid");
             }
 
-            copy[i] = new EditCommandEntry.ValueEntry(
+            copy[i] = new ContentEntry(
                     entry.nodeId,
                     entry.oldValue,
                     entry.newValue

@@ -6,16 +6,16 @@
  */
 package de.jare.jsoncasted.editor.command;
 
+import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
+import de.jare.jsoncasted.editor.command.EditCommandEntry.MovementEntry;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
-import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.jsoncasted.editor.core.EditTree;
 
 /**
  * Command that deletes node(s) from the tree. When executed, the node(s) are
@@ -30,7 +30,7 @@ import de.jare.jsoncasted.editor.core.EditTree;
  */
 public class DeleteNodeCommand extends AbstractEditCommand {
 
-    private final EditCommandEntry.MovementEntry[] entries;
+    private final MovementEntry[] entries;
 
     /**
      * Creates a new delete node command for a single node.
@@ -55,7 +55,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
      *
      * @param entries array of entries to delete
      */
-    public DeleteNodeCommand(EditCommandEntry.MovementEntry[] entries) {
+    public DeleteNodeCommand(MovementEntry[] entries) {
         super(CommandType.DELETE_NODE);
         if (entries == null || entries.length == 0) {
             throw new IllegalArgumentException("Entries cannot be null or empty");
@@ -75,18 +75,18 @@ public class DeleteNodeCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Tree cannot be null");
         }
 
-        EditCommandEntry.MovementEntry[] deleteOrder = Arrays.copyOf(entries, entries.length);
+        MovementEntry[] deleteOrder = Arrays.copyOf(entries, entries.length);
         Arrays.sort(deleteOrder, Comparator
-                .comparingLong((EditCommandEntry.MovementEntry e)
+                .comparingLong((MovementEntry e)
                         -> depthOf(tree.findNodeById(resolveNodeId(tree, e)), tree))
                 .reversed()
-                .thenComparingInt((EditCommandEntry.MovementEntry e) -> e.index)
+                .thenComparingInt((MovementEntry e) -> e.index)
                 .reversed());
 
         EditNode[] removed = new EditNode[deleteOrder.length];
 
         int idx = 0;
-        for (EditCommandEntry.MovementEntry entry : deleteOrder) {
+        for (MovementEntry entry : deleteOrder) {
             long id = resolveNodeId(tree, entry);
             EditNode node = tree.findNodeById(id);
             if (node != null) {
@@ -115,16 +115,16 @@ public class DeleteNodeCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Tree cannot be null");
         }
 
-        EditCommandEntry.MovementEntry[] restoreOrder = Arrays.copyOf(entries, entries.length);
+        MovementEntry[] restoreOrder = Arrays.copyOf(entries, entries.length);
         Arrays.sort(restoreOrder, Comparator
-                .comparingInt((EditCommandEntry.MovementEntry e) -> ancestorDepth(e.snapshot))
+                .comparingInt((MovementEntry e) -> ancestorDepth(e.snapshot))
                 .thenComparingLong(e -> e.parentEditId)
                 .thenComparingInt(e -> e.index));
 
         EditNode[] restored = new EditNode[restoreOrder.length];
 
         int idx = 0;
-        for (EditCommandEntry.MovementEntry entry : restoreOrder) {
+        for (MovementEntry entry : restoreOrder) {
             EditNode parent = tree.findNodeById(entry.parentEditId);
             if (parent == null) {
                 throw new IllegalStateException(
@@ -150,11 +150,11 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         );
     }
 
-    public EditCommandEntry.MovementEntry[] getEntries() {
+    public MovementEntry[] getEntries() {
         return Arrays.copyOf(entries, entries.length);
     }
 
-    public EditCommandEntry.MovementEntry getEntry() {
+    public MovementEntry getEntry() {
         return entries[0];
     }
 
@@ -174,7 +174,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return entries[0].index;
     }
 
-    private static EditCommandEntry.MovementEntry[] toEntries(EditNode[] nodes) {
+    private static MovementEntry[] toEntries(EditNode[] nodes) {
         if (nodes == null || nodes.length == 0) {
             throw new IllegalArgumentException("Nodes cannot be null or empty");
         }
@@ -185,7 +185,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         }
 
         List<EditNode> normalized = normalizeNodes(validated);
-        EditCommandEntry.MovementEntry[] result = new EditCommandEntry.MovementEntry[normalized.size()];
+        MovementEntry[] result = new MovementEntry[normalized.size()];
 
         for (int i = 0; i < normalized.size(); i++) {
             EditNode node = normalized.get(i);
@@ -200,7 +200,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
                         "Node '" + node.getName() + "' is not a child of its parent");
             }
 
-            result[i] = new EditCommandEntry.MovementEntry(
+            result[i] = new MovementEntry(
                     node.getEditId(), // nodeId
                     parent.getEditId(), // parentEditId
                     index,
@@ -218,11 +218,11 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return node;
     }
 
-    private static EditCommandEntry.MovementEntry[] copyAndValidate(EditCommandEntry.MovementEntry[] entries) {
-        EditCommandEntry.MovementEntry[] copy = Arrays.copyOf(entries, entries.length);
+    private static MovementEntry[] copyAndValidate(MovementEntry[] entries) {
+        MovementEntry[] copy = Arrays.copyOf(entries, entries.length);
 
         for (int i = 0; i < copy.length; i++) {
-            EditCommandEntry.MovementEntry entry = copy[i];
+            MovementEntry entry = copy[i];
             if (entry == null) {
                 throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
             }
@@ -295,7 +295,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return depth;
     }
 
-    private static long resolveNodeId(EditTree tree, EditCommandEntry.MovementEntry entry) {
+    private static long resolveNodeId(EditTree tree, MovementEntry entry) {
         if (entry.nodeId >= 0) {
             return entry.nodeId;
         }

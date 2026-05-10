@@ -6,8 +6,6 @@
  */
 package de.jare.jsoncasted.editor.command;
 
-import de.jare.jsoncasted.editor.core.EditTree;
-
 public abstract class AbstractEditCommand implements EditCommand {
 
     private final CommandType type;
@@ -24,12 +22,18 @@ public abstract class AbstractEditCommand implements EditCommand {
     }
 
     @Override
-    public CommandType getType() { return type; }
+    public CommandType getType() {
+        return type;
+    }
 
     @Override
-    public String getDescription() { return description; }
+    public String getDescription() {
+        return description;
+    }
 
-    protected void setDescription(String description) { this.description = description; }
+    protected void setDescription(String description) {
+        this.description = description;
+    }
 
     @Override
     public String toString() {

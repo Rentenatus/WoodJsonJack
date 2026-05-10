@@ -6,17 +6,20 @@
  */
 package de.jare.jsoncasted.editor.command;
 
-import java.util.Arrays;
-
+import de.jare.jsoncasted.editor.command.EditCommandEntry.MovementEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
+import java.util.Arrays;
 
 public class AddNodeCommand extends AbstractEditCommand {
 
-    private final EditCommandEntry.MovementEntry[] entries;
+    private final MovementEntry[] entries;
 
     /**
      * Creates a command to add a single node.
+     *
+     * @param parentId
+     * @param node
      */
     public AddNodeCommand(long parentId, EditNode node) {
         this(parentId, node, -1);
@@ -24,10 +27,14 @@ public class AddNodeCommand extends AbstractEditCommand {
 
     /**
      * Creates a command to add a single node at a specific index.
+     *
+     * @param parentId
+     * @param node
+     * @param index
      */
     public AddNodeCommand(long parentId, EditNode node, int index) {
-        this(new EditCommandEntry.MovementEntry[]{
-            new EditCommandEntry.MovementEntry(
+        this(new MovementEntry[]{
+            new MovementEntry(
             requireNode(node).getEditId(), // nodeId
             requireValidParentId(parentId), // parentEditId
             index,
@@ -41,7 +48,7 @@ public class AddNodeCommand extends AbstractEditCommand {
      *
      * @param entries array of entries to add
      */
-    public AddNodeCommand(EditCommandEntry.MovementEntry[] entries) {
+    public AddNodeCommand(MovementEntry[] entries) {
         super(CommandType.ADD_NODE);
         if (entries == null || entries.length == 0) {
             throw new IllegalArgumentException("Entries cannot be null or empty");
@@ -65,7 +72,7 @@ public class AddNodeCommand extends AbstractEditCommand {
         EditNode[] added = new EditNode[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
-            EditCommandEntry.MovementEntry entry = entries[i];
+            MovementEntry entry = entries[i];
 
             // Snapshot liefert den Teilbaum, ID bleibt erhalten
             EditNode newNode = entry.snapshot.deepCopy(false);
@@ -93,7 +100,7 @@ public class AddNodeCommand extends AbstractEditCommand {
 
         // rückwärts, um Indizes stabil zu halten
         for (int i = entries.length - 1; i >= 0; i--) {
-            EditCommandEntry.MovementEntry entry = entries[i];
+            MovementEntry entry = entries[i];
 
             // bevorzugt nodeId nutzen; fallback auf snapshot-Id, falls nodeId == -1
             long id = entry.nodeId >= 0 ? entry.nodeId : entry.snapshot.getEditId();
@@ -117,7 +124,7 @@ public class AddNodeCommand extends AbstractEditCommand {
         );
     }
 
-    public EditCommandEntry.MovementEntry[] getEntries() {
+    public MovementEntry[] getEntries() {
         return Arrays.copyOf(entries, entries.length);
     }
 
@@ -151,11 +158,11 @@ public class AddNodeCommand extends AbstractEditCommand {
         return parentId;
     }
 
-    private static EditCommandEntry.MovementEntry[] copyAndValidate(EditCommandEntry.MovementEntry[] entries) {
-        EditCommandEntry.MovementEntry[] copy = new EditCommandEntry.MovementEntry[entries.length];
+    private static MovementEntry[] copyAndValidate(MovementEntry[] entries) {
+        MovementEntry[] copy = new MovementEntry[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
-            EditCommandEntry.MovementEntry entry = entries[i];
+            MovementEntry entry = entries[i];
             if (entry == null) {
                 throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
             }
@@ -170,7 +177,7 @@ public class AddNodeCommand extends AbstractEditCommand {
             }
 
             // nodeId aus Entry mit übernehmen, Snapshot geklont
-            copy[i] = new EditCommandEntry.MovementEntry(
+            copy[i] = new MovementEntry(
                     entry.nodeId,
                     entry.parentEditId,
                     entry.index,

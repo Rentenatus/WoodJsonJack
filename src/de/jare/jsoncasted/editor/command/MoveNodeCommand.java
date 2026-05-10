@@ -6,12 +6,12 @@
  */
 package de.jare.jsoncasted.editor.command;
 
-import java.util.Arrays;
-import java.util.Comparator;
-
 import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
+import de.jare.jsoncasted.editor.command.EditCommandEntry.MovementEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
+import java.util.Arrays;
+import java.util.Comparator;
 
 /**
  * Command that moves one or more nodes to new parent/index positions.
@@ -28,8 +28,8 @@ import de.jare.jsoncasted.editor.core.EditTree;
  */
 public class MoveNodeCommand extends AbstractEditCommand {
 
-    private final EditCommandEntry.MovementEntry[] oldEntries;
-    private final EditCommandEntry.MovementEntry[] newEntries;
+    private final MovementEntry[] oldEntries;
+    private final MovementEntry[] newEntries;
 
     /**
      * Creates a command to move a single node to a new parent and index.
@@ -59,11 +59,11 @@ public class MoveNodeCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Node must have a valid parent and index");
         }
 
-        this.oldEntries = new EditCommandEntry.MovementEntry[]{
-            new EditCommandEntry.MovementEntry(node.getEditId(), oldParentId, oldIndex, null)
+        this.oldEntries = new MovementEntry[]{
+            new MovementEntry(node.getEditId(), oldParentId, oldIndex, null)
         };
-        this.newEntries = new EditCommandEntry.MovementEntry[]{
-            new EditCommandEntry.MovementEntry(node.getEditId(), newParentId, newIndex, null)
+        this.newEntries = new MovementEntry[]{
+            new MovementEntry(node.getEditId(), newParentId, newIndex, null)
         };
 
         setDescription("Move node: " + node.getName());
@@ -120,8 +120,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
                     return parent != null ? parent.getChildIndex(n) : -1;
                 }));
 
-        this.oldEntries = new EditCommandEntry.MovementEntry[sortedNodes.length];
-        this.newEntries = new EditCommandEntry.MovementEntry[sortedNodes.length];
+        this.oldEntries = new MovementEntry[sortedNodes.length];
+        this.newEntries = new MovementEntry[sortedNodes.length];
 
         for (int i = 0; i < sortedNodes.length; i++) {
             EditNode node = sortedNodes[i];
@@ -138,7 +138,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
                         "Node at index " + i + " must have a valid parent and index");
             }
 
-            this.oldEntries[i] = new EditCommandEntry.MovementEntry(
+            this.oldEntries[i] = new MovementEntry(
                     node.getEditId(),
                     oldParentId,
                     oldIndex,
@@ -146,7 +146,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
             );
 
             int targetIndex = newIndex < 0 ? -1 : newIndex + i;
-            this.newEntries[i] = new EditCommandEntry.MovementEntry(
+            this.newEntries[i] = new MovementEntry(
                     node.getEditId(),
                     newParentId,
                     targetIndex,
@@ -167,8 +167,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * @param oldEntries source positions
      * @param newEntries target positions
      */
-    public MoveNodeCommand(EditCommandEntry.MovementEntry[] oldEntries,
-            EditCommandEntry.MovementEntry[] newEntries) {
+    public MoveNodeCommand(MovementEntry[] oldEntries,
+            MovementEntry[] newEntries) {
         super(CommandType.MOVE_NODE);
 
         if (oldEntries == null || newEntries == null) {
@@ -254,8 +254,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
      */
     private EditNode[] moveAll(
             EditTree tree,
-            EditCommandEntry.MovementEntry[] fromEntries,
-            EditCommandEntry.MovementEntry[] toEntries,
+            MovementEntry[] fromEntries,
+            MovementEntry[] toEntries,
             boolean reverse) {
 
         EditNode[] moved = new EditNode[fromEntries.length];
@@ -267,8 +267,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
         boolean singleMove = length == 1;
 
         for (int i = start; i != end; i += step) {
-            EditCommandEntry.MovementEntry from = fromEntries[i];
-            EditCommandEntry.MovementEntry to = toEntries[i];
+            MovementEntry from = fromEntries[i];
+            MovementEntry to = toEntries[i];
 
             EditNode node = tree.findNodeById(from.nodeId);
             if (node == null) {
@@ -368,7 +368,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      *
      * @return a defensive copy of the source entries
      */
-    public EditCommandEntry.MovementEntry[] getOldEntries() {
+    public MovementEntry[] getOldEntries() {
         return Arrays.copyOf(oldEntries, oldEntries.length);
     }
 
@@ -377,7 +377,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      *
      * @return a defensive copy of the target entries
      */
-    public EditCommandEntry.MovementEntry[] getNewEntries() {
+    public MovementEntry[] getNewEntries() {
         return Arrays.copyOf(newEntries, newEntries.length);
     }
 
@@ -386,7 +386,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      *
      * @return the first source entry
      */
-    public EditCommandEntry.MovementEntry getOldEntry() {
+    public MovementEntry getOldEntry() {
         return oldEntries[0];
     }
 
@@ -395,7 +395,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      *
      * @return the first target entry
      */
-    public EditCommandEntry.MovementEntry getNewEntry() {
+    public MovementEntry getNewEntry() {
         return newEntries[0];
     }
 
@@ -455,14 +455,14 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * @param requireSourceIndex whether the index must be non-negative
      * @return the validated copy
      */
-    private static EditCommandEntry.MovementEntry[] copyAndValidate(
-            EditCommandEntry.MovementEntry[] entries,
+    private static MovementEntry[] copyAndValidate(
+            MovementEntry[] entries,
             boolean requireSourceIndex) {
 
-        EditCommandEntry.MovementEntry[] copy = new EditCommandEntry.MovementEntry[entries.length];
+        MovementEntry[] copy = new MovementEntry[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
-            EditCommandEntry.MovementEntry entry = entries[i];
+            MovementEntry entry = entries[i];
             if (entry == null) {
                 throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
             }
@@ -484,7 +484,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
                 }
             }
 
-            copy[i] = new EditCommandEntry.MovementEntry(
+            copy[i] = new MovementEntry(
                     entry.nodeId,
                     entry.parentEditId,
                     entry.index,

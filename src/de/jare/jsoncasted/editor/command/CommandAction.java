@@ -6,6 +6,10 @@
  */
 package de.jare.jsoncasted.editor.command;
 
+/**
+ *
+ * @author Janusch Rentenatus
+ */
 public enum CommandAction {
     EXECUTE,
     UNDO,
