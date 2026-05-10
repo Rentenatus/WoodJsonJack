@@ -24,32 +24,12 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * Main facade class for the headless JSON tree editor core. This class provides
- * a unified interface to the editor's functionality, including tree
- * manipulation, undo/redo history, and event handling.
+ * Main facade for the headless JSON tree editor core.
  *
  * <p>
- * This is the primary entry point for using the editor core. It coordinates the
- * tree structure, command history, and event distribution.</p>
- *
- * <p>
- * Usage example:</p>
- * <pre>
- * TreeEditor editor = new TreeEditor();
- * EditNode root = editor.getTree().getRoot();
- *
- * // Add a node
- * EditNodeObject newNode = new EditNodeObject("newNode");
- * editor.execute(new AddNodeCommand(root.getId(), newNode));
- *
- * // Undo
- * editor.undo();
- *
- * // Listen for changes
- * editor.addListener(NodeChangeEvent.class, event -> {
- *     System.out.println("Node changed: " + event.getNode().getName());
- * });
- * </pre>
+ * This class combines the editable tree model, command history, and event
+ * dispatching behind a single API. It is the primary entry point for loading,
+ * modifying, exporting, and inspecting editor state.</p>
  */
 public class TreeEditor {
 
@@ -58,34 +38,29 @@ public class TreeEditor {
     private final EventBus eventBus;
 
     /**
-     * Creates a new TreeEditor with a default root node. The root node is an
-     * object node named "root".
+     * Creates a new editor with a default object root named {@code root}.
      */
     public TreeEditor() {
         this(new EditNodeObject("root"));
     }
 
     /**
-     * Creates a new TreeEditor with the specified root node.
+     * Creates a new editor for the given root node.
      *
-     * @param root the root node for the tree
-     * @throws IllegalArgumentException if root is null
+     * @param root the root node of the editable tree
+     * @throws IllegalArgumentException if {@code root} is {@code null}
      */
     public TreeEditor(EditNode root) {
-        if (root == null) {
-            throw new IllegalArgumentException("Root node cannot be null");
-        }
-        this.eventBus = new EventBus();
-        this.tree = new EditTree(root);
-        this.historyManager = new HistoryManager(tree, eventBus);
+        this(root, new EventBus());
     }
 
     /**
-     * Creates a new TreeEditor with the specified root node and event bus.
+     * Creates a new editor for the given root node and event bus.
      *
-     * @param root the root node for the tree
-     * @param eventBus the event bus to use
-     * @throws IllegalArgumentException if root is null
+     * @param root the root node of the editable tree
+     * @param eventBus the event bus to use, or {@code null} to create a default
+     * one
+     * @throws IllegalArgumentException if {@code root} is {@code null}
      */
     public TreeEditor(EditNode root, EventBus eventBus) {
         if (root == null) {
@@ -96,17 +71,20 @@ public class TreeEditor {
         this.historyManager = new HistoryManager(tree, this.eventBus);
     }
 
+    // -------------------------------------------------------------------------
+    // Core accessors
+    // -------------------------------------------------------------------------
     /**
-     * Returns the edit tree managed by this editor.
+     * Returns the editable tree managed by this editor.
      *
-     * @return the edit tree
+     * @return the tree instance
      */
     public EditTree getTree() {
         return tree;
     }
 
     /**
-     * Returns the history manager for undo/redo operations.
+     * Returns the history manager used for undo/redo operations.
      *
      * @return the history manager
      */
@@ -115,7 +93,7 @@ public class TreeEditor {
     }
 
     /**
-     * Returns the event bus for registering listeners.
+     * Returns the event bus used by this editor.
      *
      * @return the event bus
      */
@@ -123,85 +101,94 @@ public class TreeEditor {
         return eventBus;
     }
 
+    // -------------------------------------------------------------------------
+    // Command execution / history facade
+    // -------------------------------------------------------------------------
     /**
-     * Executes a command on the tree. The command is added to the undo history.
+     * Executes the given command and records it in the undo history.
      *
      * @param command the command to execute
-     * @return the result of the command execution, or null if command is null
+     * @return the command result, or {@code null} if nothing was executed
      */
     public CommandResult execute(EditCommand command) {
         return historyManager.execute(command);
     }
 
     /**
-     * Undoes the last executed command.
+     * Undoes the most recently executed command.
      *
-     * @return the undo result, or null if nothing to undo
+     * @return the undo result, or {@code null} if no undo is available
      */
     public CommandResult undo() {
         return historyManager.undo();
     }
 
     /**
-     * Redoes the last undone command.
+     * Redoes the most recently undone command.
      *
-     * @return the redo result, or null if nothing to redo
+     * @return the redo result, or {@code null} if no redo is available
      */
     public CommandResult redo() {
         return historyManager.redo();
     }
 
     /**
-     * Skips the last undone command without executing it. The skipped command
-     * is moved from redo stack to undo stack without execution.
+     * Skips the current redo command without executing it and moves it back to
+     * the undo stack.
      *
-     * @return the skipped command, or null if nothing to skip
+     * @return the skipped command, or {@code null} if no redo is available
      */
     public EditCommand skipRedo() {
         return historyManager.skipRedo();
     }
 
     /**
-     * Returns whether an undo operation is available.
+     * Returns whether an undo operation is currently available.
      *
-     * @return true if undo is available
+     * @return {@code true} if undo is possible
      */
     public boolean canUndo() {
         return historyManager.canUndo();
     }
 
     /**
-     * Returns whether a redo operation is available.
+     * Returns whether a redo operation is currently available.
      *
-     * @return true if redo is available
+     * @return {@code true} if redo is possible
      */
     public boolean canRedo() {
         return historyManager.canRedo();
     }
 
     /**
-     * Clears all undo and redo history.
+     * Clears the complete undo/redo history.
      */
     public void clearHistory() {
         historyManager.clear();
     }
 
+    // -------------------------------------------------------------------------
+    // Event handling
+    // -------------------------------------------------------------------------
     /**
-     * Adds a listener for a specific event type.
+     * Registers a listener for a specific event type.
      *
      * @param <T> the event type
-     * @param eventType the class of events to listen for
-     * @param listener the consumer to be called when an event is fired
+     * @param eventType the event class to listen for
+     * @param listener the listener to register
      */
     public <T> void addListener(Class<T> eventType, Consumer<T> listener) {
         eventBus.addListener(eventType, listener);
     }
 
     /**
-     * Adds a listener for the base EditEvent type. This will receive all
-     * events.
+     * Registers a listener for the base {@link EditEvent} type.
      *
-     * @param listener the consumer to be called when any event is fired
+     * <p>
+     * This listener receives all editor events published through the event
+     * bus.</p>
+     *
+     * @param listener the listener to register
      */
     public void addListener(Consumer<EditEvent> listener) {
         eventBus.addListener(EditEvent.class, listener);
@@ -211,19 +198,19 @@ public class TreeEditor {
      * Removes a listener for a specific event type.
      *
      * @param <T> the event type
-     * @param eventType the class of events
-     * @param listener the consumer to remove
-     * @return true if the listener was removed
+     * @param eventType the event class
+     * @param listener the listener to remove
+     * @return {@code true} if the listener was removed
      */
     public <T> boolean removeListener(Class<T> eventType, Consumer<T> listener) {
         return eventBus.removeListener(eventType, listener);
     }
 
     /**
-     * Fires an event to all registered listeners.
+     * Fires an event through the editor's event bus.
      *
      * @param <T> the event type
-     * @param event the event to fire
+     * @param event the event to publish
      */
     public <T> void fireEvent(T event) {
         eventBus.fireEvent(event);
@@ -236,16 +223,20 @@ public class TreeEditor {
         eventBus.clear();
     }
 
-    // ========== Import from JsonResource ==========
+    // -------------------------------------------------------------------------
+    // Import from JsonResource / JsonNode
+    // -------------------------------------------------------------------------
     /**
-     * Imports a JsonResource and returns the root EditNode. This does NOT
-     * modify the current editor's tree - it only converts the data. Use
-     * TreeEditor.fromJsonResource() to create a new editor with the imported
-     * content.
+     * Converts a {@link JsonResource} into an editable tree root node.
      *
-     * @param resource the JsonResource to import
-     * @return the root EditNode of the converted tree
-     * @throws IllegalArgumentException if resource is null or has no root
+     * <p>
+     * This method does not modify an existing editor instance. It only performs
+     * the conversion.</p>
+     *
+     * @param resource the resource to import
+     * @return the converted root node
+     * @throws IllegalArgumentException if {@code resource} is {@code null} or
+     * has no root
      */
     public static EditNode importFromJsonResource(JsonResource resource) {
         if (resource == null) {
@@ -259,11 +250,11 @@ public class TreeEditor {
     }
 
     /**
-     * Imports a JsonNode and returns the root EditNode.
+     * Converts a {@link JsonNode} into an editable tree root node.
      *
-     * @param node the JsonNode to convert
-     * @return the root EditNode of the converted tree
-     * @throws IllegalArgumentException if node is null
+     * @param node the JSON node to import
+     * @return the converted root node
+     * @throws IllegalArgumentException if {@code node} is {@code null}
      */
     public static EditNode importFromJsonNode(JsonNode node) {
         if (node == null) {
@@ -273,10 +264,10 @@ public class TreeEditor {
     }
 
     /**
-     * Creates a new TreeEditor with the content from a JsonResource.
+     * Creates a new editor from the given {@link JsonResource}.
      *
-     * @param resource the JsonResource to load
-     * @return a new TreeEditor instance with the imported content
+     * @param resource the resource to load
+     * @return a new editor containing the imported content
      */
     public static TreeEditor fromJsonResource(JsonResource resource) {
         EditNode root = importFromJsonNode(resource.getRoot());
@@ -284,10 +275,10 @@ public class TreeEditor {
     }
 
     /**
-     * Creates a new TreeEditor with the content from a JsonNode.
+     * Creates a new editor from the given {@link JsonNode}.
      *
-     * @param node the JsonNode to load
-     * @return a new TreeEditor instance with the imported content
+     * @param node the node to load
+     * @return a new editor containing the imported content
      */
     public static TreeEditor fromJsonNode(JsonNode node) {
         EditNode root = importFromJsonNode(node);
@@ -295,18 +286,13 @@ public class TreeEditor {
     }
 
     /**
-     * Converts a JsonNode to an EditNode recursively.
+     * Recursively converts a JSON node into the corresponding editable node
+     * model.
      *
-     * Tree structure: - JSON Object -> EditNodeObject containing
-     * EditNodeProperty children - Each EditNodeProperty has propName = JSON
-     * key, and its child is the JSON value - JSON Array -> EditNodeObject with
-     * name="__array__" as child of EditNodeProperty - JSON Primitive ->
-     * EditNodeProperty with primValue set
-     *
-     * @param jsonNode the JsonNode to convert
-     * @param propertyName the name/key for this node (for object properties),
-     * null for root
-     * @return the corresponding EditNode
+     * @param jsonNode the source JSON node
+     * @param propertyName the property name for object members, or {@code null}
+     * for root/array values
+     * @return the converted editable node
      */
     private static EditNode convertJsonNodeToEditNode(JsonNode jsonNode, String propertyName) {
         JsonNodeType type = jsonNode.getType();
@@ -316,7 +302,6 @@ public class TreeEditor {
             Map<String, JsonNode> objectValues = jsonNode.asObjectValues();
             if (objectValues != null) {
                 for (Map.Entry<String, JsonNode> entry : objectValues.entrySet()) {
-                    // Each property becomes an EditNodeProperty with the value as its child
                     EditNodeProperty prop = new EditNodeProperty(entry.getKey());
                     EditNode valueNode = convertJsonNodeToEditNode(entry.getValue(), null);
                     prop.addChild(valueNode);
@@ -328,28 +313,26 @@ public class TreeEditor {
             EditNodeObject editNode = new EditNodeObject("__array__");
             List<JsonNode> arrayValues = jsonNode.asArray();
             if (arrayValues != null) {
-                for (int i = 0; i < arrayValues.size(); i++) {
-                    EditNode child = convertJsonNodeToEditNode(arrayValues.get(i), null);
+                for (JsonNode value : arrayValues) {
+                    EditNode child = convertJsonNodeToEditNode(value, null);
                     editNode.addChild(child);
                 }
             }
             return editNode;
         } else {
-            // Primitive types: STRING, NUMBER, LONG, BOOLEAN, NULL
             EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : "");
             String value = convertJsonValueToString(jsonNode);
             editNode.setPrimValue(value);
-            // Store type hint for export
             editNode.setType(type.name().toLowerCase());
             return editNode;
         }
     }
 
     /**
-     * Converts a JsonNode primitive value to a String representation.
+     * Converts a primitive JSON node value to its string representation.
      *
-     * @param jsonNode the JsonNode with a primitive type
-     * @return the string representation, or null for NULL type
+     * @param jsonNode the primitive JSON node
+     * @return the string value, or {@code null} for JSON null
      */
     private static String convertJsonValueToString(JsonNode jsonNode) {
         if (jsonNode == null) {
@@ -373,11 +356,13 @@ public class TreeEditor {
         }
     }
 
-    // ========== Export to JsonResource ==========
+    // -------------------------------------------------------------------------
+    // Export to JsonResource / JsonNode
+    // -------------------------------------------------------------------------
     /**
-     * Exports the current tree to a JsonResource.
+     * Exports the current editor tree to a {@link JsonResource}.
      *
-     * @return a new JsonResource containing the tree data
+     * @return a new resource containing the exported root node
      */
     public JsonResource exportToJsonResource() {
         EditNode root = tree.getRoot();
@@ -386,9 +371,9 @@ public class TreeEditor {
     }
 
     /**
-     * Exports the current tree to a JsonNode.
+     * Exports the current editor tree to a {@link JsonNode}.
      *
-     * @return the root JsonNode of the exported tree
+     * @return the exported root node
      */
     public JsonNode exportToJsonNode() {
         EditNode root = tree.getRoot();
@@ -396,29 +381,20 @@ public class TreeEditor {
     }
 
     /**
-     * Converts an EditNode to a JsonNode recursively.
+     * Recursively converts an editable node into a JSON node.
      *
-     * Tree structure: - EditNodeObject children are EditNodeProperty
-     * (representing JSON object properties) - Each EditNodeProperty has a
-     * propName (JSON key) and one child (the JSON value) - If the value child
-     * is EditNodeObject with name="__array__", it's a JSON array - If the value
-     * child is EditNodeProperty with primValue, it's a JSON primitive - If the
-     * value child is EditNodeObject (other), it's a nested JSON object
-     *
-     * @param editNode the EditNode to convert
-     * @return the corresponding JsonNode
+     * @param editNode the editable node to convert
+     * @return the converted JSON node
      */
     private JsonNode convertEditNodeToJsonNode(EditNode editNode) {
         if (editNode instanceof EditNodeObject) {
             EditNodeObject obj = (EditNodeObject) editNode;
             String name = obj.getName();
 
-            // Check if this is an array representation
             if ("__array__".equals(name)) {
                 JsonNode arrayNode = JsonNode.arrayNode();
                 for (int i = 0; i < obj.getChildCount(); i++) {
-                    EditNode child = obj.getChildAt(i);
-                    JsonNode jsonChild = convertEditNodeToJsonNode(child);
+                    JsonNode jsonChild = convertEditNodeToJsonNode(obj.getChildAt(i));
                     if (jsonChild != null) {
                         arrayNode.add(jsonChild);
                     }
@@ -426,10 +402,7 @@ public class TreeEditor {
                 return arrayNode;
             }
 
-            // Default: treat as object
             JsonNode objectNode = JsonNode.objectNode();
-
-            // Children should be EditNodeProperty with propName as key
             for (int i = 0; i < obj.getChildCount(); i++) {
                 EditNode child = obj.getChildAt(i);
                 if (child instanceof EditNodeProperty) {
@@ -439,14 +412,10 @@ public class TreeEditor {
                         key = String.valueOf(i);
                     }
 
-                    // The value is the first child of the property (if it has children)
-                    // or the primValue of the property (if it's a primitive)
-                    JsonNode value = null;
+                    JsonNode value;
                     if (prop.getChildCount() > 0) {
-                        // Value is stored as child
                         value = convertEditNodeToJsonNode(prop.getChildAt(0));
                     } else {
-                        // It's a primitive property
                         value = convertEditNodePropertyToJsonNode(prop);
                     }
 
@@ -454,7 +423,6 @@ public class TreeEditor {
                         objectNode.put(key, value);
                     }
                 } else if (child instanceof EditNodeObject) {
-                    // Direct EditNodeObject child - use name as key
                     String key = child.getName();
                     if (key == null || key.isEmpty()) {
                         key = String.valueOf(i);
@@ -468,36 +436,29 @@ public class TreeEditor {
             return objectNode;
         } else if (editNode instanceof EditNodeProperty) {
             EditNodeProperty prop = (EditNodeProperty) editNode;
-
-            // If the property has children, convert the first child as the value
             if (prop.getChildCount() > 0) {
                 return convertEditNodeToJsonNode(prop.getChildAt(0));
             }
-
-            // It's a primitive property
             return convertEditNodePropertyToJsonNode(prop);
         } else {
-            // Fallback for any other EditNode type
             return JsonNode.nullNode();
         }
     }
 
     /**
-     * Converts an EditNodeProperty (primitive) to a JsonNode.
+     * Converts a primitive {@link EditNodeProperty} into a JSON primitive node.
      *
-     * @param prop the EditNodeProperty with primValue
-     * @return the corresponding JsonNode primitive
+     * @param prop the property node to convert
+     * @return the converted JSON node
      */
     private JsonNode convertEditNodePropertyToJsonNode(EditNodeProperty prop) {
         String primValue = prop.getPrimValue();
         String type = prop.getType();
 
-        // Primitive value - determine type from type field or value
         if (primValue == null) {
             return JsonNode.nullNode();
         }
 
-        // Try to parse based on type hint
         if (type != null) {
             switch (type.toLowerCase()) {
                 case "string":
@@ -521,14 +482,191 @@ public class TreeEditor {
             }
         }
 
-        // Try to infer type from value
         return JsonNode.varNode(primValue);
     }
 
+    // -------------------------------------------------------------------------
+    // Debug / inspection helpers
+    // -------------------------------------------------------------------------
+    /**
+     * Returns a compact debug representation of the editor state.
+     *
+     * @return a one-line debug string
+     */
     @Override
     public String toString() {
-        return "TreeEditor[tree=" + tree
-                + ", history=" + historyManager
-                + ", listeners=" + eventBus.getListenerCount() + "]";
+        return toDebugString();
+    }
+
+    /**
+     * Returns a compact debug representation of the editor, including tree,
+     * history, listener count, and validation state.
+     *
+     * @return a one-line debug string
+     */
+    public String toDebugString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("TreeEditor{")
+                .append("tree=").append(tree != null ? tree.toString() : "null")
+                .append(", history=").append(historyManager != null ? historyManager.toString() : "null")
+                .append(", listeners=").append(eventBus != null ? eventBus.getListenerCount() : 0);
+
+        if (tree != null) {
+            sb.append(", valid=").append(tree.validate());
+        }
+
+        sb.append('}');
+        return sb.toString();
+    }
+
+    /**
+     * Returns a readable representation of the undo and redo stacks.
+     *
+     * @return the formatted history output
+     */
+    public String toHistoryString() {
+        if (historyManager == null) {
+            return "<no history>";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Undo[").append(historyManager.getUndoSize()).append("]:\n");
+        for (EditCommand cmd : historyManager.getUndoCommands()) {
+            sb.append("  - ").append(formatCommand(cmd)).append('\n');
+        }
+
+        sb.append("Redo[").append(historyManager.getRedoSize()).append("]:\n");
+        for (EditCommand cmd : historyManager.getRedoCommands()) {
+            sb.append("  - ").append(formatCommand(cmd)).append('\n');
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Returns a formatted representation of the complete tree.
+     *
+     * @return the formatted tree output
+     */
+    public String toTreeString() {
+        if (tree == null || tree.getRoot() == null) {
+            return "<empty tree>";
+        }
+        return toTreeString(tree.getRoot());
+    }
+
+    /**
+     * Returns a formatted representation of the subtree starting at the node
+     * with the given ID.
+     *
+     * @param startNodeId the start node ID
+     * @return the formatted subtree output, or a not-found marker
+     */
+    public String toTreeString(long startNodeId) {
+        if (tree == null) {
+            return "<empty tree>";
+        }
+
+        EditNode startNode = tree.findNodeById(startNodeId);
+        if (startNode == null) {
+            return "<node not found: " + startNodeId + ">";
+        }
+
+        return toTreeString(startNode);
+    }
+
+    /**
+     * Returns a formatted representation of the subtree starting at the given
+     * node.
+     *
+     * @param startNode the subtree root
+     * @return the formatted subtree output
+     */
+    public String toTreeString(EditNode startNode) {
+        if (startNode == null) {
+            return "<null node>";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Subtree from ").append(formatNodeHeader(startNode)).append('\n');
+        appendNode(sb, startNode, 0, getIndexInParent(startNode));
+        return sb.toString();
+    }
+
+    /**
+     * Appends a formatted subtree representation to the given string builder.
+     *
+     * @param sb the target builder
+     * @param node the current node
+     * @param depth the current depth
+     * @param indexInParent the index within the parent, or {@code -1} for root
+     */
+    private void appendNode(StringBuilder sb, EditNode node, int depth, int indexInParent) {
+        for (int i = 0; i < depth; i++) {
+            sb.append("  ");
+        }
+
+        sb.append(indexInParent >= 0 ? "[" + indexInParent + "] " : "")
+                .append(formatNodeHeader(node))
+                .append('\n');
+
+        for (int i = 0; i < node.getChildCount(); i++) {
+            appendNode(sb, node.getChildAt(i), depth + 1, i);
+        }
+    }
+
+    /**
+     * Formats a single node for debug output.
+     *
+     * @param node the node to format
+     * @return the formatted node header
+     */
+    private String formatNodeHeader(EditNode node) {
+        EditNode parent = node.getParent();
+        long parentId = parent != null ? parent.getEditId() : -1;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(node.getName())
+                .append(" {id=").append(node.getEditId())
+                .append(", parentId=").append(parentId);
+
+        try {
+            String text = node.getEditText();
+            if (text != null) {
+                sb.append(", text='").append(text).append('\'');
+            }
+        } catch (Exception ignore) {
+            // Some node types might not support getEditText()
+        }
+
+        sb.append('}');
+        return sb.toString();
+    }
+
+    /**
+     * Returns the index of the given node within its parent.
+     *
+     * @param node the node to inspect
+     * @return the child index, or {@code -1} if the node has no parent
+     */
+    private int getIndexInParent(EditNode node) {
+        if (node == null || node.getParent() == null) {
+            return -1;
+        }
+        return node.getParent().getChildIndex(node);
+    }
+
+    /**
+     * Formats a command for history output.
+     *
+     * @param cmd the command to format
+     * @return the formatted command string
+     */
+    private String formatCommand(EditCommand cmd) {
+        if (cmd == null) {
+            return "null";
+        }
+        return cmd.getClass().getSimpleName() + "[" + cmd.toString() + "]";
     }
 }

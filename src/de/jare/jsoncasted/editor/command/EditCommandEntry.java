@@ -15,9 +15,11 @@ public class EditCommandEntry {
 
     /**
      * Entry for storing information about node movements and positions.
-     * Contains the node editId, parent editId, original index, and a snapshot of the subtree.
+     * Contains the node editId, parent editId, original index, and a snapshot
+     * of the subtree.
      */
     public static class MovementEntry {
+
         public final long nodeId;                    // editId des Knotens
         public final long parentEditId;              // editId des Elternknotens
         public final int index;                      // urspruenglicher Index beim Parent
@@ -36,10 +38,11 @@ public class EditCommandEntry {
     }
 
     /**
-     * Entry for storing value change information.
-     * Contains the node id, old value, and new value.
+     * Entry for storing value change information. Contains the node id, old
+     * value, and new value.
      */
     public static class ValueEntry {
+
         public final long nodeId;
         public final String oldValue;
         public final String newValue;
@@ -50,4 +53,5 @@ public class EditCommandEntry {
             this.newValue = newValue;
         }
     }
+ 
 }

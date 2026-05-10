@@ -1,8 +1,8 @@
 /*
-* Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v2.0 which
-* accompanies this distribution, and is available at
-* http://www.eclipse.org/legal/epl-v20.html
+ * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0 which
+ * accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
  */
 package de.jare.jsoncasted.editor.command;
 
@@ -10,6 +10,16 @@ import java.util.Objects;
 
 import de.jare.jsoncasted.editor.core.EditNode;
 
+/**
+ * Immutable result object returned by command execution, undo, and redo
+ * operations.
+ *
+ * <p>
+ * A command result describes the triggering command, the executed action, and
+ * the node sets affected by the operation. Depending on the command type, nodes
+ * may appear in one or more semantic groups such as added, removed, or updated
+ * nodes.</p>
+ */
 public final class CommandResult {
 
     private final EditCommand trigger;
@@ -19,6 +29,18 @@ public final class CommandResult {
     private final EditNode[] removedNodes;
     private final EditNode[] updatedNodes;
 
+    /**
+     * Creates a new command result.
+     *
+     * @param trigger the command that produced this result
+     * @param action the action that was performed
+     * @param affectedNodes all nodes affected by the operation
+     * @param addedNodes nodes that were added by the operation
+     * @param removedNodes nodes that were removed by the operation
+     * @param updatedNodes nodes that were updated by the operation
+     * @throws NullPointerException if {@code trigger} or {@code action} is
+     * {@code null}
+     */
     public CommandResult(
             EditCommand trigger,
             CommandAction action,
@@ -34,30 +56,65 @@ public final class CommandResult {
         this.updatedNodes = updatedNodes != null ? updatedNodes.clone() : new EditNode[0];
     }
 
+    /**
+     * Returns the command that produced this result.
+     *
+     * @return the triggering command
+     */
     public EditCommand getTrigger() {
         return trigger;
     }
 
+    /**
+     * Returns the action represented by this result.
+     *
+     * @return the command action
+     */
     public CommandAction getAction() {
         return action;
     }
 
+    /**
+     * Returns all nodes affected by the operation.
+     *
+     * @return a defensive copy of the affected nodes
+     */
     public EditNode[] getAffectedNodes() {
         return affectedNodes.clone();
     }
 
+    /**
+     * Returns the nodes added by the operation.
+     *
+     * @return a defensive copy of the added nodes
+     */
     public EditNode[] getAddedNodes() {
         return addedNodes.clone();
     }
 
+    /**
+     * Returns the nodes removed by the operation.
+     *
+     * @return a defensive copy of the removed nodes
+     */
     public EditNode[] getRemovedNodes() {
         return removedNodes.clone();
     }
 
+    /**
+     * Returns the nodes updated by the operation.
+     *
+     * @return a defensive copy of the updated nodes
+     */
     public EditNode[] getUpdatedNodes() {
         return updatedNodes.clone();
     }
 
+    /**
+     * Returns a compact debug representation of this result.
+     *
+     * @return the formatted debug string
+     */
     @Override
     public String toString() {
         return "CommandResult{"
@@ -70,6 +127,12 @@ public final class CommandResult {
                 + '}';
     }
 
+    /**
+     * Formats the triggering command for debug output.
+     *
+     * @param trigger the command to format
+     * @return the formatted command string
+     */
     private static String formatTrigger(EditCommand trigger) {
         if (trigger == null) {
             return "null";
@@ -77,6 +140,12 @@ public final class CommandResult {
         return trigger.getClass().getSimpleName() + "[" + trigger.toString() + "]";
     }
 
+    /**
+     * Formats a node array for debug output.
+     *
+     * @param nodes the nodes to format
+     * @return the formatted node list
+     */
     private static String formatNodes(EditNode[] nodes) {
         if (nodes == null || nodes.length == 0) {
             return "[]";
@@ -93,6 +162,12 @@ public final class CommandResult {
         return sb.toString();
     }
 
+    /**
+     * Formats a single node for debug output.
+     *
+     * @param node the node to format
+     * @return the formatted node string
+     */
     private static String formatNode(EditNode node) {
         if (node == null) {
             return "null";

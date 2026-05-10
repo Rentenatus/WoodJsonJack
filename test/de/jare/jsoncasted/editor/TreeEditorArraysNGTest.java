@@ -10,15 +10,18 @@ import de.jare.jsoncasted.editor.command.MoveNodeCommand;
 import de.jare.jsoncasted.editor.command.SetValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
+
 import static org.testng.Assert.*;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
- * Tests for array-based command operations. The tests resolve affected nodes
- * from the tree after structural changes instead of relying on original Java
- * object references.
+ * Tests for array-based command operations.
+ *
+ * <p>
+ * The tests resolve affected nodes from the tree after structural changes
+ * instead of relying on original Java object references.</p>
  */
 public class TreeEditorArraysNGTest {
 
@@ -39,9 +42,7 @@ public class TreeEditorArraysNGTest {
 
     @Test
     public void testAddThreeNodes() {
-        System.out.println("===============================================");
-        System.out.println("testAddThreeNodes");
-        System.out.println("===============================================");
+        printTestHeader("testAddThreeNodes");
 
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
@@ -53,36 +54,38 @@ public class TreeEditorArraysNGTest {
         EditNodeObject node3 = new EditNodeObject("arrayNode3");
 
         EditCommandEntry.MovementEntry[] entries = new EditCommandEntry.MovementEntry[]{
-            new EditCommandEntry.MovementEntry(
-            node1.getEditId(), root.getEditId(), -1, node1),
-            new EditCommandEntry.MovementEntry(
-            node2.getEditId(), root.getEditId(), -1, node2),
-            new EditCommandEntry.MovementEntry(
-            node3.getEditId(), root.getEditId(), -1, node3)
+            new EditCommandEntry.MovementEntry(node1.getEditId(), root.getEditId(), -1, node1),
+            new EditCommandEntry.MovementEntry(node2.getEditId(), root.getEditId(), -1, node2),
+            new EditCommandEntry.MovementEntry(node3.getEditId(), root.getEditId(), -1, node3)
         };
 
         CommandResult result = editor.execute(new AddNodeCommand(entries));
+        printCommandResult("addResult", result);
+        printSubtree(editor, "root after add", root);
+
         assertNotNull(result, "AddNodeCommand result should not be null");
         assertEquals(result.getAddedNodes().length, 3, "Three nodes should be reported as added");
 
         assertEquals(root.getChildCount(), 3, "Root should have 3 children");
         assertNodeNames(root, "arrayNode1", "arrayNode2", "arrayNode3");
 
-        editor.undo();
+        CommandResult undoResult = editor.undo();
+        printCommandResult("undoResult", undoResult);
+        printSubtree(editor, "root after undo", root);
         assertEquals(root.getChildCount(), 0, "After undo, root should have 0 children");
 
-        editor.redo();
+        CommandResult redoResult = editor.redo();
+        printCommandResult("redoResult", redoResult);
+        printSubtree(editor, "root after redo", root);
         assertEquals(root.getChildCount(), 3, "After redo, root should have 3 children again");
         assertNodeNames(root, "arrayNode1", "arrayNode2", "arrayNode3");
 
-        System.out.println("===============================================");
+        printTestFooter();
     }
 
     @Test
     public void testDeleteThreeNodes() {
-        System.out.println("===============================================");
-        System.out.println("testDeleteThreeNodes");
-        System.out.println("===============================================");
+        printTestHeader("testDeleteThreeNodes");
 
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
@@ -97,26 +100,31 @@ public class TreeEditorArraysNGTest {
         EditNode n3 = root.getChildAt(2);
 
         editor.clearHistory();
+        printSubtree(editor, "root before delete", root);
 
         CommandResult deleteResult = editor.execute(new DeleteNodeCommand(new EditNode[]{n1, n2, n3}));
+        printCommandResult("deleteResult", deleteResult);
+        printSubtree(editor, "root after delete", root);
+
         assertNotNull(deleteResult, "Delete result should not be null");
         assertEquals(deleteResult.getRemovedNodes().length, 3, "Three nodes should be reported as removed");
 
         assertEquals(root.getChildCount(), 0, "All 3 nodes should be deleted");
 
         CommandResult undoResult = editor.undo();
+        printCommandResult("undoResult", undoResult);
+        printSubtree(editor, "root after undo delete", root);
+
         assertNotNull(undoResult, "Undo delete result should not be null");
         assertEquals(root.getChildCount(), 3, "After undo, all 3 nodes should be restored");
         assertNodeNames(root, "deleteNode1", "deleteNode2", "deleteNode3");
 
-        System.out.println("===============================================");
+        printTestFooter();
     }
 
     @Test
     public void testMoveThreeNodes() {
-        System.out.println("===============================================");
-        System.out.println("testMoveThreeNodes");
-        System.out.println("===============================================");
+        printTestHeader("testMoveThreeNodes");
 
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
@@ -137,12 +145,19 @@ public class TreeEditorArraysNGTest {
 
         editor.clearHistory();
 
+        printEditorState(editor, "before move");
+        printSubtree(editor, "source before move", sourceParent);
+        printSubtree(editor, "target before move", targetParent);
+
         CommandResult moveResult = editor.execute(new MoveNodeCommand(
                 new EditNode[]{node1, node2, node3},
                 targetParent.getEditId(),
                 0
         ));
-        System.out.println("moveResult: " + moveResult);
+        printCommandResult("moveResult", moveResult);
+        printSubtree(editor, "source after move", sourceParent);
+        printSubtree(editor, "target after move", targetParent);
+
         assertNotNull(moveResult, "Move result should not be null");
         assertEquals(moveResult.getAffectedNodes().length, 3, "Three nodes should be reported as moved");
 
@@ -151,19 +166,20 @@ public class TreeEditorArraysNGTest {
         assertNodeNames(targetParent, "moveNode1", "moveNode2", "moveNode3");
 
         CommandResult undoResult = editor.undo();
-        System.out.println("undoResult: " + undoResult);
+        printCommandResult("undoResult", undoResult);
+        printSubtree(editor, "source after undo", sourceParent);
+        printSubtree(editor, "target after undo", targetParent);
+
         assertEquals(sourceParent.getChildCount(), 3, "After undo, source should have 3 nodes");
         assertEquals(targetParent.getChildCount(), 0, "After undo, target should be empty");
         assertNodeNames(sourceParent, "moveNode1", "moveNode2", "moveNode3");
 
-        System.out.println("===============================================");
+        printTestFooter();
     }
 
     @Test
     public void testMoveThreeNodesAtIndex() {
-        System.out.println("===============================================");
-        System.out.println("testMoveThreeNodesAtIndex");
-        System.out.println("===============================================");
+        printTestHeader("testMoveThreeNodesAtIndex");
 
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
@@ -187,23 +203,27 @@ public class TreeEditorArraysNGTest {
 
         editor.clearHistory();
 
-        editor.execute(new MoveNodeCommand(
+        printSubtree(editor, "source before indexed move", sourceParent);
+        printSubtree(editor, "target before indexed move", targetParent);
+
+        CommandResult moveResult = editor.execute(new MoveNodeCommand(
                 new EditNode[]{node1, node2, node3},
                 targetParent.getEditId(),
                 1
         ));
+        printCommandResult("moveResult", moveResult);
+        printSubtree(editor, "source after indexed move", sourceParent);
+        printSubtree(editor, "target after indexed move", targetParent);
 
         assertEquals(targetParent.getChildCount(), 5, "Target should have 5 nodes");
         assertNodeNames(targetParent, "existing1", "moveNode1", "moveNode2", "moveNode3", "existing2");
 
-        System.out.println("===============================================");
+        printTestFooter();
     }
 
     @Test
     public void testSetValueThreeNodes() {
-        System.out.println("===============================================");
-        System.out.println("testSetValueThreeNodes");
-        System.out.println("===============================================");
+        printTestHeader("testSetValueThreeNodes");
 
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
@@ -223,6 +243,9 @@ public class TreeEditorArraysNGTest {
                 new EditNode[]{node1, node2, node3},
                 newValues
         ));
+        printCommandResult("setResult", setResult);
+        printSubtree(editor, "root after set value", root);
+
         assertNotNull(setResult, "SetValue result should not be null");
         assertEquals(setResult.getUpdatedNodes().length, 3, "Three nodes should be reported as updated");
 
@@ -230,24 +253,28 @@ public class TreeEditorArraysNGTest {
         assertEquals(root.getChildAt(1).getEditText(), "newValue2");
         assertEquals(root.getChildAt(2).getEditText(), "newValue3");
 
-        editor.undo();
+        CommandResult undoResult = editor.undo();
+        printCommandResult("undoResult", undoResult);
+        printSubtree(editor, "root after undo set value", root);
+
         assertNull(root.getChildAt(0).getEditText(), "After undo, node1 should have null text");
         assertNull(root.getChildAt(1).getEditText(), "After undo, node2 should have null text");
         assertNull(root.getChildAt(2).getEditText(), "After undo, node3 should have null text");
 
-        editor.redo();
+        CommandResult redoResult = editor.redo();
+        printCommandResult("redoResult", redoResult);
+        printSubtree(editor, "root after redo set value", root);
+
         assertEquals(root.getChildAt(0).getEditText(), "newValue1");
         assertEquals(root.getChildAt(1).getEditText(), "newValue2");
         assertEquals(root.getChildAt(2).getEditText(), "newValue3");
 
-        System.out.println("===============================================");
+        printTestFooter();
     }
 
     @Test
     public void testArrayCommandsUndoRedo() {
-        System.out.println("===============================================");
-        System.out.println("testArrayCommandsUndoRedo");
-        System.out.println("===============================================");
+        printTestHeader("testArrayCommandsUndoRedo");
 
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
@@ -256,13 +283,16 @@ public class TreeEditorArraysNGTest {
         EditNodeObject n2 = new EditNodeObject("test2");
         EditNodeObject n3 = new EditNodeObject("test3");
 
-        editor.execute(new AddNodeCommand(
+        CommandResult addResult = editor.execute(new AddNodeCommand(
                 new EditCommandEntry.MovementEntry[]{
                     new EditCommandEntry.MovementEntry(n1.getEditId(), root.getEditId(), -1, n1),
                     new EditCommandEntry.MovementEntry(n2.getEditId(), root.getEditId(), -1, n2),
                     new EditCommandEntry.MovementEntry(n3.getEditId(), root.getEditId(), -1, n3)
                 }
         ));
+        printCommandResult("addResult", addResult);
+        printSubtree(editor, "root after add", root);
+
         assertEquals(root.getChildCount(), 3);
         assertNodeNames(root, "test1", "test2", "test3");
 
@@ -270,49 +300,73 @@ public class TreeEditorArraysNGTest {
         EditNode node2 = root.getChildAt(1);
         EditNode node3 = root.getChildAt(2);
 
-        editor.execute(new SetValueCommand(
+        CommandResult setResult = editor.execute(new SetValueCommand(
                 new EditNode[]{node1, node2, node3},
                 new String[]{"val1", "val2", "val3"}
         ));
+        printCommandResult("setResult", setResult);
+        printSubtree(editor, "root after set value", root);
+
         assertEquals(root.getChildAt(0).getEditText(), "val1");
         assertEquals(root.getChildAt(1).getEditText(), "val2");
         assertEquals(root.getChildAt(2).getEditText(), "val3");
 
-        editor.execute(new DeleteNodeCommand(new EditNode[]{
+        CommandResult deleteResult = editor.execute(new DeleteNodeCommand(new EditNode[]{
             root.getChildAt(0),
             root.getChildAt(1),
             root.getChildAt(2)
         }));
+        printCommandResult("deleteResult", deleteResult);
+        printSubtree(editor, "root after delete", root);
+
         assertEquals(root.getChildCount(), 0);
 
-        editor.undo();
+        CommandResult undoDelete = editor.undo();
+        printCommandResult("undoDelete", undoDelete);
+        printSubtree(editor, "root after undo delete", root);
+
         assertEquals(root.getChildCount(), 3);
         assertNodeNames(root, "test1", "test2", "test3");
         assertEquals(root.getChildAt(0).getEditText(), "val1");
         assertEquals(root.getChildAt(1).getEditText(), "val2");
         assertEquals(root.getChildAt(2).getEditText(), "val3");
 
-        editor.undo();
+        CommandResult undoSet = editor.undo();
+        printCommandResult("undoSet", undoSet);
+        printSubtree(editor, "root after undo set value", root);
+
         assertNull(root.getChildAt(0).getEditText());
         assertNull(root.getChildAt(1).getEditText());
         assertNull(root.getChildAt(2).getEditText());
 
-        editor.undo();
+        CommandResult undoAdd = editor.undo();
+        printCommandResult("undoAdd", undoAdd);
+        printSubtree(editor, "root after undo add", root);
+
         assertEquals(root.getChildCount(), 0);
 
-        editor.redo();
+        CommandResult redoAdd = editor.redo();
+        printCommandResult("redoAdd", redoAdd);
+        printSubtree(editor, "root after redo add", root);
+
         assertEquals(root.getChildCount(), 3);
         assertNodeNames(root, "test1", "test2", "test3");
 
-        editor.redo();
+        CommandResult redoSet = editor.redo();
+        printCommandResult("redoSet", redoSet);
+        printSubtree(editor, "root after redo set value", root);
+
         assertEquals(root.getChildAt(0).getEditText(), "val1");
         assertEquals(root.getChildAt(1).getEditText(), "val2");
         assertEquals(root.getChildAt(2).getEditText(), "val3");
 
-        editor.redo();
+        CommandResult redoDelete = editor.redo();
+        printCommandResult("redoDelete", redoDelete);
+        printSubtree(editor, "root after redo delete", root);
+
         assertEquals(root.getChildCount(), 0);
 
-        System.out.println("===============================================");
+        printTestFooter();
     }
 
     private static void assertNodeNames(EditNode parent, String... expectedNames) {
@@ -324,5 +378,29 @@ public class TreeEditorArraysNGTest {
                     "Unexpected node name at index " + i
             );
         }
+    }
+
+    private static void printTestHeader(String testName) {
+        System.out.println("===============================================");
+        System.out.println(testName);
+        System.out.println("===============================================");
+    }
+
+    private static void printTestFooter() {
+        System.out.println("===============================================");
+    }
+
+    private static void printCommandResult(String label, CommandResult result) {
+        System.out.println(label + ": " + result);
+    }
+
+    private static void printEditorState(TreeEditor editor, String label) {
+        System.out.println(label + ": " + editor.toDebugString());
+        System.out.println(editor.toHistoryString());
+    }
+
+    private static void printSubtree(TreeEditor editor, String label, EditNode node) {
+        System.out.println(label + ":");
+        System.out.println(editor.toTreeString(node));
     }
 }

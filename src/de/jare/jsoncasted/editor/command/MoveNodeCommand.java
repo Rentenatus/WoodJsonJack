@@ -1,8 +1,8 @@
 /*
-* Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v2.0 which
-* accompanies this distribution, and is available at
-* http://www.eclipse.org/legal/epl-v20.html
+ * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0 which
+ * accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
  */
 package de.jare.jsoncasted.editor.command;
 
@@ -13,6 +13,19 @@ import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 
+/**
+ * Command that moves one or more nodes to new parent/index positions.
+ *
+ * <p>
+ * The command stores both source and target positions explicitly. For
+ * multi-node moves, nodes are normalized by source parent and source index to
+ * ensure a stable processing order.</p>
+ *
+ * <p>
+ * Single-node moves support index adjustment when reordering inside the same
+ * parent. Multi-node moves use the stored target indices as absolute positions
+ * and therefore do not apply same-parent correction logic.</p>
+ */
 public class MoveNodeCommand extends AbstractEditCommand {
 
     private final EditCommandEntry.MovementEntry[] oldEntries;
@@ -20,11 +33,22 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
     /**
      * Creates a command to move a single node to a new parent and index.
+     *
+     * @param node the node to move
+     * @param newParentId the target parent ID
+     * @param newIndex the target index, or {@code -1} to append
      */
     public MoveNodeCommand(EditNode node, long newParentId, int newIndex) {
         super(CommandType.MOVE_NODE);
+
         if (node == null) {
             throw new IllegalArgumentException("Node cannot be null");
+        }
+        if (newParentId < 0) {
+            throw new IllegalArgumentException("New parentId cannot be negative");
+        }
+        if (newIndex < -1) {
+            throw new IllegalArgumentException("New index cannot be < -1");
         }
 
         EditNode parent = node.getParent();
@@ -33,12 +57,6 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
         if (oldParentId < 0 || oldIndex < 0) {
             throw new IllegalArgumentException("Node must have a valid parent and index");
-        }
-        if (newParentId < 0) {
-            throw new IllegalArgumentException("New parentId cannot be negative");
-        }
-        if (newIndex < -1) {
-            throw new IllegalArgumentException("New index cannot be < -1");
         }
 
         this.oldEntries = new EditCommandEntry.MovementEntry[]{
@@ -52,21 +70,28 @@ public class MoveNodeCommand extends AbstractEditCommand {
     }
 
     /**
-     * Creates a command to move a single node to a new index within the same
+     * Creates a command to move a single node to a new index within its current
      * parent.
+     *
+     * @param node the node to move
+     * @param newIndex the target index, or {@code -1} to append
      */
     public MoveNodeCommand(EditNode node, int newIndex) {
         this(node, requireParentId(node), newIndex);
     }
 
     /**
-     * Creates a command to move multiple nodes to the same target parent at
-     * starting index. Nodes will be placed sequentially starting at newIndex,
-     * preserving their order.
+     * Creates a command to move multiple nodes to the same target parent,
+     * starting at the given index.
+     *
+     * <p>
+     * If {@code newIndex >= 0}, nodes are assigned consecutive target indices
+     * starting at that position. If {@code newIndex == -1}, all nodes are
+     * appended in normalized order.</p>
      *
      * @param nodes the nodes to move
-     * @param newParentId the target parent ID for all nodes
-     * @param newIndex the starting index at the target parent, -1 = append
+     * @param newParentId the target parent ID
+     * @param newIndex the starting target index, or {@code -1} to append
      */
     public MoveNodeCommand(EditNode[] nodes, long newParentId, int newIndex) {
         super(CommandType.MOVE_NODE);
@@ -84,17 +109,15 @@ public class MoveNodeCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("New index cannot be < -1");
         }
 
-        // Normalisieren: nach Parent-ID und aktuellem Index sortieren,
-        // damit Multi-Moves eine stabile Reihenfolge haben
         EditNode[] sortedNodes = Arrays.copyOf(nodes, nodes.length);
         Arrays.sort(sortedNodes, Comparator
                 .comparingLong((EditNode n) -> {
-                    EditNode p = n.getParent();
-                    return p != null ? p.getEditId() : -1L;
+                    EditNode parent = n.getParent();
+                    return parent != null ? parent.getEditId() : -1L;
                 })
                 .thenComparingInt(n -> {
-                    EditNode p = n.getParent();
-                    return p != null ? p.getChildIndex(n) : -1;
+                    EditNode parent = n.getParent();
+                    return parent != null ? parent.getChildIndex(n) : -1;
                 }));
 
         this.oldEntries = new EditCommandEntry.MovementEntry[sortedNodes.length];
@@ -111,7 +134,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
             int oldIndex = parent != null ? parent.getChildIndex(node) : -1;
 
             if (oldParentId < 0 || oldIndex < 0) {
-                throw new IllegalArgumentException("Node at index " + i + " must have a valid parent and index");
+                throw new IllegalArgumentException(
+                        "Node at index " + i + " must have a valid parent and index");
             }
 
             this.oldEntries[i] = new EditCommandEntry.MovementEntry(
@@ -138,10 +162,10 @@ public class MoveNodeCommand extends AbstractEditCommand {
     }
 
     /**
-     * Creates a move command from entries arrays.
+     * Creates a move command from explicit source and target entries.
      *
-     * @param oldEntries array of old entries (source positions)
-     * @param newEntries array of new entries (target positions)
+     * @param oldEntries source positions
+     * @param newEntries target positions
      */
     public MoveNodeCommand(EditCommandEntry.MovementEntry[] oldEntries,
             EditCommandEntry.MovementEntry[] newEntries) {
@@ -167,6 +191,12 @@ public class MoveNodeCommand extends AbstractEditCommand {
         }
     }
 
+    /**
+     * Executes the move operation.
+     *
+     * @param tree the target tree
+     * @return the command result
+     */
     @Override
     public CommandResult execute(EditTree tree) {
         if (tree == null) {
@@ -185,13 +215,23 @@ public class MoveNodeCommand extends AbstractEditCommand {
         );
     }
 
+    /**
+     * Undoes the move operation.
+     *
+     * <p>
+     * Undo uses the stored original indices as absolute target positions.
+     * Therefore, multi-node undo is processed in forward order.</p>
+     *
+     * @param tree the target tree
+     * @return the command result
+     */
     @Override
     public CommandResult undo(EditTree tree) {
         if (tree == null) {
             throw new IllegalArgumentException("Tree cannot be null");
         }
 
-        EditNode[] moved = moveAll(tree, newEntries, oldEntries, true);
+        EditNode[] moved = moveAll(tree, newEntries, oldEntries, false);
 
         return new CommandResult(
                 this,
@@ -203,6 +243,15 @@ public class MoveNodeCommand extends AbstractEditCommand {
         );
     }
 
+    /**
+     * Moves all nodes from the given source entries to the target entries.
+     *
+     * @param tree the target tree
+     * @param fromEntries source entries
+     * @param toEntries target entries
+     * @param reverse whether to process entries in reverse order
+     * @return the moved nodes
+     */
     private EditNode[] moveAll(
             EditTree tree,
             EditCommandEntry.MovementEntry[] fromEntries,
@@ -215,6 +264,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
         int start = reverse ? length - 1 : 0;
         int end = reverse ? -1 : length;
         int step = reverse ? -1 : 1;
+        boolean singleMove = length == 1;
 
         for (int i = start; i != end; i += step) {
             EditCommandEntry.MovementEntry from = fromEntries[i];
@@ -222,16 +272,20 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
             EditNode node = tree.findNodeById(from.nodeId);
             if (node == null) {
-                throw new IllegalStateException("Cannot move node with id " + from.nodeId + ": node not found");
+                throw new IllegalStateException(
+                        "Cannot move node with id " + from.nodeId + ": node not found");
             }
 
-            int effectiveTargetIndex = resolveEffectiveTargetIndex(
-                    tree,
-                    node,
-                    from.parentEditId, // statische Quelle
-                    to.parentEditId,
-                    to.index
-            );
+            int effectiveTargetIndex = singleMove
+                    ? resolveEffectiveTargetIndex(
+                            tree,
+                            node,
+                            from.parentEditId,
+                            to.parentEditId,
+                            to.index
+                    )
+                    : clampTargetIndex(tree, to.parentEditId, to.index);
+
             tree.moveNode(node.getEditId(), to.parentEditId, effectiveTargetIndex);
             moved[i] = node;
         }
@@ -240,12 +294,42 @@ public class MoveNodeCommand extends AbstractEditCommand {
     }
 
     /**
-     * Resolves the effective target index against the current tree state.
+     * Clamps a requested index into the valid range of the current target
+     * parent.
      *
-     * Rules: - target index < 0 => append - different target parent => use
-     * clamped target index - same parent (based on original parent): if node
-     * originally lay before the requested target index, decrement by one
-     * because removing the node shifts the list left
+     * @param tree the target tree
+     * @param targetParentId the target parent ID
+     * @param requestedIndex the requested index
+     * @return the clamped index, or {@code -1} for append
+     */
+    private int clampTargetIndex(EditTree tree, long targetParentId, int requestedIndex) {
+        if (requestedIndex < 0) {
+            return -1;
+        }
+
+        EditNode targetParent = tree.findNodeById(targetParentId);
+        if (targetParent == null) {
+            return requestedIndex;
+        }
+
+        int childCount = targetParent.getChildCount();
+        return Math.max(0, Math.min(requestedIndex, childCount));
+    }
+
+    /**
+     * Resolves the effective target index for a single-node move.
+     *
+     * <p>
+     * If the node is moved within the same parent and currently lies before the
+     * requested target index, the index is decremented to account for the
+     * removal shift.</p>
+     *
+     * @param tree the target tree
+     * @param node the node being moved
+     * @param fromParentId the original parent ID
+     * @param targetParentId the target parent ID
+     * @param requestedIndex the requested target index
+     * @return the effective target index
      */
     private int resolveEffectiveTargetIndex(
             EditTree tree,
@@ -266,11 +350,10 @@ public class MoveNodeCommand extends AbstractEditCommand {
         int childCount = targetParent.getChildCount();
         int clampedIndex = Math.max(0, Math.min(requestedIndex, childCount));
 
-        // Nur dann korrigieren, wenn Quelle und Ziel *ursprünglich* identisch waren
         if (fromParentId == targetParentId) {
-            EditNode originalParent = tree.findNodeById(fromParentId);
-            if (originalParent != null) {
-                int currentIndex = originalParent.getChildIndex(node);
+            EditNode currentParent = node.getParent();
+            if (currentParent != null && currentParent.getEditId() == fromParentId) {
+                int currentIndex = currentParent.getChildIndex(node);
                 if (currentIndex >= 0 && currentIndex < clampedIndex) {
                     clampedIndex--;
                 }
@@ -280,38 +363,84 @@ public class MoveNodeCommand extends AbstractEditCommand {
         return clampedIndex;
     }
 
+    /**
+     * Returns the stored source entries.
+     *
+     * @return a defensive copy of the source entries
+     */
     public EditCommandEntry.MovementEntry[] getOldEntries() {
         return Arrays.copyOf(oldEntries, oldEntries.length);
     }
 
+    /**
+     * Returns the stored target entries.
+     *
+     * @return a defensive copy of the target entries
+     */
     public EditCommandEntry.MovementEntry[] getNewEntries() {
         return Arrays.copyOf(newEntries, newEntries.length);
     }
 
+    /**
+     * Returns the first source entry.
+     *
+     * @return the first source entry
+     */
     public EditCommandEntry.MovementEntry getOldEntry() {
         return oldEntries[0];
     }
 
+    /**
+     * Returns the first target entry.
+     *
+     * @return the first target entry
+     */
     public EditCommandEntry.MovementEntry getNewEntry() {
         return newEntries[0];
     }
 
+    /**
+     * Returns the source parent ID of the first entry.
+     *
+     * @return the source parent ID
+     */
     public long getOldParentId() {
         return oldEntries[0].parentEditId;
     }
 
+    /**
+     * Returns the source index of the first entry.
+     *
+     * @return the source index
+     */
     public int getOldIndex() {
         return oldEntries[0].index;
     }
 
+    /**
+     * Returns the target parent ID of the first entry.
+     *
+     * @return the target parent ID
+     */
     public long getNewParentId() {
         return newEntries[0].parentEditId;
     }
 
+    /**
+     * Returns the target index of the first entry.
+     *
+     * @return the target index
+     */
     public int getNewIndex() {
         return newEntries[0].index;
     }
 
+    /**
+     * Returns the parent ID of the given node.
+     *
+     * @param node the node to inspect
+     * @return the parent ID
+     */
     private static long requireParentId(EditNode node) {
         if (node == null || node.getParent() == null) {
             throw new IllegalArgumentException("Node must have a parent");
@@ -319,6 +448,13 @@ public class MoveNodeCommand extends AbstractEditCommand {
         return node.getParent().getEditId();
     }
 
+    /**
+     * Copies and validates movement entries.
+     *
+     * @param entries the entries to copy
+     * @param requireSourceIndex whether the index must be non-negative
+     * @return the validated copy
+     */
     private static EditCommandEntry.MovementEntry[] copyAndValidate(
             EditCommandEntry.MovementEntry[] entries,
             boolean requireSourceIndex) {
@@ -338,11 +474,13 @@ public class MoveNodeCommand extends AbstractEditCommand {
             }
             if (requireSourceIndex) {
                 if (entry.index < 0) {
-                    throw new IllegalArgumentException("Source entry index at index " + i + " is invalid");
+                    throw new IllegalArgumentException(
+                            "Source entry index at index " + i + " is invalid");
                 }
             } else {
                 if (entry.index < -1) {
-                    throw new IllegalArgumentException("Target entry index at index " + i + " is invalid");
+                    throw new IllegalArgumentException(
+                            "Target entry index at index " + i + " is invalid");
                 }
             }
 
