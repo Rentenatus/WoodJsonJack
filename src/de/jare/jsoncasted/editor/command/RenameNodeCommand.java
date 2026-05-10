@@ -11,72 +11,77 @@ import java.util.Arrays;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 
-public class SetValueCommand extends AbstractEditCommand {
+public class RenameNodeCommand extends AbstractEditCommand {
 
-    private final EditCommandEntry.ValueEntry[] entries;
+    private final RenameEntry[] entries;
 
     /**
-     * Creates a command to set the value of a single node.
+     * Creates a command to rename a single node.
+     *
+     * @param node the node to rename
+     * @param newName the new name
      */
-    public SetValueCommand(EditNode node, String newValue) {
-        super(CommandType.SET_VALUE);
+    public RenameNodeCommand(EditNode node, String newName) {
+        super(CommandType.RENAME_NODE);
         if (node == null) {
             throw new IllegalArgumentException("Node cannot be null");
         }
-        String oldValue = node.getEditText();
-        this.entries = new EditCommandEntry.ValueEntry[]{
-            new EditCommandEntry.ValueEntry(node.getEditId(), oldValue, newValue)
+
+        String oldName = node.getName();
+        this.entries = new RenameEntry[]{
+            new RenameEntry(node.getEditId(), oldName, newName)
         };
-        setDescription("Set value: " + valueText(oldValue) + " -> " + valueText(newValue));
+
+        setDescription("Rename node: " + text(oldName) + " -> " + text(newName));
     }
 
     /**
-     * Creates a command to set values for multiple nodes.
+     * Creates a command to rename multiple nodes.
      *
-     * @param nodes the nodes to update
-     * @param newValues the new values for each node
+     * @param nodes the nodes to rename
+     * @param newNames the new names
      */
-    public SetValueCommand(EditNode[] nodes, String[] newValues) {
-        super(CommandType.SET_VALUE);
-        if (nodes == null || newValues == null) {
+    public RenameNodeCommand(EditNode[] nodes, String[] newNames) {
+        super(CommandType.RENAME_NODE);
+        if (nodes == null || newNames == null) {
             throw new IllegalArgumentException("Arguments cannot be null");
         }
-        if (nodes.length != newValues.length) {
+        if (nodes.length != newNames.length) {
             throw new IllegalArgumentException("Arrays must have the same length");
         }
         if (nodes.length == 0) {
             throw new IllegalArgumentException("Arrays cannot be empty");
         }
 
-        this.entries = new EditCommandEntry.ValueEntry[nodes.length];
+        this.entries = new RenameEntry[nodes.length];
 
         for (int i = 0; i < nodes.length; i++) {
             EditNode node = nodes[i];
             if (node == null) {
                 throw new IllegalArgumentException("Node at index " + i + " cannot be null");
             }
-            String oldValue = node.getEditText();
-            this.entries[i] = new EditCommandEntry.ValueEntry(
+
+            this.entries[i] = new RenameEntry(
                     node.getEditId(),
-                    oldValue,
-                    newValues[i]
+                    node.getName(),
+                    newNames[i]
             );
         }
 
         if (nodes.length == 1) {
-            setDescription("Set value: " + valueText(entries[0].oldValue) + " -> " + valueText(entries[0].newValue));
+            setDescription("Rename node: " + text(entries[0].oldName) + " -> " + text(entries[0].newName));
         } else {
-            setDescription("Set values for " + nodes.length + " nodes");
+            setDescription("Rename " + nodes.length + " nodes");
         }
     }
 
     /**
-     * Creates a command from value entries array.
+     * Creates a command from rename entries.
      *
-     * @param entries array of value entries
+     * @param entries the rename entries
      */
-    public SetValueCommand(EditCommandEntry.ValueEntry[] entries) {
-        super(CommandType.SET_VALUE);
+    public RenameNodeCommand(RenameEntry[] entries) {
+        super(CommandType.RENAME_NODE);
         if (entries == null || entries.length == 0) {
             throw new IllegalArgumentException("Entries cannot be null or empty");
         }
@@ -84,9 +89,9 @@ public class SetValueCommand extends AbstractEditCommand {
         this.entries = copyAndValidate(entries);
 
         if (this.entries.length == 1) {
-            setDescription("Set value: " + valueText(this.entries[0].oldValue) + " -> " + valueText(this.entries[0].newValue));
+            setDescription("Rename node: " + text(this.entries[0].oldName) + " -> " + text(this.entries[0].newName));
         } else {
-            setDescription("Set values for " + this.entries.length + " nodes");
+            setDescription("Rename " + this.entries.length + " nodes");
         }
     }
 
@@ -99,15 +104,14 @@ public class SetValueCommand extends AbstractEditCommand {
         EditNode[] updated = new EditNode[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
-            EditCommandEntry.ValueEntry entry = entries[i];
+            RenameEntry entry = entries[i];
             EditNode node = tree.findNodeById(entry.nodeId);
             if (node == null) {
                 throw new IllegalStateException(
-                        "Cannot set value: node with id " + entry.nodeId + " not found");
+                        "Cannot rename node: node with id " + entry.nodeId + " not found");
             }
 
-            String newValue = entry.newValue;
-            node.setEditText(newValue != null ? newValue : "");
+            node.setName(entry.newName);
             updated[i] = node;
         }
 
@@ -130,15 +134,14 @@ public class SetValueCommand extends AbstractEditCommand {
         EditNode[] updated = new EditNode[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
-            EditCommandEntry.ValueEntry entry = entries[i];
+            RenameEntry entry = entries[i];
             EditNode node = tree.findNodeById(entry.nodeId);
             if (node == null) {
                 throw new IllegalStateException(
-                        "Cannot undo set value: node with id " + entry.nodeId + " not found");
+                        "Cannot undo rename: node with id " + entry.nodeId + " not found");
             }
 
-            String oldValue = entry.oldValue;
-            node.setEditText(oldValue != null ? oldValue : "");
+            node.setName(entry.oldName);
             updated[i] = node;
         }
 
@@ -152,7 +155,7 @@ public class SetValueCommand extends AbstractEditCommand {
         );
     }
 
-    public EditCommandEntry.ValueEntry[] getEntries() {
+    public RenameEntry[] getEntries() {
         return Arrays.copyOf(entries, entries.length);
     }
 
@@ -164,18 +167,18 @@ public class SetValueCommand extends AbstractEditCommand {
         return ids;
     }
 
-    public String[] getOldValues() {
+    public String[] getOldNames() {
         String[] values = new String[entries.length];
         for (int i = 0; i < entries.length; i++) {
-            values[i] = entries[i].oldValue;
+            values[i] = entries[i].oldName;
         }
         return values;
     }
 
-    public String[] getNewValues() {
+    public String[] getNewNames() {
         String[] values = new String[entries.length];
         for (int i = 0; i < entries.length; i++) {
-            values[i] = entries[i].newValue;
+            values[i] = entries[i].newName;
         }
         return values;
     }
@@ -184,19 +187,19 @@ public class SetValueCommand extends AbstractEditCommand {
         return entries[0].nodeId;
     }
 
-    public String getOldValue() {
-        return entries[0].oldValue;
+    public String getOldName() {
+        return entries[0].oldName;
     }
 
-    public String getNewValue() {
-        return entries[0].newValue;
+    public String getNewName() {
+        return entries[0].newName;
     }
 
-    private static EditCommandEntry.ValueEntry[] copyAndValidate(EditCommandEntry.ValueEntry[] entries) {
-        EditCommandEntry.ValueEntry[] copy = new EditCommandEntry.ValueEntry[entries.length];
+    private static RenameEntry[] copyAndValidate(RenameEntry[] entries) {
+        RenameEntry[] copy = new RenameEntry[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
-            EditCommandEntry.ValueEntry entry = entries[i];
+            RenameEntry entry = entries[i];
             if (entry == null) {
                 throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
             }
@@ -204,17 +207,30 @@ public class SetValueCommand extends AbstractEditCommand {
                 throw new IllegalArgumentException("Entry nodeId at index " + i + " is invalid");
             }
 
-            copy[i] = new EditCommandEntry.ValueEntry(
+            copy[i] = new RenameEntry(
                     entry.nodeId,
-                    entry.oldValue,
-                    entry.newValue
+                    entry.oldName,
+                    entry.newName
             );
         }
 
         return copy;
     }
 
-    private static String valueText(String value) {
+    private static String text(String value) {
         return value != null ? value : "null";
+    }
+
+    public static final class RenameEntry {
+
+        public final long nodeId;
+        public final String oldName;
+        public final String newName;
+
+        public RenameEntry(long nodeId, String oldName, String newName) {
+            this.nodeId = nodeId;
+            this.oldName = oldName;
+            this.newName = newName;
+        }
     }
 }

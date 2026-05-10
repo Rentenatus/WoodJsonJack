@@ -6,30 +6,32 @@
  */
 package de.jare.jsoncasted.editor.history;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+import de.jare.jsoncasted.editor.command.CommandAction;
+import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.events.EventBus;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-
 /**
- * Manages the undo and redo history for the editor. 
- * Keeps track of executed commands and allows undoing and redoing changes. 
+ * Manages the undo and redo history for the editor. Keeps track of executed
+ * commands and allows undoing and redoing changes.
  */
 public class HistoryManager {
 
     private final EditTree tree;
-    private final EventBus eventBus; 
-    
+    private final EventBus eventBus;
+
     private final Deque<EditCommand> undoStack = new ArrayDeque<>();
-    private final Deque<EditCommand> redoStack = new ArrayDeque<>(); 
-    
+    private final Deque<EditCommand> redoStack = new ArrayDeque<>();
+
     private int limit = 100;
 
     /**
-     * Creates a new HistoryManager for the specified tree. 
-     * 
+     * Creates a new HistoryManager for the specified tree.
+     *
      * @param tree the edit tree this manager operates on
      */
     public HistoryManager(EditTree tree) {
@@ -37,8 +39,8 @@ public class HistoryManager {
     }
 
     /**
-     * Creates a new HistoryManager with an event bus. 
-     * 
+     * Creates a new HistoryManager with an event bus.
+     *
      * @param tree the edit tree this manager operates on
      * @param eventBus the event bus for firing history events
      */
@@ -51,102 +53,85 @@ public class HistoryManager {
     }
 
     /**
-     * Executes the given command and adds it to the undo history. 
-     * The redo history is cleared when a new command is executed. 
-     * 
+     * Executes the given command and adds it to the undo history. The redo
+     * history is cleared when a new command is executed.
+     *
      * @param command the command to execute
+     * @return the command result, or null if command is null
      */
-    public void execute(EditCommand command) {
+    public CommandResult execute(EditCommand command) {
         if (command == null) {
-            return;
+            return null;
         }
 
-        // Execute the command
-        command.execute(tree);
+        CommandResult result = command.execute(tree);
 
-        // Add to undo stack
         undoStack.push(command);
-        
-        // Clear redo stack
         redoStack.clear();
-
-        // Trim to limit
         trimToLimit();
 
-        // Fire event
-        if (eventBus != null) {
-            eventBus.fireEvent(new HistoryEvent(
-                this,
+        fireHistoryEvent(
                 HistoryEvent.ChangeType.EXECUTED,
                 command,
-                undoStack.size(),
-                redoStack.size()
-            ));
-        }
+                result
+        );
+
+        return result;
     }
 
     /**
-     * Undoes the last executed command. 
-     * The undone command is moved to the redo stack. 
-     * 
-     * @return the undone command, or null if nothing to undo
+     * Undoes the last executed command. The undone command is moved to the redo
+     * stack.
+     *
+     * @return the undo result, or null if nothing to undo
      */
-    public EditCommand undo() {
+    public CommandResult undo() {
         if (!canUndo()) {
             return null;
         }
 
         EditCommand command = undoStack.pop();
-        command.undo(tree);
+        CommandResult result = command.undo(tree);
         redoStack.push(command);
 
-        // Fire event
-        if (eventBus != null) {
-            eventBus.fireEvent(new HistoryEvent(
-                this,
+        fireHistoryEvent(
                 HistoryEvent.ChangeType.UNDONE,
                 command,
-                undoStack.size(),
-                redoStack.size()
-            ));
-        }
+                result
+        );
 
-        return command;
+        return result;
     }
 
     /**
-     * Redoes the last undone command. 
-     * The redone command is moved back to the undo stack. 
-     * 
-     * @return the redone command, or null if nothing to redo
+     * Redoes the last undone command. The redone command is moved back to the
+     * undo stack.
+     *
+     * @return the redo result, or null if nothing to redo
      */
-    public EditCommand redo() {
+    public CommandResult redo() {
         if (!canRedo()) {
             return null;
         }
 
         EditCommand command = redoStack.pop();
-        command.execute(tree);
+        CommandResult executeResult = command.execute(tree);
+        CommandResult redoResult = asAction(executeResult, CommandAction.REDO);
         undoStack.push(command);
 
-        // Fire event
-        if (eventBus != null) {
-            eventBus.fireEvent(new HistoryEvent(
-                this,
+        fireHistoryEvent(
                 HistoryEvent.ChangeType.REDONE,
                 command,
-                undoStack.size(),
-                redoStack.size()
-            ));
-        }
+                redoResult
+        );
 
-        return command;
+        return redoResult;
     }
 
     /**
-     * Skips the last undone command without executing it. 
-     * The skipped command is moved from redo stack to undo stack without execution. 
-     * 
+     * Skips the last undone command without executing it. The skipped command
+     * is moved from redo stack to undo stack without execution.
+     *
      * @return the skipped command, or null if nothing to skip
      */
     public EditCommand skipRedo() {
@@ -157,23 +142,18 @@ public class HistoryManager {
         EditCommand command = redoStack.pop();
         undoStack.push(command);
 
-        // Fire event
-        if (eventBus != null) {
-            eventBus.fireEvent(new HistoryEvent(
-                this,
+        fireHistoryEvent(
                 HistoryEvent.ChangeType.SKIPPED,
                 command,
-                undoStack.size(),
-                redoStack.size()
-            ));
-        }
+                null
+        );
 
         return command;
     }
 
     /**
-     * Returns whether an undo operation is available. 
-     * 
+     * Returns whether an undo operation is available.
+     *
      * @return true if there are commands to undo
      */
     public boolean canUndo() {
@@ -181,8 +161,8 @@ public class HistoryManager {
     }
 
     /**
-     * Returns whether a redo operation is available. 
-     * 
+     * Returns whether a redo operation is available.
+     *
      * @return true if there are commands to redo
      */
     public boolean canRedo() {
@@ -190,28 +170,23 @@ public class HistoryManager {
     }
 
     /**
-     * Clears all undo and redo history. 
+     * Clears all undo and redo history.
      */
     public void clear() {
         undoStack.clear();
         redoStack.clear();
 
-        // Fire event
-        if (eventBus != null) {
-            eventBus.fireEvent(new HistoryEvent(
-                this,
+        fireHistoryEvent(
                 HistoryEvent.ChangeType.CLEARED,
                 null,
-                0,
-                0
-            ));
-        }
+                null
+        );
     }
 
     /**
-     * Sets the maximum number of commands to keep in history. 
-     * Older commands are discarded when the limit is exceeded. 
-     * 
+     * Sets the maximum number of commands to keep in history. Older commands
+     * are discarded when the limit is exceeded.
+     *
      * @param limit the maximum number of commands (must be > 0)
      */
     public void setLimit(int limit) {
@@ -223,8 +198,8 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the current history limit. 
-     * 
+     * Returns the current history limit.
+     *
      * @return the limit
      */
     public int getLimit() {
@@ -232,8 +207,8 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the number of commands in the undo stack. 
-     * 
+     * Returns the number of commands in the undo stack.
+     *
      * @return the undo stack size
      */
     public int getUndoSize() {
@@ -241,8 +216,8 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the number of commands in the redo stack. 
-     * 
+     * Returns the number of commands in the redo stack.
+     *
      * @return the redo stack size
      */
     public int getRedoSize() {
@@ -250,8 +225,8 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the total number of commands in history. 
-     * 
+     * Returns the total number of commands in history.
+     *
      * @return the total size
      */
     public int getTotalSize() {
@@ -259,21 +234,21 @@ public class HistoryManager {
     }
 
     /**
-     * Returns an iterable over the undo stack commands (from most recent to oldest).
+     * Returns an iterable over the undo stack commands.
      */
     public Iterable<EditCommand> getUndoCommands() {
-        return () -> undoStack.descendingIterator();
+        return () -> undoStack.iterator();
     }
 
     /**
-     * Returns an iterable over the redo stack commands (from most recent to oldest).
+     * Returns an iterable over the redo stack commands.
      */
     public Iterable<EditCommand> getRedoCommands() {
-        return () -> redoStack.descendingIterator();
+        return () -> redoStack.iterator();
     }
 
     /**
-     * Trims the undo stack to the configured limit. 
+     * Trims the undo stack to the configured limit.
      */
     private void trimToLimit() {
         while (undoStack.size() > limit) {
@@ -282,18 +257,52 @@ public class HistoryManager {
     }
 
     /**
-     * Returns the event bus used by this manager. 
-     * 
+     * Returns the event bus used by this manager.
+     *
      * @return the event bus, may be null
      */
     public EventBus getEventBus() {
         return eventBus;
     }
 
+    private void fireHistoryEvent(
+            HistoryEvent.ChangeType changeType,
+            EditCommand command,
+            CommandResult result) {
+        if (eventBus != null) {
+            eventBus.fireEvent(new HistoryEvent(
+                    this,
+                    changeType,
+                    command,
+                    result,
+                    undoStack.size(),
+                    redoStack.size()
+            ));
+        }
+    }
+
+    private CommandResult asAction(CommandResult result, CommandAction action) {
+        if (result == null) {
+            return null;
+        }
+        if (result.getAction() == action) {
+            return result;
+        }
+
+        return new CommandResult(
+                result.getTrigger(),
+                action,
+                result.getAffectedNodes(),
+                result.getAddedNodes(),
+                result.getRemovedNodes(),
+                result.getUpdatedNodes()
+        );
+    }
+
     @Override
     public String toString() {
-        return "HistoryManager[undo=" + undoStack.size() + 
-               ", redo=" + redoStack.size() + 
-               ", limit=" + limit + "]";
+        return "HistoryManager[undo=" + undoStack.size()
+                + ", redo=" + redoStack.size()
+                + ", limit=" + limit + "]";
     }
 }

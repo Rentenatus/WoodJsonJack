@@ -1,9 +1,11 @@
-/* 
+/*
+ * Simple integration tests for TreeEditor import/export and history.
  */
 package de.jare.jsoncasted.editor;
 
 import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.editor.command.AddNodeCommand;
+import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
@@ -20,31 +22,14 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-/**
- *
- * @author Administrator
- */
 public class TreeEditorSimpleNGTest {
 
-    public TreeEditorSimpleNGTest() {
-    }
-
-    /**
-     * Sets up the test class. Printed to stdout for test tracking.
-     *
-     * @throws Exception If setup fails. 
-     */
     @BeforeClass
     public static void setUpClass() throws Exception {
         System.out.println("===============================================");
         System.out.println("## Start TreeEditorSimpleNGTest.");
     }
 
-    /**
-     * Tears down the test class. Printed to stdout for test tracking.
-     *
-     * @throws Exception If teardown fails. 
-     */
     @AfterClass
     public static void tearDownClass() throws Exception {
         System.out.println("## End TreeEditorSimpleNGTest.");
@@ -53,18 +38,12 @@ public class TreeEditorSimpleNGTest {
 
     /**
      * Test: Load JsonResource, import to TreeEditor, export back to JsonNode,
-     * and write to string. 
+     * and verify that import/export does not lose the root structure.
      */
     @Test
     public void testImportExport() {
-        System.out.println("===============================================");
-        System.out.println("testImportExport");
-        System.out.println("===============================================");
+        File configFile = new File("assets/config/config1.json");
 
-        File configFile = new File("assets/config/config1.json");    
-        System.out.println("File: " + configFile.getAbsolutePath());
-
-        // Step 1: Load JsonResource
         JsonResource resource = null;
         try {
             resource = JsonParserService.parse(configFile, JsonDebugLevel.INFO);
@@ -76,45 +55,35 @@ public class TreeEditorSimpleNGTest {
         assertNotNull(resource.getRoot(), "JsonResource should have a root node");
 
         JsonNode originalRoot = resource.getRoot();
-        System.out.println("Original JSON:");
-        System.out.println(originalRoot.toString());
 
-        // Step 2: Import to TreeEditor
         TreeEditor editor = TreeEditor.fromJsonResource(resource);
         assertNotNull(editor, "TreeEditor should not be null");
         assertNotNull(editor.getTree(), "Tree should not be null");
         assertNotNull(editor.getTree().getRoot(), "Tree should have a root node");
-        System.out.println("Imported to TreeEditor successfully");
 
-        // Step 3: Export back to JsonNode
         JsonNode exportedNode = editor.exportToJsonNode();
         assertNotNull(exportedNode, "Exported JsonNode should not be null");
-        System.out.println("Exported JSON:");
-        System.out.println(exportedNode.toString());
 
-        // Step 4: Also test export to JsonResource
         JsonResource exportedResource = editor.exportToJsonResource();
         assertNotNull(exportedResource, "Exported JsonResource should not be null");
         assertNotNull(exportedResource.getRoot(), "Exported JsonResource should have a root");
-        System.out.println("Exported to JsonResource successfully");
 
-        System.out.println("===============================================");
+        // Grobe Gleichheit über String-Repräsentation prüfen
+        assertEquals(
+                exportedNode.toString(),
+                originalRoot.toString(),
+                "Import/Export should preserve JSON structure"
+        );
     }
 
     /**
-     * Test roundtrip: import -> export -> import Verify that data can be
-     * imported and exported without loss. 
+     * Test roundtrip: import -> export -> import -> export. Verify that
+     * repeated roundtrips do not change the JSON representation.
      */
     @Test
     public void testRoundtrip() {
-        System.out.println("===============================================");
-        System.out.println("testRoundtrip");
-        System.out.println("===============================================");
-
         File configFile = new File("assets/config/config1.json");
-        System.out.println("File: " + configFile.getAbsolutePath());
 
-        // Load and import
         JsonResource resource = null;
         try {
             resource = JsonParserService.parse(configFile, JsonDebugLevel.INFO);
@@ -124,25 +93,18 @@ public class TreeEditorSimpleNGTest {
         }
 
         TreeEditor editor1 = TreeEditor.fromJsonResource(resource);
-
-        // Export
         JsonNode exported = editor1.exportToJsonNode();
-        System.out.println("Exported JSON:");
-        System.out.println(exported.toString());
+        assertNotNull(exported, "Exported JsonNode should not be null");
 
-        // Re-import
         TreeEditor editor2 = TreeEditor.fromJsonNode(exported);
-        assertNotNull(editor2, "Re-imported TreeEditor should not be null");
-
-        // Export again
         JsonNode reExported = editor2.exportToJsonNode();
         assertNotNull(reExported, "Re-exported JsonNode should not be null");
 
-        // The JSON representations should be equivalent
-        System.out.println("Re-exported JSON:");
-        System.out.println(reExported.toString());
-
-        System.out.println("===============================================");
+        assertEquals(
+                reExported.toString(),
+                exported.toString(),
+                "Roundtrip import/export should be stable"
+        );
     }
 
     /**
@@ -150,14 +112,14 @@ public class TreeEditorSimpleNGTest {
      */
     private String getCommandInfo(EditCommand cmd) {
         String info = cmd.toString();
-        if (cmd instanceof AddNodeCommand) {
-            info += " (editId: " + ((AddNodeCommand) cmd).getEditId() + ")";
+        if (cmd instanceof AddNodeCommand add) {
+            info += " (editId: " + add.getEditId() + ")";
         }
         return info;
     }
 
     /**
-     * Helper method to print history stacks.
+     * Helper method to print history stacks for debugging.
      */
     private void printHistory(TreeEditor editor, String prefix) {
         System.out.println(prefix + "Undo stack:");
@@ -171,78 +133,56 @@ public class TreeEditorSimpleNGTest {
     }
 
     /**
-     * Test: Makes 3 changes, reads history, does undo, reads history again,
-     * does redo, and reads history again to verify state.
+     * Test: Makes 3 changes, verifies history sizes und Baumzustand, does
+     * undo/redo and verifies both again.
      */
     @Test
     public void testUndoRedoHistory() {
-        System.out.println("===============================================");
-        System.out.println("testUndoRedoHistory");
-        System.out.println("===============================================");
-
-        // Create a new editor with a simple root
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
         assertNotNull(root, "Root should not be null");
+        assertEquals(root.getChildCount(), 0, "Initial root should have no children");
 
-        // Step 1: Make 3 changes (add 3 nodes)
         EditNodeObject node1 = new EditNodeObject("node1");
         EditNodeObject node2 = new EditNodeObject("node2");
         EditNodeObject node3 = new EditNodeObject("node3");
 
-        editor.execute(new AddNodeCommand(root.getEditId(), node1));
-        editor.execute(new AddNodeCommand(root.getEditId(), node2));
-        editor.execute(new AddNodeCommand(root.getEditId(), node3));
+        CommandResult r1 = editor.execute(new AddNodeCommand(root.getEditId(), node1));
+        CommandResult r2 = editor.execute(new AddNodeCommand(root.getEditId(), node2));
+        CommandResult r3 = editor.execute(new AddNodeCommand(root.getEditId(), node3));
 
-        // Step 2: Read history - should have 3 undo entries, 0 redo entries
-        int undoSizeAfter3Changes = editor.getHistoryManager().getUndoSize();
-        int redoSizeAfter3Changes = editor.getHistoryManager().getRedoSize();
-        System.out.println("After 3 changes - Undo size: " + undoSizeAfter3Changes + ", Redo size: " + redoSizeAfter3Changes);
-        printHistory(editor, "After 3 changes - ");
-        assertEquals(undoSizeAfter3Changes, 3, "After 3 changes, undo size should be 3");
-        assertEquals(redoSizeAfter3Changes, 0, "After 3 changes, redo size should be 0");
+        assertNotNull(r1);
+        assertNotNull(r2);
+        assertNotNull(r3);
+        assertEquals(root.getChildCount(), 3, "After 3 adds, root should have 3 children");
 
-        // Step 3: Do undo
-        editor.undo();
+        assertEquals(editor.getHistoryManager().getUndoSize(), 3);
+        assertEquals(editor.getHistoryManager().getRedoSize(), 0);
 
-        // Step 4: Read history again - should have 2 undo entries, 1 redo entry
-        int undoSizeAfterUndo = editor.getHistoryManager().getUndoSize();
-        int redoSizeAfterUndo = editor.getHistoryManager().getRedoSize();
-        System.out.println("After undo - Undo size: " + undoSizeAfterUndo + ", Redo size: " + redoSizeAfterUndo);
-        printHistory(editor, "After undo - ");
-        assertEquals(undoSizeAfterUndo, 2, "After undo, undo size should be 2");
-        assertEquals(redoSizeAfterUndo, 1, "After undo, redo size should be 1");
+        CommandResult undoResult = editor.undo();
+        assertNotNull(undoResult, "Undo result should not be null");
+        assertEquals(root.getChildCount(), 2, "After undo, root should have 2 children");
+        assertEquals(editor.getHistoryManager().getUndoSize(), 2);
+        assertEquals(editor.getHistoryManager().getRedoSize(), 1);
 
-        // Step 5: Do redo
-        editor.redo();
-
-        // Step 6: Read history again - should have 3 undo entries, 0 redo entries
-        int undoSizeAfterRedo = editor.getHistoryManager().getUndoSize();
-        int redoSizeAfterRedo = editor.getHistoryManager().getRedoSize();
-        System.out.println("After redo - Undo size: " + undoSizeAfterRedo + ", Redo size: " + redoSizeAfterRedo);
-        printHistory(editor, "After redo - ");
-        assertEquals(undoSizeAfterRedo, 3, "After redo, undo size should be 3");
-        assertEquals(redoSizeAfterRedo, 0, "After redo, redo size should be 0");
-
-        System.out.println("===============================================");
+        CommandResult redoResult = editor.redo();
+        assertNotNull(redoResult, "Redo result should not be null");
+        assertEquals(root.getChildCount(), 3, "After redo, root should have 3 children");
+        assertEquals(editor.getHistoryManager().getUndoSize(), 3);
+        assertEquals(editor.getHistoryManager().getRedoSize(), 0);
     }
 
     /**
      * Test: Makes 3 changes, then undo, undo, skipRedo, redo, and a 4th change.
-     * Verifies history state at each step.
+     * Verifies history and tree state at each step.
      */
     @Test
     public void testSkipRedo() {
-        System.out.println("===============================================");
-        System.out.println("testSkipRedo");
-        System.out.println("===============================================");
-
-        // Create a new editor with a simple root
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
         assertNotNull(root, "Root should not be null");
+        assertEquals(root.getChildCount(), 0, "Initial root should have no children");
 
-        // Step 1: Make 3 changes (add 3 nodes)
         EditNodeObject node1 = new EditNodeObject("node1");
         EditNodeObject node2 = new EditNodeObject("node2");
         EditNodeObject node3 = new EditNodeObject("node3");
@@ -251,48 +191,34 @@ public class TreeEditorSimpleNGTest {
         editor.execute(new AddNodeCommand(root.getEditId(), node2));
         editor.execute(new AddNodeCommand(root.getEditId(), node3));
 
-        System.out.println("After 3 changes:");
-        printHistory(editor, "After 3 changes - ");
-        assertEquals(editor.getHistoryManager().getUndoSize(), 3, "After 3 changes, undo size should be 3");
-        assertEquals(editor.getHistoryManager().getRedoSize(), 0, "After 3 changes, redo size should be 0");
+        assertEquals(root.getChildCount(), 3);
+        assertEquals(editor.getHistoryManager().getUndoSize(), 3);
+        assertEquals(editor.getHistoryManager().getRedoSize(), 0);
 
-        // Step 2: Do undo (node3 is undone)
-        editor.undo();
-        System.out.println("After first undo:");
-        printHistory(editor, "After first undo - ");
-        assertEquals(editor.getHistoryManager().getUndoSize(), 2, "After first undo, undo size should be 2");
-        assertEquals(editor.getHistoryManager().getRedoSize(), 1, "After first undo, redo size should be 1");
+        editor.undo(); // undo node3
+        assertEquals(root.getChildCount(), 2);
+        assertEquals(editor.getHistoryManager().getUndoSize(), 2);
+        assertEquals(editor.getHistoryManager().getRedoSize(), 1);
 
-        // Step 3: Do undo (node2 is undone)
-        editor.undo();
-        System.out.println("After second undo:");
-        printHistory(editor, "After second undo - ");
-        assertEquals(editor.getHistoryManager().getUndoSize(), 1, "After second undo, undo size should be 1");
-        assertEquals(editor.getHistoryManager().getRedoSize(), 2, "After second undo, redo size should be 2");
+        editor.undo(); // undo node2
+        assertEquals(root.getChildCount(), 1);
+        assertEquals(editor.getHistoryManager().getUndoSize(), 1);
+        assertEquals(editor.getHistoryManager().getRedoSize(), 2);
 
-        // Step 4: SkipRedo - skip the most recent redo (node2)
-        editor.skipRedo();
-        System.out.println("After skipRedo:");
-        printHistory(editor, "After skipRedo - ");
-        assertEquals(editor.getHistoryManager().getUndoSize(), 2, "After skipRedo, undo size should be 2");
-        assertEquals(editor.getHistoryManager().getRedoSize(), 1, "After skipRedo, redo size should be 1");
+        editor.skipRedo(); // skip node2
+        assertEquals(root.getChildCount(), 1, "skipRedo must not change tree");
+        assertEquals(editor.getHistoryManager().getUndoSize(), 2);
+        assertEquals(editor.getHistoryManager().getRedoSize(), 1);
 
-        // Step 5: Do redo - should redo node3 (the remaining redo entry)
-        editor.redo();
-        System.out.println("After redo:");
-        printHistory(editor, "After redo - ");
-        assertEquals(editor.getHistoryManager().getUndoSize(), 3, "After redo, undo size should be 3");
-        assertEquals(editor.getHistoryManager().getRedoSize(), 0, "After redo, redo size should be 0");
+        editor.redo(); // redo node3
+        assertEquals(root.getChildCount(), 2);
+        assertEquals(editor.getHistoryManager().getUndoSize(), 3);
+        assertEquals(editor.getHistoryManager().getRedoSize(), 0);
 
-        // Step 6: Make 4th change
         EditNodeObject node4 = new EditNodeObject("node4");
         editor.execute(new AddNodeCommand(root.getEditId(), node4));
-        System.out.println("After 4th change:");
-        printHistory(editor, "After 4th change - ");
-        assertEquals(editor.getHistoryManager().getUndoSize(), 4, "After 4th change, undo size should be 4");
-        assertEquals(editor.getHistoryManager().getRedoSize(), 0, "After 4th change, redo size should be 0");
-
-        System.out.println("===============================================");
+        assertEquals(root.getChildCount(), 3);
+        assertEquals(editor.getHistoryManager().getUndoSize(), 4);
+        assertEquals(editor.getHistoryManager().getRedoSize(), 0);
     }
-
 }

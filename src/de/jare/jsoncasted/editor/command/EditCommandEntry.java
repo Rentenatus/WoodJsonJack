@@ -15,14 +15,20 @@ public class EditCommandEntry {
 
     /**
      * Entry for storing information about node movements and positions.
-     * Contains the parent editId, original index, and a snapshot of the subtree.
+     * Contains the node editId, parent editId, original index, and a snapshot of the subtree.
      */
     public static class MovementEntry {
+        public final long nodeId;                    // editId des Knotens
         public final long parentEditId;              // editId des Elternknotens
         public final int index;                      // urspruenglicher Index beim Parent
         public final EditNode snapshot; // Snapshot des Teilbaums
 
         public MovementEntry(long parentEditId, int index, EditNode snapshot) {
+            this(-1, parentEditId, index, snapshot);
+        }
+
+        public MovementEntry(long nodeId, long parentEditId, int index, EditNode snapshot) {
+            this.nodeId = nodeId;
             this.parentEditId = parentEditId;
             this.index = index;
             this.snapshot = snapshot;

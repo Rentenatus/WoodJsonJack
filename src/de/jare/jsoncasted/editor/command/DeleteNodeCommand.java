@@ -1,20 +1,32 @@
 /*
- * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v2.0 which
- * accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v20.html
+* Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
+* are made available under the terms of the Eclipse Public License v2.0 which
+* accompanies this distribution, and is available at
+* http://www.eclipse.org/legal/epl-v20.html
  */
 package de.jare.jsoncasted.editor.command;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 
 /**
- * Command that deletes node(s) from the tree. 
- * When executed, the node(s) are removed from their parent(s).
- * When undone, the node(s) are restored from deep copy snapshots.
- * 
- * Note: The snapshots preserve the original node IDs to ensure undo/redo works correctly.
+ * Command that deletes node(s) from the tree. When executed, the node(s) are
+ * removed from their parent(s). When undone, the node(s) are restored from deep
+ * copy snapshots.
+ *
+ * Snapshots preserve the original node IDs to ensure undo/redo works correctly.
+ *
+ * For multi-selection, descendant nodes are ignored if one of their ancestors
+ * is already part of the delete set. This prevents duplicate restoration on
+ * undo.
  */
 public class DeleteNodeCommand extends AbstractEditCommand {
 
@@ -22,49 +34,20 @@ public class DeleteNodeCommand extends AbstractEditCommand {
 
     /**
      * Creates a new delete node command for a single node.
-     * Takes a snapshot of the node to be deleted for undo restoration.
-     * The snapshot preserves the original ID (regenerateEditId=false).
      *
      * @param node the node to delete
      */
     public DeleteNodeCommand(EditNode node) {
-        super(CommandType.DELETE_NODE);
-        if (node == null) throw new IllegalArgumentException("Node cannot be null");
-        EditNode parent = node.getParent();
-        long parentId = parent != null ? parent.getEditId() : -1;
-        int index = parent != null ? parent.getChildIndex(node) : -1;
-        // Preserve original ID for undo restoration
-        this.entries = new EditCommandEntry.MovementEntry[] {
-            new EditCommandEntry.MovementEntry(parentId, index, node.deepCopy(false))
-        };
-        setDescription("Delete node: " + node.getName());
+        this(toEntries(new EditNode[]{requireNode(node, 0)}));
     }
 
     /**
      * Creates a new delete node command for multiple nodes.
-     * Takes snapshots of all nodes to be deleted for undo restoration.
      *
      * @param nodes the nodes to delete
      */
     public DeleteNodeCommand(EditNode[] nodes) {
-        super(CommandType.DELETE_NODE);
-        if (nodes == null || nodes.length == 0) {
-            throw new IllegalArgumentException("Nodes cannot be null or empty");
-        }
-        this.entries = new EditCommandEntry.MovementEntry[nodes.length];
-        for (int i = 0; i < nodes.length; i++) {
-            EditNode node = nodes[i];
-            if (node == null) throw new IllegalArgumentException("Node cannot be null");
-            EditNode parent = node.getParent();
-            long parentId = parent != null ? parent.getEditId() : -1;
-            int index = parent != null ? parent.getChildIndex(node) : -1;
-            this.entries[i] = new EditCommandEntry.MovementEntry(parentId, index, node.deepCopy(false));
-        }
-        if (nodes.length == 1) {
-            setDescription("Delete node: " + nodes[0].getName());
-        } else {
-            setDescription("Delete " + nodes.length + " nodes");
-        }
+        this(toEntries(nodes));
     }
 
     /**
@@ -77,44 +60,245 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         if (entries == null || entries.length == 0) {
             throw new IllegalArgumentException("Entries cannot be null or empty");
         }
-        this.entries = entries;
-        if (entries.length == 1) {
-            setDescription("Delete node: " + entries[0].snapshot.getName());
+        this.entries = copyAndValidate(entries);
+
+        if (this.entries.length == 1) {
+            setDescription("Delete node: " + this.entries[0].snapshot.getName());
         } else {
-            setDescription("Delete " + entries.length + " nodes");
+            setDescription("Delete " + this.entries.length + " nodes");
         }
     }
 
     @Override
-    public void execute(EditTree tree) {
-        // Delete nodes in reverse order to maintain correct indices
-        for (int i = entries.length - 1; i >= 0; i--) {
-            EditNode node = tree.findNodeById(entries[i].snapshot.getEditId());
+    public CommandResult execute(EditTree tree) {
+        if (tree == null) {
+            throw new IllegalArgumentException("Tree cannot be null");
+        }
+
+        EditCommandEntry.MovementEntry[] deleteOrder = Arrays.copyOf(entries, entries.length);
+        Arrays.sort(deleteOrder, Comparator
+                .comparingLong((EditCommandEntry.MovementEntry e)
+                        -> depthOf(tree.findNodeById(resolveNodeId(tree, e)), tree))
+                .reversed()
+                .thenComparingInt((EditCommandEntry.MovementEntry e) -> e.index)
+                .reversed());
+
+        EditNode[] removed = new EditNode[deleteOrder.length];
+
+        int idx = 0;
+        for (EditCommandEntry.MovementEntry entry : deleteOrder) {
+            long id = resolveNodeId(tree, entry);
+            EditNode node = tree.findNodeById(id);
             if (node != null) {
                 tree.removeNode(node.getEditId());
+                removed[idx++] = node;
             }
         }
+
+        if (idx < removed.length) {
+            removed = Arrays.copyOf(removed, idx);
+        }
+
+        return new CommandResult(
+                this,
+                CommandAction.EXECUTE,
+                removed,
+                null,
+                removed,
+                null
+        );
     }
 
     @Override
-    public void undo(EditTree tree) {
-        // Restore nodes in forward order (original order)
-        for (EditCommandEntry.MovementEntry entry : entries) {
-            EditNode parent = tree.findNodeById(entry.parentEditId);
-            if (parent != null) {
-                // Restore from snapshot, preserving the original ID
-                parent.addChild(entry.snapshot.deepCopy(false), entry.index);
-            } else {
-                // Fallback: add to root
-                tree.addNode(tree.getRoot().getEditId(), entry.snapshot.deepCopy(false));
-            }
+    public CommandResult undo(EditTree tree) {
+        if (tree == null) {
+            throw new IllegalArgumentException("Tree cannot be null");
         }
+
+        EditCommandEntry.MovementEntry[] restoreOrder = Arrays.copyOf(entries, entries.length);
+        Arrays.sort(restoreOrder, Comparator
+                .comparingInt((EditCommandEntry.MovementEntry e) -> ancestorDepth(e.snapshot))
+                .thenComparingLong(e -> e.parentEditId)
+                .thenComparingInt(e -> e.index));
+
+        EditNode[] restored = new EditNode[restoreOrder.length];
+
+        int idx = 0;
+        for (EditCommandEntry.MovementEntry entry : restoreOrder) {
+            EditNode parent = tree.findNodeById(entry.parentEditId);
+            if (parent == null) {
+                throw new IllegalStateException(
+                        "Cannot undo delete: parent node with id " + entry.parentEditId + " not found");
+            }
+
+            EditNode restoredNode = entry.snapshot.deepCopy(false);
+            tree.addNode(entry.parentEditId, restoredNode, entry.index);
+            restored[idx++] = restoredNode;
+        }
+
+        if (idx < restored.length) {
+            restored = Arrays.copyOf(restored, idx);
+        }
+
+        return new CommandResult(
+                this,
+                CommandAction.UNDO,
+                restored,
+                restored,
+                null,
+                null
+        );
     }
 
-    public EditCommandEntry.MovementEntry[] getEntries() { return entries; }
-    public EditCommandEntry.MovementEntry getEntry() { return entries[0]; }
-    public EditNode getSnapshot() { return entries[0].snapshot; }
-    public long getNodeId() { return entries[0].snapshot != null ? entries[0].snapshot.getEditId() : -1; }
-    public long getParentId() { return entries[0].parentEditId; }
-    public int getIndex() { return entries[0].index; }
+    public EditCommandEntry.MovementEntry[] getEntries() {
+        return Arrays.copyOf(entries, entries.length);
+    }
+
+    public EditCommandEntry.MovementEntry getEntry() {
+        return entries[0];
+    }
+
+    public EditNode getSnapshot() {
+        return entries[0].snapshot;
+    }
+
+    public long getNodeId() {
+        return entries[0].snapshot != null ? entries[0].snapshot.getEditId() : -1;
+    }
+
+    public long getParentId() {
+        return entries[0].parentEditId;
+    }
+
+    public int getIndex() {
+        return entries[0].index;
+    }
+
+    private static EditCommandEntry.MovementEntry[] toEntries(EditNode[] nodes) {
+        if (nodes == null || nodes.length == 0) {
+            throw new IllegalArgumentException("Nodes cannot be null or empty");
+        }
+
+        EditNode[] validated = new EditNode[nodes.length];
+        for (int i = 0; i < nodes.length; i++) {
+            validated[i] = requireNode(nodes[i], i);
+        }
+
+        List<EditNode> normalized = normalizeNodes(validated);
+        EditCommandEntry.MovementEntry[] result = new EditCommandEntry.MovementEntry[normalized.size()];
+
+        for (int i = 0; i < normalized.size(); i++) {
+            EditNode node = normalized.get(i);
+            EditNode parent = node.getParent();
+            if (parent == null) {
+                throw new IllegalArgumentException("Node '" + node.getName() + "' has no parent and cannot be deleted");
+            }
+
+            int index = parent.getChildIndex(node);
+            if (index < 0) {
+                throw new IllegalArgumentException(
+                        "Node '" + node.getName() + "' is not a child of its parent");
+            }
+
+            result[i] = new EditCommandEntry.MovementEntry(
+                    node.getEditId(), // nodeId
+                    parent.getEditId(), // parentEditId
+                    index,
+                    node.deepCopy(false) // snapshot
+            );
+        }
+
+        return result;
+    }
+
+    private static EditNode requireNode(EditNode node, int index) {
+        if (node == null) {
+            throw new IllegalArgumentException("Node at index " + index + " cannot be null");
+        }
+        return node;
+    }
+
+    private static EditCommandEntry.MovementEntry[] copyAndValidate(EditCommandEntry.MovementEntry[] entries) {
+        EditCommandEntry.MovementEntry[] copy = Arrays.copyOf(entries, entries.length);
+
+        for (int i = 0; i < copy.length; i++) {
+            EditCommandEntry.MovementEntry entry = copy[i];
+            if (entry == null) {
+                throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
+            }
+            if (entry.snapshot == null) {
+                throw new IllegalArgumentException("Entry snapshot at index " + i + " cannot be null");
+            }
+            if (entry.parentEditId < 0) {
+                throw new IllegalArgumentException("Entry parentEditId at index " + i + " is invalid");
+            }
+            if (entry.index < 0) {
+                throw new IllegalArgumentException("Entry index at index " + i + " is invalid");
+            }
+        }
+
+        return copy;
+    }
+
+    private static List<EditNode> normalizeNodes(EditNode[] nodes) {
+        Map<Long, EditNode> unique = new LinkedHashMap<>();
+        for (EditNode node : nodes) {
+            unique.put(node.getEditId(), node);
+        }
+
+        List<EditNode> result = new ArrayList<>();
+        for (EditNode node : unique.values()) {
+            if (!hasSelectedAncestor(node, unique)) {
+                result.add(node);
+            }
+        }
+
+        result.sort(Comparator
+                .comparingLong((EditNode n) -> n.getParent().getEditId())
+                .thenComparingInt(n -> n.getParent().getChildIndex(n)));
+
+        return result;
+    }
+
+    private static boolean hasSelectedAncestor(EditNode node, Map<Long, EditNode> selectedNodes) {
+        EditNode parent = node.getParent();
+        while (parent != null) {
+            if (selectedNodes.containsKey(parent.getEditId())) {
+                return true;
+            }
+            parent = parent.getParent();
+        }
+        return false;
+    }
+
+    private static int ancestorDepth(EditNode node) {
+        int depth = 0;
+        EditNode current = node;
+        while (current != null) {
+            depth++;
+            current = current.getParent();
+        }
+        return depth;
+    }
+
+    private static int depthOf(EditNode node, EditTree tree) {
+        if (node == null) {
+            return Integer.MAX_VALUE;
+        }
+
+        int depth = 0;
+        EditNode current = node;
+        while (current != null && current != tree.getRoot()) {
+            depth++;
+            current = current.getParent();
+        }
+        return depth;
+    }
+
+    private static long resolveNodeId(EditTree tree, EditCommandEntry.MovementEntry entry) {
+        if (entry.nodeId >= 0) {
+            return entry.nodeId;
+        }
+        return entry.snapshot.getEditId();
+    }
 }
