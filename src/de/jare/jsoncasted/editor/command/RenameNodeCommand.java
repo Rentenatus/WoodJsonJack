@@ -11,6 +11,11 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Arrays;
 
+/**
+ * Command that renames node(s) in the tree.
+ * When executed, the node(s) names are updated.
+ * When undone, the previous names are restored.
+ */
 public class RenameNodeCommand extends AbstractEditCommand {
 
     private final ContentEntry[] entries;
@@ -155,10 +160,20 @@ public class RenameNodeCommand extends AbstractEditCommand {
         );
     }
 
+    /**
+     * Returns a defensive copy of the entries array.
+     *
+     * @return a copy of the entries array
+     */
     public ContentEntry[] getEntries() {
         return Arrays.copyOf(entries, entries.length);
     }
 
+    /**
+     * Returns the node IDs of all entries.
+     *
+     * @return array of node IDs
+     */
     public long[] getNodeIds() {
         long[] ids = new long[entries.length];
         for (int i = 0; i < entries.length; i++) {
@@ -167,6 +182,11 @@ public class RenameNodeCommand extends AbstractEditCommand {
         return ids;
     }
 
+    /**
+     * Returns the old names of all entries.
+     *
+     * @return array of old names
+     */
     public String[] getOldNames() {
         String[] values = new String[entries.length];
         for (int i = 0; i < entries.length; i++) {
@@ -175,6 +195,11 @@ public class RenameNodeCommand extends AbstractEditCommand {
         return values;
     }
 
+    /**
+     * Returns the new names of all entries.
+     *
+     * @return array of new names
+     */
     public String[] getNewNames() {
         String[] values = new String[entries.length];
         for (int i = 0; i < entries.length; i++) {
@@ -183,14 +208,29 @@ public class RenameNodeCommand extends AbstractEditCommand {
         return values;
     }
 
+    /**
+     * Returns the node ID of the first entry.
+     *
+     * @return the node ID
+     */
     public long getNodeId() {
         return entries[0].nodeId;
     }
 
+    /**
+     * Returns the old name of the first entry.
+     *
+     * @return the old name
+     */
     public String getOldName() {
         return entries[0].oldValue;
     }
 
+    /**
+     * Returns the new name of the first entry.
+     *
+     * @return the new name
+     */
     public String getNewName() {
         return entries[0].newValue;
     }

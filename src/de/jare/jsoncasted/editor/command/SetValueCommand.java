@@ -11,14 +11,20 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Arrays;
 
+/**
+ * Command that sets the value of node(s) in the tree.
+ * When executed, the node(s) values are updated.
+ * When undone, the previous values are restored.
+ */
 public class SetValueCommand extends AbstractEditCommand {
 
     private final ContentEntry[] entries;
 
     /**
      * Creates a command to set the value of a single node.
-     * @param node
-     * @param newValue
+     *
+     * @param node the node whose value will be set
+     * @param newValue the new value to set
      */
     public SetValueCommand(EditNode node, String newValue) {
         super(CommandType.SET_VALUE);
@@ -154,10 +160,20 @@ public class SetValueCommand extends AbstractEditCommand {
         );
     }
 
+    /**
+     * Returns a defensive copy of the entries array.
+     *
+     * @return a copy of the entries array
+     */
     public ContentEntry[] getEntries() {
         return Arrays.copyOf(entries, entries.length);
     }
 
+    /**
+     * Returns the node IDs of all entries.
+     *
+     * @return array of node IDs
+     */
     public long[] getNodeIds() {
         long[] ids = new long[entries.length];
         for (int i = 0; i < entries.length; i++) {
@@ -166,6 +182,11 @@ public class SetValueCommand extends AbstractEditCommand {
         return ids;
     }
 
+    /**
+     * Returns the old values of all entries.
+     *
+     * @return array of old values
+     */
     public String[] getOldValues() {
         String[] values = new String[entries.length];
         for (int i = 0; i < entries.length; i++) {
@@ -174,6 +195,11 @@ public class SetValueCommand extends AbstractEditCommand {
         return values;
     }
 
+    /**
+     * Returns the new values of all entries.
+     *
+     * @return array of new values
+     */
     public String[] getNewValues() {
         String[] values = new String[entries.length];
         for (int i = 0; i < entries.length; i++) {
@@ -182,14 +208,29 @@ public class SetValueCommand extends AbstractEditCommand {
         return values;
     }
 
+    /**
+     * Returns the node ID of the first entry.
+     *
+     * @return the node ID
+     */
     public long getNodeId() {
         return entries[0].nodeId;
     }
 
+    /**
+     * Returns the old value of the first entry.
+     *
+     * @return the old value
+     */
     public String getOldValue() {
         return entries[0].oldValue;
     }
 
+    /**
+     * Returns the new value of the first entry.
+     *
+     * @return the new value
+     */
     public String getNewValue() {
         return entries[0].newValue;
     }

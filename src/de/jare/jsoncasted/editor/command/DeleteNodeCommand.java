@@ -150,26 +150,56 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         );
     }
 
+    /**
+     * Returns a defensive copy of the entries array.
+     *
+     * @return a copy of the entries array
+     */
     public MovementEntry[] getEntries() {
         return Arrays.copyOf(entries, entries.length);
     }
 
+    /**
+     * Returns the first entry.
+     *
+     * @return the first movement entry
+     */
     public MovementEntry getEntry() {
         return entries[0];
     }
 
+    /**
+     * Returns the snapshot of the first entry.
+     *
+     * @return the node snapshot
+     */
     public EditNode getSnapshot() {
         return entries[0].snapshot;
     }
 
+    /**
+     * Returns the node ID of the first entry.
+     *
+     * @return the node edit ID, or -1 if snapshot is null
+     */
     public long getNodeId() {
         return entries[0].snapshot != null ? entries[0].snapshot.getEditId() : -1;
     }
 
+    /**
+     * Returns the parent ID of the first entry.
+     *
+     * @return the parent node ID
+     */
     public long getParentId() {
         return entries[0].parentEditId;
     }
 
+    /**
+     * Returns the index of the first entry.
+     *
+     * @return the child index
+     */
     public int getIndex() {
         return entries[0].index;
     }

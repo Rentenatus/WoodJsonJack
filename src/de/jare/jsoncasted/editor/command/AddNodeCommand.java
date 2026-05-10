@@ -11,6 +11,11 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Arrays;
 
+/**
+ * Command that adds node(s) to the tree.
+ * When executed, the node(s) are inserted at their specified parent and index.
+ * When undone, the node(s) are removed from the tree.
+ */
 public class AddNodeCommand extends AbstractEditCommand {
 
     private final MovementEntry[] entries;
@@ -18,8 +23,8 @@ public class AddNodeCommand extends AbstractEditCommand {
     /**
      * Creates a command to add a single node.
      *
-     * @param parentId
-     * @param node
+     * @param parentId the ID of the parent node
+     * @param node the node to add
      */
     public AddNodeCommand(long parentId, EditNode node) {
         this(parentId, node, -1);
@@ -28,16 +33,16 @@ public class AddNodeCommand extends AbstractEditCommand {
     /**
      * Creates a command to add a single node at a specific index.
      *
-     * @param parentId
-     * @param node
-     * @param index
+     * @param parentId the ID of the parent node
+     * @param node the node to add
+     * @param index the index at which to insert the node, or -1 to append
      */
     public AddNodeCommand(long parentId, EditNode node, int index) {
         this(new MovementEntry[]{
             new MovementEntry(
             requireNode(node).getEditId(), // nodeId
             requireValidParentId(parentId), // parentEditId
-            index,
+            index, // index
             node.deepCopy(false) // snapshot
             )
         });
@@ -98,7 +103,7 @@ public class AddNodeCommand extends AbstractEditCommand {
 
         EditNode[] removed = new EditNode[entries.length];
 
-        // rückwärts, um Indizes stabil zu halten
+        // rueckwaerts, um Indizes stabil zu halten
         for (int i = entries.length - 1; i >= 0; i--) {
             MovementEntry entry = entries[i];
 
@@ -124,22 +129,47 @@ public class AddNodeCommand extends AbstractEditCommand {
         );
     }
 
+    /**
+     * Returns a defensive copy of the entries array.
+     *
+     * @return a copy of the entries array
+     */
     public MovementEntry[] getEntries() {
         return Arrays.copyOf(entries, entries.length);
     }
 
+    /**
+     * Returns the parent ID of the first entry.
+     *
+     * @return the parent node ID
+     */
     public long getParentId() {
         return entries[0].parentEditId;
     }
 
+    /**
+     * Returns the snapshot node of the first entry.
+     *
+     * @return the node snapshot
+     */
     public EditNode getNode() {
         return entries[0].snapshot;
     }
 
+    /**
+     * Returns the index of the first entry.
+     *
+     * @return the insertion index
+     */
     public int getIndex() {
         return entries[0].index;
     }
 
+    /**
+     * Returns the edit ID of the first entry's node.
+     *
+     * @return the node edit ID, or -1 if snapshot is null
+     */
     public long getEditId() {
         return entries[0].snapshot != null ? entries[0].snapshot.getEditId() : -1;
     }
@@ -176,7 +206,7 @@ public class AddNodeCommand extends AbstractEditCommand {
                 throw new IllegalArgumentException("Entry index at index " + i + " is invalid");
             }
 
-            // nodeId aus Entry mit übernehmen, Snapshot geklont
+            // nodeId aus Entry mit uebernehmen, Snapshot geklont
             copy[i] = new MovementEntry(
                     entry.nodeId,
                     entry.parentEditId,

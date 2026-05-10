@@ -7,11 +7,20 @@
 package de.jare.jsoncasted.editor.command;
 
 /**
- *
- * @author Janusch Rentenatus
+ * Enumeration of possible command actions.
+ * Represents the type of operation that can be performed on a command.
  */
 public enum CommandAction {
+    /**
+     * The command was executed normally.
+     */
     EXECUTE,
+    /**
+     * The command's effect was undone.
+     */
     UNDO,
+    /**
+     * The command was redone after being undone.
+     */
     REDO
 }
