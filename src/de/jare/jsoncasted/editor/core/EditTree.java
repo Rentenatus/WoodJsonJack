@@ -10,21 +10,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Represents the editable tree structure for JSON data.
- * Maintains a hierarchy of EditNode instances and provides fast lookup by ID.
+ * Represents the editable tree structure for JSON data. Maintains a hierarchy
+ * of EditNode instances and provides fast lookup by ID.
  */
 public class EditTree {
 
     private final EditNode root;
-    private final Map<Long, EditNode> nodeRegistry;
 
     public EditTree(EditNode root) {
         if (root == null) {
             throw new IllegalArgumentException("Root node cannot be null");
         }
         this.root = root;
-        this.nodeRegistry = new HashMap<>();
-        registerNode(root);
     }
 
     public EditNode getRoot() {
@@ -32,11 +29,34 @@ public class EditTree {
     }
 
     public EditNode findNodeById(long id) {
-        return nodeRegistry.get(id);
+        EditNode root = getRoot();
+        if (root == null) {
+            return null;
+        }
+
+        java.util.ArrayDeque<EditNode> stack = new java.util.ArrayDeque<>();
+        stack.push(root);
+
+        while (!stack.isEmpty()) {
+            EditNode node = stack.pop();
+
+            if (node.getEditId() == id) {
+                return node;
+            }
+
+            for (int i = node.getChildCount() - 1; i >= 0; i--) {
+                EditNode child = node.getChildAt(i);
+                if (child != null) {
+                    stack.push(child);
+                }
+            }
+        }
+
+        return null;
     }
 
     public boolean containsNode(long id) {
-        return nodeRegistry.containsKey(id);
+        return findNodeById(id) != null;
     }
 
     public boolean addNode(long parentId, EditNode newNode) {
@@ -59,13 +79,12 @@ public class EditTree {
             parent.addChild(newNode);
         }
 
-        registerNode(newNode);
         return true;
     }
 
     /**
-     * Adds multiple nodes to the tree efficiently.
-     * Nodes are added in the order they appear in the array.
+     * Adds multiple nodes to the tree efficiently. Nodes are added in the order
+     * they appear in the array.
      *
      * @param parentIds the parent IDs for each node
      * @param newNodes the nodes to add
@@ -79,7 +98,7 @@ public class EditTree {
         if (newNodes.length != parentIds.length || newNodes.length != indices.length) {
             throw new IllegalArgumentException("Arrays must have the same length");
         }
-        
+
         for (int i = 0; i < newNodes.length; i++) {
             addNode(parentIds[i], newNodes[i], indices[i]);
         }
@@ -102,16 +121,13 @@ public class EditTree {
         }
 
         boolean removed = parent.removeChild(node);
-        if (removed) {
-            unregisterNode(node);
-        }
 
-        return node;
+        return removed ? node : null;
     }
 
     /**
-     * Removes multiple nodes from the tree efficiently.
-     * Nodes are removed in reverse order to maintain correct indices.
+     * Removes multiple nodes from the tree efficiently. Nodes are removed in
+     * reverse order to maintain correct indices.
      *
      * @param nodeIds the IDs of the nodes to remove
      */
@@ -151,8 +167,8 @@ public class EditTree {
     }
 
     /**
-     * Moves multiple nodes efficiently.
-     * Nodes are moved in the order they appear in the array.
+     * Moves multiple nodes efficiently. Nodes are moved in the order they
+     * appear in the array.
      *
      * @param nodeIds the IDs of the nodes to move
      * @param newParentIds the new parent IDs for each node
@@ -165,58 +181,35 @@ public class EditTree {
     }
 
     public int getNodeCount() {
-        return nodeRegistry.size();
+        EditNode root = getRoot();
+        if (root == null) {
+            return 0;
+        }
+
+        int count = 0;
+        java.util.ArrayDeque<EditNode> stack = new java.util.ArrayDeque<>();
+        stack.push(root);
+
+        while (!stack.isEmpty()) {
+            EditNode node = stack.pop();
+            count++;
+
+            for (int i = node.getChildCount() - 1; i >= 0; i--) {
+                EditNode child = node.getChildAt(i);
+                if (child != null) {
+                    stack.push(child);
+                }
+            }
+        }
+
+        return count;
     }
 
     public void clear() {
         while (root.getChildCount() > 0) {
             EditNode child = root.getChildAt(0);
             root.removeChild(child);
-            unregisterNode(child);
         }
-    }
-
-    private void registerNode(EditNode node) {
-        nodeRegistry.put(node.getEditId(), node);
-        for (int i = 0; i < node.getChildCount(); i++) {
-            registerNode(node.getChildAt(i));
-        }
-    }
-
-    private void unregisterNode(EditNode node) {
-        nodeRegistry.remove(node.getEditId());
-        for (int i = 0; i < node.getChildCount(); i++) {
-            unregisterNode(node.getChildAt(i));
-        }
-    }
-
-    public boolean validate() {
-        if (!nodeRegistry.containsKey(root.getEditId())) {
-            return false;
-        }
-
-        java.util.Set<Long> reachable = new java.util.HashSet<>();
-        buildReachableSet(root, reachable);
-
-        if (reachable.size() != nodeRegistry.size()) {
-            return false;
-        }
-
-        for (EditNode node : nodeRegistry.values()) {
-            EditNode parent = node.getParent();
-            if (parent != null) {
-                if (!nodeRegistry.containsKey(parent.getEditId())) {
-                    return false;
-                }
-                if (parent.getChildIndex(node) == -1) {
-                    return false;
-                }
-            } else if (node != root) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private void buildReachableSet(EditNode node, java.util.Set<Long> reachable) {
@@ -228,6 +221,6 @@ public class EditTree {
 
     @Override
     public String toString() {
-        return "EditTree[root=" + root + ", nodes=" + nodeRegistry.size() + "]";
+        return "EditTree[root=" + root + ", nodes=" + getNodeCount() + "]";
     }
 }

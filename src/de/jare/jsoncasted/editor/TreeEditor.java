@@ -510,11 +510,6 @@ public class TreeEditor {
                 .append("tree=").append(tree != null ? tree.toString() : "null")
                 .append(", history=").append(historyManager != null ? historyManager.toString() : "null")
                 .append(", listeners=").append(eventBus != null ? eventBus.getListenerCount() : 0);
-
-        if (tree != null) {
-            sb.append(", valid=").append(tree.validate());
-        }
-
         sb.append('}');
         return sb.toString();
     }
