@@ -225,10 +225,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
     }
 
     @Override
-    public CommandResult undo(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
+    public CommandResult doUndo(EditTree tree) {
 
         // Remove all nodes that were inserted by the last execute().
         EditNode[] removedNodes = new EditNode[pastedNodeIds.length];

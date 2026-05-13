@@ -7,8 +7,8 @@
 package de.jare.jsoncasted.editor.command;
 
 /**
- * Enumeration of possible command actions.
- * Represents the type of operation that can be performed on a command.
+ * Enumeration of possible command actions. Represents the type of operation
+ * that can be performed on a command.
  */
 public enum CommandAction {
     /**
@@ -22,5 +22,9 @@ public enum CommandAction {
     /**
      * The command was redone after being undone.
      */
-    REDO
+    REDO,
+    /**
+     * The command was redone after being undone.
+     */
+    SKIPPED
 }

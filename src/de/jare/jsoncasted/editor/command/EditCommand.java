@@ -33,6 +33,11 @@ public interface EditCommand {
     CommandResult execute(EditTree tree);
 
     /**
+     * Mark this command as skipped.
+     */
+    public void skipped();
+
+    /**
      * Undoes this command on the given tree.
      *
      * @param tree the tree to modify

@@ -141,6 +141,7 @@ public class HistoryManager {
 
         EditCommand command = redoStack.pop();
         undoStack.push(command);
+        command.skipped();
 
         fireHistoryEvent(
                 HistoryEvent.ChangeType.SKIPPED,

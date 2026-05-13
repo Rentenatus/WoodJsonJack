@@ -153,10 +153,7 @@ public class SetValueCommand extends AbstractEditCommand {
     }
 
     @Override
-    public CommandResult undo(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
+    public CommandResult doUndo(EditTree tree) {
 
         EditNode[] updated = new EditNode[entries.length];
 

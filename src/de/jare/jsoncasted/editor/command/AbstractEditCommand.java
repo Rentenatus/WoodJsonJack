@@ -6,17 +6,22 @@
  */
 package de.jare.jsoncasted.editor.command;
 
+import de.jare.jsoncasted.editor.core.EditTree;
+
 /**
- * Abstract base class for all edit commands in the JSON tree editor.
- * Provides common functionality for command type management and description handling.
+ * Abstract base class for all edit commands in the JSON tree editor. Provides
+ * common functionality for command type management and description handling.
  *
- * <p>All edit commands must extend this class and implement the {@link EditCommand}
- * interface methods {@code execute()} and {@code undo()}.</p>
+ * <p>
+ * All edit commands must extend this class and implement the
+ * {@link EditCommand} interface methods {@code execute()} and
+ * {@code undo()}.</p>
  */
 public abstract class AbstractEditCommand implements EditCommand {
 
     private final CommandType type;
     private String description;
+    boolean skipped;
 
     /**
      * Creates a new abstract edit command with the specified type.
@@ -26,10 +31,12 @@ public abstract class AbstractEditCommand implements EditCommand {
     protected AbstractEditCommand(CommandType type) {
         this.type = type;
         this.description = "";
+        this.skipped = false;
     }
 
     /**
-     * Creates a new abstract edit command with the specified type and description.
+     * Creates a new abstract edit command with the specified type and
+     * description.
      *
      * @param type the command type
      * @param description a human-readable description of the command
@@ -57,6 +64,36 @@ public abstract class AbstractEditCommand implements EditCommand {
     protected void setDescription(String description) {
         this.description = description;
     }
+
+    @Override
+    public void skipped() {
+        skipped = true;
+    }
+
+    public boolean consumeSkipped() {
+        boolean ret = skipped;
+        skipped = false;
+        return ret;
+    }
+
+    @Override
+    public final CommandResult undo(EditTree tree) {
+        if (tree == null) {
+            throw new IllegalArgumentException("Tree cannot be null");
+        }
+        if (consumeSkipped()) {
+            return new CommandResult(this, CommandAction.SKIPPED, null, null, null, null);
+        }
+        return doUndo(tree);
+    }
+
+    /**
+     * Undoes cover.
+     *
+     * @param tree the tree to modify
+     * @return the result describing the changes caused by this undo operation
+     */
+    protected abstract CommandResult doUndo(EditTree tree);
 
     @Override
     public String toString() {

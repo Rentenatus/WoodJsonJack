@@ -116,10 +116,7 @@ public class CutToStashCommand extends AbstractToStashCommand {
     }
 
     @Override
-    public CommandResult undo(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
+    public CommandResult doUndo(EditTree tree) {
 
         ClipboardStash stash = clipboardManager.getStash(stashName);
         if (stash != null) {

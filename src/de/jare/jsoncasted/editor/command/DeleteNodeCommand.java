@@ -156,10 +156,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
     }
 
     @Override
-    public CommandResult undo(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
+    public CommandResult doUndo(EditTree tree) {
 
         MovementEntry[] restoreOrder = Arrays.copyOf(entries, entries.length);
         Arrays.sort(restoreOrder, Comparator
