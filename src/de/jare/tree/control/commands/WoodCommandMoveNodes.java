@@ -1,122 +1,161 @@
-/* <copyright>
+/* <copyright> 
  * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v20.html
- * </copyright>
+ * </copyright> 
  */
 package de.jare.tree.control.commands;
 
+import de.jare.tree.control.TreeNodeUtils;
+import de.jare.jsoncasted.editor.command.MoveNodeCommand;
+import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.command.EditCommandEntry.MovementEntry;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeModel;
-import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
- * Command that moves one or more nodes (and their subtrees) to a new parent.
+ * Command that moves one or more nodes to new parent/index positions.
  * <p>
- * Internally represented as a delete followed by an add with snapshots, so that
- * execute = delete + add, undo = delete(add-part) + add(delete-part).
+ * This is a composite command that combines delete and add operations.
  * </p>
+ * 
+ * <p>This class now integrates with the editor's MoveNodeCommand for better compatibility
+ * with the EditTree-based architecture.</p>
  */
 public class WoodCommandMoveNodes extends AbstractNodeMovementCommand {
 
-    private final MovementEntry[] deleteEntries;
-    private final MovementEntry[] addEntries;
+    private final AbstractNodeMovementCommand.MovementEntry[] deleteEntries;
+    private final AbstractNodeMovementCommand.MovementEntry[] addEntries;
     private final String description;
+    
+    // Reference to editor command for integration
+    private final EditCommand editCommand;
 
     /**
-     * @param nodesToMove Knoten, die verschoben werden sollen (aktueller
-     * Baumzustand)
-     * @param parentNodes jeweilige Quell-Eltern der nodesToMove
-     * @param trgNode Ziel-Elternknoten, unter den eingef?gt werden soll
-     * @param startIdx Startindex beim Ziel (Index des ersten verschobenen
-     * Kindes), -1 = am Ende anh?ngen
+     * Creates a move command for a single node.
      */
     public WoodCommandMoveNodes(
             DefaultMutableTreeNode[] nodesToMove,
-            DefaultMutableTreeNode[] parentNodes,
-            DefaultMutableTreeNode trgNode,
-            int startIdx) {
+            DefaultMutableTreeNode[] oldParentNodes,
+            DefaultMutableTreeNode[] newParentNodes,
+            int[] oldIndices,
+            int[] newIndices) {
         this.commandText = "Move nodes";
 
-        if (nodesToMove == null || parentNodes == null || nodesToMove.length == 0) {
-            throw new IllegalArgumentException("parentNodes and nodesToMove must not be null/empty");
+        if (nodesToMove == null || oldParentNodes == null || newParentNodes == null) {
+            throw new IllegalArgumentException("Arguments must not be null");
         }
-        if (nodesToMove.length != parentNodes.length) {
-            throw new IllegalArgumentException("nodesToMove and parentNodes length mismatch");
+        if (nodesToMove.length != oldParentNodes.length 
+                || nodesToMove.length != newParentNodes.length) {
+            throw new IllegalArgumentException("Array length mismatch");
         }
-        if (trgNode == null) {
-            throw new IllegalArgumentException("trgNode must not be null");
+        if (nodesToMove.length == 0) {
+            throw new IllegalArgumentException("No nodes to move");
         }
-
-        Object trgData = trgNode.getUserObject();
-        if (!(trgData instanceof EditNode trgJson)) {
-            throw new IllegalArgumentException("trgNode userObject must be JsonTreeNodeData");
-        }
-        long trgParentEditId = trgJson.getEditId();
 
         int length = nodesToMove.length;
-        this.deleteEntries = new MovementEntry[length];
-        this.addEntries = new MovementEntry[length];
-
-        // Ziel-Indizes fortlaufend ab startIdx; -1 => beim Einf?gen ans Ende
-        int lastTrgIdx = startIdx;
+        this.deleteEntries = new AbstractNodeMovementCommand.MovementEntry[length];
+        this.addEntries = new AbstractNodeMovementCommand.MovementEntry[length];
+        EditNode[] nodes = new EditNode[length];
 
         for (int i = 0; i < length; i++) {
             DefaultMutableTreeNode n = nodesToMove[i];
-            DefaultMutableTreeNode p = parentNodes[i];
+            DefaultMutableTreeNode oldP = oldParentNodes[i];
+            DefaultMutableTreeNode newP = newParentNodes[i];
 
-            if (n == null) {
-                throw new IllegalArgumentException("nodesToMove[" + i + "] must not be null");
-            }
-            if (p == null) {
-                throw new IllegalArgumentException("parentNodes[" + i + "] must not be null");
-            }
+            Object nData = n.getUserObject();
+            Object oldPData = oldP.getUserObject();
+            Object newPData = newP.getUserObject();
 
-            Object pData = p.getUserObject();
-            if (!(pData instanceof EditNode srcJson)) {
-                throw new IllegalArgumentException("parentNodes[" + i + "] userObject must be JsonTreeNodeData");
+            if (nData instanceof EditNode nodeData) {
+                nodes[i] = nodeData;
             }
 
-            int srcIdx = p.getIndex(n);
-            if (srcIdx < 0) {
-                throw new IllegalArgumentException("nodesToMove[" + i + "] is not a child of parentNodes[" + i + "]");
-            }
-            //System.out.println(p + "." + n + " ::: " + srcIdx);
+            int oldIdx = oldIndices != null && oldIndices.length > i ? oldIndices[i] : oldP.getIndex(n);
+            int newIdx = newIndices != null && newIndices.length > i ? newIndices[i] : newP.getChildCount();
 
-            // Delete-Entry: vom urspruenglichen Parent/Index entfernen
-            deleteEntries[i] = new MovementEntry(srcJson.getEditId(), srcIdx, deepCopy(n));
-
-            // Add-Entry: unter Ziel-Parent einf?gen
-            int trgIdx = lastTrgIdx;
-            if (trgIdx >= 0) {
-                trgIdx = lastTrgIdx;
-                lastTrgIdx++;
+            if (oldPData instanceof EditNode oldParentData) {
+                deleteEntries[i] = new AbstractNodeMovementCommand.MovementEntry(
+                        oldParentData.getEditId(), oldIdx, TreeNodeUtils.deepCopy(n));
             } else {
-                trgIdx = -1; // beim Einf?gen ans Ende anh?ngen
+                deleteEntries[i] = new AbstractNodeMovementCommand.MovementEntry(
+                        -1, oldIdx, TreeNodeUtils.deepCopy(n));
             }
-            addEntries[i] = new MovementEntry(trgParentEditId, trgIdx, deepCopy(n));
+
+            if (newPData instanceof EditNode newParentData) {
+                addEntries[i] = new AbstractNodeMovementCommand.MovementEntry(
+                        newParentData.getEditId(), newIdx, TreeNodeUtils.deepCopy(n));
+            } else {
+                addEntries[i] = new AbstractNodeMovementCommand.MovementEntry(
+                        -1, newIdx, TreeNodeUtils.deepCopy(n));
+            }
         }
 
-        if (nodesToMove.length == 1) {
-            this.description = "Move '" + nodesToMove[0].getUserObject() + "'";
+        // Create editor command for integration
+        if (nodes.length > 0 && nodes[0] != null) {
+            long newParentId = addEntries[0].parentEditId;
+            int newIndex = addEntries[0].index;
+            this.editCommand = new MoveNodeCommand(nodes, newParentId, newIndex);
         } else {
-            this.description = "Move " + nodesToMove.length + " nodes";
+            this.editCommand = null;
         }
+
+        this.description = (nodesToMove.length == 1)
+                ? "'" + nodesToMove[0].getUserObject() + "'"
+                : nodesToMove.length + " nodes";
+    }
+
+    /**
+     * Returns the underlying editor command.
+     * @return the EditCommand instance, or null if not available
+     */
+    public EditCommand getEditCommand() {
+        return editCommand;
+    }
+
+    /**
+     * Executes this command on an EditTree directly.
+     * @param tree the EditTree to execute on
+     * @return the command result, or null if no editor command available
+     */
+    public CommandResult execute(EditTree tree) {
+        if (editCommand != null) {
+            return editCommand.execute(tree);
+        }
+        return null;
+    }
+
+    /**
+     * Undoes this command on an EditTree directly.
+     * @param tree the EditTree to undo on
+     * @return the command result, or null if no editor command available
+     */
+    public CommandResult undo(EditTree tree) {
+        if (editCommand != null && !skipped) {
+            return editCommand.undo(tree);
+        }
+        if (skipped) {
+            this.status = "";
+            this.skipped = false;
+        }
+        return null;
     }
 
     @Override
     public void executeMovement(TreeModel model) {
-        // Move = Delete (Quelle) + Add (Ziel)
-        deleteNodes(model, deleteEntries, STATUS_REDO_DONE);
+        deleteNodes(model, deleteEntries, STATUS_ACTION_DONE);
+        checkNodesPos(model, addEntries, STATUS_ACTION_DONE);
         addNodes(model, addEntries, getStatus());
     }
 
     @Override
     public void undoMovement(TreeModel model) {
-        // Undo(Move) = Delete (Ziel) + Add (Quelle)
         deleteNodes(model, addEntries, STATUS_REVERTED);
+        checkNodesPos(model, deleteEntries, STATUS_REVERTED);
         addNodes(model, deleteEntries, getStatus());
-        checkNodesPos(model, deleteEntries, getStatus());
     }
 
     @Override

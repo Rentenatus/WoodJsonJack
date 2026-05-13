@@ -15,12 +15,13 @@ import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditTree;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.tree.*;
-import de.jare.jsoncasted.editor.core.EditNode;
 
 public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
 
@@ -29,6 +30,9 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     private final JPanel headerPanel;
     private final JLabel resourceLabel;
     private final JCheckBox linkCheckBox;
+    
+    // EditTree integration
+    private EditTree editTree;
 
     public WoodEditTree(String rootName, String... propNames) {
         this(null, rootName, propNames);
@@ -60,12 +64,19 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         rightPanel.add(linkCheckBox);
 
         // JTree initialisieren
-        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(new EditNodeObject("{" + rootName + "}"));
+        EditNodeObject editRoot = new EditNodeObject("{" + rootName + "}");
+        this.editTree = new EditTree(editRoot);
+        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(editRoot);
         tree = new JTree(rootNode);
         tree.setShowsRootHandles(true);
         tree.setCellRenderer(new JsonTreeCellRenderer());
         tree.setEditable(true);
-        tree.setCellEditor(new JsonTreeCellEditor(master != null ? master.getUndoManager() : null));
+        // Use new SwingTreeCellEditor if EditTree is available, otherwise fallback to JsonTreeCellEditor
+        if (master != null && master.hasEditTree()) {
+            tree.setCellEditor(new de.jare.jsoncasted.editor.swing.SwingTreeCellEditor(master.getUndoManager()));
+        } else {
+            tree.setCellEditor(new JsonTreeCellEditor(master != null ? master.getUndoManager() : null));
+        }
 
         // Selektionslistener für den Tree
         tree.addTreeSelectionListener(e -> {
@@ -88,11 +99,13 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         add(new JScrollPane(tree), BorderLayout.CENTER);
 
         // Root-Knoten und optionale Demo-Properties
+        EditNode editRootNode = this.editTree.getRoot();
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
         for (String propName : propNames) {
-            EditNode childData = ((EditNode) root.getUserObject())
-                    .createChild(propName);
-            ((EditNodeProperty) childData).setPrimValue("Value of " + propName);
+            EditNode childData = editRootNode.createChild(propName);
+            if (childData instanceof EditNodeProperty) {
+                ((EditNodeProperty) childData).setPrimValue("Value of " + propName);
+            }
             root.add(new DefaultMutableTreeNode(childData));
         }
 
@@ -117,6 +130,13 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         return tree;
     }
 
+    /**
+     * Returns the underlying EditTree model.
+     * @return the EditTree instance
+     */
+    public EditTree getEditTree() {
+        return editTree;
+    }
     @Override
     public TreeModel getModel() {
         return tree.getModel();

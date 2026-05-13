@@ -2,10 +2,11 @@
  * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v20.html
- * </copyright>
+ * </copyright> 
  */
 package de.jare.tree.ui;
 
+import de.jare.tree.control.TreeNodeUtils;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.commands.WoodCommandMoveNodes;
 import de.jare.tree.control.listeners.TreeFocusComponent;
@@ -61,7 +62,7 @@ class TreeNodeTransferHandler extends TransferHandler {
             parents[i] = (DefaultMutableTreeNode) node.getParent();
         }
 
-        this.nodesToMove = WoodUtils.sortOnPos(nodes);
+        this.nodesToMove = sortOnPos(nodes);
         this.sourceParents = parents;
         return new NodesTransferable(nodes);
     }
@@ -139,11 +140,23 @@ class TreeNodeTransferHandler extends TransferHandler {
                     && sourceParents != null) {
                 MasterControl master = editTree.getMaster();
                 if (master != null) {
+                    // Create arrays for new parent (same parent for all nodes)
+                    DefaultMutableTreeNode[] newParents = new DefaultMutableTreeNode[nodesToMove.length];
+                    int[] oldIndices = new int[nodesToMove.length];
+                    int[] newIndices = new int[nodesToMove.length];
+                    
+                    for (int i = 0; i < nodesToMove.length; i++) {
+                        newParents[i] = parent;
+                        oldIndices[i] = sourceParents[i].getIndex(nodesToMove[i]);
+                        newIndices[i] = startIndex + i;
+                    }
+                    
                     WoodCommandMoveNodes cmd = new WoodCommandMoveNodes(
-                            nodesToMove, // sortierte Originale (WoodUtils.sortOnPos)
+                            nodesToMove, // sortierte Originale
                             sourceParents, // ursprüngliche Eltern
-                            parent, // Ziel-Eltern
-                            startIndex // Startindex im Ziel
+                            newParents, // Ziel-Eltern (für jeden Node)
+                            oldIndices, // alte Indizes
+                            newIndices // neue Indizes
                     );
                     master.getUndoManager().pushCommand(cmd);
                 }
@@ -152,7 +165,7 @@ class TreeNodeTransferHandler extends TransferHandler {
             // 2. Physischer Move: neue Kopien einfügen
             DefaultMutableTreeNode lastCopy = null;
             for (DefaultMutableTreeNode node : nodes) {
-                DefaultMutableTreeNode copy = deepCopy(node);
+                DefaultMutableTreeNode copy = TreeNodeUtils.deepCopy(node);
                 model.insertNodeInto(copy, parent, index++);
                 lastCopy = copy;
             }
@@ -202,15 +215,34 @@ class TreeNodeTransferHandler extends TransferHandler {
     }
 
     /**
-     * Tiefkopie eines Knotens inkl. seiner Kinder (ohne editId-Änderung).
+     * Sorts nodes by their position in the tree (top to bottom).
+     * This is a replacement for WoodUtils.sortOnPos.
      */
-    private DefaultMutableTreeNode deepCopy(DefaultMutableTreeNode original) {
-        DefaultMutableTreeNode copy = new DefaultMutableTreeNode(original.getUserObject());
-        for (int i = 0; i < original.getChildCount(); i++) {
-            DefaultMutableTreeNode child = (DefaultMutableTreeNode) original.getChildAt(i);
-            copy.add(deepCopy(child));
+    private DefaultMutableTreeNode[] sortOnPos(DefaultMutableTreeNode[] nodes) {
+        if (nodes == null || nodes.length <= 1) {
+            return nodes;
         }
-        return copy;
+        // Simple bubble sort by index in parent
+        DefaultMutableTreeNode[] sorted = nodes.clone();
+        for (int i = 0; i < sorted.length - 1; i++) {
+            for (int j = 0; j < sorted.length - i - 1; j++) {
+                DefaultMutableTreeNode n1 = sorted[j];
+                DefaultMutableTreeNode n2 = sorted[j + 1];
+                if (n1 != null && n2 != null && n1.getParent() == n2.getParent()) {
+                    MutableTreeNode parent = (MutableTreeNode) n1.getParent();
+                    if (parent != null) {
+                        int idx1 = parent.getIndex(n1);
+                        int idx2 = parent.getIndex(n2);
+                        if (idx1 > idx2) {
+                            DefaultMutableTreeNode temp = sorted[j];
+                            sorted[j] = sorted[j + 1];
+                            sorted[j + 1] = temp;
+                        }
+                    }
+                }
+            }
+        }
+        return sorted;
     }
 
     private class NodesTransferable implements Transferable {

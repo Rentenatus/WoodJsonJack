@@ -39,6 +39,11 @@ public class WoodEditTreeContainer extends JPanel {
         this.rightTree = new WoodEditTree(master, rightRootName, propNames);
         this.rightTree.setResourceInfo("Keine abhängige Ressourcen.");
         
+        // Register EditTree with master control for editor integration
+        if (master != null) {
+            master.setEditTree(this.leftTree.getEditTree());
+        }
+        
         this.leftTree.getLinkCheckBox().addActionListener(
                 e -> toggleLinkView(this.leftTree.getLinkCheckBox().isSelected())
         );

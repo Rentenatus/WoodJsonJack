@@ -1,6 +1,8 @@
 package de.jare.tree.control;
 
 import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.jsoncasted.editor.core.EditTree;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -14,11 +16,13 @@ import javax.swing.tree.TreeModel;
  * <p>
  * Hält nur die Stack-Daten (Entries, Position), keinerlei Listener oder
  * UI-Logik. Der Dispatcher/Listener ist SelectionStackManager.
+ * Supports both TreeModel-based and EditTree-based selections.
  * </p>
  */
 public class SelectionStackManagerModel {
 
     private final WeakReference<TreeFocusComponent> weakTree;
+    private WeakReference<EditTree> weakEditTree;
 
     /**
      * Stack der Selektions-Einträge. Die "Vergangenheit" (ältere Selektionen)
@@ -36,6 +40,44 @@ public class SelectionStackManagerModel {
         this.weakTree = new WeakReference<>(Objects.requireNonNull(tree));
     }
 
+    /**
+     * Creates a SelectionStackManagerModel with EditTree support.
+     *
+     * @param tree the TreeFocusComponent
+     * @param editTree the EditTree for editor-based selection
+     */
+    public SelectionStackManagerModel(TreeFocusComponent tree, EditTree editTree) {
+        this.weakTree = new WeakReference<>(Objects.requireNonNull(tree));
+        this.weakEditTree = new WeakReference<>(editTree);
+    }
+
+    /**
+     * Sets the EditTree for this model.
+     *
+     * @param editTree the EditTree
+     */
+    public void setEditTree(EditTree editTree) {
+        this.weakEditTree = new WeakReference<>(editTree);
+    }
+
+    /**
+     * Gets the EditTree associated with this model.
+     *
+     * @return the EditTree, or null if not set
+     */
+    public EditTree getEditTree() {
+        return weakEditTree != null ? weakEditTree.get() : null;
+    }
+
+    /**
+     * Checks if this model has an EditTree associated.
+     *
+     * @return true if EditTree is available
+     */
+    public boolean hasEditTree() {
+        return getEditTree() != null;
+    }
+
     public TreeFocusComponent getTree() {
         return weakTree.get();
     }
@@ -47,6 +89,16 @@ public class SelectionStackManagerModel {
     public boolean isFor(TreeModel model) {
         TreeFocusComponent tree = getTree();
         return tree != null && tree.getModel() == model;
+    }
+
+    /**
+     * Prüft, ob dieses Model zu dem EditTree gehört.
+     *
+     * @param editTree the EditTree to check
+     * @return true if this model is for the given EditTree
+     */
+    public boolean isFor(EditTree editTree) {
+        return editTree != null && editTree.equals(getEditTree());
     }
 
     /**
@@ -88,7 +140,7 @@ public class SelectionStackManagerModel {
      * Ein Schritt zurück im Stack.Gibt den neuen aktuellen Entry, oder null,
      * falls nicht möglich.
      *
-     * @return
+     * @return the previous entry, or null
      */
     public SelectionStackEntry goBackward() {
         if (!canBackward()) {
@@ -102,7 +154,7 @@ public class SelectionStackManagerModel {
      * Ein Schritt vorwärts im Stack.Gibt den neuen aktuellen Entry, oder null,
      * falls nicht möglich.
      *
-     * @return
+     * @return the next entry, or null
      */
     public SelectionStackEntry goForward() {
         if (!canForward()) {

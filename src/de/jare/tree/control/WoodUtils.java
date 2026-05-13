@@ -11,50 +11,49 @@ import javax.swing.tree.TreeModel;
 import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
- * Represents a single undoable command in the tree editor.
- * <p>
- * Implementations encapsulate a single logical change (add node, delete node,
- * rename, value change, move, ...) and know how to execute and undo that
- * change.
- * </p>
+ * DEPRECATED: This interface has been replaced by {@link TreeNodeUtils}.
+ * 
+ * <p>This interface provided utility methods for tree node operations.
+ * All functionality has been moved to the concrete utility class TreeNodeUtils,
+ * which provides the same methods as static utility methods.</p>
+ * 
+ * <p>Existing code that implements WoodUtils should continue to work, but new code
+ * should use TreeNodeUtils directly instead.</p>
+ * 
+ * @deprecated Use {@link TreeNodeUtils} instead
  */
 public interface WoodUtils {
 
+    /**
+     * @deprecated Use {@link TreeNodeUtils#findNodeByEditId(TreeModel, long)} instead
+     */
+    @Deprecated
     default DefaultMutableTreeNode findNodeByEditId(TreeModel model, long id) {
-        Object root = model.getRoot();
-        if (!(root instanceof DefaultMutableTreeNode dmtn)) {
-            return null;
-        }
-        return findNodeByEditId(dmtn, id);
+        return TreeNodeUtils.findNodeByEditId(model, id);
     }
 
+    /**
+     * @deprecated Use {@link TreeNodeUtils#findNodeByEditId(DefaultMutableTreeNode, long)} instead
+     */
+    @Deprecated
     default DefaultMutableTreeNode findNodeByEditId(DefaultMutableTreeNode node, long id) {
-        Object uo = node.getUserObject();
-        if (uo instanceof EditNode data && data.getEditId() == id) {
-            return node;
-        }
-        for (int i = 0; i < node.getChildCount(); i++) {
-            DefaultMutableTreeNode child = (DefaultMutableTreeNode) node.getChildAt(i);
-            DefaultMutableTreeNode found = findNodeByEditId(child, id);
-            if (found != null) {
-                return found;
-            }
-        }
-        return null;
+        return TreeNodeUtils.findNodeByEditId(node, id);
     }
 
+    /**
+     * @deprecated Use {@link TreeNodeUtils#deepCopy(DefaultMutableTreeNode)} instead
+     */
+    @Deprecated
     default DefaultMutableTreeNode deepCopy(DefaultMutableTreeNode original) {
-        Object uo = original.getUserObject();
-        if (uo instanceof EditNode data) {
-            uo = data.deepCopy(false);
-        } else {
-            uo = String.valueOf(uo);
-        }
-        DefaultMutableTreeNode copy = new DefaultMutableTreeNode(uo);
-        for (int i = 0; i < original.getChildCount(); i++) {
-            DefaultMutableTreeNode child = (DefaultMutableTreeNode) original.getChildAt(i);
-            copy.add(deepCopy(child));
-        }
-        return copy;
+        return TreeNodeUtils.deepCopy(original);
     }
+
+    /**
+     * @deprecated Use {@link TreeNodeUtils#deepCopy(DefaultMutableTreeNode, boolean)} instead
+     */
+    @Deprecated
+    default DefaultMutableTreeNode deepCopy(DefaultMutableTreeNode original, boolean regenerateEditId) {
+        return TreeNodeUtils.deepCopy(original, regenerateEditId);
+    }
+
 }

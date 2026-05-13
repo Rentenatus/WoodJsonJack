@@ -7,6 +7,11 @@
 package de.jare.tree.control;
 
 import de.jare.tree.control.commands.WoodCommand;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.history.HistoryManager;
+import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.command.CommandResult;
+
 import java.lang.ref.WeakReference;
 
 import java.util.ArrayDeque;
@@ -22,10 +27,17 @@ import javax.swing.tree.TreeModel;
  * {@link #executeCommand(WoodCommand)}. The manager keeps two stacks for undo
  * and redo operations.
  * </p>
+ * <p>
+ * When an EditTree is available, this class can use HistoryManager internally
+ * for EditCommand-based operations, while maintaining backward compatibility
+ * with WoodCommand for TreeModel-based operations.
+ * </p>
  */
 public class UndoManagerModel {
 
     final private WeakReference< TreeModel> weakTreeModel;
+    private WeakReference<EditTree> weakEditTree;
+    private HistoryManager historyManager;
 
     private final Deque<WoodCommand> undoStack = new ArrayDeque<>();
     private final Deque<WoodCommand> redoStack = new ArrayDeque<>();
@@ -33,6 +45,57 @@ public class UndoManagerModel {
 
     public UndoManagerModel(TreeModel treeModel) {
         this.weakTreeModel = new WeakReference<>(treeModel);
+    }
+
+    /**
+     * Creates an UndoManagerModel with both TreeModel and EditTree support.
+     *
+     * @param treeModel the Swing TreeModel
+     * @param editTree the EditTree for editor-based operations
+     */
+    public UndoManagerModel(TreeModel treeModel, EditTree editTree) {
+        this.weakTreeModel = new WeakReference<>(treeModel);
+        this.weakEditTree = new WeakReference<>(editTree);
+        if (editTree != null) {
+            this.historyManager = new HistoryManager(editTree);
+        }
+    }
+
+    /**
+     * Sets the EditTree for this manager and creates a HistoryManager for it.
+     *
+     * @param editTree the EditTree to use
+     */
+    public void setEditTree(EditTree editTree) {
+        this.weakEditTree = new WeakReference<>(editTree);
+        this.historyManager = editTree != null ? new HistoryManager(editTree) : null;
+    }
+
+    /**
+     * Gets the EditTree associated with this manager.
+     *
+     * @return the EditTree, or null if not set
+     */
+    public EditTree getEditTree() {
+        return weakEditTree != null ? weakEditTree.get() : null;
+    }
+
+    /**
+     * Checks if this manager has an EditTree and HistoryManager available.
+     *
+     * @return true if EditTree is available
+     */
+    public boolean hasEditTree() {
+        return getEditTree() != null && historyManager != null;
+    }
+
+    /**
+     * Gets the HistoryManager for EditCommand-based operations.
+     *
+     * @return the HistoryManager, or null if not available
+     */
+    public HistoryManager getHistoryManager() {
+        return historyManager;
     }
 
     public TreeModel getTreeModel() {
@@ -55,6 +118,20 @@ public class UndoManagerModel {
     }
 
     /**
+     * Pushes an EditCommand to the HistoryManager if EditTree is available.
+     * Otherwise falls back to WoodCommand handling.
+     *
+     * @param editCommand the EditCommand to execute
+     * @return the CommandResult, or null if no EditTree is available
+     */
+    public CommandResult pushEditCommand(EditCommand editCommand) {
+        if (historyManager != null) {
+            return historyManager.execute(editCommand);
+        }
+        return null;
+    }
+
+    /**
      * Performs an undo operation if possible.
      *
      * @return
@@ -68,6 +145,18 @@ public class UndoManagerModel {
         cmd.undo(lokalModel);
         redoStack.push(cmd);
         return cmd;
+    }
+
+    /**
+     * Performs an undo operation using HistoryManager if available.
+     *
+     * @return the CommandResult, or null if no EditTree is available or nothing to undo
+     */
+    public CommandResult undoEdit() {
+        if (historyManager != null) {
+            return historyManager.undo();
+        }
+        return null;
     }
 
     /**
@@ -87,6 +176,18 @@ public class UndoManagerModel {
     }
 
     /**
+     * Performs a redo operation using HistoryManager if available.
+     *
+     * @return the CommandResult, or null if no EditTree is available or nothing to redo
+     */
+    public CommandResult redoEdit() {
+        if (historyManager != null) {
+            return historyManager.redo();
+        }
+        return null;
+    }
+
+    /**
      * Performs a redo operation if possible.
      *
      * @return
@@ -103,6 +204,18 @@ public class UndoManagerModel {
     }
 
     /**
+     * Performs a skip_redo operation using HistoryManager if available.
+     *
+     * @return the skipped EditCommand, or null if no EditTree is available or nothing to skip
+     */
+    public EditCommand skipRedoEdit() {
+        if (historyManager != null) {
+            return historyManager.skipRedo();
+        }
+        return null;
+    }
+
+    /**
      * Returns whether an undo operation is currently available.
      *
      * @param lokalModel
@@ -113,6 +226,15 @@ public class UndoManagerModel {
     }
 
     /**
+     * Returns whether an undo operation is currently available using HistoryManager.
+     *
+     * @return true if EditTree is available and undo can be performed
+     */
+    public boolean canUndoEdit() {
+        return historyManager != null && historyManager.canUndo();
+    }
+
+    /**
      * Returns whether a redo operation is currently available.
      *
      * @param lokalModel
@@ -120,6 +242,15 @@ public class UndoManagerModel {
      */
     public boolean canRedo(TreeModel lokalModel) {
         return !redoStack.isEmpty() && lokalModel != null;
+    }
+
+    /**
+     * Returns whether a redo operation is currently available using HistoryManager.
+     *
+     * @return true if EditTree is available and redo can be performed
+     */
+    public boolean canRedoEdit() {
+        return historyManager != null && historyManager.canRedo();
     }
 
     /**
@@ -146,6 +277,9 @@ public class UndoManagerModel {
     public void clear() {
         undoStack.clear();
         redoStack.clear();
+        if (historyManager != null) {
+            historyManager.clear();
+        }
     }
 
     /**
@@ -160,6 +294,9 @@ public class UndoManagerModel {
         }
         this.limit = limit;
         trimToLimit();
+        if (historyManager != null) {
+            historyManager.setLimit(limit);
+        }
     }
 
     /**
@@ -190,6 +327,19 @@ public class UndoManagerModel {
 
     public int redoSize() {
         return redoStack.size();
+    }
+
+    /**
+     * Returns the total size including both WoodCommand and EditCommand stacks.
+     *
+     * @return the total size
+     */
+    public int getTotalSize() {
+        int baseSize = undoStack.size() + redoStack.size();
+        if (historyManager != null) {
+            baseSize += historyManager.getTotalSize();
+        }
+        return baseSize;
     }
 
     public WoodCommand getRedo(int index) {

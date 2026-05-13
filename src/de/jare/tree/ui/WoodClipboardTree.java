@@ -8,17 +8,30 @@ package de.jare.tree.ui;
 
 import de.jare.tree.control.commands.WoodCommandAddNodes;
 import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditTree;
+
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
-import de.jare.jsoncasted.editor.core.EditNode;
 
+/**
+ * Clipboard tree component that displays and manages copied/cut nodes.
+ * Supports both the legacy TreeModel-based system (DefaultMutableTreeNode)
+ * and the new EditTree-based system (EditNode).
+ */
 public class WoodClipboardTree extends JTree {
 
+    // Legacy fields for TreeModel-based clipboard
     private DefaultMutableTreeNode[] clipboardNodes;
     private WoodEditTree sourceTree;
     private boolean cut;
+    
+    // New fields for EditTree-based clipboard
+    private ClipboardManager clipboardManager;
+    private EditTree editTree;
 
     public WoodClipboardTree() {
         super(new DefaultMutableTreeNode("Clipboard"));
@@ -26,7 +39,14 @@ public class WoodClipboardTree extends JTree {
         setEditable(false);
         setRootVisible(true);
         setShowsRootHandles(true);
+        
+        // Initialize ClipboardManager for EditTree support
+        this.clipboardManager = new ClipboardManager();
     }
+
+    // ========================================================================
+    // Legacy methods for TreeModel-based clipboard (backward compatible)
+    // ========================================================================
 
     public DefaultMutableTreeNode[] getClipboardNodes() {
         return clipboardNodes;
@@ -40,6 +60,11 @@ public class WoodClipboardTree extends JTree {
         clipboardNodes = null;
         sourceTree = null;
         showClipboardContent(null);
+        
+        // Also clear the ClipboardManager
+        if (clipboardManager != null) {
+            clipboardManager.clearActiveStash();
+        }
     }
 
     public void copySelection(WoodEditTree trigger, TreePath[] paths, boolean cut) {
@@ -151,6 +176,215 @@ public class WoodClipboardTree extends JTree {
             copy.add(deepCopy(child, regenerateEditId));
         }
         return copy;
+    }
+
+    // ========================================================================
+    // New methods for EditTree-based clipboard
+    // ========================================================================
+
+    /**
+     * Sets the EditTree for this clipboard.
+     * 
+     * @param editTree the EditTree to use for EditNode-based operations
+     */
+    public void setEditTree(EditTree editTree) {
+        this.editTree = editTree;
+    }
+
+    /**
+     * Gets the EditTree associated with this clipboard.
+     * 
+     * @return the EditTree, or null if not set
+     */
+    public EditTree getEditTree() {
+        return editTree;
+    }
+
+    /**
+     * Gets the ClipboardManager for EditNode-based operations.
+     * 
+     * @return the ClipboardManager
+     */
+    public ClipboardManager getClipboardManager() {
+        return clipboardManager;
+    }
+
+    /**
+     * Sets a custom ClipboardManager.
+     * 
+     * @param clipboardManager the ClipboardManager to use
+     */
+    public void setClipboardManager(ClipboardManager clipboardManager) {
+        this.clipboardManager = clipboardManager;
+    }
+
+    /**
+     * Copies EditNode selection to the clipboard using ClipboardManager.
+     * 
+     * @param tree the source EditTree
+     * @param nodeIds the IDs of the nodes to copy
+     * @param cut whether this is a cut operation
+     */
+    public void copyEditSelection(EditTree tree, long[] nodeIds, boolean cut) {
+        if (clipboardManager != null) {
+            if (cut) {
+                clipboardManager.cutToActiveStash(tree, nodeIds);
+            } else {
+                clipboardManager.copyToActiveStash(tree, nodeIds);
+            }
+            this.cut = cut;
+            this.editTree = tree;
+            updateClipboardDisplay();
+        }
+    }
+
+    /**
+     * Copies EditNode array to the clipboard using ClipboardManager.
+     * 
+     * @param tree the source EditTree
+     * @param nodes the EditNodes to copy
+     * @param cut whether this is a cut operation
+     */
+    public void copyEditSelection(EditTree tree, EditNode[] nodes, boolean cut) {
+        if (clipboardManager != null) {
+            if (cut) {
+                clipboardManager.cutToActiveStash(tree, 
+                    java.util.Arrays.stream(nodes).mapToLong(EditNode::getEditId).toArray());
+            } else {
+                clipboardManager.copyToActiveStash(tree, nodes);
+            }
+            this.cut = cut;
+            this.editTree = tree;
+            updateClipboardDisplay();
+        }
+    }
+
+    /**
+     * Pastes from clipboard to EditTree using ClipboardManager.
+     * 
+     * @param tree the target EditTree
+     * @param parentId the ID of the parent node
+     * @param index the insertion index, or -1 to append
+     * @return the IDs of the pasted nodes
+     */
+    public long[] pasteEditClipboard(EditTree tree, long parentId, int index) {
+        if (clipboardManager != null) {
+            long[] pastedIds = clipboardManager.pasteFromActiveStash(tree, parentId, index);
+            this.cut = false;
+            updateClipboardDisplay();
+            return pastedIds;
+        }
+        this.cut = false;
+        return new long[0];
+    }
+
+    /**
+     * Pastes from clipboard to EditTree using ClipboardManager.
+     * 
+     * @param tree the target EditTree
+     * @param parentId the ID of the parent node
+     * @return the IDs of the pasted nodes
+     */
+    public long[] pasteEditClipboard(EditTree tree, long parentId) {
+        return pasteEditClipboard(tree, parentId, -1);
+    }
+
+    /**
+     * Checks if paste is possible to the target EditNode.
+     * 
+     * @param tree the target EditTree
+     * @param targetData the target EditNode
+     * @return true if paste is possible
+     */
+    public boolean canPasteToEdit(EditTree tree, EditNode targetData) {
+        if (clipboardManager == null || targetData == null) {
+            return false;
+        }
+        EditNode[] clipboardContent = clipboardManager.getActiveStashContent();
+        if (clipboardContent == null || clipboardContent.length == 0) {
+            return false;
+        }
+        for (EditNode clipNode : clipboardContent) {
+            if (clipNode != null && !targetData.canBeChildOf(clipNode)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Clears the EditTree-based clipboard.
+     */
+    public void clearEditClipboard() {
+        if (clipboardManager != null) {
+            clipboardManager.clearActiveStash();
+        }
+        updateClipboardDisplay();
+    }
+
+    /**
+     * Returns whether the EditTree-based clipboard is empty.
+     * 
+     * @return true if clipboard is empty
+     */
+    public boolean isEditClipboardEmpty() {
+        return clipboardManager == null || clipboardManager.isActiveStashEmpty();
+    }
+
+    /**
+     * Returns the content of the EditTree-based clipboard.
+     * 
+     * @return the EditNodes in the clipboard
+     */
+    public EditNode[] getEditClipboardContent() {
+        if (clipboardManager != null) {
+            return clipboardManager.getActiveStashContent();
+        }
+        return new EditNode[0];
+    }
+
+    /**
+     * Updates the clipboard display to show current content.
+     */
+    private void updateClipboardDisplay() {
+        if (clipboardManager != null && !clipboardManager.isActiveStashEmpty()) {
+            EditNode[] nodes = clipboardManager.getActiveStashContent();
+            if (nodes != null && nodes.length > 0) {
+                // Convert EditNodes to DefaultMutableTreeNode for display
+                DefaultMutableTreeNode[] displayNodes = new DefaultMutableTreeNode[nodes.length];
+                for (int i = 0; i < nodes.length; i++) {
+                    displayNodes[i] = convertEditNodeToTreeNode(nodes[i]);
+                }
+                showClipboardContent(displayNodes);
+            } else {
+                showClipboardContent(null);
+            }
+        } else if (clipboardNodes != null) {
+            showClipboardContent(clipboardNodes);
+        } else {
+            showClipboardContent(null);
+        }
+    }
+
+    /**
+     * Converts an EditNode to a DefaultMutableTreeNode for display.
+     * 
+     * @param editNode the EditNode to convert
+     * @return the DefaultMutableTreeNode
+     */
+    private DefaultMutableTreeNode convertEditNodeToTreeNode(EditNode editNode) {
+        if (editNode == null) {
+            return null;
+        }
+        DefaultMutableTreeNode node = new DefaultMutableTreeNode(editNode.deepCopy(false));
+        for (int i = 0; i < editNode.getChildCount(); i++) {
+            EditNode child = editNode.getChildAt(i);
+            DefaultMutableTreeNode childNode = convertEditNodeToTreeNode(child);
+            if (childNode != null) {
+                node.add(childNode);
+            }
+        }
+        return node;
     }
 
 }

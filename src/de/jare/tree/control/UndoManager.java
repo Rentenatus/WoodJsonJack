@@ -10,6 +10,11 @@ import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.history.HistoryManager;
+import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.command.CommandResult;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -19,6 +24,12 @@ import javax.swing.tree.TreeModel;
  * Global undo/redo dispatcher that keeps one {@link UndoManagerModel} per
  * {@link TreeModel} and delegates execute/undo/redo to the manager of the
  * currently active model.
+ * 
+ * <p>
+ * When EditTree is available, this class can use HistoryManager internally
+ * for EditCommand-based operations, while maintaining backward compatibility
+ * with WoodCommand for TreeModel-based operations.
+ * </p>
  */
 public class UndoManager implements TreeFocusListener {
 
@@ -33,7 +44,12 @@ public class UndoManager implements TreeFocusListener {
 
     @Override
     public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
-        setActiveModel(editor != null ? editor.getModel() : null);
+        if (editor != null) {
+            EditTree editTree = editor.getEditTree();
+            setActiveModel(editor.getModel(), editTree);
+        } else {
+            setActiveModel(null, null);
+        }
     }
 
     public void addUndoRedoListener(int level, UndoRedoListener l) {
@@ -58,8 +74,51 @@ public class UndoManager implements TreeFocusListener {
         }
     }
 
+    /**
+     * Sets the active model with associated EditTree.
+     *
+     * @param model the TreeModel
+     * @param editTree the associated EditTree, may be null
+     */
+    public void setActiveModel(TreeModel model, EditTree editTree) {
+        if (model == null) {
+            this.activeManager = null;
+        } else {
+            this.activeManager = getManager(model, editTree);
+        }
+    }
+
     public UndoManagerModel getActiveManager() {
         return activeManager;
+    }
+
+    /**
+     * Sets the EditTree for the currently active model.
+     *
+     * @param editTree the EditTree to associate with the active model
+     */
+    public void setActiveEditTree(EditTree editTree) {
+        if (activeManager != null) {
+            activeManager.setEditTree(editTree);
+        }
+    }
+
+    /**
+     * Gets the EditTree from the currently active model.
+     *
+     * @return the EditTree, or null if not available
+     */
+    public EditTree getActiveEditTree() {
+        return activeManager != null ? activeManager.getEditTree() : null;
+    }
+
+    /**
+     * Gets the HistoryManager from the currently active model.
+     *
+     * @return the HistoryManager, or null if not available
+     */
+    public HistoryManager getActiveHistoryManager() {
+        return activeManager != null ? activeManager.getHistoryManager() : null;
     }
 
     /**
@@ -75,6 +134,30 @@ public class UndoManager implements TreeFocusListener {
     }
 
     /**
+     * Executes an EditCommand on the active model using HistoryManager.
+     *
+     * @param editCommand the EditCommand to execute
+     * @return the CommandResult, or null if no active HistoryManager
+     */
+    public CommandResult pushEditCommand(EditCommand editCommand) {
+        if (activeManager != null && activeManager.hasEditTree()) {
+            CommandResult result = activeManager.pushEditCommand(editCommand);
+            if (result != null) {
+                // Fire event for EditCommand execution
+                // Note: UndoRedoListener expects WoodCommand, so we need an adapter
+                // For now, just notify that a command was added
+                TreeModel model = activeManager.getTreeModel();
+                if (model != null) {
+                    // Create a wrapper WoodCommand if needed, or just fire a generic event
+                    undoRedoOrator.say(l -> l.onAddCommand(model, null));
+                }
+            }
+            return result;
+        }
+        return null;
+    }
+
+    /**
      * Performs undo on the active model.
      */
     public void undo() {
@@ -84,6 +167,23 @@ public class UndoManager implements TreeFocusListener {
                 undoRedoOrator.say(l -> l.onUndo(activeManager.getTreeModel(), cmd));
             }
         }
+    }
+
+    /**
+     * Performs undo using HistoryManager on the active model.
+     *
+     * @return the CommandResult, or null if no active HistoryManager
+     */
+    public CommandResult undoEdit() {
+        if (activeManager != null && activeManager.hasEditTree()) {
+            CommandResult result = activeManager.undoEdit();
+            if (result != null) {
+                undoRedoOrator.say(l -> l.onUndo(activeManager.getTreeModel(), null));
+            }
+            return result;
+        }
+        undo();
+        return null;
     }
 
     /**
@@ -98,6 +198,23 @@ public class UndoManager implements TreeFocusListener {
         }
     }
 
+    /**
+     * Performs redo using HistoryManager on the active model.
+     *
+     * @return the CommandResult, or null if no active HistoryManager
+     */
+    public CommandResult redoEdit() {
+        if (activeManager != null && activeManager.hasEditTree()) {
+            CommandResult result = activeManager.redoEdit();
+            if (result != null) {
+                undoRedoOrator.say(l -> l.onRedo(activeManager.getTreeModel(), null));
+            }
+            return result;
+        }
+        redo();
+        return null;
+    }
+
     public void skip_redo() {
         if (activeManager != null) {
             WoodCommand cmd = activeManager.skip_redo();
@@ -107,12 +224,35 @@ public class UndoManager implements TreeFocusListener {
         }
     }
 
+    /**
+     * Performs skip_redo using HistoryManager on the active model.
+     *
+     * @return the skipped EditCommand, or null if no active HistoryManager
+     */
+    public EditCommand skipRedoEdit() {
+        if (activeManager != null && activeManager.hasEditTree()) {
+            EditCommand cmd = activeManager.skipRedoEdit();
+            if (cmd != null) {
+                undoRedoOrator.say(l -> l.onRedo(activeManager.getTreeModel(), null));
+            }
+            return cmd;
+        }
+        skip_redo();
+        return null;
+    }
+
     public boolean canUndo() {
-        return activeManager != null && activeManager.canUndo();
+        if (activeManager != null) {
+            return activeManager.canUndo() || activeManager.canUndoEdit();
+        }
+        return false;
     }
 
     public boolean canRedo() {
-        return activeManager != null && activeManager.canRedo();
+        if (activeManager != null) {
+            return activeManager.canRedo() || activeManager.canRedoEdit();
+        }
+        return false;
     }
 
     /**
@@ -137,7 +277,7 @@ public class UndoManager implements TreeFocusListener {
     }
 
     /**
-     * Finds or creates an {@link UndoManagerModel} for the given TreeModel.
+     * Finds or creates an {@link UndoManagerModel} for the given TreeModel. 
      * Also removes all manager instances whose TreeModel has already been
      * garbage collected.
      */
@@ -164,6 +304,44 @@ public class UndoManager implements TreeFocusListener {
 
         // create new manager for this model
         UndoManagerModel newManager = new UndoManagerModel(model);
+        managers.add(newManager);
+        return newManager;
+    }
+
+    /**
+     * Finds or creates an {@link UndoManagerModel} for the given TreeModel and EditTree.
+     * 
+     * @param model the TreeModel
+     * @param editTree the associated EditTree
+     * @return the UndoManagerModel for this model
+     */
+    private UndoManagerModel getManager(TreeModel model, EditTree editTree) {
+        // remove dead managers and search for existing one
+        UndoManagerModel found = null;
+        Iterator<UndoManagerModel> it = managers.iterator();
+        while (it.hasNext()) {
+            UndoManagerModel next = it.next();
+            TreeModel tm = next.getTreeModel();
+            if (tm == null) {
+                // TreeModel was GC'ed, drop this manager
+                it.remove();
+                continue;
+            }
+            if (tm == model) {
+                found = next;
+                // Update EditTree if provided
+                if (editTree != null && !editTree.equals(next.getEditTree())) {
+                    next.setEditTree(editTree);
+                }
+            }
+        }
+
+        if (found != null) {
+            return found;
+        }
+
+        // create new manager for this model with EditTree support
+        UndoManagerModel newManager = new UndoManagerModel(model, editTree);
         managers.add(newManager);
         return newManager;
     }
