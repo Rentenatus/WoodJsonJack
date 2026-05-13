@@ -6,15 +6,15 @@
  */
 package de.jare.jsoncasted.editor.command;
 
+import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
 import de.jare.jsoncasted.editor.command.EditCommandEntry.ContentEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Arrays;
 
 /**
- * Command that sets the value of node(s) in the tree.
- * When executed, the node(s) values are updated.
- * When undone, the previous values are restored.
+ * Command that sets the value of node(s) in the tree. When executed, the
+ * node(s) values are updated. When undone, the previous values are restored.
  */
 public class SetValueCommand extends AbstractEditCommand {
 
@@ -96,6 +96,29 @@ public class SetValueCommand extends AbstractEditCommand {
         } else {
             setDescription("Set values for " + this.entries.length + " nodes");
         }
+    }
+
+    @Override
+    public CommandAvailability check(EditTree tree) {
+        if (tree == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.tree.missing");
+        }
+
+        for (int i = 0; i < entries.length; i++) {
+            ContentEntry entry = entries[i];
+
+            EditNode node = tree.findNodeById(entry.nodeId);
+            if (node == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.setValue.nodeMissing",
+                        Long.toString(entry.nodeId),
+                        Integer.toString(i));
+            }
+        }
+
+        return CommandAvailability.allowed(
+                "editor.command.setValue.allowed");
     }
 
     @Override

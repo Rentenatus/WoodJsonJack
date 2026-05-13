@@ -1,146 +1,116 @@
 /*
- * Copyright (c) 2025, Janusch Rentenatus.
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License v2.0 which accompanies this distribution,
- * and is available at
+ * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0 which
+ * accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v20.html
  */
 package de.jare.jsoncasted.editor.clipboard;
 
-import de.jare.jsoncasted.editor.command.AbstractEditCommand;
 import de.jare.jsoncasted.editor.command.CommandAction;
+import de.jare.jsoncasted.editor.command.CommandAvailability;
 import de.jare.jsoncasted.editor.command.CommandResult;
-import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 
-/**
- * Command that cuts nodes to a clipboard stash.
- *
- * <p>In the revised clipboard model, cutting means:
- * <ul>
- *   <li>Store neutral snapshots of the selected nodes in the stash (deep copy with existing IDs)</li>
- *   <li>Remove the original nodes from the tree immediately</li>
- *   <li>Undo restores the originals at their previous positions</li>
- * </ul>
- * There is no special coordination with paste; paste operates only on the
- * snapshot content stored in the stash.</p>
- */
-public class CutToStashCommand extends AbstractEditCommand {
+public class CutToStashCommand extends AbstractToStashCommand {
 
-    private final ClipboardManager clipboardManager;
-    private final String stashName;
-    private final long[] nodeIds;
-
-    /**
-     * Original parent IDs and indices of the nodes, used for undo().
-     */
     private final long[] parentIds;
     private final int[] indices;
+    private EditNode[] removedSnapshots = new EditNode[0];
 
-    /**
-     * Snapshots of the nodes as sie zum Zeitpunkt des Cuts im Tree sind.
-     * Diese werden beim Undo wieder eingesetzt.
-     */
-    private EditNode[] removedSnapshots;
+    public CutToStashCommand(ClipboardManager clipboardManager, String stashName, long[] nodeIds) {
+        super(CommandType.OTHER,
+                "Cut nodes to stash '" + stashName + "'",
+                clipboardManager,
+                stashName,
+                nodeIds);
 
-    /**
-     * Speichert den ursprünglichen Inhalt des Stash, um ihn bei Undo
-     * wiederherstellen zu können.
-     */
-    private final EditNode[] originalStashContent;
-
-    /**
-     * Creates a command to cut nodes to a stash.
-     *
-     * @param clipboardManager the clipboard manager
-     * @param stashName the name of the target stash
-     * @param nodeIds the IDs of the nodes to cut
-     */
-    public CutToStashCommand(ClipboardManager clipboardManager,
-                             String stashName,
-                             long[] nodeIds) {
-        super(EditCommand.CommandType.OTHER, "Cut nodes to stash '" + stashName + "'");
-
-        if (clipboardManager == null) {
-            throw new IllegalArgumentException("ClipboardManager cannot be null");
-        }
-        if (stashName == null || stashName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Stash name cannot be null or empty");
-        }
-        if (nodeIds == null || nodeIds.length == 0) {
-            throw new IllegalArgumentException("Node IDs cannot be null or empty");
-        }
-
-        this.clipboardManager = clipboardManager;
-        this.stashName = stashName;
-        this.nodeIds = nodeIds.clone();
         this.parentIds = new long[nodeIds.length];
         this.indices = new int[nodeIds.length];
-
-        ClipboardStash stash = clipboardManager.getStash(stashName);
-        this.originalStashContent = stash != null ? stash.getNodes() : new EditNode[0];
-        this.removedSnapshots = new EditNode[0];
     }
 
-    /**
-     * Creates a command to cut nodes to the active stash.
-     *
-     * @param clipboardManager the clipboard manager
-     * @param nodeIds the IDs of the nodes to cut
-     */
     public CutToStashCommand(ClipboardManager clipboardManager, long[] nodeIds) {
         this(clipboardManager, clipboardManager.getActiveStashName(), nodeIds);
     }
 
     @Override
-    public CommandResult execute(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
+    protected String getAllowedMessageKey() {
+        return "editor.command.cut.allowed";
+    }
 
-        removedSnapshots = new EditNode[nodeIds.length];
+    @Override
+    protected String getNodeMissingMessageKey() {
+        return "editor.command.cut.nodeMissing";
+    }
 
-        // 1. Positionen und Snapshots sichern
+    @Override
+    protected String getUnsupportedNodeTypeMessageKey() {
+        return "editor.command.cut.unsupportedNodeType";
+    }
+
+    @Override
+    protected String getMixedNodeTypesMessageKey() {
+        return "editor.command.cut.mixedNodeTypes";
+    }
+
+    @Override
+    protected CommandAvailability validateFurther(EditTree tree) {
+        EditNode[] nodes = new EditNode[nodeIds.length];
+
         for (int i = 0; i < nodeIds.length; i++) {
             EditNode node = tree.findNodeById(nodeIds[i]);
-            if (node != null) {
-                EditNode parent = node.getParent();
-                parentIds[i] = parent != null ? parent.getEditId() : -1;
-                indices[i] = parent != null ? parent.getChildIndex(node) : -1;
-                // Snapshot mit bestehenden IDs
-                removedSnapshots[i] = node.deepCopy(false);
-            } else {
-                parentIds[i] = -1;
-                indices[i] = -1;
-                removedSnapshots[i] = null;
+            EditNode parent = node.getParent();
+            if (parent == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.cut.parentMissing",
+                        Long.toString(nodeIds[i]),
+                        Integer.toString(i));
+            }
+            if (parent.getChildIndex(node) < 0) {
+                return CommandAvailability.disallowed(
+                        "editor.command.cut.nodeNotChildOfParent",
+                        Long.toString(nodeIds[i]),
+                        Long.toString(parent.getEditId()),
+                        Integer.toString(i));
+            }
+            nodes[i] = node;
+        }
+
+        for (int i = 0; i < nodes.length; i++) {
+            for (int j = 0; j < nodes.length; j++) {
+                if (i != j && isAncestorOf(nodes[i], nodes[j])) {
+                    return CommandAvailability.disallowed(
+                            "editor.command.cut.containsAncestorAndDescendant",
+                            Long.toString(nodes[i].getEditId()),
+                            Long.toString(nodes[j].getEditId()),
+                            Integer.toString(i),
+                            Integer.toString(j));
+                }
             }
         }
 
-        // 2. Snapshot in den Stash schreiben
+        return super.validateFurther(tree);
+    }
+
+    @Override
+    public CommandResult execute(EditTree tree) {
+        requireExecutable(tree);
+        captureState(tree);
+
         ClipboardStash stash = clipboardManager.getStash(stashName);
         if (stash == null) {
             throw new IllegalStateException("Stash with name " + stashName + " does not exist");
         }
+
         stash.setNodes(removedSnapshots);
-
-        // 3. Originalknoten aus dem Tree entfernen
-        //    removeNodes() entfernt rückwärts, damit Indices stabil sind.
         tree.removeNodes(nodeIds);
-
-        EditNode[] cutNodes = new EditNode[nodeIds.length];
-        for (int i = 0; i < nodeIds.length; i++) {
-            // Nach removeNodes() sind die Originale nicht mehr im Baum;
-            // für das CommandResult verwenden wir die Snapshots.
-            cutNodes[i] = removedSnapshots[i];
-        }
 
         return new CommandResult(
                 this,
                 CommandAction.EXECUTE,
-                cutNodes,
+                removedSnapshots,
                 null,
-                cutNodes,
+                removedSnapshots,
                 null
         );
     }
@@ -151,29 +121,17 @@ public class CutToStashCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Tree cannot be null");
         }
 
-        // 1. Ursprünglichen Stash-Inhalt wiederherstellen
         ClipboardStash stash = clipboardManager.getStash(stashName);
         if (stash != null) {
             stash.setNodes(originalStashContent);
         }
 
-        // 2. Entfernte Snapshots wieder an ihre ursprünglichen Positionen einfügen
         EditNode[] restoredNodes = new EditNode[nodeIds.length];
-
         for (int i = 0; i < nodeIds.length; i++) {
-            EditNode snapshot = removedSnapshots != null && i < removedSnapshots.length
-                    ? removedSnapshots[i]
-                    : null;
-            long parentId = parentIds[i];
-            int index = indices[i];
-
-            if (snapshot != null && parentId >= 0 && index >= 0) {
-                // Wir fügen den Snapshot mit seinen ursprünglichen IDs ein.
-                // Da der Cut die Originale entfernt hat, sollte es keine Kollisionen geben.
-                tree.addNode(parentId, snapshot, index);
+            EditNode snapshot = i < removedSnapshots.length ? removedSnapshots[i] : null;
+            if (snapshot != null && parentIds[i] >= 0 && indices[i] >= 0) {
+                tree.addNode(parentIds[i], snapshot, indices[i]);
                 restoredNodes[i] = snapshot;
-            } else {
-                restoredNodes[i] = null;
             }
         }
 
@@ -187,29 +145,28 @@ public class CutToStashCommand extends AbstractEditCommand {
         );
     }
 
-    /**
-     * Returns the stash name.
-     *
-     * @return the stash name
-     */
-    public String getStashName() {
-        return stashName;
-    }
-
-    /**
-     * Returns the node IDs to cut.
-     *
-     * @return a copy of the node IDs array
-     */
-    public long[] getNodeIds() {
-        return nodeIds.clone();
-    }
-
     @Override
     public String toString() {
-        return "CutToStashCommand[" +
-               "stash='" + stashName + '\'' +
-               ", nodeCount=" + nodeIds.length +
-               "]";
+        return "CutToStashCommand[stash='" + stashName + "', nodeCount=" + nodeIds.length + "]";
+    }
+
+    private void captureState(EditTree tree) {
+        removedSnapshots = new EditNode[nodeIds.length];
+        for (int i = 0; i < nodeIds.length; i++) {
+            EditNode node = tree.findNodeById(nodeIds[i]);
+            EditNode parent = node.getParent();
+            parentIds[i] = parent.getEditId();
+            indices[i] = parent.getChildIndex(node);
+            removedSnapshots[i] = node.deepCopy(false);
+        }
+    }
+
+    private static boolean isAncestorOf(EditNode ancestor, EditNode node) {
+        for (EditNode current = node.getParent(); current != null; current = current.getParent()) {
+            if (current == ancestor) {
+                return true;
+            }
+        }
+        return false;
     }
 }

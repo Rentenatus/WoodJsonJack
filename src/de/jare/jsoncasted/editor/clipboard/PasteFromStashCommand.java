@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.clipboard;
 
 import de.jare.jsoncasted.editor.command.AbstractEditCommand;
 import de.jare.jsoncasted.editor.command.CommandAction;
+import de.jare.jsoncasted.editor.command.CommandAvailability;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
@@ -17,13 +18,15 @@ import de.jare.jsoncasted.editor.core.EditTree;
 /**
  * Command that pastes nodes from a clipboard stash into the tree.
  *
- * <p>The stash contains neutral subtree snapshots. This command does not
- * interpret cut vs. copy semantics; it only inserts copies of the stash
- * content into the target tree.</p>
+ * <p>
+ * The stash contains neutral subtree snapshots. This command does not interpret
+ * cut vs. copy semantics; it only inserts copies of the stash content into the
+ * target tree.</p>
  *
- * <p>On execute, the command asks the {@link ClipboardManager} to perform
- * the paste and records the IDs of the newly inserted nodes. On undo,
- * those nodes are removed again.</p>
+ * <p>
+ * On execute, the command asks the {@link ClipboardManager} to perform the
+ * paste and records the IDs of the newly inserted nodes. On undo, those nodes
+ * are removed again.</p>
  */
 public class PasteFromStashCommand extends AbstractEditCommand {
 
@@ -33,8 +36,8 @@ public class PasteFromStashCommand extends AbstractEditCommand {
     private final int index;
 
     /**
-     * IDs of the nodes that were inserted by the last execute() call.
-     * Used by undo() to remove them again.
+     * IDs of the nodes that were inserted by the last execute() call. Used by
+     * undo() to remove them again.
      */
     private long[] pastedNodeIds;
 
@@ -47,12 +50,12 @@ public class PasteFromStashCommand extends AbstractEditCommand {
      * @param index the index at which to insert the nodes, or -1 to append
      */
     public PasteFromStashCommand(ClipboardManager clipboardManager,
-                                 String stashName,
-                                 long parentId,
-                                 int index) {
+            String stashName,
+            long parentId,
+            int index) {
         super(EditCommand.CommandType.ADD_NODE,
-              "Paste from stash '" + stashName + "' to parent " + parentId
-                      + (index >= 0 ? " at index " + index : " (append)"));
+                "Paste from stash '" + stashName + "' to parent " + parentId
+                + (index >= 0 ? " at index " + index : " (append)"));
 
         if (clipboardManager == null) {
             throw new IllegalArgumentException("ClipboardManager cannot be null");
@@ -79,8 +82,8 @@ public class PasteFromStashCommand extends AbstractEditCommand {
      * @param index the index at which to insert the nodes, or -1 to append
      */
     public PasteFromStashCommand(ClipboardManager clipboardManager,
-                                 long parentId,
-                                 int index) {
+            long parentId,
+            int index) {
         this(clipboardManager, clipboardManager.getActiveStashName(), parentId, index);
     }
 
@@ -92,8 +95,8 @@ public class PasteFromStashCommand extends AbstractEditCommand {
      * @param parentId the ID of the parent node where nodes will be inserted
      */
     public PasteFromStashCommand(ClipboardManager clipboardManager,
-                                 String stashName,
-                                 long parentId) {
+            String stashName,
+            long parentId) {
         this(clipboardManager, stashName, parentId, -1);
     }
 
@@ -104,8 +107,89 @@ public class PasteFromStashCommand extends AbstractEditCommand {
      * @param parentId the ID of the parent node where nodes will be inserted
      */
     public PasteFromStashCommand(ClipboardManager clipboardManager,
-                                 long parentId) {
+            long parentId) {
         this(clipboardManager, clipboardManager.getActiveStashName(), parentId, -1);
+    }
+
+    @Override
+    public CommandAvailability check(EditTree tree) {
+        if (tree == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.tree.missing");
+        }
+
+        return validate(tree);
+    }
+
+    private CommandAvailability validate(EditTree tree) {
+        ClipboardStash stash = clipboardManager.getStash(stashName);
+        if (stash == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.paste.stashMissing",
+                    stashName);
+        }
+
+        EditNode[] stashNodes = stash.getNodes();
+        if (stashNodes == null || stashNodes.length == 0) {
+            return CommandAvailability.disallowed(
+                    "editor.command.paste.stashEmpty",
+                    stashName);
+        }
+
+        EditNode parent = tree.findNodeById(parentId);
+        if (parent == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.paste.parentMissing",
+                    Long.toString(parentId));
+        }
+
+        if (index < -1 || index > parent.getChildCount()) {
+            return CommandAvailability.disallowed(
+                    "editor.command.paste.indexInvalid",
+                    Integer.toString(index),
+                    Integer.toString(parent.getChildCount()));
+        }
+
+        String seenTypeKey = null;
+
+        for (int i = 0; i < stashNodes.length; i++) {
+            EditNode node = stashNodes[i];
+            if (node == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.paste.stashNodeMissing",
+                        stashName,
+                        Integer.toString(i));
+            }
+
+            String typeKey = node.getTypeKey();
+            if (typeKey == null || typeKey.trim().isEmpty()) {
+                return CommandAvailability.disallowed(
+                        "editor.command.paste.unsupportedNodeType",
+                        String.valueOf(typeKey),
+                        Integer.toString(i));
+            }
+
+            if (seenTypeKey == null) {
+                seenTypeKey = typeKey;
+            } else if (!seenTypeKey.equals(typeKey)) {
+                return CommandAvailability.disallowed(
+                        "editor.command.paste.mixedNodeTypes",
+                        stashName,
+                        Integer.toString(i));
+            }
+
+            if (!node.canBeChildOf(parent)) {
+                return CommandAvailability.disallowed(
+                        "editor.command.paste.childNotAllowedForParent",
+                        node.getTypeKey(),
+                        parent.getTypeKey(),
+                        Integer.toString(i));
+            }
+        }
+
+        return CommandAvailability.allowed(
+                "editor.command.paste.allowed",
+                stashName);
     }
 
     @Override
@@ -113,7 +197,10 @@ public class PasteFromStashCommand extends AbstractEditCommand {
         if (tree == null) {
             throw new IllegalArgumentException("Tree cannot be null");
         }
-
+        CommandAvailability availability = validate(tree);
+        if (!availability.isAllowed()) {
+            throw new IllegalStateException(availability.toString());
+        }
         // Perform the paste operation via ClipboardManager.
         // ClipboardManager decides whether to reuse or regenerate edit IDs.
         pastedNodeIds = clipboardManager.pasteFromStash(stashName, tree, parentId, index);
@@ -130,10 +217,10 @@ public class PasteFromStashCommand extends AbstractEditCommand {
         return new CommandResult(
                 this,
                 CommandAction.EXECUTE,
-                pastedNodes,   // affected nodes
-                pastedNodes,   // added nodes
-                null,          // removed nodes
-                null           // moved nodes
+                pastedNodes, // affected nodes
+                pastedNodes, // added nodes
+                null, // removed nodes
+                null // moved nodes
         );
     }
 
@@ -156,10 +243,10 @@ public class PasteFromStashCommand extends AbstractEditCommand {
         return new CommandResult(
                 this,
                 CommandAction.UNDO,
-                removedNodes,  // affected nodes
-                null,          // added nodes
-                removedNodes,  // removed nodes
-                null           // moved nodes
+                removedNodes, // affected nodes
+                null, // added nodes
+                removedNodes, // removed nodes
+                null // moved nodes
         );
     }
 
@@ -191,8 +278,8 @@ public class PasteFromStashCommand extends AbstractEditCommand {
     }
 
     /**
-     * Returns the IDs of the pasted nodes.
-     * This is only available after execute() has been called.
+     * Returns the IDs of the pasted nodes. This is only available after
+     * execute() has been called.
      *
      * @return a copy of the pasted node IDs array
      */
@@ -202,10 +289,10 @@ public class PasteFromStashCommand extends AbstractEditCommand {
 
     @Override
     public String toString() {
-        return "PasteFromStashCommand[" +
-                "stash='" + stashName + '\'' +
-                ", parentId=" + parentId +
-                ", index=" + (index >= 0 ? index : "append") +
-                "]";
+        return "PasteFromStashCommand["
+                + "stash='" + stashName + '\''
+                + ", parentId=" + parentId
+                + ", index=" + (index >= 0 ? index : "append")
+                + "]";
     }
 }

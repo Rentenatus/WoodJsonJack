@@ -6,15 +6,16 @@
  */
 package de.jare.jsoncasted.editor.command;
 
+import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
 import de.jare.jsoncasted.editor.command.EditCommandEntry.MovementEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Arrays;
 
 /**
- * Command that adds node(s) to the tree.
- * When executed, the node(s) are inserted at their specified parent and index.
- * When undone, the node(s) are removed from the tree.
+ * Command that adds node(s) to the tree. When executed, the node(s) are
+ * inserted at their specified parent and index. When undone, the node(s) are
+ * removed from the tree.
  */
 public class AddNodeCommand extends AbstractEditCommand {
 
@@ -67,6 +68,59 @@ public class AddNodeCommand extends AbstractEditCommand {
             setDescription("Add " + this.entries.length + " nodes");
         }
     }
+
+  @Override
+public CommandAvailability check(EditTree tree) {
+    if (tree == null) {
+        return CommandAvailability.disallowed(
+                "editor.command.tree.missing");
+    }
+
+    for (int i = 0; i < entries.length; i++) {
+        MovementEntry entry = entries[i];
+
+        EditNode parent = tree.findNodeById(entry.parentEditId);
+        if (parent == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.add.parentMissing",
+                    Long.toString(entry.parentEditId),
+                    Integer.toString(i));
+        }
+
+        if (entry.index < -1 || entry.index > parent.getChildCount()) {
+            return CommandAvailability.disallowed(
+                    "editor.command.add.indexInvalid",
+                    Integer.toString(entry.index),
+                    Integer.toString(parent.getChildCount()),
+                    Integer.toString(i));
+        }
+
+        EditNode child = entry.snapshot;
+        if (child == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.add.snapshotMissing",
+                    Integer.toString(i));
+        }
+
+        long id = entry.nodeId >= 0 ? entry.nodeId : child.getEditId();
+        if (tree.containsNode(id)) {
+            return CommandAvailability.disallowed(
+                    "editor.command.add.idConflict",
+                    Long.toString(id),
+                    Integer.toString(i));
+        }
+
+        if (!child.canBeChildOf(parent)) {
+            return CommandAvailability.disallowed(
+                    "editor.command.add.childNotAllowedForParent",
+                    child.getTypeKey(),
+                    parent.getTypeKey(),
+                    Integer.toString(i));
+        }
+    }
+
+    return CommandAvailability.allowed("editor.command.add.allowed");
+}
 
     @Override
     public CommandResult execute(EditTree tree) {

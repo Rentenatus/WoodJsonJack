@@ -17,6 +17,14 @@ import de.jare.jsoncasted.editor.core.EditTree;
 public interface EditCommand {
 
     /**
+     * Checks
+     *
+     * @param tree the tree to modify
+     * @return availability
+     */
+    public CommandAvailability check(EditTree tree);
+
+    /**
      * Executes this command on the given tree.
      *
      * @param tree the tree to modify

@@ -6,15 +6,15 @@
  */
 package de.jare.jsoncasted.editor.command;
 
+import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
 import de.jare.jsoncasted.editor.command.EditCommandEntry.ContentEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Arrays;
 
 /**
- * Command that renames node(s) in the tree.
- * When executed, the node(s) names are updated.
- * When undone, the previous names are restored.
+ * Command that renames node(s) in the tree. When executed, the node(s) names
+ * are updated. When undone, the previous names are restored.
  */
 public class RenameNodeCommand extends AbstractEditCommand {
 
@@ -98,6 +98,43 @@ public class RenameNodeCommand extends AbstractEditCommand {
         } else {
             setDescription("Rename " + this.entries.length + " nodes");
         }
+    }
+
+    @Override
+    public CommandAvailability check(EditTree tree) {
+        if (tree == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.tree.missing");
+        }
+
+        for (int i = 0; i < entries.length; i++) {
+            ContentEntry entry = entries[i];
+
+            EditNode node = tree.findNodeById(entry.nodeId);
+            if (node == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.rename.nodeMissing",
+                        Long.toString(entry.nodeId),
+                        Integer.toString(i));
+            }
+
+            if (entry.newValue == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.rename.newNameMissing",
+                        Long.toString(entry.nodeId),
+                        Integer.toString(i));
+            }
+
+            if (entry.newValue.trim().isEmpty()) {
+                return CommandAvailability.disallowed(
+                        "editor.command.rename.newNameBlank",
+                        Long.toString(entry.nodeId),
+                        Integer.toString(i));
+            }
+        }
+
+        return CommandAvailability.allowed(
+                "editor.command.rename.allowed");
     }
 
     @Override

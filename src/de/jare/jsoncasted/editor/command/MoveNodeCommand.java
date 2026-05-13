@@ -191,6 +191,94 @@ public class MoveNodeCommand extends AbstractEditCommand {
         }
     }
 
+    @Override
+    public CommandAvailability check(EditTree tree) {
+        if (tree == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.tree.missing");
+        }
+
+        for (int i = 0; i < newEntries.length; i++) {
+            MovementEntry oldEntry = oldEntries[i];
+            MovementEntry newEntry = newEntries[i];
+
+            EditNode node = tree.findNodeById(oldEntry.nodeId);
+            if (node == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.move.nodeMissing",
+                        Long.toString(oldEntry.nodeId),
+                        Integer.toString(i));
+            }
+
+            EditNode sourceParent = tree.findNodeById(oldEntry.parentEditId);
+            if (sourceParent == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.move.sourceParentMissing",
+                        Long.toString(oldEntry.parentEditId),
+                        Integer.toString(i));
+            }
+
+            EditNode targetParent = tree.findNodeById(newEntry.parentEditId);
+            if (targetParent == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.move.targetParentMissing",
+                        Long.toString(newEntry.parentEditId),
+                        Integer.toString(i));
+            }
+
+            int sourceIndex = sourceParent.getChildIndex(node);
+            if (sourceIndex < 0) {
+                return CommandAvailability.disallowed(
+                        "editor.command.move.nodeNotChildOfSourceParent",
+                        Long.toString(oldEntry.nodeId),
+                        Long.toString(oldEntry.parentEditId),
+                        Integer.toString(i));
+            }
+
+            int targetChildCount = targetParent.getChildCount();
+            int requestedIndex = newEntry.index;
+            if (requestedIndex < -1 || requestedIndex > targetChildCount) {
+                return CommandAvailability.disallowed(
+                        "editor.command.move.indexInvalid",
+                        Integer.toString(requestedIndex),
+                        Integer.toString(targetChildCount),
+                        Integer.toString(i));
+            }
+
+            if (isAncestorOf(node, targetParent)) {
+                return CommandAvailability.disallowed(
+                        "editor.command.move.wouldCreateCycle",
+                        Long.toString(node.getEditId()),
+                        Long.toString(targetParent.getEditId()),
+                        Integer.toString(i));
+            }
+
+            if (!node.canBeChildOf(targetParent)) {
+                return CommandAvailability.disallowed(
+                        "editor.command.move.childNotAllowedForParent",
+                        node.getTypeKey(),
+                        targetParent.getTypeKey(),
+                        Integer.toString(i));
+            }
+        }
+
+        return CommandAvailability.allowed("editor.command.move.allowed");
+    }
+
+    /**
+     * Returns true if candidateAncestor is an ancestor of node (strict).
+     */
+    private static boolean isAncestorOf(EditNode node, EditNode candidateAncestor) {
+        EditNode current = node.getParent();
+        while (current != null) {
+            if (current == candidateAncestor) {
+                return true;
+            }
+            current = current.getParent();
+        }
+        return false;
+    }
+
     /**
      * Executes the move operation.
      *

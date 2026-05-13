@@ -70,6 +70,52 @@ public class DeleteNodeCommand extends AbstractEditCommand {
     }
 
     @Override
+    public CommandAvailability check(EditTree tree) {
+        if (tree == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.tree.missing");
+        }
+
+        for (int i = 0; i < entries.length; i++) {
+            MovementEntry entry = entries[i];
+            long nodeId = resolveNodeId(tree, entry);
+
+            EditNode node = tree.findNodeById(nodeId);
+            if (node == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.delete.nodeMissing",
+                        Long.toString(nodeId),
+                        Integer.toString(i));
+            }
+
+            if (node == tree.getRoot()) {
+                return CommandAvailability.disallowed(
+                        "editor.command.delete.rootNotAllowed",
+                        Long.toString(nodeId));
+            }
+
+            EditNode parent = node.getParent();
+            if (parent == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.delete.parentMissing",
+                        Long.toString(nodeId),
+                        Integer.toString(i));
+            }
+
+            int currentIndex = parent.getChildIndex(node);
+            if (currentIndex < 0) {
+                return CommandAvailability.disallowed(
+                        "editor.command.delete.nodeNotChildOfParent",
+                        Long.toString(nodeId),
+                        Long.toString(parent.getEditId()),
+                        Integer.toString(i));
+            }
+        }
+
+        return CommandAvailability.allowed("editor.command.delete.allowed");
+    }
+
+    @Override
     public CommandResult execute(EditTree tree) {
         if (tree == null) {
             throw new IllegalArgumentException("Tree cannot be null");
