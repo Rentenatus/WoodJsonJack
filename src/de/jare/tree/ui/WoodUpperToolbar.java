@@ -14,6 +14,8 @@ import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import javax.swing.*;
@@ -21,6 +23,7 @@ import javax.swing.tree.TreeModel;
 
 /**
  * Upper toolbar above the editor tabs with undo/redo buttons.
+ * Supports both TreeModel-based and EditTree-based operations.
  */
 public class WoodUpperToolbar extends JPanel implements ContentListener, TreeFocusListener, UndoRedoListener {
 
@@ -110,7 +113,7 @@ public class WoodUpperToolbar extends JPanel implements ContentListener, TreeFoc
     }
 
     protected void updateToolTips() {
-        // bis zu 5 Eintr�ge nach hinten/vorne
+        // bis zu 5 Einträge nach hinten/vorne
         var back = selMan.getBackwardLabels(5);
         var fwd = selMan.getForwardLabels(5);
 
@@ -167,6 +170,28 @@ public class WoodUpperToolbar extends JPanel implements ContentListener, TreeFoc
     @Override
     public void onClear(TreeModel model) {
         SwingUtilities.invokeLater(this::updateButtons);
+    }
+
+    // ===== EditCommand-based listener methods (for editor package integration) =====
+
+    @Override
+    public void onEditCommandExecuted(Object editTree, EditCommand editCommand, CommandResult result) {
+        SwingUtilities.invokeLater(this::updateButtons);
+    }
+
+    @Override
+    public void onEditCommandUndone(Object editTree, EditCommand editCommand, CommandResult result) {
+        updateButtons();
+    }
+
+    @Override
+    public void onEditCommandRedone(Object editTree, EditCommand editCommand, CommandResult result) {
+        updateButtons();
+    }
+
+    @Override
+    public void onEditCommandSkipped(Object editTree, EditCommand editCommand) {
+        updateButtons();
     }
 
 }

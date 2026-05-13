@@ -7,24 +7,33 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.control.MasterControl;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
-import de.jare.tree.control.listeners.TreeFocusComponent;
-import de.jare.tree.control.listeners.TreeFocusListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditTree;
 
+/**
+ * Context menu for tree editing operations.
+ * Supports both TreeModel-based and EditTree-based operations with automatic
+ * fallback to maintain backward compatibility.
+ */
 public class WoodEditPopup extends JPopupMenu {
 
+    private final MasterControl master;
+
     public WoodEditPopup(MasterControl master) {
+        this.master = master;
         JMenuItem addNodeItem = new JMenuItem("Node hinzufügen");
         JMenuItem deleteNodeItem = new JMenuItem("Node löschen");
         JMenuItem renameNodeItem = new JMenuItem("Node umbenennen");
@@ -57,14 +66,7 @@ public class WoodEditPopup extends JPopupMenu {
                 deleteNodeItem.setEnabled(enableCutDelete);
                 cutItem.setEnabled(enableCutDelete);
 
-                boolean canPaste = false;
-                if (node instanceof DefaultMutableTreeNode dmtn) {
-                    Object uo = dmtn.getUserObject();
-                    if (uo instanceof EditNode targetData) {
-                        canPaste = master.getClipboardTree().canPasteTo(targetData);
-                    }
-                }
-                pasteItem.setEnabled(canPaste);
+                pasteItem.setEnabled(canPasteToCurrent(node));
             }
 
             @Override
@@ -72,6 +74,36 @@ public class WoodEditPopup extends JPopupMenu {
                 // optional: Menü bei Editorwechsel anpassen
             }
         });
+    }
+
+    /**
+     * Checks if paste operation is possible for the current node.
+     * Supports both EditTree-based and TreeModel-based clipboard content.
+     *
+     * @param node the target node
+     * @return true if paste is possible
+     */
+    private boolean canPasteToCurrent(Object node) {
+        WoodClipboardTree clipboardTree = master.getClipboardTree();
+        if (clipboardTree == null || node == null) {
+            return false;
+        }
+
+        // Try EditTree-based paste check first
+        EditTree editTree = master.getEditTree();
+        if (editTree != null && node instanceof EditNode targetEditNode) {
+            return clipboardTree.canPasteToEdit(editTree, targetEditNode);
+        }
+
+        // Fallback to legacy TreeModel-based paste check
+        if (node instanceof DefaultMutableTreeNode dmtn) {
+            Object uo = dmtn.getUserObject();
+            if (uo instanceof EditNode targetData) {
+                return clipboardTree.canPasteTo(targetData);
+            }
+        }
+
+        return false;
     }
 
     /**

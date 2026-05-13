@@ -12,6 +12,8 @@ import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import java.awt.BorderLayout;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -19,6 +21,10 @@ import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.TreeModel;
 
+/**
+ * Panel displaying undo/redo history with a table and button panel.
+ * Supports both TreeModel-based and EditTree-based operations.
+ */
 public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeFocusListener {
 
     private final UndoTableModel undoModel;
@@ -51,12 +57,6 @@ public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     }
 
     @Override
-    public void onAddCommand(TreeModel tm, WoodCommand cmd) {
-        undoModel.fireTableDataChanged();
-        SwingUtilities.invokeLater(this::selectCurrent);
-    }
-
-    @Override
     public void onUndo(TreeModel tm, WoodCommand cmd) {
         undoModel.fireTableDataChanged();
         selectCurrent();
@@ -64,6 +64,18 @@ public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
 
     @Override
     public void onRedo(TreeModel tm, WoodCommand cmd) {
+        undoModel.fireTableDataChanged();
+        selectCurrent();
+    }
+
+    @Override
+    public void onAddCommand(TreeModel tm, WoodCommand cmd) {
+        undoModel.fireTableDataChanged();
+        SwingUtilities.invokeLater(this::selectCurrent);
+    }
+
+    @Override
+    public void onClear(TreeModel tm) {
         undoModel.fireTableDataChanged();
         selectCurrent();
     }
@@ -89,4 +101,31 @@ public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
         }
         buttonPanel.updateButtons();
     }
+
+    // ===== EditCommand-based listener methods (for editor package integration) =====
+
+    @Override
+    public void onEditCommandExecuted(Object editTree, EditCommand editCommand, CommandResult result) {
+        undoModel.fireTableDataChanged();
+        SwingUtilities.invokeLater(this::selectCurrent);
+    }
+
+    @Override
+    public void onEditCommandUndone(Object editTree, EditCommand editCommand, CommandResult result) {
+        undoModel.fireTableDataChanged();
+        selectCurrent();
+    }
+
+    @Override
+    public void onEditCommandRedone(Object editTree, EditCommand editCommand, CommandResult result) {
+        undoModel.fireTableDataChanged();
+        selectCurrent();
+    }
+
+    @Override
+    public void onEditCommandSkipped(Object editTree, EditCommand editCommand) {
+        undoModel.fireTableDataChanged();
+        selectCurrent();
+    }
+
 }

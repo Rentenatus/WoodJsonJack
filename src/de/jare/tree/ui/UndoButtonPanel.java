@@ -8,11 +8,22 @@ package de.jare.tree.ui;
 
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.UndoManager;
+import de.jare.tree.control.commands.WoodCommand;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import java.awt.Dimension;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.tree.TreeModel;
 
-public class UndoButtonPanel extends JPanel {
+/**
+ * Panel with undo, redo, and skip redo buttons.
+ * Supports both TreeModel-based and EditTree-based operations.
+ */
+public class UndoButtonPanel extends JPanel implements UndoRedoListener, TreeFocusListener {
 
     private final UndoManager undoMan;
     private final JButton btnUndo;
@@ -39,6 +50,10 @@ public class UndoButtonPanel extends JPanel {
         add(Box.createVerticalStrut(8));
         add(btnSkipRedo);
 
+        // Register for EditTree-based events
+        master.addUndoRedoListener(this);
+        master.addSelectionListener(9, this);
+
         // initialer Zustand
         updateButtons();
     }
@@ -64,4 +79,59 @@ public class UndoButtonPanel extends JPanel {
         btnRedo.setEnabled(canRedo);
         btnSkipRedo.setEnabled(canRedo);
     }
+
+    // ===== WoodCommand-based listener methods (backward compatible) =====
+
+    @Override
+    public void onUndo(TreeModel model, WoodCommand command) {
+        updateButtons();
+    }
+
+    @Override
+    public void onRedo(TreeModel model, WoodCommand command) {
+        updateButtons();
+    }
+
+    @Override
+    public void onAddCommand(TreeModel model, WoodCommand command) {
+        updateButtons();
+    }
+
+    @Override
+    public void onClear(TreeModel model) {
+        updateButtons();
+    }
+
+    @Override
+    public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+        // NoOp
+    }
+
+    @Override
+    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
+        updateButtons();
+    }
+
+    // ===== EditCommand-based listener methods (for editor package integration) =====
+
+    @Override
+    public void onEditCommandExecuted(Object editTree, EditCommand editCommand, CommandResult result) {
+        updateButtons();
+    }
+
+    @Override
+    public void onEditCommandUndone(Object editTree, EditCommand editCommand, CommandResult result) {
+        updateButtons();
+    }
+
+    @Override
+    public void onEditCommandRedone(Object editTree, EditCommand editCommand, CommandResult result) {
+        updateButtons();
+    }
+
+    @Override
+    public void onEditCommandSkipped(Object editTree, EditCommand editCommand) {
+        updateButtons();
+    }
+
 }

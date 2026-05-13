@@ -7,19 +7,25 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.control.MasterControl;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
-import de.jare.tree.control.listeners.TreeFocusComponent;
-import de.jare.tree.control.listeners.TreeFocusListener;
 import java.awt.event.KeyEvent;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditTree;
 
+/**
+ * Main menu bar for the application.
+ * Supports both TreeModel-based and EditTree-based operations with automatic
+ * fallback to maintain backward compatibility.
+ */
 public class WoodMainMenu extends JMenuBar {
 
     private final WoodWindow woodWindow;
@@ -110,14 +116,7 @@ public class WoodMainMenu extends JMenuBar {
                 deleteNodeItem.setEnabled(enableCutDelete);
                 cutItem.setEnabled(enableCutDelete);
 
-                boolean canPaste = false;
-                if (node instanceof DefaultMutableTreeNode dmtn) {
-                    Object uo = dmtn.getUserObject();
-                    if (uo instanceof EditNode targetData) {
-                        canPaste = master.getClipboardTree().canPasteTo(targetData);
-                    }
-                }
-                pasteItem.setEnabled(canPaste);
+                pasteItem.setEnabled(canPasteToCurrent(node));
             }
 
             @Override
@@ -127,6 +126,36 @@ public class WoodMainMenu extends JMenuBar {
             }
         });
 
+    }
+
+    /**
+     * Checks if paste operation is possible for the current node.
+     * Supports both EditTree-based and TreeModel-based clipboard content.
+     *
+     * @param node the target node
+     * @return true if paste is possible
+     */
+    private boolean canPasteToCurrent(Object node) {
+        WoodClipboardTree clipboardTree = master.getClipboardTree();
+        if (clipboardTree == null || node == null) {
+            return false;
+        }
+
+        // Try EditTree-based paste check first
+        EditTree editTree = master.getEditTree();
+        if (editTree != null && node instanceof EditNode targetEditNode) {
+            return clipboardTree.canPasteToEdit(editTree, targetEditNode);
+        }
+
+        // Fallback to legacy TreeModel-based paste check
+        if (node instanceof DefaultMutableTreeNode dmtn) {
+            Object uo = dmtn.getUserObject();
+            if (uo instanceof EditNode targetData) {
+                return clipboardTree.canPasteTo(targetData);
+            }
+        }
+
+        return false;
     }
 
     private void openPreferences() {

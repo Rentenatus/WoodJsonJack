@@ -7,11 +7,16 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.control.listeners.TreeFocusComponent;
-import javax.swing.JTree;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import javax.swing.table.AbstractTableModel;
 import de.jare.tree.control.listeners.TreeFocusListener;
-import javax.swing.JComponent;
 
+/**
+ * Table model for displaying properties of the currently selected node.
+ * Supports both generic objects and EditNode-specific properties.
+ */
 public class PropertyTableModel extends AbstractTableModel implements TreeFocusListener {
 
     private final String[] columnNames = {"Name", "Value", "Typ"};
@@ -28,7 +33,7 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
 
     @Override
     public int getColumnCount() {
-        return columnNames.length; // keine Header anzeigen, aber intern genutzt
+        return columnNames.length;
     }
 
     @Override
@@ -44,13 +49,12 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
 
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
-        // Spalte 0 = Name (fix), Spalte 1 = Value (editierbar), Spalte 2 = Typ (optional editierbar)
         return columnIndex == 1;
     }
 
     @Override
     public String getColumnName(int column) {
-        return columnNames[column]; // JTable-Header blenden wir gleich aus
+        return columnNames[column];
     }
 
     @Override
@@ -65,9 +69,40 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
 
     private void updateProperties(Object node) {
         if (node == null) {
-
             setProperties(new Object[0][0]);
+            return;
+        }
 
+        EditNode editNode = null;
+        if (node instanceof EditNode en) {
+            editNode = en;
+        } else if (node instanceof javax.swing.tree.DefaultMutableTreeNode dmtn) {
+            Object uo = dmtn.getUserObject();
+            if (uo instanceof EditNode en) {
+                editNode = en;
+            }
+        }
+
+        if (editNode != null) {
+            java.util.List<Object[]> props = new java.util.ArrayList<>();
+            
+            props.add(new Object[]{"editId", editNode.getEditId(), "long"});
+            props.add(new Object[]{"name", editNode.getName(), "String"});
+            props.add(new Object[]{"typeKey", editNode.getTypeKey(), "String"});
+            props.add(new Object[]{"childCount", editNode.getChildCount(), "int"});
+            
+            if (editNode instanceof EditNodeObject eno) {
+                props.add(new Object[]{"objektInfo", eno.getObjektInfo(), "String"});
+                props.add(new Object[]{"primValue", eno.getPrimValue(), "String"});
+            }
+            
+            if (editNode instanceof EditNodeProperty enp) {
+                props.add(new Object[]{"propName", enp.getPropName(), "String"});
+                props.add(new Object[]{"type", enp.getType(), "String"});
+                props.add(new Object[]{"primValue", enp.getPrimValue(), "String"});
+            }
+            
+            setProperties(props.toArray(new Object[0][]));
             return;
         }
 
@@ -79,7 +114,6 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
         setProperties(arr);
     }
 
-    // Zum sp�teren Anpassen der Daten (z.B. je nach Node)
     public void setProperties(Object[][] newData) {
         this.data = newData;
         fireTableDataChanged();

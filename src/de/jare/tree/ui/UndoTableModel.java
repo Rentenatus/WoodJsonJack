@@ -8,8 +8,14 @@ package de.jare.tree.ui;
 
 import de.jare.tree.control.UndoManagerModel;
 import de.jare.tree.control.commands.WoodCommand;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import javax.swing.table.AbstractTableModel;
 
+/**
+ * Table model for displaying undo/redo history.
+ * Shows WoodCommand-based history. For EditCommand-based history,
+ * the commands are typically wrapped in WoodCommandAdapter instances.
+ */
 public class UndoTableModel extends AbstractTableModel {
 
     private UndoManagerModel undoManModel = null;
@@ -50,7 +56,7 @@ public class UndoTableModel extends AbstractTableModel {
         return undoManModel.size() + 1;
     }
 
-    // --- TableModel-API ------------------------------------------------------
+    // --- TableModel-API ----------------------------------------------------
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
         int redoCount = getRedoCount();
