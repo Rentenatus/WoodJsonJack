@@ -10,10 +10,10 @@ import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.tree.control.model.JackTreeModel;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
-import javax.swing.tree.TreeModel;
+import java.util.List; 
 
 /**
  * Global undo/redo dispatcher that keeps one {@link UndoManagerModel} per
@@ -22,9 +22,9 @@ import javax.swing.tree.TreeModel;
  */
 public class JackUndoManager implements TreeFocusListener {
 
-    private final List<UndoManagerModel> managers = new ArrayList<>();
-    private UndoManagerModel activeManager;
-    private final Orator<UndoRedoListener> undoRedoOrator = new Orator<>();
+    private final List<JackUndoManagerModel> managers = new ArrayList<>();
+    private JackUndoManagerModel activeManager;
+    private final Orator<UndoRedoListener> undoRedoOrator = new Orator<>(); 
 
     @Override
     public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
@@ -50,7 +50,7 @@ public class JackUndoManager implements TreeFocusListener {
      *
      * @param model active tree model, may be {@code null}
      */
-    public void setActiveModel(TreeModel model) {
+    public void setActiveModel(JackTreeModel model) {
         if (model == null) {
             this.activeManager = null;
         } else {
@@ -58,7 +58,7 @@ public class JackUndoManager implements TreeFocusListener {
         }
     }
 
-    public UndoManagerModel getActiveManager() {
+    public JackUndoManagerModel getActiveManager() {
         return activeManager;
     }
 
@@ -129,7 +129,7 @@ public class JackUndoManager implements TreeFocusListener {
      * Clears history for all models.
      */
     public void clearAll() {
-        for (UndoManagerModel m : managers) {
+        for (JackUndoManagerModel m : managers) {
             m.clear();
         }
         managers.clear();
@@ -141,13 +141,13 @@ public class JackUndoManager implements TreeFocusListener {
      * Also removes all manager instances whose TreeModel has already been
      * garbage collected.
      */
-    private UndoManagerModel getManager(TreeModel model) {
+    private JackUndoManagerModel getManager(JackTreeModel model) {
         // remove dead managers and search for existing one
-        UndoManagerModel found = null;
-        Iterator<UndoManagerModel> it = managers.iterator();
+        JackUndoManagerModel found = null;
+        Iterator<JackUndoManagerModel> it = managers.iterator();
         while (it.hasNext()) {
-            UndoManagerModel next = it.next();
-            TreeModel tm = next.getTreeModel();
+            JackUndoManagerModel next = it.next();
+            JackTreeModel tm = next.getTreeModel();
             if (tm == null) {
                 // TreeModel was GC'ed, drop this manager
                 it.remove();
@@ -163,7 +163,7 @@ public class JackUndoManager implements TreeFocusListener {
         }
 
         // create new manager for this model
-        UndoManagerModel newManager = new UndoManagerModel(model);
+        JackUndoManagerModel newManager = new JackUndoManagerModel(model);
         managers.add(newManager);
         return newManager;
     }

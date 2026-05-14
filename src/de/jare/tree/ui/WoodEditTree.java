@@ -6,6 +6,7 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.tree.control.model.JackTreeModel;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.commands.WoodCommandAddNodes;
@@ -21,6 +22,7 @@ import java.awt.*;
 import javax.swing.*;
 import javax.swing.tree.*;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.tree.control.JackMasterControl;
 
 public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
@@ -60,9 +62,8 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         linkCheckBox.setIcon(new ImageIcon(getClass().getResource("/icons/no_link.png")));
         rightPanel.add(linkCheckBox);
 
-        // JTree initialisieren
-        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(new EditNodeObject("{" + rootName + "}"));
-        tree = new JTree(rootNode);
+        // JTree initialisieren 
+        tree = new JTree(new JackTreeModel(rootName));
         tree.setShowsRootHandles(true);
         tree.setCellRenderer(new JsonTreeCellRenderer());
         tree.setEditable(true);
@@ -124,8 +125,8 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     @Override
-    public TreeModel getModel() {
-        return tree.getModel();
+    public JackTreeModel getModel() {
+        return (JackTreeModel) tree.getModel();
     }
 
     JPanel getHeaderPanel() {
