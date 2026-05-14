@@ -150,17 +150,17 @@ public class WoodUpperToolbar extends JPanel implements ContentListener, TreeFoc
     }
 
     @Override
-    public void onUndo(TreeModel model, WoodCommand command) {
+    public void onUndo(TreeModel model) {
         updateButtons();
     }
 
     @Override
-    public void onRedo(TreeModel model, WoodCommand command) {
+    public void onRedo(TreeModel model) {
         updateButtons();
     }
 
     @Override
-    public void onAddCommand(TreeModel model, WoodCommand command) {
+    public void onAddCommand(TreeModel model) {
         SwingUtilities.invokeLater(this::updateButtons);
     }
 

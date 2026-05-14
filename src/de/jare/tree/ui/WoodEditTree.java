@@ -142,12 +142,12 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     @Override
-    public void onUndo(TreeModel model, WoodCommand cmd) {
+    public void onUndo(TreeModel model) {
         doRefreshIfModel(model);
     }
 
     @Override
-    public void onRedo(TreeModel model, WoodCommand cmd) {
+    public void onRedo(TreeModel model) {
         doRefreshIfModel(model);
     }
 

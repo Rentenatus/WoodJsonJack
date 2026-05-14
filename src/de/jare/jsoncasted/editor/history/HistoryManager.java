@@ -14,6 +14,9 @@ import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.events.EventBus;
+import de.jare.tree.control.commands.WoodCommand;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Manages the undo and redo history for the editor. Keeps track of executed
@@ -305,5 +308,75 @@ public class HistoryManager {
         return "HistoryManager[undo=" + undoStack.size()
                 + ", redo=" + redoStack.size()
                 + ", limit=" + limit + "]";
+    }
+
+    public int undoSize() {
+        return undoStack.size();
+    }
+
+    public int redoSize() {
+        return redoStack.size();
+    }
+
+    public EditCommand getRedo(int index) {
+        if (index < 0 || index >= redoStack.size()) {
+            return null;
+        }
+
+        int i = 0;
+        for (EditCommand cmd : redoStack) {
+            if (i++ == index) {
+                return cmd;
+            }
+        }
+        return null;
+    }
+
+    public EditCommand getUndo(int index) {
+        if (index < 0 || index >= undoStack.size()) {
+            return null;
+        }
+
+        int i = 0;
+        for (EditCommand cmd : undoStack) {
+            if (i++ == index) {
+                return cmd;
+            }
+        }
+        return null;
+    }
+
+    public List<String[]> getUndoLabels(int max) {
+        int count = Math.min(max, undoStack.size());
+        List<String[]> result = new ArrayList<>(count);
+
+        int i = 0;
+        for (EditCommand cmd : undoStack) {
+            if (i >= count) {
+                break;
+            }
+            result.add(new String[]{
+                String.valueOf(i + 1), ": ", cmd.getTypeText(), " - ", cmd.getDescription()
+            });
+            i++;
+        }
+        return result;
+    }
+
+    public List<String[]> getRedoLabels(int max) {
+        int count = Math.min(max, redoStack.size());
+        List<String[]> result = new ArrayList<>(count);
+
+        int i = 0;
+        for (EditCommand cmd : redoStack) {
+            if (i >= count) {
+                break;
+            }
+            result.add(new String[]{
+                String.valueOf(i + 1), ": ", cmd.getTypeText(), " - ", cmd.getDescription()
+            });
+            i++;
+        }
+        return result;
     }
 }

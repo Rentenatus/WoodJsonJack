@@ -59,15 +59,30 @@ public interface EditCommand {
      */
     CommandType getType();
 
+    default String getTypeText() {
+        CommandType type = getType();
+        return type == null ? "command.null" : type.getLabelKey();
+    }
+
     /**
      * Fixed set of supported command categories.
      */
     enum CommandType {
-        ADD_NODE,
-        DELETE_NODE,
-        MOVE_NODE,
-        SET_VALUE,
-        RENAME_NODE,
-        OTHER
+        ADD_NODE("command.add_node"),
+        DELETE_NODE("command.delete_node"),
+        MOVE_NODE("command.move_node"),
+        SET_VALUE("command.set_value"),
+        RENAME_NODE("command.Rename_node"),
+        OTHER("command.other");
+
+        private final String labelKey;
+
+        private CommandType(String labelKey) {
+            this.labelKey = labelKey;
+        }
+
+        public String getLabelKey() {
+            return labelKey;
+        }
     }
 }

@@ -23,6 +23,7 @@ public class JackTreeModel extends DefaultTreeModel {
 
     public JackTreeModel(EditTree editTree) {
         super(new DefaultMutableTreeNode(editTree.getRoot()));
+        this.editTree = editTree;
     }
 
     public EditTree getEditTree() {

@@ -6,6 +6,8 @@
  */
 package de.jare.tree.control;
 
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -13,7 +15,7 @@ import de.jare.tree.control.listeners.UndoRedoListener;
 import de.jare.tree.control.model.JackTreeModel;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List; 
+import java.util.List;
 
 /**
  * Global undo/redo dispatcher that keeps one {@link UndoManagerModel} per
@@ -24,7 +26,7 @@ public class JackUndoManager implements TreeFocusListener {
 
     private final List<JackUndoManagerModel> managers = new ArrayList<>();
     private JackUndoManagerModel activeManager;
-    private final Orator<UndoRedoListener> undoRedoOrator = new Orator<>(); 
+    private final Orator<UndoRedoListener> undoRedoOrator = new Orator<>();
 
     @Override
     public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
@@ -66,12 +68,21 @@ public class JackUndoManager implements TreeFocusListener {
      * Adds the given command on the active model.
      *
      * @param command
+     * @return
      */
-    public void pushCommand(WoodCommand command) {
+    public CommandResult executeCommand(EditCommand command) {
         if (activeManager != null) {
-            activeManager.pushCommand(command);
-            undoRedoOrator.say(l -> l.onAddCommand(activeManager.getTreeModel(), command));
+            CommandResult result = activeManager.executeCommand(command);
+            if (result != null) {
+                undoRedoOrator.say(l -> l.onAddCommand(activeManager.getTreeModel()));
+                return result;
+            }
+            if (activeManager.getTreeModel() == null) {
+                managers.remove(activeManager);
+                activeManager = null;
+            }
         }
+        return null;
     }
 
     /**
@@ -79,9 +90,9 @@ public class JackUndoManager implements TreeFocusListener {
      */
     public void undo() {
         if (activeManager != null) {
-            WoodCommand cmd = activeManager.undo();
+            CommandResult cmd = activeManager.undo();
             if (cmd != null) {
-                undoRedoOrator.say(l -> l.onUndo(activeManager.getTreeModel(), cmd));
+                undoRedoOrator.say(l -> l.onUndo(activeManager.getTreeModel()));
             }
         }
     }
@@ -91,18 +102,18 @@ public class JackUndoManager implements TreeFocusListener {
      */
     public void redo() {
         if (activeManager != null) {
-            WoodCommand cmd = activeManager.redo();
+            CommandResult cmd = activeManager.redo();
             if (cmd != null) {
-                undoRedoOrator.say(l -> l.onRedo(activeManager.getTreeModel(), cmd));
+                undoRedoOrator.say(l -> l.onRedo(activeManager.getTreeModel()));
             }
         }
     }
 
     public void skip_redo() {
         if (activeManager != null) {
-            WoodCommand cmd = activeManager.skip_redo();
+            EditCommand cmd = activeManager.skip_redo();
             if (cmd != null) {
-                undoRedoOrator.say(l -> l.onRedo(activeManager.getTreeModel(), cmd));
+                undoRedoOrator.say(l -> l.onRedo(activeManager.getTreeModel()));
             }
         }
     }

@@ -6,16 +6,15 @@
  */
 package de.jare.tree.control.listeners;
 
-import de.jare.tree.control.commands.WoodCommand;
 import javax.swing.tree.TreeModel;
 
 public interface UndoRedoListener {
 
-    void onUndo(TreeModel model, WoodCommand command);
+    void onUndo(TreeModel model);
 
-    void onRedo(TreeModel model, WoodCommand command);
+    void onRedo(TreeModel model);
 
-    default void onAddCommand(TreeModel model, WoodCommand command) {
+    default void onAddCommand(TreeModel model) {
         // NoOp
     }
 

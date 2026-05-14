@@ -6,15 +6,14 @@
  */
 package de.jare.tree.control;
 
-import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.history.HistoryManager;
+import de.jare.jsoncasted.tools.SimpleStringSplitter;
 import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.model.JackTreeModel;
 import java.lang.ref.WeakReference;
-
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 
 /**
@@ -25,14 +24,10 @@ import java.util.List;
  * and redo operations.
  * </p>
  */
-public class JackUndoManagerModel {
+public class JackUndoManagerModel implements SimpleStringSplitter {
 
     final private WeakReference< JackTreeModel> weakTreeModel;
     final private HistoryManager historyManager;
-
-    private final Deque<WoodCommand> undoStack = new ArrayDeque<>();
-    private final Deque<WoodCommand> redoStack = new ArrayDeque<>();
-    private int limit = 100;
 
     public JackUndoManagerModel(JackTreeModel treeModel) {
         this.weakTreeModel = new WeakReference<>(treeModel);
@@ -44,18 +39,17 @@ public class JackUndoManagerModel {
     }
 
     /**
-     * Add the given command and pushes it onto the undo stack. The redo stack
-     * is cleared.
+     * Add the given command and pushes it onto the undo stack.The redo stack is
+     * cleared.
      *
      * @param command command to execute; must not be {@code null}
+     * @return
      */
-    public void pushCommand(WoodCommand command) {
+    public CommandResult executeCommand(EditCommand command) {
         if (command == null || getTreeModel() == null) {
-            return;
+            return null;
         }
-        undoStack.push(command);
-        redoStack.clear();
-        trimToLimit();
+        return historyManager.execute(command);
     }
 
     /**
@@ -63,15 +57,13 @@ public class JackUndoManagerModel {
      *
      * @return
      */
-    public WoodCommand undo() {
+    public CommandResult undo() {
         JackTreeModel lokalModel = getTreeModel();
-        if (!canUndo(lokalModel)) {
+        if (lokalModel == null) {
             return null;
         }
-        WoodCommand cmd = undoStack.pop();
-        cmd.undo(lokalModel);
-        redoStack.push(cmd);
-        return cmd;
+        return historyManager.undo();
+
     }
 
     /**
@@ -79,15 +71,12 @@ public class JackUndoManagerModel {
      *
      * @return
      */
-    public WoodCommand redo() {
+    public CommandResult redo() {
         JackTreeModel lokalModel = getTreeModel();
-        if (!canRedo(lokalModel)) {
+        if (lokalModel == null) {
             return null;
         }
-        WoodCommand cmd = redoStack.pop();
-        cmd.execute(lokalModel);
-        undoStack.push(cmd);
-        return cmd;
+        return historyManager.redo();
     }
 
     /**
@@ -95,61 +84,12 @@ public class JackUndoManagerModel {
      *
      * @return
      */
-    public WoodCommand skip_redo() {
+    public EditCommand skip_redo() {
         JackTreeModel lokalModel = getTreeModel();
-        if (!canRedo(lokalModel)) {
+        if (lokalModel == null) {
             return null;
         }
-        WoodCommand cmd = redoStack.pop();
-        cmd.skip(lokalModel);
-        undoStack.push(cmd);
-        return cmd;
-    }
-
-    /**
-     * Returns whether an undo operation is currently available.
-     *
-     * @param lokalModel
-     * @return {@code true} if undo can be performed
-     */
-    public boolean canUndo(JackTreeModel lokalModel) {
-        return !undoStack.isEmpty() && lokalModel != null;
-    }
-
-    /**
-     * Returns whether a redo operation is currently available.
-     *
-     * @param lokalModel
-     * @return {@code true} if redo can be performed
-     */
-    public boolean canRedo(JackTreeModel lokalModel) {
-        return !redoStack.isEmpty() && lokalModel != null;
-    }
-
-    /**
-     * Returns whether an undo operation is currently available.
-     *
-     * @return {@code true} if undo can be performed
-     */
-    public boolean canUndo() {
-        return !undoStack.isEmpty() && getTreeModel() != null;
-    }
-
-    /**
-     * Returns whether a redo operation is currently available.
-     *
-     * @return {@code true} if redo can be performed
-     */
-    public boolean canRedo() {
-        return !redoStack.isEmpty() && getTreeModel() != null;
-    }
-
-    /**
-     * Clears all undo and redo history.
-     */
-    public void clear() {
-        undoStack.clear();
-        redoStack.clear();
+        return historyManager.skipRedo();
     }
 
     /**
@@ -159,11 +99,7 @@ public class JackUndoManagerModel {
      * @param limit positive maximum size of the undo stack
      */
     public void setLimit(int limit) {
-        if (limit <= 0) {
-            throw new IllegalArgumentException("limit must be > 0");
-        }
-        this.limit = limit;
-        trimToLimit();
+        historyManager.setLimit(limit);
     }
 
     /**
@@ -172,70 +108,56 @@ public class JackUndoManagerModel {
      * @return current limit
      */
     public int getLimit() {
-        return limit;
-    }
-
-    private void trimToLimit() {
-        if (limit <= 0) {
-            return;
-        }
-        while (undoStack.size() > limit) {
-            undoStack.removeLast();
-        }
+        return historyManager.getLimit();
     }
 
     public int size() {
-        return undoStack.size() + redoStack.size();
+        return undoSize() + redoSize();
     }
 
-    public int unoSize() {
-        return undoStack.size();
+    public int undoSize() {
+        return historyManager.undoSize();
     }
 
     public int redoSize() {
-        return redoStack.size();
+        return historyManager.redoSize();
     }
 
-    public WoodCommand getRedo(int index) {
-        if (index < 0 || index >= redoStack.size()) {
-            return null;
-        }
-        return redoStack.stream().skip(index).findFirst().orElse(null);
+    public EditCommand getRedo(int index) {
+        return historyManager.getRedo(index);
     }
 
-    public WoodCommand getUndo(int index) {
-        if (index < 0 || index >= undoStack.size()) {
-            return null;
-        }
-        return undoStack.stream().skip(index).findFirst().orElse(null);
+    public EditCommand getUndo(int index) {
+        return historyManager.getUndo(index);
+    }
+
+    boolean canUndo() {
+        return historyManager.canUndo();
+    }
+
+    boolean canRedo() {
+        return historyManager.canRedo();
+    }
+
+    void clear() {
+        historyManager.clear();
     }
 
     public List<String> getUndoLabels(int max) {
-        List<String> result = new ArrayList<>();
-        int count = Math.min(max, undoStack.size());
-        // 0 = naechstes Undo (oberstes Element)
-        for (int i = 0; i < count; i++) {
-            WoodCommand cmd = getUndo(i);
-            if (cmd == null) {
-                break;
-            }
-            result.add((i + 1) + ": " + cmd.getCommandText() + " - " + cmd.getDescription());
-        }
-        return result;
+        return maskLabels(historyManager.getUndoLabels(max));
     }
 
     public List<String> getRedoLabels(int max) {
-        List<String> result = new ArrayList<>();
-        int count = Math.min(max, redoStack.size());
-        // 0 = naechstes Redo (oberstes Element)
-        for (int i = 0; i < count; i++) {
-            WoodCommand cmd = getRedo(i);
-            if (cmd == null) {
-                break;
-            }
-            result.add((i + 1) + ": " + cmd.getCommandText() + " - " + cmd.getDescription());
+        return maskLabels(historyManager.getRedoLabels(max));
+    }
+
+    public List<String> maskLabels(List<String[]> labels) {
+        List<String> ret = new ArrayList<>(labels.size());
+        for (String[] label : labels) {
+            // Hier muss noch die Maskierung von CommandTypeText rein.
+            ret.add(simpleConcat(label, ""));
         }
-        return result;
+        return ret;
     }
 
 }

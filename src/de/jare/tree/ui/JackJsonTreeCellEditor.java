@@ -6,6 +6,7 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.command.SetValueCommand;
 import de.jare.tree.control.UndoManager;
 import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.commands.WoodCommandEditNodeData;
@@ -106,10 +107,8 @@ public class JackJsonTreeCellEditor extends AbstractCellEditor implements TreeCe
         if (currentData == null || currentData.getEditText() != null && currentData.getEditText().equals(textField.getText())) {
             return;
         }
-        EditNode oldData = currentData.deepCopy(false);
-        currentData.setEditText(textField.getText());
-        WoodCommand command = new WoodCommandEditNodeData(currentData, oldData, currentData);
-        undoMan.pushCommand(command);
+        SetValueCommand command = new SetValueCommand(currentData, textField.getText());
+        undoMan.executeCommand(command);
     }
 
 }
