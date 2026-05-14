@@ -13,6 +13,7 @@ public final class CommandAvailability {
 
     public enum Status {
         ALLOWED,
+        USELESS,
         DISALLOWED
     }
 
@@ -28,7 +29,6 @@ public final class CommandAvailability {
     private final String messageKey;
     private final String[] messageParams;
     private final Severity severity;
-    
 
     private CommandAvailability(
             Status status,
@@ -54,11 +54,15 @@ public final class CommandAvailability {
         return new CommandAvailability(Status.DISALLOWED, messageKey, messageParams, Severity.ERROR);
     }
 
-    public static CommandAvailability disallowed(
-            Severity severity,
-            String messageKey,
-            String... messageParams) {
+    public static CommandAvailability useless(String messageKey, String... messageParams) {
+        return new CommandAvailability(Status.USELESS, messageKey, messageParams, Severity.INFO);
+    }
 
+    public static CommandAvailability useless(Severity severity, String messageKey, String... messageParams) {
+        return new CommandAvailability(Status.USELESS, messageKey, messageParams, severity);
+    }
+
+    public static CommandAvailability disallowed(Severity severity, String messageKey, String... messageParams) {
         return new CommandAvailability(Status.DISALLOWED, messageKey, messageParams, severity);
     }
 
@@ -68,6 +72,10 @@ public final class CommandAvailability {
 
     public boolean isDisallowed() {
         return status == Status.DISALLOWED;
+    }
+
+    public boolean isUseless() {
+        return status == Status.USELESS;
     }
 
     public Status getStatus() {

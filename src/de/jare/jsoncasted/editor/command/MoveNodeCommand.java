@@ -194,8 +194,11 @@ public class MoveNodeCommand extends AbstractEditCommand {
     @Override
     public CommandAvailability check(EditTree tree) {
         if (tree == null) {
-            return CommandAvailability.disallowed(
-                    "editor.command.tree.missing");
+            return CommandAvailability.disallowed("editor.command.tree.missing");
+        }
+
+        if (isNoOpMove(tree)) {
+            return CommandAvailability.useless("editor.command.move.useless");
         }
 
         for (int i = 0; i < newEntries.length; i++) {
@@ -263,6 +266,40 @@ public class MoveNodeCommand extends AbstractEditCommand {
         }
 
         return CommandAvailability.allowed("editor.command.move.allowed");
+    }
+
+    private boolean isNoOpMove(EditTree tree) {
+        if (oldEntries.length != 1 || newEntries.length != 1) {
+            return false;
+        }
+
+        MovementEntry oldEntry = oldEntries[0];
+        MovementEntry newEntry = newEntries[0];
+
+        EditNode node = tree.findNodeById(oldEntry.nodeId);
+        if (node == null || node.getParent() == null) {
+            return false;
+        }
+
+        EditNode currentParent = node.getParent();
+        if (currentParent.getEditId() != newEntry.parentEditId) {
+            return false;
+        }
+
+        int currentIndex = currentParent.getChildIndex(node);
+        if (currentIndex < 0) {
+            return false;
+        }
+
+        int effectiveTargetIndex = resolveEffectiveTargetIndex(
+                tree,
+                node,
+                oldEntry.parentEditId,
+                newEntry.parentEditId,
+                newEntry.index
+        );
+
+        return effectiveTargetIndex == currentIndex;
     }
 
     /**

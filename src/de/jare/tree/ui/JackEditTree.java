@@ -83,7 +83,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
 
         tree.setDragEnabled(true);
         tree.setDropMode(DropMode.ON_OR_INSERT);
-        tree.setTransferHandler(new TreeNodeTransferHandler());
+        if (undoMan != null) {
+            tree.setTransferHandler(new JackTreeNodeTransferHandler(undoMan));
+        }
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
 
         // Layout für das JPanel
