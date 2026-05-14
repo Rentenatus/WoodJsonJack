@@ -79,8 +79,8 @@ public class WoodWindow extends JFrame {
                     master.setActiveEditor(editor, this);
                     break;
                 case 1:
-//                    JackEditTree editor = editorTree2.getLeftTree();
-//                    master.setActiveEditor(editor, this);
+                    JackEditTree editor2 = editorTree2.getLeftTree();
+                    jackmaster.setActiveEditor(editor2, this);
                     break;
                 default:
                     break;

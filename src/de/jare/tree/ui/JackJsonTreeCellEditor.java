@@ -7,9 +7,8 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.command.SetValueCommand;
-import de.jare.tree.control.UndoManager;
-import de.jare.tree.control.commands.WoodCommand;
-import de.jare.tree.control.commands.WoodCommandEditNodeData;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.settings.WoodSettings;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -21,8 +20,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeCellEditor;
-import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.tree.control.JackUndoManager;
 
 public class JackJsonTreeCellEditor extends AbstractCellEditor implements TreeCellEditor {
 

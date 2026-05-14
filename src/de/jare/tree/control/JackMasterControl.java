@@ -90,7 +90,7 @@ public class JackMasterControl {
         return clipboardTree;
     }
 
-    // Vom UI (z.B. JTabbedPane) gerufen, wenn ein Tab gew?hlt wird
+    // Vom UI (z.B. JTabbedPane) gerufen, wenn ein Tab gewaehlt wird
     public void setActiveEditor(TreeFocusComponent editor, Object trigger) {
         Object previous = this.activeEditor;
         if (previous == editor) {
