@@ -6,6 +6,7 @@
  */
 package de.jare.tree.control.listeners;
 
+import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.MasterControl;
 import javax.swing.JTree;
 import javax.swing.tree.TreeModel;
@@ -21,5 +22,7 @@ public interface TreeFocusComponent {
     public TreeModel getModel();
 
     public MasterControl getMaster();
+
+    public JackMasterControl getJackMaster();
 
 }

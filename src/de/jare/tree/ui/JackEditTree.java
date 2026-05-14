@@ -23,19 +23,19 @@ import javax.swing.tree.*;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.tree.control.JackMasterControl;
 
-public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
+public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
 
-    private final MasterControl master;
+    private final JackMasterControl master;
     private final JTree tree;
     private final JPanel headerPanel;
     private final JLabel resourceLabel;
     private final JCheckBox linkCheckBox;
 
-    public WoodEditTree(String rootName, String... propNames) {
+    public JackEditTree(String rootName, String... propNames) {
         this(null, rootName, propNames);
     }
 
-    public WoodEditTree(MasterControl master, String rootName, String... propNames) {
+    public JackEditTree(JackMasterControl master, String rootName, String... propNames) {
         this.master = master;
 
         // Header-Panel für Labels und Icons
@@ -66,11 +66,11 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         tree.setShowsRootHandles(true);
         tree.setCellRenderer(new JsonTreeCellRenderer());
         tree.setEditable(true);
-        tree.setCellEditor(new JsonTreeCellEditor(master != null ? master.getUndoManager() : null));
+        tree.setCellEditor(new JackJsonTreeCellEditor(master != null ? master.getUndoManager() : null));
 
         // Selektionslistener für den Tree
         tree.addTreeSelectionListener(e -> {
-            if (master != null && master.getActiveEditor() == WoodEditTree.this) {
+            if (master != null && master.getActiveEditor() == JackEditTree.this) {
                 DefaultMutableTreeNode node
                         = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
                 boolean rootSelected = node != null && node.getParent() == null;
@@ -105,12 +105,12 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     @Override
-    public MasterControl getMaster() {
+    public JackMasterControl getJackMaster() {
         return master;
     }
 
     @Override
-    public JackMasterControl getJackMaster() {
+    public MasterControl getMaster() {
         return null;
     }
 
@@ -245,75 +245,75 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     private void addNode() {
-        TreePath path = tree.getSelectionPath();
-        if (path == null) {
-            return;
-        }
-        DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
-        Object uo = selected.getUserObject();
-        if (!(uo instanceof EditNode data)) {
-            return; // Sicherheitsnetz
-        }
-
-        // neuen Kind-Knoten erzeugen
-        EditNode childData = data.createChild("new");
-        DefaultMutableTreeNode child = new DefaultMutableTreeNode(childData);
-        selected.add(child);
-        ((DefaultTreeModel) tree.getModel()).reload(selected);
-        master.getUndoManager().pushCommand(new WoodCommandAddNodes(
-                new DefaultMutableTreeNode[]{child},
-                new DefaultMutableTreeNode[]{selected},
-                selected.getIndex(child)
-        ));
-
-        TreePath newPath = new TreePath(child.getPath());
-        tree.setSelectionPath(newPath);
-        tree.scrollPathToVisible(newPath);
+//        TreePath path = tree.getSelectionPath();
+//        if (path == null) {
+//            return;
+//        }
+//        DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
+//        Object uo = selected.getUserObject();
+//        if (!(uo instanceof EditNode data)) {
+//            return; // Sicherheitsnetz
+//        }
+//
+//        // neuen Kind-Knoten erzeugen
+//        EditNode childData = data.createChild("new");
+//        DefaultMutableTreeNode child = new DefaultMutableTreeNode(childData);
+//        selected.add(child);
+//        ((DefaultTreeModel) tree.getModel()).reload(selected);
+//        master.getUndoManager().pushCommand(new WoodCommandAddNodes(
+//                new DefaultMutableTreeNode[]{child},
+//                new DefaultMutableTreeNode[]{selected},
+//                selected.getIndex(child)
+//        ));
+//
+//        TreePath newPath = new TreePath(child.getPath());
+//        tree.setSelectionPath(newPath);
+//        tree.scrollPathToVisible(newPath);
     }
 
     private void deleteNode() {
-        TreePath path = tree.getSelectionPath();
-        if (path == null) {
-            return;
-        }
-        DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
-        if (selected.getParent() == null) {
-            return;
-        }
-        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
-        DefaultMutableTreeNode parent = (DefaultMutableTreeNode) selected.getParent();
-        int idx = parent.getIndex(selected);
-
-        if (selected.getUserObject() instanceof EditNode selectedData) {
-            if (parent.getUserObject() instanceof EditNode parentData) {
-                selectedData.sayOnRemoved(parentData);
-            }
-        }
-
-        master.getUndoManager().pushCommand(new WoodCommandDeleteNodes(
-                new DefaultMutableTreeNode[]{selected},
-                new DefaultMutableTreeNode[]{parent}
-        ));
-        model.removeNodeFromParent(selected);
-
-        // neue Selektion ermitteln: naechster/vorheriger Bruder oder nichts
-        DefaultMutableTreeNode newSelection = null;
-        if (parent.getChildCount() > 0) {
-            int newIdx = Math.min(idx, parent.getChildCount() - 1);
-            newSelection = (DefaultMutableTreeNode) parent.getChildAt(newIdx);
-            TreePath newPath = new TreePath(newSelection.getPath());
-            tree.setSelectionPath(newPath);
-            tree.scrollPathToVisible(newPath);
-        } else {
-            // keine Selektion mehr
-            tree.clearSelection();
-        }
-
-        // explizit auch null melden, damit Properties sich leeren koennen
-        if (master != null && master.getActiveEditor() == this) {
-            boolean rootSelected = newSelection != null && newSelection.getParent() == null;
-            master.fireSelection(newSelection, this, rootSelected);
-        }
+//        TreePath path = tree.getSelectionPath();
+//        if (path == null) {
+//            return;
+//        }
+//        DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
+//        if (selected.getParent() == null) {
+//            return;
+//        }
+//        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
+//        DefaultMutableTreeNode parent = (DefaultMutableTreeNode) selected.getParent();
+//        int idx = parent.getIndex(selected);
+//
+//        if (selected.getUserObject() instanceof EditNode selectedData) {
+//            if (parent.getUserObject() instanceof EditNode parentData) {
+//                selectedData.sayOnRemoved(parentData);
+//            }
+//        }
+//
+//        master.getUndoManager().pushCommand(new WoodCommandDeleteNodes(
+//                new DefaultMutableTreeNode[]{selected},
+//                new DefaultMutableTreeNode[]{parent}
+//        ));
+//        model.removeNodeFromParent(selected);
+//
+//        // neue Selektion ermitteln: naechster/vorheriger Bruder oder nichts
+//        DefaultMutableTreeNode newSelection = null;
+//        if (parent.getChildCount() > 0) {
+//            int newIdx = Math.min(idx, parent.getChildCount() - 1);
+//            newSelection = (DefaultMutableTreeNode) parent.getChildAt(newIdx);
+//            TreePath newPath = new TreePath(newSelection.getPath());
+//            tree.setSelectionPath(newPath);
+//            tree.scrollPathToVisible(newPath);
+//        } else {
+//            // keine Selektion mehr
+//            tree.clearSelection();
+//        }
+//
+//        // explizit auch null melden, damit Properties sich leeren koennen
+//        if (master != null && master.getActiveEditor() == this) {
+//            boolean rootSelected = newSelection != null && newSelection.getParent() == null;
+//            master.fireSelection(newSelection, this, rootSelected);
+//        }
 
     }
 
@@ -325,70 +325,70 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     private void copySelection(boolean cut) {
-        TreePath[] paths = tree.getSelectionPaths();
-        if (paths == null || paths.length == 0 || master == null) {
-            return;
-        }
-
-        master.getClipboardTree().copySelection(this, paths, cut);
-
-        if (cut) {
-            DefaultTreeModel srcModel = (DefaultTreeModel) tree.getModel();
-            DefaultMutableTreeNode[] nodes = new DefaultMutableTreeNode[paths.length];
-            DefaultMutableTreeNode[] parents = new DefaultMutableTreeNode[paths.length];
-
-            for (int i = 0; i < paths.length; i++) {
-                DefaultMutableTreeNode n = (DefaultMutableTreeNode) paths[i].getLastPathComponent();
-                nodes[i] = n;
-                parents[i] = (DefaultMutableTreeNode) n.getParent();
-            }
-
-            // Undo-Command f�r Cut
-            master.getUndoManager().pushCommand(
-                    new WoodCommandDeleteNodes(nodes, parents)
-            );
-
-            // physisch entfernen (von unten nach oben)
-            for (int i = paths.length - 1; i >= 0; i--) {
-                DefaultMutableTreeNode n = nodes[i];
-                MutableTreeNode p = (MutableTreeNode) n.getParent();
-                if (p != null) {
-                    srcModel.removeNodeFromParent(n);
-                }
-            }
-        }
+//        TreePath[] paths = tree.getSelectionPaths();
+//        if (paths == null || paths.length == 0 || master == null) {
+//            return;
+//        }
+//
+//        master.getClipboardTree().copySelection(this, paths, cut);
+//
+//        if (cut) {
+//            DefaultTreeModel srcModel = (DefaultTreeModel) tree.getModel();
+//            DefaultMutableTreeNode[] nodes = new DefaultMutableTreeNode[paths.length];
+//            DefaultMutableTreeNode[] parents = new DefaultMutableTreeNode[paths.length];
+//
+//            for (int i = 0; i < paths.length; i++) {
+//                DefaultMutableTreeNode n = (DefaultMutableTreeNode) paths[i].getLastPathComponent();
+//                nodes[i] = n;
+//                parents[i] = (DefaultMutableTreeNode) n.getParent();
+//            }
+//
+//            // Undo-Command f�r Cut
+//            master.getUndoManager().pushCommand(
+//                    new WoodCommandDeleteNodes(nodes, parents)
+//            );
+//
+//            // physisch entfernen (von unten nach oben)
+//            for (int i = paths.length - 1; i >= 0; i--) {
+//                DefaultMutableTreeNode n = nodes[i];
+//                MutableTreeNode p = (MutableTreeNode) n.getParent();
+//                if (p != null) {
+//                    srcModel.removeNodeFromParent(n);
+//                }
+//            }
+//        }
     }
 
     private void pasteClipboard() {
-        if (master == null) {
-            return;
-        }
-
-        TreePath path = tree.getSelectionPath();
-        if (path == null) {
-            return;
-        }
-
-        DefaultMutableTreeNode target = (DefaultMutableTreeNode) path.getLastPathComponent();
-        Object targetUo = target.getUserObject();
-        if (!(targetUo instanceof EditNode targetData)) {
-            return;
-        }
-
-        if (!master.getClipboardTree().canPasteTo(targetData)) {
-            UIManager.getLookAndFeel().provideErrorFeedback(this);
-            return;
-        }
-
-        // Wenn Typ passt, regul?r einf?gen
-        master.getClipboardTree().pasteClipboard(this, path);
-
-        // Events (Properties etc.)
-        if (master != null && master.getActiveEditor() == this) {
-            DefaultMutableTreeNode sel
-                    = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
-            master.fireSelection(sel, this, false);
-        }
+//        if (master == null) {
+//            return;
+//        }
+//
+//        TreePath path = tree.getSelectionPath();
+//        if (path == null) {
+//            return;
+//        }
+//
+//        DefaultMutableTreeNode target = (DefaultMutableTreeNode) path.getLastPathComponent();
+//        Object targetUo = target.getUserObject();
+//        if (!(targetUo instanceof EditNode targetData)) {
+//            return;
+//        }
+//
+//        if (!master.getClipboardTree().canPasteTo(targetData)) {
+//            UIManager.getLookAndFeel().provideErrorFeedback(this);
+//            return;
+//        }
+//
+//        // Wenn Typ passt, regul?r einf?gen
+//        master.getClipboardTree().pasteClipboard(this, path);
+//
+//        // Events (Properties etc.)
+//        if (master != null && master.getActiveEditor() == this) {
+//            DefaultMutableTreeNode sel
+//                    = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+//            master.fireSelection(sel, this, false);
+//        }
     }
 
 }
