@@ -63,7 +63,13 @@ public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     }
 
     @Override
-    public void onRedo(TreeModel tm) {
+    public void onExecute(TreeModel tm) {
+        undoModel.fireTableDataChanged();
+        selectCurrent();
+    }
+
+    @Override
+    public void onSkipped(TreeModel model) {
         undoModel.fireTableDataChanged();
         selectCurrent();
     }

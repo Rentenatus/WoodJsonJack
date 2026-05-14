@@ -147,7 +147,12 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     @Override
-    public void onRedo(TreeModel model) {
+    public void onExecute(TreeModel model) {
+        doRefreshIfModel(model);
+    }
+
+    @Override
+    public void onSkipped(TreeModel model) {
         doRefreshIfModel(model);
     }
 

@@ -6,16 +6,14 @@
  */
 package de.jare.jsoncasted.editor.history;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-
 import de.jare.jsoncasted.editor.command.CommandAction;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.events.EventBus;
-import de.jare.tree.control.commands.WoodCommand;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 /**

@@ -44,7 +44,7 @@ public class HistoryEvent implements EditEvent {
         CLEARED
     }
 
-    private final Object source;
+    private final HistoryManager source;
     private final long timestamp;
     private final ChangeType changeType;
     private final EditCommand command;
@@ -63,7 +63,7 @@ public class HistoryEvent implements EditEvent {
      * @param redoSize the current size of the redo stack
      */
     public HistoryEvent(
-            Object source,
+            HistoryManager source,
             ChangeType changeType,
             EditCommand command,
             CommandResult result,
@@ -79,7 +79,7 @@ public class HistoryEvent implements EditEvent {
     }
 
     @Override
-    public Object getSource() {
+    public HistoryManager getSource() {
         return source;
     }
 

@@ -10,9 +10,15 @@ import javax.swing.tree.TreeModel;
 
 public interface UndoRedoListener {
 
+    void onExecute(TreeModel model);
+
     void onUndo(TreeModel model);
 
-    void onRedo(TreeModel model);
+    default void onRedo(TreeModel model) {
+        onExecute(model);
+    }
+
+    void onSkipped(TreeModel model);
 
     default void onAddCommand(TreeModel model) {
         // NoOp

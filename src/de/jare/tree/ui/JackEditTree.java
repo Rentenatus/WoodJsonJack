@@ -24,6 +24,7 @@ import javax.swing.tree.*;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.JackUndoManager;
 
 public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
 
@@ -67,7 +68,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         tree.setShowsRootHandles(true);
         tree.setCellRenderer(new JsonTreeCellRenderer());
         tree.setEditable(true);
-        tree.setCellEditor(new JackJsonTreeCellEditor(master != null ? master.getUndoManager() : null));
+        final JackUndoManager undoMan = master != null ? master.getUndoManager() : null;
+        tree.setCellEditor(new JackJsonTreeCellEditor(undoMan));
 
         // Selektionslistener für den Tree
         tree.addTreeSelectionListener(e -> {
@@ -147,7 +149,12 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     @Override
-    public void onRedo(TreeModel model) {
+    public void onExecute(TreeModel model) {
+        doRefreshIfModel(model);
+    }
+
+    @Override
+    public void onSkipped(TreeModel model) {
         doRefreshIfModel(model);
     }
 

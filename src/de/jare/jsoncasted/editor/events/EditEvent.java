@@ -7,30 +7,30 @@
 package de.jare.jsoncasted.editor.events;
 
 /**
- * Base interface for all events in the editor event system.
- * Events are used to notify listeners about changes in the tree structure,
- * selection, commands, and other editor state.
+ * Base interface for all events in the editor event system. Events are used to
+ * notify listeners about changes in the tree structure, selection, commands,
+ * and other editor state.
  */
 public interface EditEvent {
 
     /**
-     * Returns the source of this event.
-     * The source is typically the object that triggered the event.
-     * 
+     * Returns the source of this event. The source is typically the object that
+     * triggered the event.
+     *
      * @return the event source, may be null
      */
     Object getSource();
 
     /**
      * Returns the timestamp when this event was created.
-     * 
+     *
      * @return the timestamp in milliseconds since epoch
      */
     long getTimestamp();
 
     /**
      * Returns a string description of this event.
-     * 
+     *
      * @return a descriptive string
      */
     String getDescription();
