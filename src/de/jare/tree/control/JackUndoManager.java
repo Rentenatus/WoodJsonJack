@@ -164,6 +164,7 @@ public class JackUndoManager implements TreeFocusListener, Consumer<HistoryEvent
         if (model != null) {
             model.onHistoryEvent(historyEvent);
         }
+
         sayUndoRedoEvent(changeType, model);
     }
 

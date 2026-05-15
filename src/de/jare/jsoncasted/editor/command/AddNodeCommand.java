@@ -145,7 +145,8 @@ public class AddNodeCommand extends AbstractEditCommand {
                 added,
                 added,
                 null,
-                null
+                null,
+                NO_UPDATE_ACTIONS
         );
     }
 
@@ -176,7 +177,8 @@ public class AddNodeCommand extends AbstractEditCommand {
                 removed,
                 null,
                 removed,
-                null
+                null,
+                NO_UPDATE_ACTIONS
         );
     }
 

@@ -6,9 +6,6 @@
  */
 package de.jare.jsoncasted.editor.core;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Represents the editable tree structure for JSON data. Maintains a hierarchy
  * of EditNode instances and provides fast lookup by ID.

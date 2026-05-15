@@ -58,7 +58,8 @@ public class CopyToStashCommand extends AbstractToStashCommand {
                 copiedNodes,
                 copiedNodes,
                 null,
-                null
+                null,
+                NO_UPDATE_ACTIONS
         );
     }
 
@@ -76,7 +77,8 @@ public class CopyToStashCommand extends AbstractToStashCommand {
                 originalStashContent,
                 null,
                 originalStashContent,
-                null
+                null,
+                NO_UPDATE_ACTIONS
         );
     }
 

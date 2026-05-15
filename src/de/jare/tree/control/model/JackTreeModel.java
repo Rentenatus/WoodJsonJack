@@ -1,6 +1,7 @@
 package de.jare.tree.control.model;
 
 import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.UpdateAction;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditTree;
@@ -10,11 +11,11 @@ import java.util.Map;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeNode;
 
 public class JackTreeModel extends DefaultTreeModel {
 
     private final EditTree editTree;
-    private final Map<EditNode, DefaultMutableTreeNode> nodeMap = new IdentityHashMap<>();
 
     public JackTreeModel(String rootName) {
         this(new EditTree(new EditNodeObject("{" + rootName + "}")));
@@ -23,11 +24,42 @@ public class JackTreeModel extends DefaultTreeModel {
     public JackTreeModel(EditTree editTree) {
         super(buildRoot(editTree, new IdentityHashMap<>()));
         this.editTree = editTree;
-        rebuildNodeMap();
     }
 
     public EditTree getEditTree() {
         return editTree;
+    }
+
+    public DefaultMutableTreeNode findNodeById(long id) {
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) getRoot();
+        if (root == null) {
+            return null;
+        }
+
+        java.util.ArrayDeque<DefaultMutableTreeNode> stack = new java.util.ArrayDeque<>();
+        stack.push(root);
+
+        while (!stack.isEmpty()) {
+            DefaultMutableTreeNode node = stack.pop();
+
+            EditNode edNode = (EditNode) node.getUserObject();
+            if (edNode == null) {
+                continue;
+            }
+
+            if (edNode.getEditId() == id) {
+                return node;
+            }
+
+            for (int i = node.getChildCount() - 1; i >= 0; i--) {
+                TreeNode child = node.getChildAt(i);
+                if (child != null) {
+                    stack.push((DefaultMutableTreeNode) child);
+                }
+            }
+        }
+
+        return null;
     }
 
     public void onHistoryEvent(HistoryEvent historyEvent) {
@@ -36,39 +68,108 @@ public class JackTreeModel extends DefaultTreeModel {
         }
 
         Runnable uiTask = () -> applyResult(historyEvent.getResult());
-        if (SwingUtilities.isEventDispatchThread()) {
-            uiTask.run();
-        } else {
-            SwingUtilities.invokeLater(uiTask);
-        }
+        SwingUtilities.invokeLater(uiTask);
     }
 
     private void applyResult(CommandResult result) {
         boolean fallbackReload = false;
 
-        for (EditNode node : result.getRemovedNodes()) {
-            fallbackReload |= !handleRemovedNode(node);
-        }
-
-        for (EditNode node : result.getAddedNodes()) {
-            fallbackReload |= !handleAddedNode(node);
-        }
-
-        for (EditNode node : result.getUpdatedNodes()) {
-            fallbackReload |= !handleUpdatedNode(node);
+        for (UpdateAction update : result.getUpdateActions()) {
+            switch (update) {
+                case REBUILD_AFFECTED -> {
+                    fallbackReload = handleRebuildAffected(result);
+                    break;
+                }
+                case SELECT_UPDATED -> {
+                    // Selection handling is managed by the view, so we can ignore this action in the model.
+                    break;
+                }
+                default -> {
+                    // Unknown update action, consider fallback reload to ensure consistency.
+                    fallbackReload = true;
+                }
+            }
+            if (fallbackReload) {
+                break;
+            }
         }
 
         if (fallbackReload) {
             rebuildFromDomain();
         }
+
     }
 
+    private boolean handleRebuildAffected(CommandResult result) {
+        boolean fallbackReload = false;
+        for (EditNode editNode : result.getUpdatedNodes()) {
+            fallbackReload |= !handleRebuildNode(editNode);
+        }
+        return fallbackReload;
+    }
+
+    private boolean handleRebuildNode(EditNode editNode) {
+        if (editNode == null) {
+            return false;
+        }
+        DefaultMutableTreeNode mutableTreeNode = findNodeById(editNode.getEditId());
+        if (mutableTreeNode == null) {
+            return true;
+        }
+        mutableTreeNode.removeAllChildren();
+        buildSubtree(mutableTreeNode, editNode);
+        this.nodeStructureChanged(mutableTreeNode);
+        return false;
+    }
+
+    private DefaultMutableTreeNode buildSubtree(DefaultMutableTreeNode rootNode, EditNode editNode) {
+        rootNode.setUserObject(editNode);
+
+        int childCount = getChildCountSafe(editNode);
+        for (int i = 0; i < childCount; i++) {
+            EditNode childEditNode = getChildSafe(editNode, i);
+            if (childEditNode != null) {
+                DefaultMutableTreeNode newChildSwingNode = buildSubtree(childEditNode);
+                rootNode.add(newChildSwingNode);
+            }
+        }
+        return rootNode;
+    }
+
+    private static DefaultMutableTreeNode buildRoot(EditTree editTree, Map<EditNode, DefaultMutableTreeNode> ignored) {
+        return buildSubtree(editTree.getRoot());
+    }
+
+    private static DefaultMutableTreeNode buildSubtree(EditNode editNode) {
+        DefaultMutableTreeNode swingNode = new DefaultMutableTreeNode(editNode);
+
+        int childCount = getChildCountSafe(editNode);
+        for (int i = 0; i < childCount; i++) {
+            EditNode child = getChildSafe(editNode, i);
+            if (child != null) {
+                swingNode.add(buildSubtree(child));
+            }
+        }
+        return swingNode;
+    }
+
+//            for (EditNode node : result.getRemovedNodes()) {
+//                fallbackReload |= !handleRemovedNode(node);
+//            }
+//
+//            for (EditNode node : result.getAddedNodes()) {
+//                fallbackReload |= !handleAddedNode(node);
+//            }
+//
+//            for (EditNode node : result.getUpdatedNodes()) {
+//                fallbackReload |= !handleUpdatedNode(node);
+//            }
     private boolean handleUpdatedNode(EditNode editNode) {
         if (editNode == null) {
             return false;
         }
 
-        DefaultMutableTreeNode swingNode = nodeMap.get(editNode);
+        DefaultMutableTreeNode swingNode = findNodeById(editNode.getEditId());
         if (swingNode == null) {
             return false;
         }
@@ -83,7 +184,8 @@ public class JackTreeModel extends DefaultTreeModel {
             return false;
         }
 
-        if (nodeMap.containsKey(editNode)) {
+        DefaultMutableTreeNode swingNode = findNodeById(editNode.getEditId());
+        if (swingNode != null) {
             return true;
         }
 
@@ -92,7 +194,7 @@ public class JackTreeModel extends DefaultTreeModel {
             return false;
         }
 
-        DefaultMutableTreeNode parentSwingNode = nodeMap.get(parentEditNode);
+        DefaultMutableTreeNode parentSwingNode = findNodeById(parentEditNode.getEditId());
         if (parentSwingNode == null) {
             return false;
         }
@@ -112,7 +214,7 @@ public class JackTreeModel extends DefaultTreeModel {
             return false;
         }
 
-        DefaultMutableTreeNode swingNode = nodeMap.remove(editNode);
+        DefaultMutableTreeNode swingNode = findNodeById(editNode.getEditId());
         if (swingNode == null) {
             return false;
         }
@@ -129,26 +231,14 @@ public class JackTreeModel extends DefaultTreeModel {
     }
 
     private void rebuildFromDomain() {
-        nodeMap.clear();
         DefaultMutableTreeNode newRoot = buildSubtree(editTree.getRoot());
         setRoot(newRoot);
         reload();
     }
 
-    private void rebuildNodeMap() {
-        nodeMap.clear();
-        DefaultMutableTreeNode rootNode = (DefaultMutableTreeNode) getRoot();
-        rebuildNodeMapRecursive(rootNode);
-    }
-
     private void rebuildNodeMapRecursive(DefaultMutableTreeNode swingNode) {
         if (swingNode == null) {
             return;
-        }
-
-        Object userObject = swingNode.getUserObject();
-        if (userObject instanceof EditNode editNode) {
-            nodeMap.put(editNode, swingNode);
         }
 
         for (int i = 0; i < swingNode.getChildCount(); i++) {
@@ -157,10 +247,6 @@ public class JackTreeModel extends DefaultTreeModel {
     }
 
     private void removeSubtreeFromMap(DefaultMutableTreeNode swingNode) {
-        Object userObject = swingNode.getUserObject();
-        if (userObject instanceof EditNode editNode) {
-            nodeMap.remove(editNode);
-        }
 
         for (int i = 0; i < swingNode.getChildCount(); i++) {
             removeSubtreeFromMap((DefaultMutableTreeNode) swingNode.getChildAt(i));
@@ -178,37 +264,6 @@ public class JackTreeModel extends DefaultTreeModel {
         return -1;
     }
 
-    private static DefaultMutableTreeNode buildRoot(EditTree editTree, Map<EditNode, DefaultMutableTreeNode> ignored) {
-        return buildStaticSubtree(editTree.getRoot());
-    }
-
-    private DefaultMutableTreeNode buildSubtree(EditNode editNode) {
-        DefaultMutableTreeNode swingNode = new DefaultMutableTreeNode(editNode);
-        nodeMap.put(editNode, swingNode);
-
-        int childCount = getChildCountSafe(editNode);
-        for (int i = 0; i < childCount; i++) {
-            EditNode child = getChildSafe(editNode, i);
-            if (child != null) {
-                swingNode.add(buildSubtree(child));
-            }
-        }
-        return swingNode;
-    }
-
-    private static DefaultMutableTreeNode buildStaticSubtree(EditNode editNode) {
-        DefaultMutableTreeNode swingNode = new DefaultMutableTreeNode(editNode);
-
-        int childCount = getChildCountSafe(editNode);
-        for (int i = 0; i < childCount; i++) {
-            EditNode child = getChildSafe(editNode, i);
-            if (child != null) {
-                swingNode.add(buildStaticSubtree(child));
-            }
-        }
-        return swingNode;
-    }
-
     private static int getChildCountSafe(EditNode node) {
         try {
             return node.getChildCount();
@@ -224,4 +279,5 @@ public class JackTreeModel extends DefaultTreeModel {
             return null;
         }
     }
+
 }

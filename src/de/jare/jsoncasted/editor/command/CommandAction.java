@@ -24,7 +24,7 @@ public enum CommandAction {
      */
     REDO,
     /**
-     * The command was redone after being undone.
+     * The command was skipped after being undone.
      */
     SKIPPED
 }

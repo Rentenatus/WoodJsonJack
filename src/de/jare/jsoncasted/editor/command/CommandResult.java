@@ -28,6 +28,7 @@ public final class CommandResult {
     private final EditNode[] addedNodes;
     private final EditNode[] removedNodes;
     private final EditNode[] updatedNodes;
+    private final UpdateAction[] updateActions;
 
     /**
      * Creates a new command result.
@@ -38,6 +39,7 @@ public final class CommandResult {
      * @param addedNodes nodes that were added by the operation
      * @param removedNodes nodes that were removed by the operation
      * @param updatedNodes nodes that were updated by the operation
+     * @param updateActions recommended action for update
      * @throws NullPointerException if {@code trigger} or {@code action} is
      * {@code null}
      */
@@ -47,13 +49,15 @@ public final class CommandResult {
             EditNode[] affectedNodes,
             EditNode[] addedNodes,
             EditNode[] removedNodes,
-            EditNode[] updatedNodes) {
+            EditNode[] updatedNodes,
+            UpdateAction[] updateActions) {
         this.trigger = Objects.requireNonNull(trigger, "trigger");
         this.action = Objects.requireNonNull(action, "action");
         this.affectedNodes = affectedNodes != null ? affectedNodes.clone() : new EditNode[0];
         this.addedNodes = addedNodes != null ? addedNodes.clone() : new EditNode[0];
         this.removedNodes = removedNodes != null ? removedNodes.clone() : new EditNode[0];
         this.updatedNodes = updatedNodes != null ? updatedNodes.clone() : new EditNode[0];
+        this.updateActions = updateActions != null ? updateActions : new UpdateAction[0];
     }
 
     /**
@@ -111,6 +115,15 @@ public final class CommandResult {
     }
 
     /**
+     * Returns the recommended update actions for this result.
+     *
+     * @return a defensive copy of the update actions
+     */
+    public UpdateAction[] getUpdateActions() {
+        return updateActions.clone();
+    }
+
+    /**
      * Returns a compact debug representation of this result.
      *
      * @return the formatted debug string
@@ -124,6 +137,7 @@ public final class CommandResult {
                 + ", addedNodes=" + formatNodes(addedNodes)
                 + ", removedNodes=" + formatNodes(removedNodes)
                 + ", updatedNodes=" + formatNodes(updatedNodes)
+                + ", updateActions=" + (updateActions.length > 0 ? java.util.Arrays.toString(updateActions) : "[]")
                 + '}';
     }
 

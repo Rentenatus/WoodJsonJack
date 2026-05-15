@@ -23,15 +23,15 @@ public class HistoryEvent implements EditEvent {
      */
     public enum ChangeType {
         /**
-         * A command was executed
+         * A command was executed 
          */
         EXECUTED,
         /**
-         * A command was undone
+         * A command was undone 
          */
         UNDONE,
         /**
-         * A command was redone
+         * A command was redone 
          */
         REDONE,
         /**

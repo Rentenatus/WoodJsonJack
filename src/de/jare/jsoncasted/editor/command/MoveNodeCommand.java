@@ -28,6 +28,8 @@ import java.util.Comparator;
  */
 public class MoveNodeCommand extends AbstractEditCommand {
 
+    private static final UpdateAction[] UPDATE_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_UPDATED};
+
     private final MovementEntry[] oldEntries;
     private final MovementEntry[] newEntries;
 
@@ -248,7 +250,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
                         Integer.toString(i));
             }
 
-            if (isAncestorOf(node, targetParent)) {
+            if (isAncestorOf(targetParent, node)) {
                 return CommandAvailability.disallowed(
                         "editor.command.move.wouldCreateCycle",
                         Long.toString(node.getEditId()),
@@ -333,10 +335,11 @@ public class MoveNodeCommand extends AbstractEditCommand {
         return new CommandResult(
                 this,
                 CommandAction.EXECUTE,
+                collectParentNodes(moved),
+                null,
+                null,
                 moved,
-                null,
-                null,
-                moved
+                UPDATE_ACTIONS
         );
     }
 
@@ -358,10 +361,11 @@ public class MoveNodeCommand extends AbstractEditCommand {
         return new CommandResult(
                 this,
                 CommandAction.UNDO,
+                collectParentNodes(moved),
+                null,
+                null,
                 moved,
-                null,
-                null,
-                moved
+                UPDATE_ACTIONS
         );
     }
 
@@ -616,4 +620,5 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
         return copy;
     }
+
 }

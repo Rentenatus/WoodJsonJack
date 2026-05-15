@@ -6,7 +6,9 @@
  */
 package de.jare.jsoncasted.editor.command;
 
+import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
+import java.util.Set;
 
 /**
  * Abstract base class for all edit commands in the JSON tree editor. Provides
@@ -18,6 +20,8 @@ import de.jare.jsoncasted.editor.core.EditTree;
  * {@code undo()}.</p>
  */
 public abstract class AbstractEditCommand implements EditCommand {
+
+    public static final UpdateAction[] NO_UPDATE_ACTIONS = new UpdateAction[0];
 
     private final CommandType type;
     private String description;
@@ -82,7 +86,7 @@ public abstract class AbstractEditCommand implements EditCommand {
             throw new IllegalArgumentException("Tree cannot be null");
         }
         if (consumeSkipped()) {
-            return new CommandResult(this, CommandAction.SKIPPED, null, null, null, null);
+            return new CommandResult(this, CommandAction.SKIPPED, null, null, null, null, NO_UPDATE_ACTIONS);
         }
         return doUndo(tree);
     }
@@ -98,5 +102,16 @@ public abstract class AbstractEditCommand implements EditCommand {
     @Override
     public String toString() {
         return getClass().getSimpleName() + "[type=" + type + ", description='" + description + "']";
+    }
+
+    public final EditNode[] collectParentNodes(EditNode[] children) {
+        Set<EditNode> parentNodes = new java.util.HashSet<>();
+        for (EditNode node : children) {
+            EditNode parent = node.getParent();
+            if (parent != null) {
+                parentNodes.add(parent);
+            }
+        }
+        return parentNodes.toArray(new EditNode[parentNodes.size()]);
     }
 }

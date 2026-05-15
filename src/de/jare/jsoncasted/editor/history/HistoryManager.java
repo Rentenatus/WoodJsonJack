@@ -71,8 +71,7 @@ public class HistoryManager {
         redoStack.clear();
         trimToLimit();
 
-        fireHistoryEvent(
-                HistoryEvent.ChangeType.EXECUTED,
+        fireHistoryEvent(HistoryEvent.ChangeType.EXECUTED,
                 command,
                 result
         );
@@ -95,8 +94,7 @@ public class HistoryManager {
         CommandResult result = command.undo(tree);
         redoStack.push(command);
 
-        fireHistoryEvent(
-                HistoryEvent.ChangeType.UNDONE,
+        fireHistoryEvent(HistoryEvent.ChangeType.UNDONE,
                 command,
                 result
         );
@@ -120,8 +118,7 @@ public class HistoryManager {
         CommandResult redoResult = asAction(executeResult, CommandAction.REDO);
         undoStack.push(command);
 
-        fireHistoryEvent(
-                HistoryEvent.ChangeType.REDONE,
+        fireHistoryEvent(HistoryEvent.ChangeType.REDONE,
                 command,
                 redoResult
         );
@@ -297,7 +294,8 @@ public class HistoryManager {
                 result.getAffectedNodes(),
                 result.getAddedNodes(),
                 result.getRemovedNodes(),
-                result.getUpdatedNodes()
+                result.getUpdatedNodes(),
+                result.getUpdateActions()
         );
     }
 

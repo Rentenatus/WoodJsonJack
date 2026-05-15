@@ -111,7 +111,8 @@ public class CutToStashCommand extends AbstractToStashCommand {
                 removedSnapshots,
                 null,
                 removedSnapshots,
-                null
+                null,
+                NO_UPDATE_ACTIONS
         );
     }
 
@@ -138,7 +139,8 @@ public class CutToStashCommand extends AbstractToStashCommand {
                 restoredNodes,
                 restoredNodes,
                 null,
-                null
+                null,
+                NO_UPDATE_ACTIONS
         );
     }
 

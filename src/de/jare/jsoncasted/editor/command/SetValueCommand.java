@@ -148,7 +148,8 @@ public class SetValueCommand extends AbstractEditCommand {
                 updated,
                 null,
                 null,
-                updated
+                updated,
+                NO_UPDATE_ACTIONS
         );
     }
 
@@ -176,7 +177,8 @@ public class SetValueCommand extends AbstractEditCommand {
                 updated,
                 null,
                 null,
-                updated
+                updated,
+                NO_UPDATE_ACTIONS
         );
     }
 
