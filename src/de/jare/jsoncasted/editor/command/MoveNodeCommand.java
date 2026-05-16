@@ -112,7 +112,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
         if (nodes == null) {
             throw new NullPointerException("Nodes cannot be null");
         }
-        if (nodes.length == 0) {
+        final int length = nodes.length;
+        if (length == 0) {
             throw new IllegalArgumentException("Nodes cannot be empty");
         }
         if (newIndex < -1) {
@@ -123,7 +124,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
             newIndex = newParent.getChildCount();
         }
 
-        EditNode[] sortedNodes = Arrays.copyOf(nodes, nodes.length);
+        EditNode[] sortedNodes = Arrays.copyOf(nodes, length);
         Arrays.sort(sortedNodes, Comparator
                 .comparingLong((EditNode n) -> {
                     EditNode parent = n.getParent();
@@ -134,11 +135,11 @@ public class MoveNodeCommand extends AbstractEditCommand {
                     return parent != null ? parent.getChildIndex(n) : -1;
                 }));
 
-        this.oldEntries = new MovementEntry[nodes.length];
-        this.newEntries = new MovementEntry[nodes.length];
+        this.oldEntries = new MovementEntry[length];
+        this.newEntries = new MovementEntry[length];
 
         int shift = 0;
-        for (int i = 0; i < nodes.length; i++) {
+        for (int i = 0; i < length; i++) {
             EditNode node = nodes[i];
             if (node == null) {
                 throw new IllegalArgumentException("Node at index " + i + " cannot be null");
@@ -155,7 +156,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
             }
         }
 
-        for (int i = 0; i < sortedNodes.length; i++) {
+        for (int i = 0; i < length; i++) {
             EditNode node = sortedNodes[i];
             EditNode parent = node.getParent();
             long oldParentId = parent != null ? parent.getEditId() : -1;
@@ -174,7 +175,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
             );
 
             int targetIndex = newIndex - shift;
-            this.newEntries[i] = new MovementEntry(
+            this.newEntries[length - 1 - i] = new MovementEntry(
                     node.getEditId(),
                     newParentId,
                     targetIndex,
@@ -497,7 +498,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
     private EditNode[] addAll(EditTree tree, MovementEntry[] entries, boolean[] successfullyRemoved) {
         EditNode[] moved = new EditNode[entries.length];
-        for (int i = entries.length - 1; i >= 0; i--) {
+        for (int i = 0; i < entries.length; i++) { 
             if (!successfullyRemoved[i]) {
                 continue; // Skip adding if removal was not successful
             }
