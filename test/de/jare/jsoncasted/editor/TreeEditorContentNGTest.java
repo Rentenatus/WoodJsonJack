@@ -272,7 +272,7 @@ public class TreeEditorContentNGTest {
 
         CommandResult moveCmd = editor.execute(new MoveNodeCommand(
                 new EditNode[]{node1, node2, node3},
-                targetParent.getEditId(),
+                targetParent,
                 0
         ));
         assertNotNull(moveCmd);

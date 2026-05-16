@@ -62,11 +62,17 @@ public class MoveNodeCommand extends AbstractEditCommand {
         }
 
         this.oldEntries = new MovementEntry[]{
-            new MovementEntry(node.getEditId(), oldParentId, oldIndex, null)
+            new MovementEntry(node.getEditId(), oldParentId, oldIndex, node.deepCopy(false))
         };
-        this.newEntries = new MovementEntry[]{
-            new MovementEntry(node.getEditId(), newParentId, newIndex, null)
-        };
+        if (oldParentId == newParentId && (newIndex >= oldIndex)) {
+            this.newEntries = new MovementEntry[]{
+                new MovementEntry(node.getEditId(), newParentId, newIndex - 1, node.deepCopy(false))
+            };
+        } else {
+            this.newEntries = new MovementEntry[]{
+                new MovementEntry(node.getEditId(), newParentId, newIndex, null)
+            };
+        }
 
         setDescription("Move node: " + node.getName());
     }
@@ -92,23 +98,29 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * appended in normalized order.</p>
      *
      * @param nodes the nodes to move
-     * @param newParentId the target parent ID
+     * @param newParent the target parent
      * @param newIndex the starting target index, or {@code -1} to append
      */
-    public MoveNodeCommand(EditNode[] nodes, long newParentId, int newIndex) {
+    public MoveNodeCommand(EditNode[] nodes, EditNode newParent, int newIndex) {
         super(CommandType.MOVE_NODE);
 
+        if (newParent == null) {
+            throw new NullPointerException("New parent cannot be null");
+        }
+        long newParentId = newParent.getEditId();
+
         if (nodes == null) {
-            throw new IllegalArgumentException("Nodes cannot be null");
+            throw new NullPointerException("Nodes cannot be null");
         }
         if (nodes.length == 0) {
             throw new IllegalArgumentException("Nodes cannot be empty");
         }
-        if (newParentId < 0) {
-            throw new IllegalArgumentException("New parentId cannot be negative");
-        }
         if (newIndex < -1) {
             throw new IllegalArgumentException("New index cannot be < -1");
+        }
+
+        if (newIndex == -1 || newIndex > newParent.getChildCount()) {
+            newIndex = newParent.getChildCount();
         }
 
         EditNode[] sortedNodes = Arrays.copyOf(nodes, nodes.length);
@@ -122,15 +134,29 @@ public class MoveNodeCommand extends AbstractEditCommand {
                     return parent != null ? parent.getChildIndex(n) : -1;
                 }));
 
-        this.oldEntries = new MovementEntry[sortedNodes.length];
-        this.newEntries = new MovementEntry[sortedNodes.length];
+        this.oldEntries = new MovementEntry[nodes.length];
+        this.newEntries = new MovementEntry[nodes.length];
 
-        for (int i = 0; i < sortedNodes.length; i++) {
-            EditNode node = sortedNodes[i];
+        int shift = 0;
+        for (int i = 0; i < nodes.length; i++) {
+            EditNode node = nodes[i];
             if (node == null) {
                 throw new IllegalArgumentException("Node at index " + i + " cannot be null");
             }
+            if (node.getParent() == null) {
+                throw new IllegalArgumentException("Node at index " + i + " must have a parent");
+            }
+            if (node.getParent().getEditId() != newParentId) {
+                continue; // No same-parent correction needed for nodes moving to a different parent
+            }
+            int childIndex = node.getParent().getChildIndex(node);
+            if (newIndex > childIndex) {
+                shift++;
+            }
+        }
 
+        for (int i = 0; i < sortedNodes.length; i++) {
+            EditNode node = sortedNodes[i];
             EditNode parent = node.getParent();
             long oldParentId = parent != null ? parent.getEditId() : -1;
             int oldIndex = parent != null ? parent.getChildIndex(node) : -1;
@@ -144,22 +170,22 @@ public class MoveNodeCommand extends AbstractEditCommand {
                     node.getEditId(),
                     oldParentId,
                     oldIndex,
-                    null
+                    node.deepCopy(false)
             );
 
-            int targetIndex = newIndex < 0 ? -1 : newIndex + i;
+            int targetIndex = newIndex - shift;
             this.newEntries[i] = new MovementEntry(
                     node.getEditId(),
                     newParentId,
                     targetIndex,
-                    null
+                    node.deepCopy(false)
             );
         }
 
-        if (sortedNodes.length == 1) {
-            setDescription("Move node: " + sortedNodes[0].getName());
+        if (nodes.length == 1) {
+            setDescription("Move node: " + nodes[0].getName());
         } else {
-            setDescription("Move " + sortedNodes.length + " nodes");
+            setDescription("Move " + nodes.length + " nodes");
         }
     }
 
@@ -306,7 +332,9 @@ public class MoveNodeCommand extends AbstractEditCommand {
         MovementEntry newEntry = newEntries[0];
         int newIndex = newEntry.index;
 
-        return !(newIndex < minIndex || newIndex > maxInddex + 1);
+        System.out.println("§§§§§§§§§§§§§§§§§§§§§§§§§§§ " + newIndex + " == " + minIndex);
+
+        return newIndex == minIndex;
     }
 
     /**
@@ -335,8 +363,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Tree cannot be null");
         }
 
-        removeAll(tree, oldEntries);
-        EditNode[] moved = addAll(tree, newEntries);
+        boolean[] successfullyRemoved = removeAll(tree, oldEntries);
+        EditNode[] moved = addAll(tree, newEntries, successfullyRemoved);
 
         return new CommandResult(
                 this,
@@ -362,8 +390,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
     @Override
     public CommandResult doUndo(EditTree tree) {
 
-        removeAll(tree, newEntries);
-        EditNode[] moved = addAll(tree, oldEntries);
+        boolean[] successfullyRemoved = removeAll(tree, newEntries);
+        EditNode[] moved = addAll(tree, oldEntries, successfullyRemoved);
 
         return new CommandResult(
                 this,
@@ -452,6 +480,50 @@ public class MoveNodeCommand extends AbstractEditCommand {
         }
 
         return copy;
+    }
+
+    private boolean[] removeAll(EditTree tree, MovementEntry[] entries) {
+        boolean[] successfullyRemoved = new boolean[entries.length];
+        for (int i = 0; i < entries.length; i++) {
+            MovementEntry entry = entries[i];
+            EditNode node = tree.findNodeById(entry.nodeId);
+            if (node != null && node.getParent() != null) {
+                node.getParent().removeChild(node);
+                successfullyRemoved[i] = true;
+            }
+        }
+        return successfullyRemoved;
+    }
+
+    private EditNode[] addAll(EditTree tree, MovementEntry[] entries, boolean[] successfullyRemoved) {
+        EditNode[] moved = new EditNode[entries.length];
+        for (int i = entries.length - 1; i >= 0; i--) {
+            if (!successfullyRemoved[i]) {
+                continue; // Skip adding if removal was not successful
+            }
+            MovementEntry entry = entries[i];
+            EditNode parent = tree.findNodeById(entry.parentEditId);
+            if (parent == null) {
+                continue;
+            }
+
+            EditNode nodeToAdd = entry.snapshot != null
+                    ? entry.snapshot.deepCopy()
+                    : tree.findNodeById(entry.nodeId);
+
+            if (nodeToAdd == null) {
+                continue;
+            }
+
+            int insertIndex = entry.index;
+            if (insertIndex < 0 || insertIndex > parent.getChildCount()) {
+                insertIndex = parent.getChildCount();
+            }
+
+            parent.addChild(nodeToAdd, insertIndex);
+            moved[i] = nodeToAdd;
+        }
+        return moved;
     }
 
 }

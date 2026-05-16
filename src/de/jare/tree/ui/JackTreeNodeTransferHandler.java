@@ -179,7 +179,7 @@ class JackTreeNodeTransferHandler extends TransferHandler {
             EditNode[] normalizedNodes = normalizeForMove(draggedEditNodes);
 
             MoveNodeCommand command
-                    = new MoveNodeCommand(normalizedNodes, targetParent.getEditId(), targetIndex);
+                    = new MoveNodeCommand(normalizedNodes, targetParent, targetIndex);
 
             CommandAvailability check = command.check(undoMan.getActiveManager().getTreeModel().getEditTree());
             if (check.isUseless()) {

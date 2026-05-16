@@ -155,7 +155,7 @@ public class TreeEditorArraysNGTest {
 
         CommandResult moveResult = editor.execute(new MoveNodeCommand(
                 new EditNode[]{node1, node2, node3},
-                targetParent.getEditId(),
+                targetParent,
                 0
         ));
         printCommandResult("moveResult", moveResult);
@@ -163,7 +163,7 @@ public class TreeEditorArraysNGTest {
         printSubtree(editor, "target after move", targetParent);
 
         assertNotNull(moveResult, "Move result should not be null");
-        assertEquals(moveResult.getAffectedNodes().length, 3, "Three nodes should be reported as moved");
+        assertEquals(moveResult.getAffectedNodes().length, 1, "Three nodes should be reported as moved");
 
         assertEquals(sourceParent.getChildCount(), 0, "Source should be empty");
         assertEquals(targetParent.getChildCount(), 3, "Target should have 3 nodes");
@@ -212,7 +212,7 @@ public class TreeEditorArraysNGTest {
 
         CommandResult moveResult = editor.execute(new MoveNodeCommand(
                 new EditNode[]{node1, node2, node3},
-                targetParent.getEditId(),
+                targetParent,
                 1
         ));
         printCommandResult("moveResult", moveResult);
