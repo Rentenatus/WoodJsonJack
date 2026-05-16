@@ -275,33 +275,38 @@ public class MoveNodeCommand extends AbstractEditCommand {
             return false;
         }
 
-        MovementEntry oldEntry = oldEntries[0];
+        int minIndex = Integer.MAX_VALUE;
+        int maxInddex = -1;
+        for (int i = 0; i < newEntries.length; i++) {
+            MovementEntry oldEntry = oldEntries[i];
+            MovementEntry newEntry = newEntries[i];
+
+            EditNode node = tree.findNodeById(oldEntry.nodeId);
+            if (node == null || node.getParent() == null) {
+                return false;
+            }
+
+            EditNode currentParent = node.getParent();
+            if (currentParent.getEditId() != newEntry.parentEditId) {
+                return false;
+            }
+
+            int currentIndex = currentParent.getChildIndex(node);
+            minIndex = Math.min(minIndex, currentIndex);
+            maxInddex = Math.max(maxInddex, currentIndex);
+            if (currentIndex < 0) {
+                return false;
+            }
+        }
+
+        if (maxInddex - minIndex > newEntries.length - 1) {
+            return false;
+        }
+
         MovementEntry newEntry = newEntries[0];
+        int newIndex = newEntry.index;
 
-        EditNode node = tree.findNodeById(oldEntry.nodeId);
-        if (node == null || node.getParent() == null) {
-            return false;
-        }
-
-        EditNode currentParent = node.getParent();
-        if (currentParent.getEditId() != newEntry.parentEditId) {
-            return false;
-        }
-
-        int currentIndex = currentParent.getChildIndex(node);
-        if (currentIndex < 0) {
-            return false;
-        }
-
-        int effectiveTargetIndex = resolveEffectiveTargetIndex(
-                tree,
-                node,
-                oldEntry.parentEditId,
-                newEntry.parentEditId,
-                newEntry.index
-        );
-
-        return effectiveTargetIndex == currentIndex;
+        return !(newIndex < minIndex || newIndex > maxInddex + 1);
     }
 
     /**
@@ -330,7 +335,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Tree cannot be null");
         }
 
-        EditNode[] moved = moveAll(tree, oldEntries, newEntries, false);
+        removeAll(tree, oldEntries);
+        EditNode[] moved = addAll(tree, newEntries);
 
         return new CommandResult(
                 this,
@@ -356,7 +362,8 @@ public class MoveNodeCommand extends AbstractEditCommand {
     @Override
     public CommandResult doUndo(EditTree tree) {
 
-        EditNode[] moved = moveAll(tree, newEntries, oldEntries, false);
+        removeAll(tree, newEntries);
+        EditNode[] moved = addAll(tree, oldEntries);
 
         return new CommandResult(
                 this,
@@ -367,126 +374,6 @@ public class MoveNodeCommand extends AbstractEditCommand {
                 moved,
                 UPDATE_ACTIONS
         );
-    }
-
-    /**
-     * Moves all nodes from the given source entries to the target entries.
-     *
-     * @param tree the target tree
-     * @param fromEntries source entries
-     * @param toEntries target entries
-     * @param reverse whether to process entries in reverse order
-     * @return the moved nodes
-     */
-    private EditNode[] moveAll(
-            EditTree tree,
-            MovementEntry[] fromEntries,
-            MovementEntry[] toEntries,
-            boolean reverse) {
-
-        EditNode[] moved = new EditNode[fromEntries.length];
-
-        int length = fromEntries.length;
-        int start = reverse ? length - 1 : 0;
-        int end = reverse ? -1 : length;
-        int step = reverse ? -1 : 1;
-        boolean singleMove = length == 1;
-
-        for (int i = start; i != end; i += step) {
-            MovementEntry from = fromEntries[i];
-            MovementEntry to = toEntries[i];
-
-            EditNode node = tree.findNodeById(from.nodeId);
-            if (node == null) {
-                throw new IllegalStateException(
-                        "Cannot move node with id " + from.nodeId + ": node not found");
-            }
-
-            int effectiveTargetIndex = singleMove
-                    ? resolveEffectiveTargetIndex(
-                            tree,
-                            node,
-                            from.parentEditId,
-                            to.parentEditId,
-                            to.index
-                    )
-                    : clampTargetIndex(tree, to.parentEditId, to.index);
-
-            tree.moveNode(node.getEditId(), to.parentEditId, effectiveTargetIndex);
-            moved[i] = node;
-        }
-
-        return moved;
-    }
-
-    /**
-     * Clamps a requested index into the valid range of the current target
-     * parent.
-     *
-     * @param tree the target tree
-     * @param targetParentId the target parent ID
-     * @param requestedIndex the requested index
-     * @return the clamped index, or {@code -1} for append
-     */
-    private int clampTargetIndex(EditTree tree, long targetParentId, int requestedIndex) {
-        if (requestedIndex < 0) {
-            return -1;
-        }
-
-        EditNode targetParent = tree.findNodeById(targetParentId);
-        if (targetParent == null) {
-            return requestedIndex;
-        }
-
-        int childCount = targetParent.getChildCount();
-        return Math.max(0, Math.min(requestedIndex, childCount));
-    }
-
-    /**
-     * Resolves the effective target index for a single-node move.
-     *
-     * <p>
-     * If the node is moved within the same parent and currently lies before the
-     * requested target index, the index is decremented to account for the
-     * removal shift.</p>
-     *
-     * @param tree the target tree
-     * @param node the node being moved
-     * @param fromParentId the original parent ID
-     * @param targetParentId the target parent ID
-     * @param requestedIndex the requested target index
-     * @return the effective target index
-     */
-    private int resolveEffectiveTargetIndex(
-            EditTree tree,
-            EditNode node,
-            long fromParentId,
-            long targetParentId,
-            int requestedIndex) {
-
-        if (requestedIndex < 0) {
-            return -1;
-        }
-
-        EditNode targetParent = tree.findNodeById(targetParentId);
-        if (targetParent == null) {
-            return requestedIndex;
-        }
-
-        int childCount = targetParent.getChildCount();
-        int clampedIndex = Math.max(0, Math.min(requestedIndex, childCount));
-
-        if (fromParentId == targetParentId) {
-            EditNode currentParent = node.getParent();
-            if (currentParent != null && currentParent.getEditId() == fromParentId) {
-                int currentIndex = currentParent.getChildIndex(node);
-                if (currentIndex >= 0 && currentIndex < clampedIndex) {
-                    clampedIndex--;
-                }
-            }
-        }
-
-        return clampedIndex;
     }
 
     /**
@@ -505,60 +392,6 @@ public class MoveNodeCommand extends AbstractEditCommand {
      */
     public MovementEntry[] getNewEntries() {
         return Arrays.copyOf(newEntries, newEntries.length);
-    }
-
-    /**
-     * Returns the first source entry.
-     *
-     * @return the first source entry
-     */
-    public MovementEntry getOldEntry() {
-        return oldEntries[0];
-    }
-
-    /**
-     * Returns the first target entry.
-     *
-     * @return the first target entry
-     */
-    public MovementEntry getNewEntry() {
-        return newEntries[0];
-    }
-
-    /**
-     * Returns the source parent ID of the first entry.
-     *
-     * @return the source parent ID
-     */
-    public long getOldParentId() {
-        return oldEntries[0].parentEditId;
-    }
-
-    /**
-     * Returns the source index of the first entry.
-     *
-     * @return the source index
-     */
-    public int getOldIndex() {
-        return oldEntries[0].index;
-    }
-
-    /**
-     * Returns the target parent ID of the first entry.
-     *
-     * @return the target parent ID
-     */
-    public long getNewParentId() {
-        return newEntries[0].parentEditId;
-    }
-
-    /**
-     * Returns the target index of the first entry.
-     *
-     * @return the target index
-     */
-    public int getNewIndex() {
-        return newEntries[0].index;
     }
 
     /**
