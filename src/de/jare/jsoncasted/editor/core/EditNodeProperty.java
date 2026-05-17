@@ -6,48 +6,27 @@
  */
 package de.jare.jsoncasted.editor.core;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 /**
- * Represents a JSON property node in the tree structure. Based on
- * JsonPropertyData with tree structure support added.
+ * Represents a JSON property node in the tree structure.
  */
-public final class EditNodeProperty implements EditNode {
+public final class EditNodeProperty extends EditNodeAbstract implements EditNode {
 
-    private final long editId;
     private String propName;
     private String type;
-    private String primValue;
-    private EditNode parent;
-    private final List<EditNode> children = new ArrayList<>();
-
-    public EditNodeProperty(long editId, String propName, String type, String primValue) {
-        this.editId = editId;
-        this.propName = propName;
-        this.type = type;
-        this.primValue = primValue;
-    }
 
     public EditNodeProperty(String propName) {
-        this.editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
+        super(propName);
         this.propName = propName;
         this.type = "";
-        this.primValue = null;
     }
 
-    @Override
-    public long getEditId() {
-        return editId;
+    public EditNodeProperty(long editId, String propName, String type, String primValue) {
+        super(editId, primValue, propName);
+        this.propName = propName;
+        this.type = type;
     }
 
-    // ========== Tree structure methods ==========
-    @Override
-    public long getId() {
-        return editId;
-    }
-
+    // ========== Name / Label ==========
     @Override
     public String getName() {
         return propName;
@@ -58,93 +37,15 @@ public final class EditNodeProperty implements EditNode {
         this.propName = name;
     }
 
-    @Override
-    public String getValue() {
-        return primValue;
-    }
-
-    @Override
-    public void setValue(String value) {
-        this.primValue = value;
-    }
-
-    @Override
-    public EditNode getParent() {
-        return parent;
-    }
-
-    @Override
-    public void setParent(EditNode parent) {
-        this.parent = parent;
-    }
-
-    @Override
-    public List<EditNode> getChildren() {
-        return Collections.unmodifiableList(children);
-    }
-
-    @Override
-    public int getChildCount() {
-        return children.size();
-    }
-
-    @Override
-    public EditNode getChildAt(int index) {
-        return children.get(index);
-    }
-
-    @Override
-    public int getChildIndex(EditNode child) {
-        return children.indexOf(child);
-    }
-
-    @Override
-    public void addChild(EditNode child) {
-        addChild(child, children.size());
-    }
-
-    @Override
-    public void addChild(EditNode child, int index) {
-        if (child == null) {
-            throw new IllegalArgumentException("Child cannot be null");
-        }
-        if (index < 0 || index > children.size()) {
-            throw new IndexOutOfBoundsException("Index: " + index);
-        }
-        EditNode oldParent = child.getParent();
-        if (oldParent != null && oldParent != this) {
-            oldParent.removeChild(child);
-        }
-        children.add(index, child);
-        child.setParent(this);
-    }
-
-    @Override
-    public boolean removeChild(EditNode child) {
-        boolean removed = children.remove(child);
-        if (removed) {
-            child.setParent(null);
-            child.sayOnRemoved(this);
-        }
-        return removed;
-    }
-
-    @Override
-    public EditNode deepCopy() {
-        EditNodeProperty copy = new EditNodeProperty(getId(), propName, type, primValue);
-        for (EditNode child : children) {
-            copy.addChild(child.deepCopy());
-        }
-        return copy;
-    }
-
     // ========== JsonTreeNodeData methods ==========
     public String getPropName() {
         return propName;
     }
 
     public void setPropName(String propName) {
-        this.propName = propName.replace('=', ' ').trim().replace(' ', '_');
+        this.propName = propName.replace('=', ' ')
+                .trim()
+                .replace(' ', '_');
     }
 
     public String getType() {
@@ -155,14 +56,6 @@ public final class EditNodeProperty implements EditNode {
         this.type = type;
     }
 
-    public String getPrimValue() {
-        return primValue;
-    }
-
-    public void setPrimValue(String primValue) {
-        this.primValue = primValue;
-    }
-
     @Override
     public String toString() {
         return propName + rightString();
@@ -170,50 +63,59 @@ public final class EditNodeProperty implements EditNode {
 
     @Override
     public String rightString() {
-        return primValue == null ? " =" : " = '" + primValue + "'";
+        String value = getValue();
+        return value == null ? " =" : " = '" + value + "'";
     }
 
+    // ========== Factory methods ==========
     @Override
-    public EditNode createChild(String aName) {
+    public EditNodeAbstract addNewChild(String aName) {
         EditNodeObject child = new EditNodeObject(aName);
         addChild(child);
         return child;
     }
 
     @Override
-    public EditNode createNeighbor(String aName) {
-        return new EditNodeProperty(aName);
+    EditNodeAbstract addNewChild(String aName, int index) {
+        EditNodeObject child = new EditNodeObject(aName);
+        addChild(child, index);
+        return child;
     }
 
     @Override
-    public EditNode deepCopy(boolean regenerateEditId) {
+    public EditNodeAbstract createNeighbor(String aName) {
+        return new EditNodeProperty(aName);
+    }
+
+    // ========== Deep Copy ==========
+    @Override
+    public EditNodeAbstract deepCopy(boolean regenerateEditId) {
         EditNodeProperty copy = new EditNodeProperty(
-                regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : editId,
-                propName, type, primValue);
-        for (EditNode child : children) {
+                regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : getEditId(),
+                propName, type, getValue());
+
+        for (EditNodeAbstract child : getAbstractChildren()) {
             copy.addChild(child.deepCopy(regenerateEditId));
         }
         return copy;
     }
 
+    // ========== Removal callback ==========
     @Override
     public void sayOnRemoved(EditNode parent) {
-        // For properties: if removed from parent, no special handling needed
+        // No special handling for properties
     }
 
     @Override
     public void onChildObjectDataRemoved(EditNodeObject child) {
-        // When an object child is removed from this property,
-        // store its primitive value in this property
-        primValue = child.getPrimValue();
+        // When an object child is removed, store its primitive value
+        setValue(child.getValue());
     }
 
+    // ========== Type constraints ==========
     @Override
     public boolean canBeChildOf(EditNode parent) {
-        if (parent == null) {
-            return false;
-        }
-        return parent.canBeParentOfPropertyData();
+        return parent != null && parent.canBeParentOfPropertyData();
     }
 
     @Override
@@ -221,6 +123,7 @@ public final class EditNodeProperty implements EditNode {
         return true;
     }
 
+    // ========== Edit text ==========
     @Override
     public String getEditText() {
         return propName;

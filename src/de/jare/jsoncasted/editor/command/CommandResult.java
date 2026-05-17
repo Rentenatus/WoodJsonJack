@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.command;
 import java.util.Objects;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 /**
  * Immutable result object returned by command execution, undo, and redo
@@ -24,11 +25,11 @@ public final class CommandResult {
 
     private final EditCommand trigger;
     private final CommandAction action;
-    private final EditNode[] affectedNodes;
-    private final EditNode[] addedNodes;
-    private final EditNode[] removedNodes;
-    private final EditNode[] updatedNodes;
-    private final EditNode[] failedNodes;
+    private final EditNodeAbstract[] affectedNodes;
+    private final EditNodeAbstract[] addedNodes;
+    private final EditNodeAbstract[] removedNodes;
+    private final EditNodeAbstract[] updatedNodes;
+    private final EditNodeAbstract[] failedNodes;
     private final UpdateAction[] updateActions;
 
     /**
@@ -46,14 +47,16 @@ public final class CommandResult {
      * {@code null}
      */
     public CommandResult(
-            EditCommand trigger, CommandAction action, EditNode[] affectedNodes, EditNode[] addedNodes, EditNode[] removedNodes, EditNode[] updatedNodes, EditNode[] failedNodes, UpdateAction[] updateActions) {
+            EditCommand trigger, CommandAction action, EditNodeAbstract[] affectedNodes, EditNodeAbstract[] addedNodes,
+            EditNodeAbstract[] removedNodes, EditNodeAbstract[] updatedNodes, EditNodeAbstract[] failedNodes,
+            UpdateAction[] updateActions) {
         this.trigger = Objects.requireNonNull(trigger, "trigger");
         this.action = Objects.requireNonNull(action, "action");
-        this.affectedNodes = affectedNodes != null ? affectedNodes.clone() : new EditNode[0];
-        this.addedNodes = addedNodes != null ? addedNodes.clone() : new EditNode[0];
-        this.removedNodes = removedNodes != null ? removedNodes.clone() : new EditNode[0];
-        this.updatedNodes = updatedNodes != null ? updatedNodes.clone() : new EditNode[0];
-        this.failedNodes = failedNodes != null ? failedNodes.clone() : new EditNode[0];
+        this.affectedNodes = affectedNodes != null ? affectedNodes.clone() : new EditNodeAbstract[0];
+        this.addedNodes = addedNodes != null ? addedNodes.clone() : new EditNodeAbstract[0];
+        this.removedNodes = removedNodes != null ? removedNodes.clone() : new EditNodeAbstract[0];
+        this.updatedNodes = updatedNodes != null ? updatedNodes.clone() : new EditNodeAbstract[0];
+        this.failedNodes = failedNodes != null ? failedNodes.clone() : new EditNodeAbstract[0];
         this.updateActions = updateActions != null ? updateActions : new UpdateAction[0];
     }
 
@@ -80,7 +83,7 @@ public final class CommandResult {
      *
      * @return a defensive copy of the affected nodes
      */
-    public EditNode[] getAffectedNodes() {
+    public EditNodeAbstract[] getAffectedNodes() {
         return affectedNodes.clone();
     }
 
@@ -89,7 +92,7 @@ public final class CommandResult {
      *
      * @return a defensive copy of the added nodes
      */
-    public EditNode[] getAddedNodes() {
+    public EditNodeAbstract[] getAddedNodes() {
         return addedNodes.clone();
     }
 
@@ -98,7 +101,7 @@ public final class CommandResult {
      *
      * @return a defensive copy of the removed nodes
      */
-    public EditNode[] getRemovedNodes() {
+    public EditNodeAbstract[] getRemovedNodes() {
         return removedNodes.clone();
     }
 
@@ -107,19 +110,19 @@ public final class CommandResult {
      *
      * @return a defensive copy of the updated nodes
      */
-    public EditNode[] getUpdatedNodes() {
+    public EditNodeAbstract[] getUpdatedNodes() {
         return updatedNodes.clone();
     }
-
 
     /**
      * Returns the nodes that failed to be moved by the operation.
      *
      * @return a defensive copy of the failed nodes
      */
-    public EditNode[] getFailedNodes() {
+    public EditNodeAbstract[] getFailedNodes() {
         return failedNodes.clone();
     }
+
     /**
      * Returns the recommended update actions for this result.
      *

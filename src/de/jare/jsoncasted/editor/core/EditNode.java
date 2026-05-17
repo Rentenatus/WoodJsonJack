@@ -12,27 +12,17 @@ import java.util.List;
  * Represents a node in the editable JSON tree structure. Based on
  * JsonTreeNodeData with tree structure methods added.
  */
-public sealed interface EditNode permits EditNodeObject, EditNodeProperty {
+public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditNodeProperty {
 
     long getEditId();
 
     public String rightString();
 
-    EditNode createChild(String aName);
-
-    EditNode createNeighbor(String aName);
-
-    EditNode deepCopy(boolean regenerateEditId);
-
-    /**
-     * Called when this node is removed from its parent node, giving the parent
-     * a chance to update its internal state.
-     */
-    void sayOnRemoved(EditNode parent);
-
     /**
      * Callback that is invoked when an object child has been removed from this
      * node.
+     *
+     * @param child
      */
     default void onChildObjectDataRemoved(EditNodeObject child) {
     }
@@ -40,6 +30,8 @@ public sealed interface EditNode permits EditNodeObject, EditNodeProperty {
     /**
      * Callback that is invoked when a property child has been removed from this
      * node.
+     *
+     * @param child
      */
     default void onChildPropertyDataRemoved(EditNodeProperty child) {
     }
@@ -61,6 +53,8 @@ public sealed interface EditNode permits EditNodeObject, EditNodeProperty {
     // ========== Tree structure methods ==========
     /**
      * Returns a unique identifier for this node (alias for getEditId)
+     *
+     * @return
      */
     default long getId() {
         return getEditId();
@@ -68,6 +62,8 @@ public sealed interface EditNode permits EditNodeObject, EditNodeProperty {
 
     /**
      * Returns the display name of this node
+     *
+     * @return
      */
     default String getName() {
         return getEditText();
@@ -75,6 +71,8 @@ public sealed interface EditNode permits EditNodeObject, EditNodeProperty {
 
     /**
      * Sets the display name of this node
+     *
+     * @param name
      */
     default void setName(String name) {
         setEditText(name);
@@ -82,6 +80,8 @@ public sealed interface EditNode permits EditNodeObject, EditNodeProperty {
 
     /**
      * Returns the value of this node
+     *
+     * @return
      */
     default String getValue() {
         return null;
@@ -89,13 +89,26 @@ public sealed interface EditNode permits EditNodeObject, EditNodeProperty {
 
     /**
      * Sets the value of this node
+     *
+     * @param value
      */
     default void setValue(String value) {
     }
 
     EditNode getParent();
 
-    void setParent(EditNode parent);
+    default boolean isOrHasParent(EditNode maybeParent) {
+        return this == maybeParent || hasParent(maybeParent);
+
+    }
+
+    default boolean hasParent(EditNode maybeParent) {
+        EditNode parent = getParent();
+        if (parent == null) {
+            return false;
+        }
+        return parent == maybeParent || parent.hasParent(maybeParent);
+    }
 
     List<EditNode> getChildren();
 
@@ -104,16 +117,6 @@ public sealed interface EditNode permits EditNodeObject, EditNodeProperty {
     EditNode getChildAt(int index);
 
     int getChildIndex(EditNode child);
-
-    void addChild(EditNode child);
-
-    void addChild(EditNode child, int index);
-
-    boolean removeChild(EditNode child);
-
-    default EditNode deepCopy() {
-        return deepCopy(true);
-    }
 
     public String getTypeKey();
 }

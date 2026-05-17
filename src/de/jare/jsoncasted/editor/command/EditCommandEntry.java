@@ -7,6 +7,7 @@
 package de.jare.jsoncasted.editor.command;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 /**
  * Utility container for immutable command entry types used by edit commands.
@@ -50,7 +51,7 @@ public final class EditCommandEntry {
         /**
          * Optional snapshot of the affected subtree.
          */
-        public final EditNode snapshot;
+        public final EditNodeAbstract snapshot;
 
         /**
          * Creates a movement entry without a node ID.
@@ -59,7 +60,7 @@ public final class EditCommandEntry {
          * @param index the child index
          * @param snapshot an optional subtree snapshot
          */
-        public MovementEntry(long parentEditId, int index, EditNode snapshot) {
+        public MovementEntry(long parentEditId, int index, EditNodeAbstract snapshot) {
             this(-1, parentEditId, index, snapshot);
         }
 
@@ -71,7 +72,7 @@ public final class EditCommandEntry {
          * @param index the child index
          * @param snapshot an optional subtree snapshot
          */
-        public MovementEntry(long nodeId, long parentEditId, int index, EditNode snapshot) {
+        public MovementEntry(long nodeId, long parentEditId, int index, EditNodeAbstract snapshot) {
             this.nodeId = nodeId;
             this.parentEditId = parentEditId;
             this.index = index;

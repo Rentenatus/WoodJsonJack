@@ -10,13 +10,14 @@ import de.jare.jsoncasted.editor.command.CommandAction;
 import de.jare.jsoncasted.editor.command.CommandAvailability;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 
 public class CutToStashCommand extends AbstractToStashCommand {
 
     private final long[] parentIds;
     private final int[] indices;
-    private EditNode[] removedSnapshots = new EditNode[0];
+    private EditNodeAbstract[] removedSnapshots = new EditNodeAbstract[0];
 
     public CutToStashCommand(ClipboardManager clipboardManager, String stashName, long[] nodeIds) {
         super(CommandType.OTHER,
@@ -124,9 +125,9 @@ public class CutToStashCommand extends AbstractToStashCommand {
             stash.setNodes(originalStashContent);
         }
 
-        EditNode[] restoredNodes = new EditNode[nodeIds.length];
+        EditNodeAbstract[] restoredNodes = new EditNodeAbstract[nodeIds.length];
         for (int i = 0; i < nodeIds.length; i++) {
-            EditNode snapshot = i < removedSnapshots.length ? removedSnapshots[i] : null;
+            EditNodeAbstract snapshot = i < removedSnapshots.length ? removedSnapshots[i] : null;
             if (snapshot != null && parentIds[i] >= 0 && indices[i] >= 0) {
                 tree.addNode(parentIds[i], snapshot, indices[i]);
                 restoredNodes[i] = snapshot;
@@ -150,10 +151,10 @@ public class CutToStashCommand extends AbstractToStashCommand {
     }
 
     private void captureState(EditTree tree) {
-        removedSnapshots = new EditNode[nodeIds.length];
+        removedSnapshots = new EditNodeAbstract[nodeIds.length];
         for (int i = 0; i < nodeIds.length; i++) {
-            EditNode node = tree.findNodeById(nodeIds[i]);
-            EditNode parent = node.getParent();
+            EditNodeAbstract node = tree.findNodeById(nodeIds[i]);
+            EditNodeAbstract parent = node.getParent();
             parentIds[i] = parent.getEditId();
             indices[i] = parent.getChildIndex(node);
             removedSnapshots[i] = node.deepCopy(false);

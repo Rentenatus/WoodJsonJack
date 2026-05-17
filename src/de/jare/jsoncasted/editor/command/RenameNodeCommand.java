@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
 import de.jare.jsoncasted.editor.command.EditCommandEntry.ContentEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Arrays;
 
@@ -143,11 +144,11 @@ public class RenameNodeCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Tree cannot be null");
         }
 
-        EditNode[] updated = new EditNode[entries.length];
+        EditNodeAbstract[] updated = new EditNodeAbstract[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
             ContentEntry entry = entries[i];
-            EditNode node = tree.findNodeById(entry.nodeId);
+            EditNodeAbstract node = tree.findNodeById(entry.nodeId);
             if (node == null) {
                 throw new IllegalStateException(
                         "Cannot rename node: node with id " + entry.nodeId + " not found");
@@ -171,11 +172,11 @@ public class RenameNodeCommand extends AbstractEditCommand {
     @Override
     public CommandResult doUndo(EditTree tree) {
 
-        EditNode[] updated = new EditNode[entries.length];
+        EditNodeAbstract[] updated = new EditNodeAbstract[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
             ContentEntry entry = entries[i];
-            EditNode node = tree.findNodeById(entry.nodeId);
+            EditNodeAbstract node = tree.findNodeById(entry.nodeId);
             if (node == null) {
                 throw new IllegalStateException(
                         "Cannot undo rename: node with id " + entry.nodeId + " not found");

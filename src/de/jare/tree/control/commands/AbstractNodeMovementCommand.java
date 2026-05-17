@@ -10,6 +10,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeModel;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 public abstract class AbstractNodeMovementCommand implements WoodCommand {
 
@@ -80,7 +81,7 @@ public abstract class AbstractNodeMovementCommand implements WoodCommand {
             DefaultMutableTreeNode snapNode) {
         boolean warwas = false;
         Object uo = snapNode.getUserObject();
-        if (uo instanceof EditNode data) {
+        if (uo instanceof EditNodeAbstract data) {
             long id = data.getEditId();
             DefaultMutableTreeNode existing = findNodeByEditId(root, id);
             if (existing != null) {

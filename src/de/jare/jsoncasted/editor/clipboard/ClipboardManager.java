@@ -8,19 +8,20 @@
 package de.jare.jsoncasted.editor.clipboard;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 
 /**
- * Manages multiple clipboard stashes and provides operations for copying, cutting,
- * and pasting nodes at the EditTree/EditNode level.
+ * Manages multiple clipboard stashes and provides operations for copying,
+ * cutting, and pasting nodes at the EditTree/EditNode level.
  *
  * <p>
  * In the revised model, the clipboard is neutral:
  * <ul>
- *   <li>Stashes store subtree snapshots (EditNode arrays)</li>
- *   <li>No cut/move semantics are encoded in the stash</li>
- *   <li>Paste decides per target tree whether edit IDs can be reused
- *       or must be regenerated</li>
+ * <li>Stashes store subtree snapshots (EditNode arrays)</li>
+ * <li>No cut/move semantics are encoded in the stash</li>
+ * <li>Paste decides per target tree whether edit IDs can be reused or must be
+ * regenerated</li>
  * </ul>
  * </p>
  */
@@ -160,7 +161,6 @@ public class ClipboardManager {
     // ========================================================================
     // Copy/Cut/Paste Operations
     // ========================================================================
-
     /**
      * Copies nodes to the active stash.
      *
@@ -174,7 +174,8 @@ public class ClipboardManager {
     /**
      * Copies nodes to a specific stash.
      *
-     * <p>Snapshots keep their edit IDs. Whether these IDs can be reused in the
+     * <p>
+     * Snapshots keep their edit IDs. Whether these IDs can be reused in the
      * target tree is decided later during paste.</p>
      *
      * @param stashName the name of the target stash
@@ -191,9 +192,9 @@ public class ClipboardManager {
             throw new IllegalArgumentException("Stash with name " + stashName + " does not exist");
         }
 
-        EditNode[] nodes = new EditNode[nodeIds.length];
+        EditNodeAbstract[] nodes = new EditNodeAbstract[nodeIds.length];
         for (int i = 0; i < nodeIds.length; i++) {
-            EditNode node = tree.findNodeById(nodeIds[i]);
+            EditNodeAbstract node = tree.findNodeById(nodeIds[i]);
             if (node != null) {
                 // Snapshot with existing edit IDs
                 nodes[i] = node.deepCopy(false);
@@ -208,7 +209,7 @@ public class ClipboardManager {
      * @param tree the source tree
      * @param nodes the nodes to copy
      */
-    public void copyToActiveStash(EditTree tree, EditNode[] nodes) {
+    public void copyToActiveStash(EditTree tree, EditNodeAbstract[] nodes) {
         copyToStash(activeStashName, tree, nodes);
     }
 
@@ -220,7 +221,7 @@ public class ClipboardManager {
      * @param nodes the nodes to copy
      * @throws IllegalArgumentException if the stash does not exist
      */
-    public void copyToStash(String stashName, EditTree tree, EditNode[] nodes) {
+    public void copyToStash(String stashName, EditTree tree, EditNodeAbstract[] nodes) {
         if (nodes == null || nodes.length == 0) {
             return;
         }
@@ -229,7 +230,7 @@ public class ClipboardManager {
             throw new IllegalArgumentException("Stash with name " + stashName + " does not exist");
         }
 
-        EditNode[] copiedNodes = new EditNode[nodes.length];
+        EditNodeAbstract[] copiedNodes = new EditNodeAbstract[nodes.length];
         for (int i = 0; i < nodes.length; i++) {
             copiedNodes[i] = nodes[i] != null ? nodes[i].deepCopy(false) : null;
         }
@@ -239,10 +240,11 @@ public class ClipboardManager {
     /**
      * Cuts nodes to the active stash.
      *
-     * <p>Semantically:
+     * <p>
+     * Semantically:
      * <ul>
-     *   <li>Snapshots are stored in the stash (deepCopy(false))</li>
-     *   <li>Actual removal aus dem Tree erfolgt im zugehörigen Cut-Command</li>
+     * <li>Snapshots are stored in the stash (deepCopy(false))</li>
+     * <li>Actual removal aus dem Tree erfolgt im zugehörigen Cut-Command</li>
      * </ul>
      * Dieser Manager speichert nur die Snapshots.</p>
      *
@@ -256,7 +258,8 @@ public class ClipboardManager {
     /**
      * Cuts nodes to a specific stash.
      *
-     * <p>Dieser Manager erzeugt lediglich Snapshots. Ob und wann die
+     * <p>
+     * Dieser Manager erzeugt lediglich Snapshots. Ob und wann die
      * Originalknoten aus dem Baum entfernt werden, entscheidet der aufrufende
      * Command (z.B. CutToStashCommand).</p>
      *
@@ -274,9 +277,9 @@ public class ClipboardManager {
             throw new IllegalArgumentException("Stash with name " + stashName + " does not exist");
         }
 
-        EditNode[] snapshots = new EditNode[nodeIds.length];
+        EditNodeAbstract[] snapshots = new EditNodeAbstract[nodeIds.length];
         for (int i = 0; i < nodeIds.length; i++) {
-            EditNode node = tree.findNodeById(nodeIds[i]);
+            EditNodeAbstract node = tree.findNodeById(nodeIds[i]);
             if (node != null) {
                 snapshots[i] = node.deepCopy(false);
             }
@@ -296,7 +299,8 @@ public class ClipboardManager {
     }
 
     /**
-     * Pastes nodes from the active stash to the target tree at a specific index.
+     * Pastes nodes from the active stash to the target tree at a specific
+     * index.
      *
      * @param tree the target tree
      * @param parentId the ID of the parent node where nodes will be inserted
@@ -310,11 +314,12 @@ public class ClipboardManager {
     /**
      * Pastes nodes from a specific stash to the target tree.
      *
-     * <p>Decision logic:
+     * <p>
+     * Decision logic:
      * <ul>
-     *   <li>If all edit IDs of the stash content (inkl. Subtrees) are free in the target tree:
-     *       paste with id-preserving copies (deepCopy(false)).</li>
-     *   <li>Otherwise: paste with regenerated IDs (deepCopy(true)).</li>
+     * <li>If all edit IDs of the stash content (inkl. Subtrees) are free in the
+     * target tree: paste with id-preserving copies (deepCopy(false)).</li>
+     * <li>Otherwise: paste with regenerated IDs (deepCopy(true)).</li>
      * </ul>
      * </p>
      *
@@ -331,7 +336,7 @@ public class ClipboardManager {
             throw new IllegalArgumentException("Stash with name " + stashName + " does not exist");
         }
 
-        EditNode[] nodes = stash.getNodes();
+        EditNodeAbstract[] nodes = stash.getNodes();
         if (nodes == null || nodes.length == 0) {
             return new long[0];
         }
@@ -345,7 +350,7 @@ public class ClipboardManager {
                 pastedIds[i] = -1;
                 continue;
             }
-            EditNode nodeCopy = nodes[i].deepCopy(!reuseIds);
+            EditNodeAbstract nodeCopy = nodes[i].deepCopy(!reuseIds);
             if (index >= 0) {
                 tree.addNode(parentId, nodeCopy, index + i);
             } else {
@@ -362,7 +367,8 @@ public class ClipboardManager {
      * Pastes nodes from a specific stash to the target tree, pasting each node
      * at its corresponding index.
      *
-     * <p>Die selbe ID-Entscheidung (reuse vs. regenerate) wird für die gesamte
+     * <p>
+     * Die selbe ID-Entscheidung (reuse vs. regenerate) wird für die gesamte
      * Stash-Operation getroffen.</p>
      *
      * @param stashName the name of the source stash
@@ -370,18 +376,19 @@ public class ClipboardManager {
      * @param parentIds the parent IDs for each node
      * @param indices the insertion indices for each node, or -1 to append
      * @return the IDs of the pasted nodes
-     * @throws IllegalArgumentException if the stash does not exist or arrays don't match
+     * @throws IllegalArgumentException if the stash does not exist or arrays
+     * don't match
      */
     public long[] pasteFromStash(String stashName,
-                                 EditTree tree,
-                                 long[] parentIds,
-                                 int[] indices) {
+            EditTree tree,
+            long[] parentIds,
+            int[] indices) {
         ClipboardStash stash = getStash(stashName);
         if (stash == null) {
             throw new IllegalArgumentException("Stash with name " + stashName + " does not exist");
         }
 
-        EditNode[] nodes = stash.getNodes();
+        EditNodeAbstract[] nodes = stash.getNodes();
         if (nodes == null || nodes.length == 0) {
             return new long[0];
         }
@@ -401,7 +408,7 @@ public class ClipboardManager {
                 pastedIds[i] = -1;
                 continue;
             }
-            EditNode nodeCopy = nodes[i].deepCopy(!reuseIds);
+            EditNodeAbstract nodeCopy = nodes[i].deepCopy(!reuseIds);
             tree.addNode(parentIds[i], nodeCopy, indices[i]);
             pastedIds[i] = nodeCopy.getEditId();
         }
@@ -445,7 +452,8 @@ public class ClipboardManager {
      *
      * @param oldName the current name of the stash
      * @param newName the new name for the stash
-     * @throws IllegalArgumentException if the old stash doesn't exist or new name already exists
+     * @throws IllegalArgumentException if the old stash doesn't exist or new
+     * name already exists
      */
     public void renameStash(String oldName, String newName) {
         if (oldName == null || newName == null) {
@@ -493,16 +501,15 @@ public class ClipboardManager {
 
     @Override
     public String toString() {
-        return "ClipboardManager[" +
-               "activeStash=" + activeStashName +
-               ", stashCount=" + stashes.size() +
-               "]";
+        return "ClipboardManager["
+                + "activeStash=" + activeStashName
+                + ", stashCount=" + stashes.size()
+                + "]";
     }
 
     // ========================================================================
     // Helper: ID-Kollisionsprüfung
     // ========================================================================
-
     private boolean areAllEditIdsFree(EditTree tree, EditNode[] nodes) {
         if (nodes == null) {
             return true;

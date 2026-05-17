@@ -9,6 +9,7 @@ package de.jare.tree.control;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeModel;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 /**
  * Represents a single undoable command in the tree editor.
@@ -45,7 +46,7 @@ public interface WoodUtils {
 
     default DefaultMutableTreeNode deepCopy(DefaultMutableTreeNode original) {
         Object uo = original.getUserObject();
-        if (uo instanceof EditNode data) {
+        if (uo instanceof EditNodeAbstract data) {
             uo = data.deepCopy(false);
         } else {
             uo = String.valueOf(uo);

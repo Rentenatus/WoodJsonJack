@@ -7,6 +7,7 @@ import de.jare.jsoncasted.editor.clipboard.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.MoveNodeCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -43,8 +44,8 @@ public class ClipboardEditMixTestNG {
     private TreeEditor editorA;
     private TreeEditor editorB;
 
-    private EditNode rootA;
-    private EditNode rootB;
+    private EditNodeAbstract rootA;
+    private EditNodeAbstract rootB;
 
     private EditNode a1;
     private EditNode a2;
@@ -64,11 +65,11 @@ public class ClipboardEditMixTestNG {
         treeB = editorB.getTree();
         rootB = treeB.getRoot();
 
-        a1 = rootA.createChild("a1");
-        a2 = rootA.createChild("a2");
-        a3 = rootA.createChild("a3");
-        b1 = rootB.createChild("b1");
-        b2 = rootB.createChild("b2");
+        a1 = treeA.addNewChild(rootA, "a1");
+        a2 = treeA.addNewChild(rootA, "a2");
+        a3 = treeA.addNewChild(rootA, "a3");
+        b1 = treeB.addNewChild(rootB, "b1");
+        b2 = treeB.addNewChild(rootB, "b2");
     }
 
     @Test
@@ -110,8 +111,8 @@ public class ClipboardEditMixTestNG {
         softly.assertEquals(pastedIds.length, 2,
                 "Exactly two nodes should be pasted");
 
-        EditNode pasted1 = treeB.findNodeById(pastedIds[0]);
-        EditNode pasted2 = treeB.findNodeById(pastedIds[1]);
+        EditNodeAbstract pasted1 = treeB.findNodeById(pastedIds[0]);
+        EditNodeAbstract pasted2 = treeB.findNodeById(pastedIds[1]);
         softly.assertNotNull(pasted1, "First pasted node must exist");
         softly.assertNotNull(pasted2, "Second pasted node must exist");
 
@@ -208,8 +209,8 @@ public class ClipboardEditMixTestNG {
                 "Tree B should contain b1, b2 and two pasted cut nodes");
 
         long[] pastedIds = pasteCmd.getPastedNodeIds();
-        EditNode pasted1 = treeB.findNodeById(pastedIds[0]);
-        EditNode pasted2 = treeB.findNodeById(pastedIds[1]);
+        EditNodeAbstract pasted1 = treeB.findNodeById(pastedIds[0]);
+        EditNodeAbstract pasted2 = treeB.findNodeById(pastedIds[1]);
 
         softly.assertNotNull(pasted1, "First pasted cut node must exist");
         softly.assertNotNull(pasted2, "Second pasted cut node must exist");

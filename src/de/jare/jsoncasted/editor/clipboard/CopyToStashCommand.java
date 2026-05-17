@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.clipboard;
 import de.jare.jsoncasted.editor.command.CommandAction;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 
 public class CopyToStashCommand extends AbstractToStashCommand {
@@ -50,7 +51,7 @@ public class CopyToStashCommand extends AbstractToStashCommand {
         requireExecutable(tree);
 
         clipboardManager.copyToStash(stashName, tree, nodeIds);
-        EditNode[] copiedNodes = collectNodes(tree);
+        EditNodeAbstract[] copiedNodes = collectNodes(tree);
 
         return new CommandResult(
                 this,

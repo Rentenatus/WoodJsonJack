@@ -13,6 +13,7 @@ import de.jare.jsoncasted.editor.command.CommandAvailability;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 
 /**
@@ -206,9 +207,9 @@ public class PasteFromStashCommand extends AbstractEditCommand {
         pastedNodeIds = clipboardManager.pasteFromStash(stashName, tree, parentId, index);
 
         // Resolve the inserted nodes for the CommandResult.
-        EditNode[] pastedNodes = new EditNode[pastedNodeIds.length];
+        EditNodeAbstract[] pastedNodes = new EditNodeAbstract[pastedNodeIds.length];
         for (int i = 0; i < pastedNodeIds.length; i++) {
-            EditNode node = tree.findNodeById(pastedNodeIds[i]);
+            EditNodeAbstract node = tree.findNodeById(pastedNodeIds[i]);
             if (node != null) {
                 pastedNodes[i] = node;
             }
@@ -229,9 +230,9 @@ public class PasteFromStashCommand extends AbstractEditCommand {
     public CommandResult doUndo(EditTree tree) {
 
         // Remove all nodes that were inserted by the last execute().
-        EditNode[] removedNodes = new EditNode[pastedNodeIds.length];
+        EditNodeAbstract[] removedNodes = new EditNodeAbstract[pastedNodeIds.length];
         for (int i = 0; i < pastedNodeIds.length; i++) {
-            EditNode node = tree.findNodeById(pastedNodeIds[i]);
+            EditNodeAbstract node = tree.findNodeById(pastedNodeIds[i]);
             if (node != null) {
                 tree.removeNode(pastedNodeIds[i]);
                 removedNodes[i] = node;

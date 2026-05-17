@@ -22,13 +22,14 @@ import java.awt.*;
 import javax.swing.*;
 import javax.swing.tree.*;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.tree.control.JackMasterControl;
 
 public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
 
     private final MasterControl master;
-    private final JTree tree;
+    private final JTree jtree;
     private final JPanel headerPanel;
     private final JLabel resourceLabel;
     private final JCheckBox linkCheckBox;
@@ -63,38 +64,41 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         rightPanel.add(linkCheckBox);
 
         // JTree initialisieren 
-        tree = new JTree(new JackTreeModel(rootName));
-        tree.setShowsRootHandles(true);
-        tree.setCellRenderer(new JsonTreeCellRenderer());
-        tree.setEditable(true);
-        tree.setCellEditor(new JsonTreeCellEditor(master != null ? master.getUndoManager() : null));
+        final JackTreeModel jackTreeModel = new JackTreeModel(rootName);
+        jtree = new JTree(jackTreeModel);
+        jtree.setShowsRootHandles(true);
+        jtree.setCellRenderer(new JsonTreeCellRenderer());
+        jtree.setEditable(true);
+        jtree.setCellEditor(new JsonTreeCellEditor(master != null ? master.getUndoManager() : null));
 
         // Selektionslistener für den Tree
-        tree.addTreeSelectionListener(e -> {
+        jtree.addTreeSelectionListener(e -> {
             if (master != null && master.getActiveEditor() == WoodEditTree.this) {
                 DefaultMutableTreeNode node
-                        = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+                        = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
                 boolean rootSelected = node != null && node.getParent() == null;
                 master.fireSelection(node, this, rootSelected);
             }
         });
 
-        tree.setDragEnabled(true);
-        tree.setDropMode(DropMode.ON_OR_INSERT);
-        tree.setTransferHandler(new TreeNodeTransferHandler());
-        tree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
+        jtree.setDragEnabled(true);
+        jtree.setDropMode(DropMode.ON_OR_INSERT);
+        jtree.setTransferHandler(new TreeNodeTransferHandler());
+        jtree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
 
         // Layout für das JPanel
         setLayout(new BorderLayout());
         add(headerPanel, BorderLayout.NORTH);
-        add(new JScrollPane(tree), BorderLayout.CENTER);
+        add(new JScrollPane(jtree), BorderLayout.CENTER);
 
         // Root-Knoten und optionale Demo-Properties
-        DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) jtree.getModel().getRoot();
         for (String propName : propNames) {
-            EditNode childData = ((EditNode) root.getUserObject())
-                    .createChild(propName);
-            ((EditNodeProperty) childData).setPrimValue("Value of " + propName);
+            EditNodeAbstract childData = jackTreeModel.getEditTree().addNewChild(
+                    ((EditNodeAbstract) root.getUserObject()),
+                    propName
+            );
+            ((EditNodeProperty) childData).setValue("Value of " + propName);
             root.add(new DefaultMutableTreeNode(childData));
         }
 
@@ -121,12 +125,12 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
 
     @Override
     public JTree getTree() {
-        return tree;
+        return jtree;
     }
 
     @Override
     public JackTreeModel getModel() {
-        return (JackTreeModel) tree.getModel();
+        return (JackTreeModel) jtree.getModel();
     }
 
     JPanel getHeaderPanel() {
@@ -157,10 +161,10 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     private void doRefreshIfModel(TreeModel model) {
-        if (model != tree.getModel()) {
+        if (model != jtree.getModel()) {
             return;
         }
-        ((DefaultTreeModel) tree.getModel()).reload();
+        ((DefaultTreeModel) jtree.getModel()).reload();
         revalidate();
         repaint();
     }
@@ -170,15 +174,15 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         // aktuellen selektierten Knoten erneut melden
         if (master != null && master.getActiveEditor() == this) {
             DefaultMutableTreeNode node
-                    = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+                    = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
             master.fireSelection(node, this, false);
         }
     }
 
     @Override
     public void onFocusLost() {
-        if (tree.isEditing()) {
-            tree.cancelEditing();
+        if (jtree.isEditing()) {
+            jtree.cancelEditing();
         }
     }
 
@@ -192,16 +196,16 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         if (!(node instanceof DefaultMutableTreeNode dmtn)) {
             return;
         }
-        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
+        DefaultTreeModel model = (DefaultTreeModel) jtree.getModel();
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
 
         TreePath path = findPath(root, dmtn);
         if (path != null) {
-            tree.scrollPathToVisible(path);
+            jtree.scrollPathToVisible(path);
             if (trigger == this) {
                 return; // Selbst ausgeloest
             }
-            tree.setSelectionPath(path);
+            jtree.setSelectionPath(path);
         }
     }
 
@@ -210,7 +214,7 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         if (master == null || editor != this) {
             return;
         }
-        TreePath path = tree.getSelectionPath();
+        TreePath path = jtree.getSelectionPath();
         master.fireSelection(path == null ? null : path.getLastPathComponent(), this, false);
     }
 
@@ -251,21 +255,27 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     private void addNode() {
-        TreePath path = tree.getSelectionPath();
+        TreePath path = jtree.getSelectionPath();
         if (path == null) {
             return;
         }
         DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
         Object uo = selected.getUserObject();
-        if (!(uo instanceof EditNode data)) {
+        if (!(uo instanceof EditNodeAbstract data)) {
             return; // Sicherheitsnetz
         }
 
         // neuen Kind-Knoten erzeugen
-        EditNode childData = data.createChild("new");
+        EditNodeAbstract childData = null;
+        if (data instanceof EditNodeObject obData) {
+            childData = obData.addNewChild("new");
+        }
+        if (data instanceof EditNodeProperty propData) {
+            childData = propData.addNewChild("new");
+        }
         DefaultMutableTreeNode child = new DefaultMutableTreeNode(childData);
         selected.add(child);
-        ((DefaultTreeModel) tree.getModel()).reload(selected);
+        ((DefaultTreeModel) jtree.getModel()).reload(selected);
         master.getUndoManager().pushCommand(new WoodCommandAddNodes(
                 new DefaultMutableTreeNode[]{child},
                 new DefaultMutableTreeNode[]{selected},
@@ -273,12 +283,12 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         ));
 
         TreePath newPath = new TreePath(child.getPath());
-        tree.setSelectionPath(newPath);
-        tree.scrollPathToVisible(newPath);
+        jtree.setSelectionPath(newPath);
+        jtree.scrollPathToVisible(newPath);
     }
 
     private void deleteNode() {
-        TreePath path = tree.getSelectionPath();
+        TreePath path = jtree.getSelectionPath();
         if (path == null) {
             return;
         }
@@ -286,12 +296,16 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         if (selected.getParent() == null) {
             return;
         }
-        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
+        DefaultTreeModel model = (DefaultTreeModel) jtree.getModel();
         DefaultMutableTreeNode parent = (DefaultMutableTreeNode) selected.getParent();
         int idx = parent.getIndex(selected);
 
-        if (selected.getUserObject() instanceof EditNode selectedData) {
-            if (parent.getUserObject() instanceof EditNode parentData) {
+        if (selected.getUserObject() instanceof EditNodeObject selectedData) {
+            if (parent.getUserObject() instanceof EditNodeAbstract parentData) {
+                selectedData.sayOnRemoved(parentData);
+            }
+        } else if (selected.getUserObject() instanceof EditNodeProperty selectedData) {
+            if (parent.getUserObject() instanceof EditNodeAbstract parentData) {
                 selectedData.sayOnRemoved(parentData);
             }
         }
@@ -308,11 +322,11 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
             int newIdx = Math.min(idx, parent.getChildCount() - 1);
             newSelection = (DefaultMutableTreeNode) parent.getChildAt(newIdx);
             TreePath newPath = new TreePath(newSelection.getPath());
-            tree.setSelectionPath(newPath);
-            tree.scrollPathToVisible(newPath);
+            jtree.setSelectionPath(newPath);
+            jtree.scrollPathToVisible(newPath);
         } else {
             // keine Selektion mehr
-            tree.clearSelection();
+            jtree.clearSelection();
         }
 
         // explizit auch null melden, damit Properties sich leeren koennen
@@ -324,14 +338,14 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     private void renameNode() {
-        TreePath path = tree.getSelectionPath();
+        TreePath path = jtree.getSelectionPath();
         if (path != null) {
-            tree.startEditingAtPath(path);
+            jtree.startEditingAtPath(path);
         }
     }
 
     private void copySelection(boolean cut) {
-        TreePath[] paths = tree.getSelectionPaths();
+        TreePath[] paths = jtree.getSelectionPaths();
         if (paths == null || paths.length == 0 || master == null) {
             return;
         }
@@ -339,7 +353,7 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         master.getClipboardTree().copySelection(this, paths, cut);
 
         if (cut) {
-            DefaultTreeModel srcModel = (DefaultTreeModel) tree.getModel();
+            DefaultTreeModel srcModel = (DefaultTreeModel) jtree.getModel();
             DefaultMutableTreeNode[] nodes = new DefaultMutableTreeNode[paths.length];
             DefaultMutableTreeNode[] parents = new DefaultMutableTreeNode[paths.length];
 
@@ -370,7 +384,7 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
             return;
         }
 
-        TreePath path = tree.getSelectionPath();
+        TreePath path = jtree.getSelectionPath();
         if (path == null) {
             return;
         }
@@ -392,7 +406,7 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         // Events (Properties etc.)
         if (master != null && master.getActiveEditor() == this) {
             DefaultMutableTreeNode sel
-                    = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+                    = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
             master.fireSelection(sel, this, false);
         }
     }

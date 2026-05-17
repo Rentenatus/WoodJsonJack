@@ -3,7 +3,6 @@ package de.jare.tree.control.model;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.UpdateAction;
 import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.events.HistoryEvent;
 import java.util.IdentityHashMap;
@@ -18,7 +17,7 @@ public class JackTreeModel extends DefaultTreeModel {
     private final EditTree editTree;
 
     public JackTreeModel(String rootName) {
-        this(new EditTree(new EditNodeObject("{" + rootName + "}")));
+        this(new EditTree("{" + rootName + "}"));
     }
 
     public JackTreeModel(EditTree editTree) {

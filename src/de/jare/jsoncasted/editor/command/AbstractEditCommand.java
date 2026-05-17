@@ -7,6 +7,7 @@
 package de.jare.jsoncasted.editor.command;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Set;
 
@@ -104,14 +105,14 @@ public abstract class AbstractEditCommand implements EditCommand {
         return getClass().getSimpleName() + "[type=" + type + ", description='" + description + "']";
     }
 
-    public final EditNode[] collectParentNodes(EditNode[] children) {
-        Set<EditNode> parentNodes = new java.util.HashSet<>();
-        for (EditNode node : children) {
-            EditNode parent = node.getParent();
+    public final EditNodeAbstract[] collectParentNodes(EditNodeAbstract[] children) {
+        Set<EditNodeAbstract> parentNodes = new java.util.HashSet<>();
+        for (EditNodeAbstract node : children) {
+            EditNodeAbstract parent = node.getParent();
             if (parent != null) {
                 parentNodes.add(parent);
             }
         }
-        return parentNodes.toArray(new EditNode[parentNodes.size()]);
+        return parentNodes.toArray(new EditNodeAbstract[parentNodes.size()]);
     }
 }

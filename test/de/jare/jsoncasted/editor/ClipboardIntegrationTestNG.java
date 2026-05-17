@@ -7,6 +7,7 @@ import de.jare.jsoncasted.editor.clipboard.CutToStashCommand;
 import de.jare.jsoncasted.editor.clipboard.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -40,8 +41,8 @@ public class ClipboardIntegrationTestNG {
     private TreeEditor editorA;
     private TreeEditor editorB;
 
-    private EditNode rootA;
-    private EditNode rootB;
+    private EditNodeAbstract rootA;
+    private EditNodeAbstract rootB;
 
     private EditNode childA1;
     private EditNode childA2;
@@ -58,10 +59,9 @@ public class ClipboardIntegrationTestNG {
         treeB = editorB.getTree();
         rootB = treeB.getRoot();
 
-        childA1 = rootA.createChild("a1");
-        childA2 = rootA.createChild("a2");
-        childB1 = rootB.createChild("b1");
-
+        childA1 = treeA.addNewChild(rootA, "a1");
+        childA2 = treeA.addNewChild(rootA, "a2");
+        childB1 = treeB.addNewChild(rootB, "b1");
     }
 
     @Test

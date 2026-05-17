@@ -22,6 +22,7 @@ import de.jare.jsoncasted.editor.command.MoveNodeCommand;
 import de.jare.jsoncasted.editor.command.RenameNodeCommand;
 import de.jare.jsoncasted.editor.command.SetValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 
 /**
@@ -246,7 +247,7 @@ public class TreeEditorContentNGTest {
         printTestHeader("testSkipRedoMoveThenRedoContentCommands");
 
         TreeEditor editor = new TreeEditor();
-        EditNode root = editor.getTree().getRoot();
+        EditNodeAbstract root = editor.getTree().getRoot();
 
         EditNodeObject sourceParentSeed = new EditNodeObject("source");
         EditNodeObject targetParentSeed = new EditNodeObject("target");
@@ -254,16 +255,16 @@ public class TreeEditorContentNGTest {
         editor.execute(new AddNodeCommand(root.getEditId(), sourceParentSeed));
         editor.execute(new AddNodeCommand(root.getEditId(), targetParentSeed));
 
-        EditNode sourceParent = root.getChildAt(0);
-        EditNode targetParent = root.getChildAt(1);
+        EditNodeAbstract sourceParent = root.getChildAt(0);
+        EditNodeAbstract targetParent = root.getChildAt(1);
 
         editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeObject("node1")));
         editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeObject("node2")));
         editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeObject("node3")));
 
-        EditNode node1 = sourceParent.getChildAt(0);
-        EditNode node2 = sourceParent.getChildAt(1);
-        EditNode node3 = sourceParent.getChildAt(2);
+        EditNodeAbstract node1 = sourceParent.getChildAt(0);
+        EditNodeAbstract node2 = sourceParent.getChildAt(1);
+        EditNodeAbstract node3 = sourceParent.getChildAt(2);
 
         editor.clearHistory();
         printEditorState(editor, "before move/rename/setValue");
@@ -271,7 +272,7 @@ public class TreeEditorContentNGTest {
         printSubtree(editor, "target before move", targetParent);
 
         CommandResult moveCmd = editor.execute(new MoveNodeCommand(
-                new EditNode[]{node1, node2, node3},
+                new EditNodeAbstract[]{node1, node2, node3},
                 targetParent,
                 0
         ));

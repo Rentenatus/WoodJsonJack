@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
 import de.jare.jsoncasted.editor.command.EditCommandEntry.MovementEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Arrays;
 
@@ -27,7 +28,7 @@ public class AddNodeCommand extends AbstractEditCommand {
      * @param parentId the ID of the parent node
      * @param node the node to add
      */
-    public AddNodeCommand(long parentId, EditNode node) {
+    public AddNodeCommand(long parentId, EditNodeAbstract node) {
         this(parentId, node, -1);
     }
 
@@ -38,7 +39,7 @@ public class AddNodeCommand extends AbstractEditCommand {
      * @param node the node to add
      * @param index the index at which to insert the node, or -1 to append
      */
-    public AddNodeCommand(long parentId, EditNode node, int index) {
+    public AddNodeCommand(long parentId, EditNodeAbstract node, int index) {
         this(new MovementEntry[]{
             new MovementEntry(
             requireNode(node).getEditId(), // nodeId
@@ -128,13 +129,13 @@ public class AddNodeCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Tree cannot be null");
         }
 
-        EditNode[] added = new EditNode[entries.length];
+        EditNodeAbstract[] added = new EditNodeAbstract[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
             MovementEntry entry = entries[i];
 
             // Snapshot liefert den Teilbaum, ID bleibt erhalten
-            EditNode newNode = entry.snapshot.deepCopy(false);
+            EditNodeAbstract newNode = entry.snapshot.deepCopy(false);
             tree.addNode(entry.parentEditId, newNode, entry.index);
             added[i] = newNode;
         }
@@ -153,7 +154,7 @@ public class AddNodeCommand extends AbstractEditCommand {
     @Override
     public CommandResult doUndo(EditTree tree) {
 
-        EditNode[] removed = new EditNode[entries.length];
+        EditNodeAbstract[] removed = new EditNodeAbstract[entries.length];
 
         // rueckwaerts, um Indizes stabil zu halten
         for (int i = entries.length - 1; i >= 0; i--) {
@@ -162,7 +163,7 @@ public class AddNodeCommand extends AbstractEditCommand {
             // bevorzugt nodeId nutzen; fallback auf snapshot-Id, falls nodeId == -1
             long id = entry.nodeId >= 0 ? entry.nodeId : entry.snapshot.getEditId();
 
-            EditNode existingNode = tree.findNodeById(id);
+            EditNodeAbstract existingNode = tree.findNodeById(id);
             if (existingNode == null) {
                 throw new IllegalStateException(
                         "Cannot undo add: node with id " + id + " not found");

@@ -6,19 +6,21 @@
  */
 package de.jare.jsoncasted.editor.clipboard;
 
-import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 /**
- * Represents a single clipboard stash that holds an array of EditNode snapshots.
+ * Represents a single clipboard stash that holds an array of EditNode
+ * snapshots.
  *
- * <p>In the revised clipboard model, a stash is intentionally neutral:
- * it stores only pasteable subtree snapshots and does not encode whether the
- * content originated from copy or cut, and it does not remember a source tree.</p>
+ * <p>
+ * In the revised clipboard model, a stash is intentionally neutral: it stores
+ * only pasteable subtree snapshots and does not encode whether the content
+ * originated from copy or cut, and it does not remember a source tree.</p>
  */
 public class ClipboardStash {
 
     private final String name;
-    private EditNode[] nodes;
+    private EditNodeAbstract[] nodes;
     private long timestamp;
 
     /**
@@ -31,7 +33,7 @@ public class ClipboardStash {
             throw new IllegalArgumentException("Stash name cannot be null or empty");
         }
         this.name = name;
-        this.nodes = new EditNode[0];
+        this.nodes = new EditNodeAbstract[0];
         this.timestamp = System.currentTimeMillis();
     }
 
@@ -47,26 +49,28 @@ public class ClipboardStash {
     /**
      * Returns the nodes stored in this stash.
      *
-     * <p>A defensive copy of the array is returned. The contained node objects
+     * <p>
+     * A defensive copy of the array is returned. The contained node objects
      * themselves are not deep-copied here.</p>
      *
      * @return a defensive copy of the stored nodes
      */
-    public EditNode[] getNodes() {
-        return nodes != null ? nodes.clone() : new EditNode[0];
+    public EditNodeAbstract[] getNodes() {
+        return nodes != null ? nodes.clone() : new EditNodeAbstract[0];
     }
 
     /**
      * Sets the nodes for this stash.
      *
-     * <p>A defensive copy of the array is stored. The node instances are assumed
+     * <p>
+     * A defensive copy of the array is stored. The node instances are assumed
      * to already represent clipboard-safe snapshots.</p>
      *
      * @param nodes the nodes to store
      */
-    public void setNodes(EditNode[] nodes) {
+    public void setNodes(EditNodeAbstract[] nodes) {
         if (nodes == null) {
-            this.nodes = new EditNode[0];
+            this.nodes = new EditNodeAbstract[0];
         } else {
             this.nodes = nodes.clone();
         }
@@ -95,7 +99,7 @@ public class ClipboardStash {
      * Clears all nodes from this stash.
      */
     public void clear() {
-        this.nodes = new EditNode[0];
+        this.nodes = new EditNodeAbstract[0];
         this.timestamp = System.currentTimeMillis();
     }
 
@@ -111,13 +115,14 @@ public class ClipboardStash {
     /**
      * Creates a deep copy of this stash.
      *
-     * @param regenerateEditIds whether copied nodes should regenerate their edit IDs
+     * @param regenerateEditIds whether copied nodes should regenerate their
+     * edit IDs
      * @return a new stash with copied node snapshots
      */
     public ClipboardStash deepCopy(boolean regenerateEditIds) {
         ClipboardStash copy = new ClipboardStash(this.name);
         if (this.nodes != null && this.nodes.length > 0) {
-            EditNode[] copiedNodes = new EditNode[this.nodes.length];
+            EditNodeAbstract[] copiedNodes = new EditNodeAbstract[this.nodes.length];
             for (int i = 0; i < this.nodes.length; i++) {
                 copiedNodes[i] = this.nodes[i] != null
                         ? this.nodes[i].deepCopy(regenerateEditIds)
@@ -130,10 +135,10 @@ public class ClipboardStash {
 
     @Override
     public String toString() {
-        return "ClipboardStash[" +
-                "name=" + name +
-                ", nodeCount=" + getNodeCount() +
-                ", timestamp=" + timestamp +
-                "]";
+        return "ClipboardStash["
+                + "name=" + name
+                + ", nodeCount=" + getNodeCount()
+                + ", timestamp=" + timestamp
+                + "]";
     }
 }

@@ -10,6 +10,7 @@ import de.jare.jsoncasted.editor.command.CommandAvailability;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.MoveNodeCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.MasterControl;
@@ -153,7 +154,7 @@ class JackTreeNodeTransferHandler extends TransferHandler {
 
         DefaultMutableTreeNode targetTreeNode
                 = (DefaultMutableTreeNode) destinationPath.getLastPathComponent();
-        EditNode targetParent = toEditNode(targetTreeNode);
+        EditNodeAbstract targetParent = toEditNode(targetTreeNode);
         if (targetParent == null) {
             return false;
         }
@@ -171,12 +172,12 @@ class JackTreeNodeTransferHandler extends TransferHandler {
                 return false;
             }
 
-            EditNode[] draggedEditNodes = toEditNodes(topLevelDraggedTreeNodes);
+            EditNodeAbstract[] draggedEditNodes = toEditNodes(topLevelDraggedTreeNodes);
             if (draggedEditNodes == null || draggedEditNodes.length == 0) {
                 return false;
             }
 
-            EditNode[] normalizedNodes = normalizeForMove(draggedEditNodes);
+            EditNodeAbstract[] normalizedNodes = normalizeForMove(draggedEditNodes);
 
             MoveNodeCommand command
                     = new MoveNodeCommand(normalizedNodes, targetParent, targetIndex);
@@ -259,10 +260,10 @@ class JackTreeNodeTransferHandler extends TransferHandler {
         return false;
     }
 
-    private static EditNode[] toEditNodes(DefaultMutableTreeNode[] treeNodes) {
-        EditNode[] result = new EditNode[treeNodes.length];
+    private static EditNodeAbstract[] toEditNodes(DefaultMutableTreeNode[] treeNodes) {
+        EditNodeAbstract[] result = new EditNodeAbstract[treeNodes.length];
         for (int i = 0; i < treeNodes.length; i++) {
-            EditNode node = toEditNode(treeNodes[i]);
+            EditNodeAbstract node = toEditNode(treeNodes[i]);
             if (node == null) {
                 return null;
             }
@@ -271,12 +272,12 @@ class JackTreeNodeTransferHandler extends TransferHandler {
         return result;
     }
 
-    private static EditNode toEditNode(DefaultMutableTreeNode treeNode) {
+    private static EditNodeAbstract toEditNode(DefaultMutableTreeNode treeNode) {
         if (treeNode == null) {
             return null;
         }
         Object userObject = treeNode.getUserObject();
-        return (userObject instanceof EditNode editNode) ? editNode : null;
+        return (userObject instanceof EditNodeAbstract editNode) ? editNode : null;
     }
 
     /**
@@ -308,8 +309,8 @@ class JackTreeNodeTransferHandler extends TransferHandler {
      * @param nodes die zu bewegenden EditNodes
      * @return sortierte Kopie
      */
-    private static EditNode[] normalizeForMove(EditNode[] nodes) {
-        EditNode[] copy = Arrays.copyOf(nodes, nodes.length);
+    private static EditNodeAbstract[] normalizeForMove(EditNodeAbstract[] nodes) {
+        EditNodeAbstract[] copy = Arrays.copyOf(nodes, nodes.length);
         Arrays.sort(copy, Comparator
                 .comparingLong((EditNode n) -> n.getParent() != null ? n.getParent().getEditId() : -1L)
                 .thenComparingInt(n -> n.getParent() != null ? n.getParent().getChildIndex(n) : -1));

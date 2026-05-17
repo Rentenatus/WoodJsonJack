@@ -13,6 +13,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 public class WoodClipboardTree extends JTree {
 
@@ -140,7 +141,7 @@ public class WoodClipboardTree extends JTree {
 
     private DefaultMutableTreeNode deepCopy(DefaultMutableTreeNode original, boolean regenerateEditId) {
         Object userObject = original.getUserObject();
-        if (userObject instanceof EditNode originalData) {
+        if (userObject instanceof EditNodeAbstract originalData) {
             userObject = originalData.deepCopy(regenerateEditId);
         } else {
             userObject = String.valueOf(userObject);

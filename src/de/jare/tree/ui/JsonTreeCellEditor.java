@@ -21,11 +21,12 @@ import javax.swing.event.DocumentListener;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeCellEditor;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 public class JsonTreeCellEditor extends AbstractCellEditor implements TreeCellEditor {
 
     private final JTextField textField = new JTextField();
-    private EditNode currentData;
+    private EditNodeAbstract currentData;
     private final UndoManager undoMan;
 
     public JsonTreeCellEditor(UndoManager undoMan) {
@@ -59,7 +60,7 @@ public class JsonTreeCellEditor extends AbstractCellEditor implements TreeCellEd
 
         currentData = null;
         if (value instanceof DefaultMutableTreeNode dmtn
-                && dmtn.getUserObject() instanceof EditNode data) {
+                && dmtn.getUserObject() instanceof EditNodeAbstract data) {
             currentData = data;
             textField.setText(data.getEditText());
             String foreKey = "light." + data.getTypeKey();
@@ -105,7 +106,7 @@ public class JsonTreeCellEditor extends AbstractCellEditor implements TreeCellEd
         if (currentData == null || currentData.getEditText() != null && currentData.getEditText().equals(textField.getText())) {
             return;
         }
-        EditNode oldData = currentData.deepCopy(false);
+        EditNodeAbstract oldData = currentData.deepCopy(false);
         currentData.setEditText(textField.getText());
         WoodCommand command = new WoodCommandEditNodeData(currentData, oldData, currentData);
         undoMan.pushCommand(command);

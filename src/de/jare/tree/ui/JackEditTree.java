@@ -6,30 +6,26 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.tree.control.model.JackTreeModel;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.MasterControl;
-import de.jare.tree.control.commands.WoodCommand;
-import de.jare.tree.control.commands.WoodCommandAddNodes;
-import de.jare.tree.control.commands.WoodCommandDeleteNodes;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
-import de.jare.jsoncasted.editor.core.EditNodeObject;
-import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.tree.control.model.JackTreeModel;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.tree.*;
-import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.jsoncasted.editor.core.EditTree;
-import de.jare.tree.control.JackMasterControl;
-import de.jare.tree.control.JackUndoManager;
 
 public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
 
     private final JackMasterControl master;
-    private final JTree tree;
+    private final JTree jtree;
     private final JPanel headerPanel;
     private final JLabel resourceLabel;
     private final JCheckBox linkCheckBox;
@@ -64,41 +60,44 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         rightPanel.add(linkCheckBox);
 
         // JTree initialisieren 
-        tree = new JTree(new JackTreeModel(rootName));
-        tree.setShowsRootHandles(true);
-        tree.setCellRenderer(new JsonTreeCellRenderer());
-        tree.setEditable(true);
+        final JackTreeModel jackTreeModel = new JackTreeModel(rootName);
+        jtree = new JTree(jackTreeModel);
+        jtree.setShowsRootHandles(true);
+        jtree.setCellRenderer(new JsonTreeCellRenderer());
+        jtree.setEditable(true);
         final JackUndoManager undoMan = master != null ? master.getUndoManager() : null;
-        tree.setCellEditor(new JackJsonTreeCellEditor(undoMan));
+        jtree.setCellEditor(new JackJsonTreeCellEditor(undoMan));
 
         // Selektionslistener für den Tree
-        tree.addTreeSelectionListener(e -> {
+        jtree.addTreeSelectionListener(e -> {
             if (master != null && master.getActiveEditor() == JackEditTree.this) {
                 DefaultMutableTreeNode node
-                        = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+                        = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
                 boolean rootSelected = node != null && node.getParent() == null;
                 master.fireSelection(node, this, rootSelected);
             }
         });
 
-        tree.setDragEnabled(true);
-        tree.setDropMode(DropMode.ON_OR_INSERT);
+        jtree.setDragEnabled(true);
+        jtree.setDropMode(DropMode.ON_OR_INSERT);
         if (undoMan != null) {
-            tree.setTransferHandler(new JackTreeNodeTransferHandler(undoMan));
+            jtree.setTransferHandler(new JackTreeNodeTransferHandler(undoMan));
         }
-        tree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
+        jtree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
 
         // Layout für das JPanel
         setLayout(new BorderLayout());
         add(headerPanel, BorderLayout.NORTH);
-        add(new JScrollPane(tree), BorderLayout.CENTER);
+        add(new JScrollPane(jtree), BorderLayout.CENTER);
 
         // Root-Knoten und optionale Demo-Properties
-        DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) jtree.getModel().getRoot();
         for (String propName : propNames) {
-            EditNode childData = ((EditNode) root.getUserObject())
-                    .createChild(propName);
-            ((EditNodeProperty) childData).setPrimValue("Value of " + propName);
+            EditNodeAbstract childData = jackTreeModel.getEditTree().addNewChild(
+                    ((EditNodeAbstract) root.getUserObject()),
+                    propName
+            );
+            ((EditNodeProperty) childData).setValue("Value of " + propName);
             root.add(new DefaultMutableTreeNode(childData));
         }
 
@@ -125,12 +124,12 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
 
     @Override
     public JTree getTree() {
-        return tree;
+        return jtree;
     }
 
     @Override
     public JackTreeModel getModel() {
-        return (JackTreeModel) tree.getModel();
+        return (JackTreeModel) jtree.getModel();
     }
 
     JPanel getHeaderPanel() {
@@ -161,10 +160,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     private void doRefreshIfModel(TreeModel model) {
-        if (model != tree.getModel()) {
+        if (model != jtree.getModel()) {
             return;
         }
-        ((DefaultTreeModel) tree.getModel()).reload();
+        ((DefaultTreeModel) jtree.getModel()).reload();
         revalidate();
         repaint();
     }
@@ -174,15 +173,15 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         // aktuellen selektierten Knoten erneut melden
         if (master != null && master.getActiveEditor() == this) {
             DefaultMutableTreeNode node
-                    = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+                    = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
             master.fireSelection(node, this, false);
         }
     }
 
     @Override
     public void onFocusLost() {
-        if (tree.isEditing()) {
-            tree.cancelEditing();
+        if (jtree.isEditing()) {
+            jtree.cancelEditing();
         }
     }
 
@@ -196,16 +195,16 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         if (!(node instanceof DefaultMutableTreeNode dmtn)) {
             return;
         }
-        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
+        DefaultTreeModel model = (DefaultTreeModel) jtree.getModel();
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
 
         TreePath path = findPath(root, dmtn);
         if (path != null) {
-            tree.scrollPathToVisible(path);
+            jtree.scrollPathToVisible(path);
             if (trigger == this) {
                 return; // Selbst ausgeloest
             }
-            tree.setSelectionPath(path);
+            jtree.setSelectionPath(path);
         }
     }
 
@@ -214,7 +213,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         if (master == null || editor != this) {
             return;
         }
-        TreePath path = tree.getSelectionPath();
+        TreePath path = jtree.getSelectionPath();
         master.fireSelection(path == null ? null : path.getLastPathComponent(), this, false);
     }
 
@@ -328,9 +327,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     private void renameNode() {
-        TreePath path = tree.getSelectionPath();
+        TreePath path = jtree.getSelectionPath();
         if (path != null) {
-            tree.startEditingAtPath(path);
+            jtree.startEditingAtPath(path);
         }
     }
 

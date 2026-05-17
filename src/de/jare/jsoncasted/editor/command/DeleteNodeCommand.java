@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
 import de.jare.jsoncasted.editor.command.EditCommandEntry.MovementEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,8 +38,8 @@ public class DeleteNodeCommand extends AbstractEditCommand {
      *
      * @param node the node to delete
      */
-    public DeleteNodeCommand(EditNode node) {
-        this(toEntries(new EditNode[]{requireNode(node, 0)}));
+    public DeleteNodeCommand(EditNodeAbstract node) {
+        this(toEntries(new EditNodeAbstract[]{requireNode(node, 0)}));
     }
 
     /**
@@ -46,7 +47,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
      *
      * @param nodes the nodes to delete
      */
-    public DeleteNodeCommand(EditNode[] nodes) {
+    public DeleteNodeCommand(EditNodeAbstract[] nodes) {
         this(toEntries(nodes));
     }
 
@@ -129,12 +130,12 @@ public class DeleteNodeCommand extends AbstractEditCommand {
                 .thenComparingInt((MovementEntry e) -> e.index)
                 .reversed());
 
-        EditNode[] removed = new EditNode[deleteOrder.length];
+        EditNodeAbstract[] removed = new EditNodeAbstract[deleteOrder.length];
 
         int idx = 0;
         for (MovementEntry entry : deleteOrder) {
             long id = resolveNodeId(tree, entry);
-            EditNode node = tree.findNodeById(id);
+            EditNodeAbstract node = tree.findNodeById(id);
             if (node != null) {
                 tree.removeNode(node.getEditId());
                 removed[idx++] = node;
@@ -165,7 +166,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
                 .thenComparingLong(e -> e.parentEditId)
                 .thenComparingInt(e -> e.index));
 
-        EditNode[] restored = new EditNode[restoreOrder.length];
+        EditNodeAbstract[] restored = new EditNodeAbstract[restoreOrder.length];
 
         int idx = 0;
         for (MovementEntry entry : restoreOrder) {
@@ -175,7 +176,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
                         "Cannot undo delete: parent node with id " + entry.parentEditId + " not found");
             }
 
-            EditNode restoredNode = entry.snapshot.deepCopy(false);
+            EditNodeAbstract restoredNode = entry.snapshot.deepCopy(false);
             tree.addNode(entry.parentEditId, restoredNode, entry.index);
             restored[idx++] = restoredNode;
         }
@@ -249,22 +250,22 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return entries[0].index;
     }
 
-    private static MovementEntry[] toEntries(EditNode[] nodes) {
+    private static MovementEntry[] toEntries(EditNodeAbstract[] nodes) {
         if (nodes == null || nodes.length == 0) {
             throw new IllegalArgumentException("Nodes cannot be null or empty");
         }
 
-        EditNode[] validated = new EditNode[nodes.length];
+        EditNodeAbstract[] validated = new EditNodeAbstract[nodes.length];
         for (int i = 0; i < nodes.length; i++) {
             validated[i] = requireNode(nodes[i], i);
         }
 
-        List<EditNode> normalized = normalizeNodes(validated);
+        List<EditNodeAbstract> normalized = normalizeNodes(validated);
         MovementEntry[] result = new MovementEntry[normalized.size()];
 
         for (int i = 0; i < normalized.size(); i++) {
-            EditNode node = normalized.get(i);
-            EditNode parent = node.getParent();
+            EditNodeAbstract node = normalized.get(i);
+            EditNodeAbstract parent = node.getParent();
             if (parent == null) {
                 throw new IllegalArgumentException("Node '" + node.getName() + "' has no parent and cannot be deleted");
             }
@@ -286,7 +287,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return result;
     }
 
-    private static EditNode requireNode(EditNode node, int index) {
+    private static EditNodeAbstract requireNode(EditNodeAbstract node, int index) {
         if (node == null) {
             throw new IllegalArgumentException("Node at index " + index + " cannot be null");
         }
@@ -315,14 +316,14 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return copy;
     }
 
-    private static List<EditNode> normalizeNodes(EditNode[] nodes) {
-        Map<Long, EditNode> unique = new LinkedHashMap<>();
-        for (EditNode node : nodes) {
+    private static List<EditNodeAbstract> normalizeNodes(EditNodeAbstract[] nodes) {
+        Map<Long, EditNodeAbstract> unique = new LinkedHashMap<>();
+        for (EditNodeAbstract node : nodes) {
             unique.put(node.getEditId(), node);
         }
 
-        List<EditNode> result = new ArrayList<>();
-        for (EditNode node : unique.values()) {
+        List<EditNodeAbstract> result = new ArrayList<>();
+        for (EditNodeAbstract node : unique.values()) {
             if (!hasSelectedAncestor(node, unique)) {
                 result.add(node);
             }
@@ -335,7 +336,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return result;
     }
 
-    private static boolean hasSelectedAncestor(EditNode node, Map<Long, EditNode> selectedNodes) {
+    private static boolean hasSelectedAncestor(EditNodeAbstract node, Map<Long, EditNodeAbstract> selectedNodes) {
         EditNode parent = node.getParent();
         while (parent != null) {
             if (selectedNodes.containsKey(parent.getEditId())) {

@@ -151,6 +151,268 @@ public class TreeEditor {
     }
 
     // -------------------------------------------------------------------------
+    // Import from JsonResource / JsonNode
+    // -------------------------------------------------------------------------
+    /**
+     * Converts a {@link JsonResource} into an editable tree root node.
+     *
+     * <p>
+     * This method does not modify an existing editor instance. It only performs
+     * the conversion.</p>
+     *
+     * @param resource the resource to import
+     * @return the converted root node
+     * @throws IllegalArgumentException if {@code resource} is {@code null} or
+     * has no root
+     */
+    public static EditNode importFromJsonResource(JsonResource resource) {
+        if (resource == null) {
+            throw new IllegalArgumentException("Resource cannot be null");
+        }
+        JsonNode rootNode = resource.getRoot();
+        if (rootNode == null) {
+            throw new IllegalArgumentException("Resource has no root node");
+        }
+        return convertJsonNodeToEditNode(rootNode, null);
+    }
+
+    /**
+     * Converts a {@link JsonNode} into an editable tree root node.
+     *
+     * @param node the JSON node to import
+     * @return the converted root node
+     * @throws IllegalArgumentException if {@code node} is {@code null}
+     */
+    public static EditNode importFromJsonNode(JsonNode node) {
+        if (node == null) {
+            throw new IllegalArgumentException("Node cannot be null");
+        }
+        return convertJsonNodeToEditNode(node, null);
+    }
+
+    /**
+     * Creates a new editor from the given {@link JsonResource}.
+     *
+     * @param resource the resource to load
+     * @return a new editor containing the imported content
+     */
+    public static TreeEditor fromJsonResource(JsonResource resource) {
+        EditNode root = importFromJsonNode(resource.getRoot());
+        return new TreeEditor(root);
+    }
+
+    /**
+     * Creates a new editor from the given {@link JsonNode}.
+     *
+     * @param node the node to load
+     * @return a new editor containing the imported content
+     */
+    public static TreeEditor fromJsonNode(JsonNode node) {
+        EditNode root = importFromJsonNode(node);
+        return new TreeEditor(root);
+    }
+
+    /**
+     * Recursively converts a JSON node into the corresponding editable node
+     * model.
+     *
+     * @param jsonNode the source JSON node
+     * @param propertyName the property name for object members, or {@code null}
+     * for root/array values
+     * @return the converted editable node
+     */
+    private static EditNode convertJsonNodeToEditNode(JsonNode jsonNode, String propertyName) {
+        JsonNodeType type = jsonNode.getType();
+
+        if (type == JsonNodeType.OBJECT) {
+            EditNodeObject editNode = new EditNodeObject(propertyName != null ? propertyName : "");
+            Map<String, JsonNode> objectValues = jsonNode.asObjectValues();
+            if (objectValues != null) {
+                for (Map.Entry<String, JsonNode> entry : objectValues.entrySet()) {
+                    EditNodeProperty prop = new EditNodeProperty(entry.getKey());
+                    EditNode valueNode = convertJsonNodeToEditNode(entry.getValue(), null);
+                    tree.addChild(prop, valueNode);
+                    tree.addChild(editNode, prop);
+                }
+            }
+            return editNode;
+        } else if (type == JsonNodeType.ARRAY) {
+            EditNodeObject editNode = new EditNodeObject("__array__");
+            List<JsonNode> arrayValues = jsonNode.asArray();
+            if (arrayValues != null) {
+                for (JsonNode value : arrayValues) {
+                    EditNode child = convertJsonNodeToEditNode(value, null);
+                    editNode.addChild(child);
+                }
+            }
+            return editNode;
+        } else {
+            EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : "");
+            String value = convertJsonValueToString(jsonNode);
+            editNode.setPrimValue(value);
+            editNode.setType(type.name().toLowerCase());
+            return editNode;
+        }
+    }
+
+    /**
+     * Converts a primitive JSON node value to its string representation.
+     *
+     * @param jsonNode the primitive JSON node
+     * @return the string value, or {@code null} for JSON null
+     */
+    private static String convertJsonValueToString(JsonNode jsonNode) {
+        if (jsonNode == null) {
+            return null;
+        }
+
+        JsonNodeType type = jsonNode.getType();
+        switch (type) {
+            case STRING:
+                return jsonNode.asText();
+            case NUMBER:
+                return String.valueOf(jsonNode.asNumber());
+            case LONG:
+                return String.valueOf(jsonNode.asLong());
+            case BOOLEAN:
+                return String.valueOf(jsonNode.asBoolean());
+            case NULL:
+                return null;
+            default:
+                return null;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Export to JsonResource / JsonNode
+    // -------------------------------------------------------------------------
+    /**
+     * Exports the current editor tree to a {@link JsonResource}.
+     *
+     * @return a new resource containing the exported root node
+     */
+    public JsonResource exportToJsonResource() {
+        EditNode root = tree.getRoot();
+        JsonNode jsonRoot = convertEditNodeToJsonNode(root);
+        return JsonResource.forRoot(jsonRoot);
+    }
+
+    /**
+     * Exports the current editor tree to a {@link JsonNode}.
+     *
+     * @return the exported root node
+     */
+    public JsonNode exportToJsonNode() {
+        EditNode root = tree.getRoot();
+        return convertEditNodeToJsonNode(root);
+    }
+
+    /**
+     * Recursively converts an editable node into a JSON node.
+     *
+     * @param editNode the editable node to convert
+     * @return the converted JSON node
+     */
+    private JsonNode convertEditNodeToJsonNode(EditNode editNode) {
+        if (editNode instanceof EditNodeObject) {
+            EditNodeObject obj = (EditNodeObject) editNode;
+            String name = obj.getName();
+
+            if ("__array__".equals(name)) {
+                JsonNode arrayNode = JsonNode.arrayNode();
+                for (int i = 0; i < obj.getChildCount(); i++) {
+                    JsonNode jsonChild = convertEditNodeToJsonNode(obj.getChildAt(i));
+                    if (jsonChild != null) {
+                        arrayNode.add(jsonChild);
+                    }
+                }
+                return arrayNode;
+            }
+
+            JsonNode objectNode = JsonNode.objectNode();
+            for (int i = 0; i < obj.getChildCount(); i++) {
+                EditNode child = obj.getChildAt(i);
+                if (child instanceof EditNodeProperty) {
+                    EditNodeProperty prop = (EditNodeProperty) child;
+                    String key = prop.getPropName();
+                    if (key == null || key.isEmpty()) {
+                        key = String.valueOf(i);
+                    }
+
+                    JsonNode value;
+                    if (prop.getChildCount() > 0) {
+                        value = convertEditNodeToJsonNode(prop.getChildAt(0));
+                    } else {
+                        value = convertEditNodePropertyToJsonNode(prop);
+                    }
+
+                    if (value != null) {
+                        objectNode.put(key, value);
+                    }
+                } else if (child instanceof EditNodeObject) {
+                    String key = child.getName();
+                    if (key == null || key.isEmpty()) {
+                        key = String.valueOf(i);
+                    }
+                    JsonNode value = convertEditNodeToJsonNode(child);
+                    if (value != null) {
+                        objectNode.put(key, value);
+                    }
+                }
+            }
+            return objectNode;
+        } else if (editNode instanceof EditNodeProperty) {
+            EditNodeProperty prop = (EditNodeProperty) editNode;
+            if (prop.getChildCount() > 0) {
+                return convertEditNodeToJsonNode(prop.getChildAt(0));
+            }
+            return convertEditNodePropertyToJsonNode(prop);
+        } else {
+            return JsonNode.nullNode();
+        }
+    }
+
+    /**
+     * Converts a primitive {@link EditNodeProperty} into a JSON primitive node.
+     *
+     * @param prop the property node to convert
+     * @return the converted JSON node
+     */
+    private JsonNode convertEditNodePropertyToJsonNode(EditNodeProperty prop) {
+        String primValue = prop.getPrimValue();
+        String type = prop.getType();
+
+        if (primValue == null) {
+            return JsonNode.nullNode();
+        }
+
+        if (type != null) {
+            switch (type.toLowerCase()) {
+                case "string":
+                    return JsonNode.stringNode(primValue);
+                case "number":
+                    try {
+                        return JsonNode.numberNode(Double.parseDouble(primValue));
+                    } catch (NumberFormatException e) {
+                        return JsonNode.stringNode(primValue);
+                    }
+                case "long":
+                    try {
+                        return JsonNode.longNode(Long.parseLong(primValue));
+                    } catch (NumberFormatException e) {
+                        return JsonNode.stringNode(primValue);
+                    }
+                case "boolean":
+                    return JsonNode.booleanNode(Boolean.parseBoolean(primValue));
+                case "null":
+                    return JsonNode.nullNode();
+            }
+        }
+
+        return JsonNode.varNode(primValue);
+    }
+
+    // -------------------------------------------------------------------------
     // Debug / inspection helpers
     // -------------------------------------------------------------------------
     /**

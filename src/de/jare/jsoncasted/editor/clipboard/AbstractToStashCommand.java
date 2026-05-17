@@ -3,6 +3,7 @@ package de.jare.jsoncasted.editor.clipboard;
 import de.jare.jsoncasted.editor.command.AbstractEditCommand;
 import de.jare.jsoncasted.editor.command.CommandAvailability;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 
 public abstract class AbstractToStashCommand extends AbstractEditCommand {
@@ -10,7 +11,7 @@ public abstract class AbstractToStashCommand extends AbstractEditCommand {
     protected final ClipboardManager clipboardManager;
     protected final String stashName;
     protected final long[] nodeIds;
-    protected final EditNode[] originalStashContent;
+    protected final EditNodeAbstract[] originalStashContent;
 
     protected AbstractToStashCommand(
             CommandType commandType,
@@ -36,7 +37,7 @@ public abstract class AbstractToStashCommand extends AbstractEditCommand {
         this.nodeIds = nodeIds.clone();
 
         ClipboardStash stash = clipboardManager.getStash(stashName);
-        this.originalStashContent = stash != null ? stash.getNodes() : new EditNode[0];
+        this.originalStashContent = stash != null ? stash.getNodes() : new EditNodeAbstract[0];
     }
 
     @Override
@@ -100,8 +101,8 @@ public abstract class AbstractToStashCommand extends AbstractEditCommand {
         }
     }
 
-    protected EditNode[] collectNodes(EditTree tree) {
-        EditNode[] nodes = new EditNode[nodeIds.length];
+    protected EditNodeAbstract[] collectNodes(EditTree tree) {
+        EditNodeAbstract[] nodes = new EditNodeAbstract[nodeIds.length];
         for (int i = 0; i < nodeIds.length; i++) {
             nodes[i] = tree.findNodeById(nodeIds[i]);
         }
