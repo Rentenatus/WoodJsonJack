@@ -9,7 +9,8 @@ package de.jare.tree.control;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.events.EventBus;
-import de.jare.jsoncasted.editor.history.HistoryManager;
+import de.jare.jsoncasted.editor.events.HistoryListener;
+import de.jare.jsoncasted.editor.events.HistoryManager;
 import de.jare.jsoncasted.tools.SimpleStringSplitter;
 import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.model.JackTreeModel;
@@ -46,31 +47,27 @@ public class JackUndoManagerModel implements SimpleStringSplitter {
      * Adds a listener for a specific event type. The listener will be notified
      * whenever an event of the specified type is fired.
      *
-     * @param <T> the event type
-     * @param eventType the class of events to listen for
      * @param listener the consumer to be called when an event is fired
      * @throws IllegalArgumentException if eventType or listener is null
      */
-    public <T> void addListener(Class<T> eventType, Consumer<T> listener) {
+    public <T> void addListener(HistoryListener listener) {
         if (eventBus == null) {
             throw new NullPointerException("EventBus not set.");
         }
-        eventBus.addListener(eventType, listener);
+        eventBus.addListener(listener);
     }
 
     /**
      * Removes a listener for a specific event type.
      *
-     * @param <T> the event type
-     * @param eventType the class of events
      * @param listener the consumer to remove
      * @return true if the listener was removed
      */
-    public <T> boolean removeListener(Class<T> eventType, Consumer<T> listener) {
+    public <T> boolean removeListener(HistoryListener listener) {
         if (eventBus == null) {
             return false;
         }
-        return eventBus.removeListener(eventType, listener);
+        return eventBus.removeListener(listener);
     }
 
     /**

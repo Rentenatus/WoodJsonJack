@@ -6,224 +6,106 @@
  */
 package de.jare.jsoncasted.editor.events;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
+import de.jare.tree.control.Orator;
 
 /**
- * Thread-safe event bus for distributing events to registered listeners.
- * This is a type-safe event dispatching mechanism that replaces the Orator class.
- * 
- * @param <T> the type of events this bus handles
+ * Thread-safe event bus for distributing events to registered listeners. This
+ * is a type-safe event dispatching mechanism that replaces the Orator class.
+ *
  */
 public class EventBus {
 
-    private final Map<Class<?>, List<Consumer<Object>>> listeners;
+    private final Orator<HistoryListener> historyOrator;
 
     /**
      * Creates a new EventBus instance.
      */
     public EventBus() {
-        this.listeners = new HashMap<>();
+        historyOrator = new Orator<>();
     }
 
     /**
-     * Adds a listener for a specific event type.
-     * The listener will be notified whenever an event of the specified type is fired.
-     * 
-     * @param <T> the event type
-     * @param eventType the class of events to listen for
+     * Adds a listener for a specific event type. The listener will be notified
+     * whenever an event of the specified type is fired.
+     *
      * @param listener the consumer to be called when an event is fired
      * @throws IllegalArgumentException if eventType or listener is null
      */
-    public <T> void addListener(Class<T> eventType, Consumer<T> listener) {
-        if (eventType == null) {
-            throw new IllegalArgumentException("Event type cannot be null");
-        }
+    public void addListener(HistoryListener listener) {
         if (listener == null) {
             throw new IllegalArgumentException("Listener cannot be null");
         }
-        
-        synchronized (listeners) {
-            listeners.computeIfAbsent(eventType, k -> new ArrayList<>())
-                    .add(wrapConsumer(listener));
+        historyOrator.addListener(listener);
+    }
+
+    /**
+     * Adds a listener for a specific event type.The listener will be notified
+     * whenever an event of the specified type is fired.
+     *
+     * @param level
+     * @param listener the consumer to be called when an event is fired
+     * @throws IllegalArgumentException if eventType or listener is null
+     */
+    public void addListener(int level, HistoryListener listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException("Listener cannot be null");
         }
+        historyOrator.addListener(level, listener);
     }
 
     /**
      * Removes a listener for a specific event type.
-     * 
-     * @param <T> the event type
-     * @param eventType the class of events
+     *
      * @param listener the consumer to remove
      * @return true if the listener was removed
      */
-    public <T> boolean removeListener(Class<T> eventType, Consumer<T> listener) {
-        if (eventType == null || listener == null) {
+    public boolean removeListener(HistoryListener listener) {
+        if (listener == null) {
             return false;
         }
-        
-        synchronized (listeners) {
-            List<Consumer<Object>> eventListeners = listeners.get(eventType);
-            if (eventListeners == null) {
-                return false;
-            }
-            return eventListeners.removeIf(c -> c.equals(wrapConsumer(listener)));
-        }
+        return historyOrator.removeListener(listener);
+
     }
 
     /**
-     * Fires an event to all registered listeners for its type.
-     * Also fires to listeners of supertypes and interfaces.
-     * 
-     * @param <T> the event type
+     * Fires an event to all registered listeners for its type. Also fires to
+     * listeners of supertypes and interfaces.
+     *
      * @param event the event to fire
      */
-    public <T> void fireEvent(T event) {
+    public void fireEvent(HistoryEvent event) {
         if (event == null) {
             return;
         }
 
-        List<Consumer<Object>> eventListeners;
-        
-        synchronized (listeners) {
-            eventListeners = new ArrayList<>(listeners.getOrDefault(
-                event.getClass(), Collections.emptyList()));
+        HistoryEvent.ChangeType changeType = event.getChangeType();
+        if (HistoryEvent.ChangeType.CLEARED == changeType) {
+            historyOrator.say(l -> l.onClear(event));
+        } else {
+            historyOrator.say(l -> l.onAction(event));
         }
 
-        // Notify listeners
-        for (Consumer<Object> listener : eventListeners) {
-            try {
-                listener.accept(event);
-            } catch (Exception e) {
-                // Log error but don't propagate
-                System.err.println("Error in event listener: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-    }
-
-    /**
-     * Fires an event to all registered listeners, including supertype listeners.
-     * This method checks all superclasses and interfaces for listeners.
-     * 
-     * @param <T> the event type
-     * @param event the event to fire
-     */
-    public <T> void fireEventHierarchical(T event) {
-        if (event == null) {
-            return;
-        }
-
-        Class<?> eventClass = event.getClass();
-        List<Class<?>> types = getAllTypes(eventClass);
-        
-        synchronized (listeners) {
-            for (Class<?> type : types) {
-                List<Consumer<Object>> typeListeners = listeners.get(type);
-                if (typeListeners != null) {
-                    // Make a copy to avoid concurrent modification
-                    for (Consumer<Object> listener : new ArrayList<>(typeListeners)) {
-                        try {
-                            listener.accept(event);
-                        } catch (Exception e) {
-                            System.err.println("Error in event listener for " + type.getName() + ": " + e.getMessage());
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Returns all superclasses and interfaces of the given class.
-     * 
-     * @param clazz the class to inspect
-     * @return list of all types in the hierarchy
-     */
-    private List<Class<?>> getAllTypes(Class<?> clazz) {
-        List<Class<?>> types = new ArrayList<>();
-        collectTypes(clazz, types);
-        return types;
-    }
-
-    /**
-     * Recursively collects all superclasses and interfaces.
-     * 
-     * @param clazz the class to process
-     * @param types the list to add types to
-     */
-    private void collectTypes(Class<?> clazz, List<Class<?>> types) {
-        if (clazz == null || types.contains(clazz)) {
-            return;
-        }
-        types.add(clazz);
-        
-        // Add superclass
-        collectTypes(clazz.getSuperclass(), types);
-        
-        // Add interfaces
-        for (Class<?> iface : clazz.getInterfaces()) {
-            collectTypes(iface, types);
-        }
-    }
-
-    /**
-     * Wraps a typed consumer as a Consumer<Object> for internal storage.
-     * 
-     * @param <T> the event type
-     * @param consumer the typed consumer
-     * @return a wrapped consumer
-     */
-    @SuppressWarnings("unchecked")
-    private <T> Consumer<Object> wrapConsumer(Consumer<T> consumer) {
-        return (Consumer<Object>) consumer;
     }
 
     /**
      * Removes all listeners from this event bus.
      */
     public void clear() {
-        synchronized (listeners) {
-            listeners.clear();
-        }
+        historyOrator.clear();
     }
 
     /**
      * Returns the number of listener registrations.
-     * 
+     *
      * @return the total number of listeners
      */
     public int getListenerCount() {
-        synchronized (listeners) {
-            int count = 0;
-            for (List<Consumer<Object>> list : listeners.values()) {
-                count += list.size();
-            }
-            return count;
-        }
-    }
-
-    /**
-     * Returns whether there are any listeners registered for a specific event type.
-     * 
-     * @param eventType the event type to check
-     * @return true if there are listeners
-     */
-    public boolean hasListeners(Class<?> eventType) {
-        synchronized (listeners) {
-            return listeners.containsKey(eventType);
-        }
+        return historyOrator.getListenerCount();
     }
 
     @Override
     public String toString() {
-        synchronized (listeners) {
-            return "EventBus[listeners=" + getListenerCount() + ", types=" + listeners.size() + "]";
-        }
+        return "EventBus[listeners=" + getListenerCount() + "]";
+
     }
 }

@@ -5,7 +5,7 @@ import de.jare.jsoncasted.editor.command.UpdateAction;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditTree;
-import de.jare.jsoncasted.editor.history.HistoryEvent;
+import de.jare.jsoncasted.editor.events.HistoryEvent;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.swing.SwingUtilities;

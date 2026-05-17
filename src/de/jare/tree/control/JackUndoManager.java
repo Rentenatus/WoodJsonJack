@@ -8,8 +8,9 @@ package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
-import de.jare.jsoncasted.editor.history.HistoryEvent;
-import de.jare.jsoncasted.editor.history.HistoryEvent.ChangeType;
+import de.jare.jsoncasted.editor.events.HistoryEvent;
+import de.jare.jsoncasted.editor.events.HistoryEvent.ChangeType;
+import de.jare.jsoncasted.editor.events.HistoryListener;
 import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -27,7 +28,7 @@ import javax.swing.tree.TreeModel;
  * {@link TreeModel} and delegates execute/undo/redo to the manager of the
  * currently active model.
  */
-public class JackUndoManager implements TreeFocusListener, Consumer<HistoryEvent> {
+public class JackUndoManager implements TreeFocusListener, HistoryListener {
 
     private final List<JackUndoManagerModel> managers = new ArrayList<>();
     private JackUndoManagerModel activeManager;
@@ -153,8 +154,12 @@ public class JackUndoManager implements TreeFocusListener, Consumer<HistoryEvent
     }
 
     @Override
-    public void accept(HistoryEvent historyEvent) {
-        HistoryEvent.ChangeType changeType = historyEvent.getChangeType();
+    public void onClear(HistoryEvent historyEvent) {
+
+    }
+
+    @Override
+    public void onAction(HistoryEvent historyEvent) {
         JackTreeModel model = null;
         for (JackUndoManagerModel m : managers) {
             if (m.containsHistory(historyEvent.getSource())) {
@@ -164,11 +169,11 @@ public class JackUndoManager implements TreeFocusListener, Consumer<HistoryEvent
         if (model != null) {
             model.onHistoryEvent(historyEvent);
         }
-
-        sayUndoRedoEvent(changeType, model);
+        sayUndoRedoEvent(historyEvent, model);
     }
 
-    protected void sayUndoRedoEvent(ChangeType changeType, final TreeModel model) {
+    protected void sayUndoRedoEvent(HistoryEvent historyEvent, final TreeModel model) {
+        HistoryEvent.ChangeType changeType = historyEvent.getChangeType();
         switch (changeType) {
             case ChangeType.EXECUTED:
                 undoRedoOrator.say(l -> l.onExecute(model));
@@ -219,7 +224,7 @@ public class JackUndoManager implements TreeFocusListener, Consumer<HistoryEvent
         // create new manager for this model
         JackUndoManagerModel newManager = new JackUndoManagerModel(model);
         managers.add(newManager);
-        newManager.addListener(HistoryEvent.class, this);
+        newManager.addListener(this);
         return newManager;
     }
 

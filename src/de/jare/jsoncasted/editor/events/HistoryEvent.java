@@ -4,7 +4,7 @@
  * accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v20.html
  */
-package de.jare.jsoncasted.editor.history;
+package de.jare.jsoncasted.editor.events;
 
 import java.util.Objects;
 

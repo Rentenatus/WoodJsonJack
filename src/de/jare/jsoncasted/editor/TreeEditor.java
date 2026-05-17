@@ -14,7 +14,9 @@ import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.events.EditEvent;
 import de.jare.jsoncasted.editor.events.EventBus;
-import de.jare.jsoncasted.editor.history.HistoryManager;
+import de.jare.jsoncasted.editor.events.HistoryEvent;
+import de.jare.jsoncasted.editor.events.HistoryListener;
+import de.jare.jsoncasted.editor.events.HistoryManager;
 import de.jare.jsoncasted.lang.JsonNode;
 import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.lang.JsonResource;
@@ -35,7 +37,6 @@ public class TreeEditor {
 
     private final EditTree tree;
     private final HistoryManager historyManager;
-    private final EventBus eventBus;
 
     /**
      * Creates a new editor with a default object root named {@code root}.
@@ -66,9 +67,8 @@ public class TreeEditor {
         if (root == null) {
             throw new IllegalArgumentException("Root node cannot be null");
         }
-        this.eventBus = eventBus != null ? eventBus : new EventBus();
         this.tree = new EditTree(root);
-        this.historyManager = new HistoryManager(tree, this.eventBus);
+        this.historyManager = new HistoryManager(tree, eventBus != null ? eventBus : new EventBus());
     }
 
     // -------------------------------------------------------------------------
@@ -90,15 +90,6 @@ public class TreeEditor {
      */
     public HistoryManager getHistoryManager() {
         return historyManager;
-    }
-
-    /**
-     * Returns the event bus used by this editor.
-     *
-     * @return the event bus
-     */
-    public EventBus getEventBus() {
-        return eventBus;
     }
 
     // -------------------------------------------------------------------------
@@ -165,62 +156,6 @@ public class TreeEditor {
      */
     public void clearHistory() {
         historyManager.clear();
-    }
-
-    // -------------------------------------------------------------------------
-    // Event handling
-    // -------------------------------------------------------------------------
-    /**
-     * Registers a listener for a specific event type.
-     *
-     * @param <T> the event type
-     * @param eventType the event class to listen for
-     * @param listener the listener to register
-     */
-    public <T> void addListener(Class<T> eventType, Consumer<T> listener) {
-        eventBus.addListener(eventType, listener);
-    }
-
-    /**
-     * Registers a listener for the base {@link EditEvent} type.
-     *
-     * <p>
-     * This listener receives all editor events published through the event
-     * bus.</p>
-     *
-     * @param listener the listener to register
-     */
-    public void addListener(Consumer<EditEvent> listener) {
-        eventBus.addListener(EditEvent.class, listener);
-    }
-
-    /**
-     * Removes a listener for a specific event type.
-     *
-     * @param <T> the event type
-     * @param eventType the event class
-     * @param listener the listener to remove
-     * @return {@code true} if the listener was removed
-     */
-    public <T> boolean removeListener(Class<T> eventType, Consumer<T> listener) {
-        return eventBus.removeListener(eventType, listener);
-    }
-
-    /**
-     * Fires an event through the editor's event bus.
-     *
-     * @param <T> the event type
-     * @param event the event to publish
-     */
-    public <T> void fireEvent(T event) {
-        eventBus.fireEvent(event);
-    }
-
-    /**
-     * Removes all listeners from the event bus.
-     */
-    public void clearListeners() {
-        eventBus.clear();
     }
 
     // -------------------------------------------------------------------------
@@ -508,8 +443,7 @@ public class TreeEditor {
         StringBuilder sb = new StringBuilder();
         sb.append("TreeEditor{")
                 .append("tree=").append(tree != null ? tree.toString() : "null")
-                .append(", history=").append(historyManager != null ? historyManager.toString() : "null")
-                .append(", listeners=").append(eventBus != null ? eventBus.getListenerCount() : 0);
+                .append(", history=").append(historyManager != null ? historyManager.toString() : "null");
         sb.append('}');
         return sb.toString();
     }
