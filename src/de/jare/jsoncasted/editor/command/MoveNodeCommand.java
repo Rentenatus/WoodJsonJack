@@ -175,10 +175,10 @@ public class MoveNodeCommand extends AbstractEditCommand {
             );
 
             int targetIndex = newIndex - shift;
-            this.newEntries[length - 1 - i] = new MovementEntry(
+            this.newEntries[i] = new MovementEntry(
                     node.getEditId(),
                     newParentId,
-                    targetIndex,
+                    targetIndex + i,
                     node.deepCopy(false)
             );
         }
@@ -332,8 +332,6 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
         MovementEntry newEntry = newEntries[0];
         int newIndex = newEntry.index;
-
-        System.out.println("§§§§§§§§§§§§§§§§§§§§§§§§§§§ " + newIndex + " == " + minIndex);
 
         return newIndex == minIndex;
     }
@@ -498,7 +496,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
     private EditNode[] addAll(EditTree tree, MovementEntry[] entries, boolean[] successfullyRemoved) {
         EditNode[] moved = new EditNode[entries.length];
-        for (int i = 0; i < entries.length; i++) { 
+        for (int i = 0; i < entries.length; i++) {
             if (!successfullyRemoved[i]) {
                 continue; // Skip adding if removal was not successful
             }
