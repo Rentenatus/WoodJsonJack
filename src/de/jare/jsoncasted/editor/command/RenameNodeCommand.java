@@ -163,7 +163,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
                 updated,
                 null,
                 null,
-                updated,
+                updated, null,
                 NO_UPDATE_ACTIONS
         );
     }
@@ -191,7 +191,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
                 updated,
                 null,
                 null,
-                updated,
+                updated, null,
                 NO_UPDATE_ACTIONS
         );
     }

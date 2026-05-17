@@ -6,11 +6,9 @@
  */
 package de.jare.jsoncasted.editor.events;
 
-import java.util.Objects;
-
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
-import de.jare.jsoncasted.editor.events.EditEvent;
+import java.util.Objects;
 
 /**
  * Event fired when the history state changes (command executed, undone, redone,
@@ -23,25 +21,25 @@ public class HistoryEvent implements EditEvent {
      */
     public enum ChangeType {
         /**
-         * A command was executed 
+         * A command was executed
          */
-        EXECUTED,
+        CMD_EXECUTED,
         /**
-         * A command was undone 
+         * A command was undone
          */
-        UNDONE,
+        CMD_UNDONE,
         /**
-         * A command was redone 
+         * A command was redone
          */
-        REDONE,
+        CMD_REDONE,
         /**
          * A command was skipped (moved from redo to undo without execution)
          */
-        SKIPPED,
+        CMD_SKIPPED,
         /**
          * History was cleared
          */
-        CLEARED
+        HIST_CLEARED
     }
 
     private final HistoryManager source;

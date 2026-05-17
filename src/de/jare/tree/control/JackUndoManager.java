@@ -175,19 +175,19 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
     protected void sayUndoRedoEvent(HistoryEvent historyEvent, final TreeModel model) {
         HistoryEvent.ChangeType changeType = historyEvent.getChangeType();
         switch (changeType) {
-            case ChangeType.EXECUTED:
+            case ChangeType.CMD_EXECUTED:
                 undoRedoOrator.say(l -> l.onExecute(model));
                 break;
-            case ChangeType.UNDONE:
+            case ChangeType.CMD_UNDONE:
                 undoRedoOrator.say(l -> l.onUndo(model));
                 break;
-            case ChangeType.REDONE:
+            case ChangeType.CMD_REDONE:
                 undoRedoOrator.say(l -> l.onRedo(model));
                 break;
-            case ChangeType.CLEARED:
+            case ChangeType.HIST_CLEARED:
                 undoRedoOrator.say(l -> l.onClear(model));
                 break;
-            case ChangeType.SKIPPED:
+            case ChangeType.CMD_SKIPPED:
                 undoRedoOrator.say(l -> l.onSkipped(model));
                 break;
             default:

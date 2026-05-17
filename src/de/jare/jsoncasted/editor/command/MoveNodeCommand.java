@@ -10,8 +10,11 @@ import de.jare.jsoncasted.editor.command.EditCommand.CommandType;
 import de.jare.jsoncasted.editor.command.EditCommandEntry.MovementEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
+
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 
 /**
  * Command that moves one or more nodes to new parent/index positions.
@@ -364,6 +367,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
         boolean[] successfullyRemoved = removeAll(tree, oldEntries);
         EditNode[] moved = addAll(tree, newEntries, successfullyRemoved);
+        EditNode[] failed = failed(tree, oldEntries, successfullyRemoved);
 
         return new CommandResult(
                 this,
@@ -372,6 +376,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
                 null,
                 null,
                 moved,
+                failed,
                 UPDATE_ACTIONS
         );
     }
@@ -391,6 +396,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
         boolean[] successfullyRemoved = removeAll(tree, newEntries);
         EditNode[] moved = addAll(tree, oldEntries, successfullyRemoved);
+        EditNode[] failed = failed(tree, oldEntries, successfullyRemoved);
 
         return new CommandResult(
                 this,
@@ -399,6 +405,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
                 null,
                 null,
                 moved,
+                failed,
                 UPDATE_ACTIONS
         );
     }
@@ -495,7 +502,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
     }
 
     private EditNode[] addAll(EditTree tree, MovementEntry[] entries, boolean[] successfullyRemoved) {
-        EditNode[] moved = new EditNode[entries.length];
+        List<EditNode> moved = new ArrayList<>();
         for (int i = 0; i < entries.length; i++) {
             if (!successfullyRemoved[i]) {
                 continue; // Skip adding if removal was not successful
@@ -520,9 +527,24 @@ public class MoveNodeCommand extends AbstractEditCommand {
             }
 
             parent.addChild(nodeToAdd, insertIndex);
-            moved[i] = nodeToAdd;
+            moved.add(nodeToAdd);
         }
-        return moved;
+        return moved.toArray(new EditNode[moved.size()]);
+    }
+
+    private EditNode[] failed(EditTree tree, MovementEntry[] entries, boolean[] successfullyRemoved) {
+        List<EditNode> failed = new ArrayList<>();
+        for (int i = 0; i < entries.length; i++) {
+            if (successfullyRemoved[i]) {
+                continue; // Skip if removal was successful
+            }
+            MovementEntry entry = entries[i];
+            EditNode node = tree.findNodeById(entry.nodeId);
+            if (node != null) {
+                failed.add(node);
+            }
+        }
+        return failed.toArray(new EditNode[failed.size()]);
     }
 
 }

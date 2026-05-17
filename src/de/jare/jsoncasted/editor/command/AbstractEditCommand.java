@@ -86,7 +86,7 @@ public abstract class AbstractEditCommand implements EditCommand {
             throw new IllegalArgumentException("Tree cannot be null");
         }
         if (consumeSkipped()) {
-            return new CommandResult(this, CommandAction.SKIPPED, null, null, null, null, NO_UPDATE_ACTIONS);
+            return new CommandResult(this, CommandAction.SKIPPED, null, null, null, null, null, NO_UPDATE_ACTIONS);
         }
         return doUndo(tree);
     }

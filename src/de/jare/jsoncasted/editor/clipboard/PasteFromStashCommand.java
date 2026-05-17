@@ -220,7 +220,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
                 pastedNodes, // affected nodes
                 pastedNodes, // added nodes
                 null, // removed nodes
-                null, // moved nodes
+                null, null, // moved nodes
                 NO_UPDATE_ACTIONS
         );
     }
@@ -244,7 +244,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
                 removedNodes, // affected nodes
                 null, // added nodes
                 removedNodes, // removed nodes
-                null, // moved nodes
+                null, null, // moved nodes
                 NO_UPDATE_ACTIONS
         );
     }

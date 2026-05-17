@@ -28,6 +28,7 @@ public final class CommandResult {
     private final EditNode[] addedNodes;
     private final EditNode[] removedNodes;
     private final EditNode[] updatedNodes;
+    private final EditNode[] failedNodes;
     private final UpdateAction[] updateActions;
 
     /**
@@ -39,24 +40,20 @@ public final class CommandResult {
      * @param addedNodes nodes that were added by the operation
      * @param removedNodes nodes that were removed by the operation
      * @param updatedNodes nodes that were updated by the operation
+     * @param failedNodes nodes that failed to be moved
      * @param updateActions recommended action for update
      * @throws NullPointerException if {@code trigger} or {@code action} is
      * {@code null}
      */
     public CommandResult(
-            EditCommand trigger,
-            CommandAction action,
-            EditNode[] affectedNodes,
-            EditNode[] addedNodes,
-            EditNode[] removedNodes,
-            EditNode[] updatedNodes,
-            UpdateAction[] updateActions) {
+            EditCommand trigger, CommandAction action, EditNode[] affectedNodes, EditNode[] addedNodes, EditNode[] removedNodes, EditNode[] updatedNodes, EditNode[] failedNodes, UpdateAction[] updateActions) {
         this.trigger = Objects.requireNonNull(trigger, "trigger");
         this.action = Objects.requireNonNull(action, "action");
         this.affectedNodes = affectedNodes != null ? affectedNodes.clone() : new EditNode[0];
         this.addedNodes = addedNodes != null ? addedNodes.clone() : new EditNode[0];
         this.removedNodes = removedNodes != null ? removedNodes.clone() : new EditNode[0];
         this.updatedNodes = updatedNodes != null ? updatedNodes.clone() : new EditNode[0];
+        this.failedNodes = failedNodes != null ? failedNodes.clone() : new EditNode[0];
         this.updateActions = updateActions != null ? updateActions : new UpdateAction[0];
     }
 
@@ -114,6 +111,15 @@ public final class CommandResult {
         return updatedNodes.clone();
     }
 
+
+    /**
+     * Returns the nodes that failed to be moved by the operation.
+     *
+     * @return a defensive copy of the failed nodes
+     */
+    public EditNode[] getFailedNodes() {
+        return failedNodes.clone();
+    }
     /**
      * Returns the recommended update actions for this result.
      *

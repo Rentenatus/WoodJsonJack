@@ -151,7 +151,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
                 removed,
                 null,
                 removed,
-                null,
+                null, null,
                 NO_UPDATE_ACTIONS
         );
     }
@@ -190,7 +190,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
                 restored,
                 restored,
                 null,
-                null,
+                null, null,
                 NO_UPDATE_ACTIONS
         );
     }

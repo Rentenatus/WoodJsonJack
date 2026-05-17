@@ -71,7 +71,7 @@ public class HistoryManager {
         redoStack.clear();
         trimToLimit();
 
-        fireHistoryEvent(HistoryEvent.ChangeType.EXECUTED,
+        fireHistoryEvent(HistoryEvent.ChangeType.CMD_EXECUTED,
                 command,
                 result
         );
@@ -94,7 +94,7 @@ public class HistoryManager {
         CommandResult result = command.undo(tree);
         redoStack.push(command);
 
-        fireHistoryEvent(HistoryEvent.ChangeType.UNDONE,
+        fireHistoryEvent(HistoryEvent.ChangeType.CMD_UNDONE,
                 command,
                 result
         );
@@ -118,7 +118,7 @@ public class HistoryManager {
         CommandResult redoResult = asAction(executeResult, CommandAction.REDO);
         undoStack.push(command);
 
-        fireHistoryEvent(HistoryEvent.ChangeType.REDONE,
+        fireHistoryEvent(HistoryEvent.ChangeType.CMD_REDONE,
                 command,
                 redoResult
         );
@@ -142,7 +142,7 @@ public class HistoryManager {
         command.skipped();
 
         fireHistoryEvent(
-                HistoryEvent.ChangeType.SKIPPED,
+                HistoryEvent.ChangeType.CMD_SKIPPED,
                 command,
                 null
         );
@@ -175,8 +175,7 @@ public class HistoryManager {
         undoStack.clear();
         redoStack.clear();
 
-        fireHistoryEvent(
-                HistoryEvent.ChangeType.CLEARED,
+        fireHistoryEvent(HistoryEvent.ChangeType.HIST_CLEARED,
                 null,
                 null
         );
@@ -294,7 +293,7 @@ public class HistoryManager {
                 result.getAffectedNodes(),
                 result.getAddedNodes(),
                 result.getRemovedNodes(),
-                result.getUpdatedNodes(),
+                result.getUpdatedNodes(), null,
                 result.getUpdateActions()
         );
     }
