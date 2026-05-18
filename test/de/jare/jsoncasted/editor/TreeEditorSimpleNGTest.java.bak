@@ -30,7 +30,7 @@ import org.testng.annotations.Test;
 /**
  * Simple integration tests for {@link TreeEditor} import/export and history.
  */
-public class TreeEditorSimpleNGTest {
+public class TreeEditorSimpleNGTest implements ATestTools {
 
     /**
      * Global switch for debug output in this test class.

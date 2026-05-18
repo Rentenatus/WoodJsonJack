@@ -74,7 +74,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
             };
         } else {
             this.newEntries = new MovementEntry[]{
-                new MovementEntry(node.getEditId(), newParentId, newIndex, null)
+                new MovementEntry(node.getEditId(), newParentId, newIndex, node.deepCopy(false))
             };
         }
 
@@ -514,9 +514,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
                 continue;
             }
 
-            EditNodeAbstract nodeToAdd = entry.snapshot != null
-                    ? entry.snapshot.deepCopy()
-                    : tree.findNodeById(entry.nodeId);
+            EditNodeAbstract nodeToAdd = entry.snapshot.deepCopy(false);
 
             if (nodeToAdd == null) {
                 continue;
@@ -540,10 +538,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
                 continue; // Skip if removal was successful
             }
             MovementEntry entry = entries[i];
-            EditNode node = tree.findNodeById(entry.nodeId);
-            if (node != null) {
-                failed.add(node);
-            }
+            failed.add(entry.snapshot);
         }
         return failed.toArray(new EditNodeAbstract[failed.size()]);
     }

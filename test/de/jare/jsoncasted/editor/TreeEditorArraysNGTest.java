@@ -15,7 +15,6 @@ import de.jare.jsoncasted.editor.command.SetValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
-
 import static org.testng.Assert.*;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -28,7 +27,7 @@ import org.testng.annotations.Test;
  * The tests resolve affected nodes from the tree after structural changes
  * instead of relying on original Java object references.</p>
  */
-public class TreeEditorArraysNGTest {
+public class TreeEditorArraysNGTest implements ATestTools {
 
     public TreeEditorArraysNGTest() {
     }
@@ -385,27 +384,4 @@ public class TreeEditorArraysNGTest {
         }
     }
 
-    private static void printTestHeader(String testName) {
-        System.out.println("===============================================");
-        System.out.println(testName);
-        System.out.println("===============================================");
-    }
-
-    private static void printTestFooter() {
-        System.out.println("===============================================");
-    }
-
-    private static void printCommandResult(String label, CommandResult result) {
-        System.out.println(label + ": " + result);
-    }
-
-    private static void printEditorState(TreeEditor editor, String label) {
-        System.out.println(label + ": " + editor.toDebugString());
-        System.out.println(editor.toHistoryString());
-    }
-
-    private static void printSubtree(TreeEditor editor, String label, EditNode node) {
-        System.out.println(label + ":");
-        System.out.println(editor.toTreeString(node));
-    }
 }

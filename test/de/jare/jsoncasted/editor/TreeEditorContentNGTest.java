@@ -6,15 +6,6 @@
  */
 package de.jare.jsoncasted.editor;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
-
 import de.jare.jsoncasted.editor.command.AddNodeCommand;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
@@ -24,11 +15,18 @@ import de.jare.jsoncasted.editor.command.SetValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 /**
  * Tests for content-oriented command operations such as rename and set value.
  */
-public class TreeEditorContentNGTest {
+public class TreeEditorContentNGTest implements ATestTools {
 
     public TreeEditorContentNGTest() {
     }
@@ -268,8 +266,8 @@ public class TreeEditorContentNGTest {
 
         editor.clearHistory();
         printEditorState(editor, "before move/rename/setValue");
-        printSubtree(editor, "source before move", sourceParent);
-        printSubtree(editor, "target before move", targetParent);
+        printSubtree(editor, "source before move/rename/setValue", sourceParent);
+        printSubtree(editor, "target before move/rename/setValue", targetParent);
 
         CommandResult moveCmd = editor.execute(new MoveNodeCommand(
                 new EditNodeAbstract[]{node1, node2, node3},
@@ -278,6 +276,9 @@ public class TreeEditorContentNGTest {
         ));
         assertNotNull(moveCmd);
         printCommandResult("moveResult", moveCmd);
+
+        printSubtree(editor, "source after move, before rename/setValue", sourceParent);
+        printSubtree(editor, "target after move, before rename/setValue", targetParent);
 
         node1 = targetParent.getChildAt(0);
         node2 = targetParent.getChildAt(1);
@@ -376,27 +377,4 @@ public class TreeEditorContentNGTest {
         printTestFooter();
     }
 
-    private static void printTestHeader(String testName) {
-        System.out.println("===============================================");
-        System.out.println(testName);
-        System.out.println("===============================================");
-    }
-
-    private static void printTestFooter() {
-        System.out.println("===============================================");
-    }
-
-    private static void printCommandResult(String label, CommandResult result) {
-        System.out.println(label + ": " + result);
-    }
-
-    private static void printEditorState(TreeEditor editor, String label) {
-        System.out.println(label + ": " + editor.toDebugString());
-        System.out.println(editor.toHistoryString());
-    }
-
-    private static void printSubtree(TreeEditor editor, String label, EditNode node) {
-        System.out.println(label + ":");
-        System.out.println(editor.toTreeString(node));
-    }
 }

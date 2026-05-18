@@ -17,7 +17,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class ClipboardIntegrationTestNG {
+public class ClipboardIntegrationTestNG implements ATestTools {
 
     public ClipboardIntegrationTestNG() {
     }
@@ -46,7 +46,6 @@ public class ClipboardIntegrationTestNG {
 
     private EditNode childA1;
     private EditNode childA2;
-    private EditNode childB1;
 
     @BeforeMethod
     public void setUp() {
@@ -61,7 +60,7 @@ public class ClipboardIntegrationTestNG {
 
         childA1 = treeA.addNewChild(rootA, "a1");
         childA2 = treeA.addNewChild(rootA, "a2");
-        childB1 = treeB.addNewChild(rootB, "b1");
+        treeB.addNewChild(rootB, "b1");
     }
 
     @Test
@@ -201,27 +200,4 @@ public class ClipboardIntegrationTestNG {
         printTestFooter();
     }
 
-    private static void printTestHeader(String testName) {
-        System.out.println("===============================================");
-        System.out.println(testName);
-        System.out.println("===============================================");
-    }
-
-    private static void printTestFooter() {
-        System.out.println("===============================================");
-    }
-
-    private static void printCommandResult(String label, CommandResult result) {
-        System.out.println(label + ": " + result);
-    }
-
-    private static void printEditorState(TreeEditor editor, String label) {
-        System.out.println(label + ": " + editor.toDebugString());
-        System.out.println(editor.toHistoryString());
-    }
-
-    private static void printSubtree(TreeEditor editor, String label, EditNode node) {
-        System.out.println(label + ":");
-        System.out.println(editor.toTreeString(node));
-    }
 }

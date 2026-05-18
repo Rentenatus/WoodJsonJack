@@ -20,7 +20,7 @@ import org.testng.asserts.SoftAssert;
  * copy/cut/paste of at least two nodes, followed by move and value change, then
  * undo/redo of the paste.
  */
-public class ClipboardEditMixTestNG {
+public class ClipboardEditMixTestNG implements ATestTools {
 
     public ClipboardEditMixTestNG() {
     }
@@ -274,27 +274,4 @@ public class ClipboardEditMixTestNG {
         printTestFooter();
     }
 
-    private static void printTestHeader(String testName) {
-        System.out.println("===============================================");
-        System.out.println(testName);
-        System.out.println("===============================================");
-    }
-
-    private static void printTestFooter() {
-        System.out.println("===============================================");
-    }
-
-    private static void printCommandResult(String label, CommandResult result) {
-        System.out.println(label + ": " + result);
-    }
-
-    private static void printEditorState(TreeEditor editor, String label) {
-        System.out.println(label + ": " + editor.toDebugString());
-        System.out.println(editor.toHistoryString());
-    }
-
-    private static void printSubtree(TreeEditor editor, String label, EditNode node) {
-        System.out.println(label + ":");
-        System.out.println(editor.toTreeString(node));
-    }
 }
