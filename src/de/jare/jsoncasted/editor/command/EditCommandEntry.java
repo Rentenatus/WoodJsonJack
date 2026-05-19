@@ -6,7 +6,6 @@
  */
 package de.jare.jsoncasted.editor.command;
 
-import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 /**
