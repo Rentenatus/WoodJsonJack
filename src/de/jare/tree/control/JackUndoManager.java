@@ -8,6 +8,7 @@ package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.events.HistoryEvent;
 import de.jare.jsoncasted.editor.events.HistoryEvent.ChangeType;
 import de.jare.jsoncasted.editor.events.HistoryListener;
@@ -240,6 +241,13 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
             return activeManager.getRedoLabels(max);
         }
         return List.of();
+    }
+
+    public boolean canPasteTo(EditNode targetData) {
+        //todo: implementiere sauber: canPasteTo(EditNode targetData)
+        System.out.println("//todo: implementiere sauber: canPasteTo(EditNode targetData)");
+        return false;
+
     }
 
 }

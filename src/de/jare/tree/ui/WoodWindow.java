@@ -93,6 +93,10 @@ public class WoodWindow extends JFrame {
         WoodEditPopup.installOn(editorTree1.getLeftTree().getTree(), popup);
         WoodEditPopup.installOn(editorTree2.getLeftTree().getTree(), popup);
 
+        JackWoodEditPopup jackPopup = new JackWoodEditPopup(jackmaster);
+        JackWoodEditPopup.installOn(editorTree2.getLeftTree().getTree(), jackPopup);
+        JackWoodEditPopup.installOn(editorTree2.getRightTree().getTree(), jackPopup);
+
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
         bottomTabs.addTab("Properties", createPropertiesPanel());
