@@ -12,6 +12,8 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Command that adds node(s) to the tree. When executed, the node(s) are
@@ -19,6 +21,8 @@ import java.util.Arrays;
  * removed from the tree.
  */
 public class AddNodeCommand extends AbstractEditCommand {
+
+    private static final UpdateAction[] UPDATE_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_UPDATED};
 
     private final MovementEntry[] entries;
 
@@ -130,24 +134,33 @@ public class AddNodeCommand extends AbstractEditCommand {
         }
 
         EditNodeAbstract[] added = new EditNodeAbstract[entries.length];
+        Set<EditNodeAbstract> parentSet = new HashSet<>();
+        Set<EditNodeAbstract> failedtSet = new HashSet<>();
 
         for (int i = 0; i < entries.length; i++) {
             MovementEntry entry = entries[i];
 
             // Snapshot liefert den Teilbaum, ID bleibt erhalten
             EditNodeAbstract newNode = entry.snapshot.deepCopy(false);
-            tree.addNode(entry.parentEditId, newNode, entry.index);
-            added[i] = newNode;
+            if (tree.addNode(entry.parentEditId, newNode, entry.index)) {
+                parentSet.add(tree.findNodeById(entry.parentEditId));
+                added[i] = newNode;
+            } else {
+                failedtSet.add(newNode);
+            }
+
         }
+        final EditNodeAbstract[] parents = parentSet.toArray(new EditNodeAbstract[parentSet.size()]);
 
         return new CommandResult(
                 this,
                 CommandAction.EXECUTE,
-                added,
-                added,
-                null,
-                null, null,
-                NO_UPDATE_ACTIONS
+                parents, // affectedNodes
+                added, // addedNodes
+                null, //removedNodes
+                parents, // updatedNodes
+                failedtSet.toArray(new EditNodeAbstract[failedtSet.size()]),
+                UPDATE_ACTIONS
         );
     }
 
@@ -155,6 +168,8 @@ public class AddNodeCommand extends AbstractEditCommand {
     public CommandResult doUndo(EditTree tree) {
 
         EditNodeAbstract[] removed = new EditNodeAbstract[entries.length];
+        Set<EditNodeAbstract> parentSet = new HashSet<>();
+        Set<EditNodeAbstract> failedtSet = new HashSet<>();
 
         // rueckwaerts, um Indizes stabil zu halten
         for (int i = entries.length - 1; i >= 0; i--) {
@@ -165,20 +180,26 @@ public class AddNodeCommand extends AbstractEditCommand {
 
             EditNodeAbstract existingNode = tree.findNodeById(id);
             if (existingNode == null) {
-                throw new IllegalStateException(
-                        "Cannot undo add: node with id " + id + " not found");
+                failedtSet.add(entry.snapshot);
+                continue;
+            }
+            final EditNodeAbstract parent = existingNode.getParent();
+            if (parent != null) {
+                parentSet.add(parent);
             }
             tree.removeNode(existingNode.getEditId());
             removed[i] = existingNode;
         }
+        final EditNodeAbstract[] parents = parentSet.toArray(new EditNodeAbstract[parentSet.size()]);
 
         return new CommandResult(
                 this,
                 CommandAction.UNDO,
-                removed,
-                null,
-                removed,
-                null, null,
+                parents, // affectedNodes
+                null, // addedNodes
+                removed,//removedNodes
+                parents, // updatedNodes
+                failedtSet.toArray(new EditNodeAbstract[failedtSet.size()]),
                 NO_UPDATE_ACTIONS
         );
     }
