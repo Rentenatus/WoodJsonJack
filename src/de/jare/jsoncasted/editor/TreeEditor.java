@@ -9,16 +9,9 @@ package de.jare.jsoncasted.editor;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.jsoncasted.editor.core.EditNodeObject;
-import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.events.EventBus;
 import de.jare.jsoncasted.editor.events.HistoryManager;
-import de.jare.jsoncasted.lang.JsonNode;
-import de.jare.jsoncasted.lang.JsonNodeType;
-import de.jare.jsoncasted.lang.JsonResource;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Main facade for the headless JSON tree editor core.

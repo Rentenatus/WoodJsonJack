@@ -70,20 +70,25 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
     // ========== Factory methods ==========
     @Override
     public EditNodeAbstract addNewChild(String aName) {
-        EditNodeObject child = new EditNodeObject(aName);
+        EditNodeObject child = createChild(aName);
         addChild(child);
         return child;
     }
 
     @Override
     EditNodeAbstract addNewChild(String aName, int index) {
-        EditNodeObject child = new EditNodeObject(aName);
+        EditNodeObject child = createChild(aName);
         addChild(child, index);
         return child;
     }
 
     @Override
-    public EditNodeAbstract createNeighbor(String aName) {
+    public EditNodeObject createChild(String aName) {
+        return new EditNodeObject(aName);
+    }
+
+    @Override
+    public EditNodeProperty createNeighbor(String aName) {
         return new EditNodeProperty(aName);
     }
 

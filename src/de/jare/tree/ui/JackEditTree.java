@@ -6,8 +6,11 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.TreeEditor;
+import de.jare.jsoncasted.editor.command.AddNodeCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
@@ -254,30 +257,23 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     private void addNode() {
-//        TreePath path = tree.getSelectionPath();
-//        if (path == null) {
-//            return;
-//        }
-//        DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
-//        Object uo = selected.getUserObject();
-//        if (!(uo instanceof EditNode data)) {
-//            return; // Sicherheitsnetz
-//        }
-//
-//        // neuen Kind-Knoten erzeugen
-//        EditNode childData = data.createChild("new");
-//        DefaultMutableTreeNode child = new DefaultMutableTreeNode(childData);
-//        selected.add(child);
-//        ((DefaultTreeModel) tree.getModel()).reload(selected);
-//        master.getUndoManager().pushCommand(new WoodCommandAddNodes(
-//                new DefaultMutableTreeNode[]{child},
-//                new DefaultMutableTreeNode[]{selected},
-//                selected.getIndex(child)
-//        ));
-//
-//        TreePath newPath = new TreePath(child.getPath());
-//        tree.setSelectionPath(newPath);
-//        tree.scrollPathToVisible(newPath);
+        TreePath path = jtree.getSelectionPath();
+        if (path == null) {
+            return;
+        }
+        DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
+        Object uo = selected.getUserObject();
+        if (!(uo instanceof EditNodeAbstract selectedData)) {
+            return; // Secure
+        }
+
+        long selEditId = selectedData.getEditId();
+        EditNodeAbstract newNode = selectedData.createChild("new");
+        AddNodeCommand command = new AddNodeCommand(selEditId, newNode);
+
+        if (master != null) {
+            master.getUndoManager().executeCommand(command);
+        }
     }
 
     private void deleteNode() {

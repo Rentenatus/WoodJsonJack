@@ -103,7 +103,7 @@ public class JackMasterControl {
         selectionOrator.say(l -> l.onNodeSelected(node, trigger, rootSelected));
     }
 
-    public void fireCommand(String commandId, Object trigger) {
+    public void fireContentCommand(String commandId, Object trigger) {
         contentOrator.say(l -> l.onCommand(commandId, trigger));
     }
 

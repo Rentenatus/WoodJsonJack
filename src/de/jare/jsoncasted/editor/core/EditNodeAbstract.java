@@ -131,6 +131,8 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
 
     abstract EditNodeAbstract addNewChild(String aName, int index);
 
-    abstract EditNodeAbstract createNeighbor(String aName);
+    public abstract EditNodeAbstract createChild(String aName);
+
+    public abstract EditNodeAbstract createNeighbor(String aName);
 
 }

@@ -6,9 +6,12 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.tree.control.model.JackTreeModel;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.MasterControl;
-import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.commands.WoodCommandAddNodes;
 import de.jare.tree.control.commands.WoodCommandDeleteNodes;
 import de.jare.tree.control.listeners.ContentListener;
@@ -16,15 +19,10 @@ import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
-import de.jare.jsoncasted.editor.core.EditNodeObject;
-import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.tree.control.model.JackTreeModel;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.tree.*;
-import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.jsoncasted.editor.core.EditNodeAbstract;
-import de.jare.jsoncasted.editor.core.EditTree;
-import de.jare.tree.control.JackMasterControl;
 
 public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
 

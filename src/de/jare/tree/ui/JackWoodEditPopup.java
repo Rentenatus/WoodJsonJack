@@ -31,9 +31,9 @@ public class JackWoodEditPopup extends JPopupMenu {
         JMenuItem deleteNodeItem = new JMenuItem("Node löschen");
         JMenuItem renameNodeItem = new JMenuItem("Node umbenennen");
 
-        addNodeItem.addActionListener(e -> master.fireCommand(EDIT_ADD_NODE, this));
-        deleteNodeItem.addActionListener(e -> master.fireCommand(EDIT_DELETE_NODE, this));
-        renameNodeItem.addActionListener(e -> master.fireCommand(EDIT_RENAME_NODE, this));
+        addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
+        deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
+        renameNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_RENAME_NODE, this));
 
         add(addNodeItem);
         add(deleteNodeItem);
@@ -43,9 +43,9 @@ public class JackWoodEditPopup extends JPopupMenu {
         JMenuItem cutItem = new JMenuItem("Cut");
         JMenuItem pasteItem = new JMenuItem("Paste");
 
-        copyItem.addActionListener(e -> master.fireCommand(EDIT_COPY, this));
-        cutItem.addActionListener(e -> master.fireCommand(EDIT_CUT, this));
-        pasteItem.addActionListener(e -> master.fireCommand(EDIT_PASTE, this));
+        copyItem.addActionListener(e -> master.fireContentCommand(EDIT_COPY, this));
+        cutItem.addActionListener(e -> master.fireContentCommand(EDIT_CUT, this));
+        pasteItem.addActionListener(e -> master.fireContentCommand(EDIT_PASTE, this));
 
         addSeparator();
         add(copyItem);
