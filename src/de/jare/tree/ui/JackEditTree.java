@@ -6,11 +6,13 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.jsoncasted.editor.TreeEditor;
 import de.jare.jsoncasted.editor.command.AddNodeCommand;
-import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.command.UpdateAction;
+import static de.jare.jsoncasted.editor.command.UpdateAction.REBUILD_AFFECTED;
+import static de.jare.jsoncasted.editor.command.UpdateAction.SELECT_UPDATED;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
-import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
@@ -25,13 +27,18 @@ import java.awt.*;
 import javax.swing.*;
 import javax.swing.tree.*;
 
-public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocusListener, ContentListener, FocusListener, UndoRedoListener {
+public class JackEditTree extends JPanel implements TreeFocusComponent {
 
     private final JackMasterControl master;
     private final JTree jtree;
     private final JPanel headerPanel;
     private final JLabel resourceLabel;
     private final JCheckBox linkCheckBox;
+
+    private final TreeFocusListenerImpl treeFocusListener;
+    private final ContentListenerImpl contentListener;
+    private final FocusListenerImpl focusListener;
+    private final UndoRedoListenerImpl undoRedoListener;
 
     public JackEditTree(String rootName, String... propNames) {
         this(null, rootName, propNames);
@@ -104,13 +111,160 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
             root.add(new DefaultMutableTreeNode(childData));
         }
 
+        // Initialize listener implementations
+        treeFocusListener = new TreeFocusListenerImpl();
+        contentListener = new ContentListenerImpl();
+        focusListener = new FocusListenerImpl();
+        undoRedoListener = new UndoRedoListenerImpl();
+
         if (master != null) {
-            master.addSelectionListener(1, this);
-            master.addContentListener(1, this);
-            master.addFocusListener(1, this);
+            master.addSelectionListener(1, treeFocusListener);
+            master.addContentListener(1, contentListener);
+            master.addFocusListener(1, focusListener);
+            master.addUndoRedoListener(8, undoRedoListener);
         }
     }
 
+    // ========== TreeFocusListener Implementation ==========
+    private class TreeFocusListenerImpl implements TreeFocusListener {
+
+        @Override
+        public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+            // Nur reagieren, wenn dieser Editor aktuell aktiv ist
+            if (master != null && master.getActiveEditor() != JackEditTree.this) {
+                return;
+            }
+
+            if (!(node instanceof DefaultMutableTreeNode dmtn)) {
+                return;
+            }
+            DefaultTreeModel model = (DefaultTreeModel) jtree.getModel();
+            DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
+
+            TreePath path = findPath(root, dmtn);
+            if (path != null) {
+                jtree.scrollPathToVisible(path);
+                if (trigger == JackEditTree.this) {
+                    return; // Selbst ausgeloest
+                }
+                jtree.setSelectionPath(path);
+            }
+        }
+
+        @Override
+        public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
+            if (master == null || editor != JackEditTree.this) {
+                return;
+            }
+            TreePath path = jtree.getSelectionPath();
+            master.fireSelection(path == null ? null : path.getLastPathComponent(), JackEditTree.this, false);
+        }
+    }
+
+    // ========== ContentListener Implementation ==========
+    private class ContentListenerImpl implements ContentListener {
+
+        @Override
+        public void onCommand(String commandId, Object trigger) {
+            if (master != null && master.getActiveEditor() != JackEditTree.this) {
+                return;
+            }
+            switch (commandId) {
+                case EDIT_ADD_NODE ->
+                    addNode();
+                case EDIT_DELETE_NODE ->
+                    deleteNode();
+                case EDIT_RENAME_NODE ->
+                    renameNode();
+                case EDIT_COPY ->
+                    copySelection(false);
+                case EDIT_CUT ->
+                    copySelection(true);
+                case EDIT_PASTE ->
+                    pasteClipboard();
+            }
+        }
+    }
+
+    // ========== FocusListener Implementation ==========
+    private class FocusListenerImpl implements FocusListener {
+
+        @Override
+        public void onFocusGained() {
+            // aktuellen selektierten Knoten erneut melden
+            if (master != null && master.getActiveEditor() == JackEditTree.this) {
+                DefaultMutableTreeNode node
+                        = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
+                master.fireSelection(node, JackEditTree.this, false);
+            }
+        }
+
+        @Override
+        public void onFocusLost() {
+            if (jtree.isEditing()) {
+                jtree.cancelEditing();
+            }
+        }
+    }
+
+    // ========== UndoRedoListener Implementation ==========
+    private class UndoRedoListenerImpl implements UndoRedoListener {
+
+        @Override
+        public void onUndo(TreeModel model, CommandResult cmdResult) {
+
+            doRefreshIfModel(model, cmdResult);
+        }
+
+        @Override
+        public void onExecute(TreeModel model, CommandResult cmdResult) {
+            doRefreshIfModel(model, cmdResult);
+        }
+
+        @Override
+        public void onSkipped(TreeModel model, EditCommand command) {
+            // NoOp here
+        }
+    }
+
+    private void doRefreshIfModel(TreeModel model, CommandResult cmdResult) {
+        if (model != jtree.getModel()) {
+            return;
+        }
+        Runnable uiTask = () -> applyUndoRedoResult(cmdResult);
+        SwingUtilities.invokeLater(uiTask);
+    }
+
+    private void applyUndoRedoResult(CommandResult result) {
+        boolean fallbackReload = false;
+
+        for (UpdateAction update : result.getUpdateActions()) {
+            switch (update) {
+                case REBUILD_AFFECTED -> {
+                    // Selection handling is managed by the model, so we can ignore this action in the model.
+                    break;
+                }
+                case SELECT_UPDATED -> {
+                    // todo
+                    break;
+                }
+                default -> {
+                    // Unknown update action, consider fallback reload to ensure consistency.
+                    fallbackReload = true;
+                }
+            }
+            if (fallbackReload) {
+                break;
+            }
+        }
+
+        if (fallbackReload) {
+            revalidate();
+            repaint();
+        }
+    }
+
+    // ========== JackEditTree itself ==========
     @Override
     public JackMasterControl getJackMaster() {
         return master;
@@ -147,79 +301,6 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         resourceLabel.setText(text);
     }
 
-    @Override
-    public void onUndo(TreeModel model) {
-        doRefreshIfModel(model);
-    }
-
-    @Override
-    public void onExecute(TreeModel model) {
-        doRefreshIfModel(model);
-    }
-
-    @Override
-    public void onSkipped(TreeModel model) {
-        doRefreshIfModel(model);
-    }
-
-    private void doRefreshIfModel(TreeModel model) {
-        if (model != jtree.getModel()) {
-            return;
-        }
-        ((DefaultTreeModel) jtree.getModel()).reload();
-        revalidate();
-        repaint();
-    }
-
-    @Override
-    public void onFocusGained() {
-        // aktuellen selektierten Knoten erneut melden
-        if (master != null && master.getActiveEditor() == this) {
-            DefaultMutableTreeNode node
-                    = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
-            master.fireSelection(node, this, false);
-        }
-    }
-
-    @Override
-    public void onFocusLost() {
-        if (jtree.isEditing()) {
-            jtree.cancelEditing();
-        }
-    }
-
-    @Override
-    public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
-        // Nur reagieren, wenn dieser Editor aktuell aktiv ist
-        if (master != null && master.getActiveEditor() != this) {
-            return;
-        }
-
-        if (!(node instanceof DefaultMutableTreeNode dmtn)) {
-            return;
-        }
-        DefaultTreeModel model = (DefaultTreeModel) jtree.getModel();
-        DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
-
-        TreePath path = findPath(root, dmtn);
-        if (path != null) {
-            jtree.scrollPathToVisible(path);
-            if (trigger == this) {
-                return; // Selbst ausgeloest
-            }
-            jtree.setSelectionPath(path);
-        }
-    }
-
-    @Override
-    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
-        if (master == null || editor != this) {
-            return;
-        }
-        TreePath path = jtree.getSelectionPath();
-        master.fireSelection(path == null ? null : path.getLastPathComponent(), this, false);
-    }
-
     private TreePath findPath(DefaultMutableTreeNode root, DefaultMutableTreeNode target) {
         if (root == target) {
             return new TreePath(root.getPath());
@@ -232,28 +313,6 @@ public class JackEditTree extends JPanel implements TreeFocusComponent, TreeFocu
             }
         }
         return null;
-    }
-
-    @Override
-    public void onCommand(String commandId, Object trigger) {
-        if (master != null && master.getActiveEditor() != this) {
-            return;
-        }
-        switch (commandId) {
-            case EDIT_ADD_NODE ->
-                addNode();
-            case EDIT_DELETE_NODE ->
-                deleteNode();
-            case EDIT_RENAME_NODE ->
-                renameNode();
-            case EDIT_COPY ->
-                copySelection(false);
-            case EDIT_CUT ->
-                copySelection(true);
-            case EDIT_PASTE ->
-                pasteClipboard();
-
-        }
     }
 
     private void addNode() {

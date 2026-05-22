@@ -6,21 +6,23 @@
  */
 package de.jare.tree.control.listeners;
 
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import javax.swing.tree.TreeModel;
 
 public interface UndoRedoListener {
 
-    void onExecute(TreeModel model);
+    void onExecute(TreeModel model, CommandResult historyEvent);
 
-    void onUndo(TreeModel model);
+    void onUndo(TreeModel model, CommandResult historyEvent);
 
-    default void onRedo(TreeModel model) {
-        onExecute(model);
+    default void onRedo(TreeModel model, CommandResult historyEvent) {
+        onExecute(model, historyEvent);
     }
 
-    void onSkipped(TreeModel model);
+    void onSkipped(TreeModel model, EditCommand command);
 
-    default void onAddCommand(TreeModel model) {
+    default void onAddCommand(TreeModel model, EditCommand command) {
         // NoOp
     }
 

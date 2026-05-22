@@ -98,7 +98,7 @@ public class JackMasterControl {
         selectionOrator.say(l -> l.onEditorSelected(editor, trigger));
     }
 
-    // Vom aktiven Editor gerufen, wenn sich die Node-Selektion ?ndert
+    
     public void fireSelection(Object node, Object trigger, boolean rootSelected) {
         selectionOrator.say(l -> l.onNodeSelected(node, trigger, rootSelected));
     }

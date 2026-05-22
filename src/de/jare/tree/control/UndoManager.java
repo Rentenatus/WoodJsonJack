@@ -70,7 +70,7 @@ public class UndoManager implements TreeFocusListener {
     public void pushCommand(WoodCommand command) {
         if (activeManager != null) {
             activeManager.pushCommand(command);
-            undoRedoOrator.say(l -> l.onAddCommand(activeManager.getTreeModel()));
+            undoRedoOrator.say(l -> l.onAddCommand(activeManager.getTreeModel(), null));
         }
     }
 
@@ -81,7 +81,7 @@ public class UndoManager implements TreeFocusListener {
         if (activeManager != null) {
             WoodCommand cmd = activeManager.undo();
             if (cmd != null) {
-                undoRedoOrator.say(l -> l.onUndo(activeManager.getTreeModel()));
+                undoRedoOrator.say(l -> l.onUndo(activeManager.getTreeModel(), null));
             }
         }
     }
@@ -93,7 +93,7 @@ public class UndoManager implements TreeFocusListener {
         if (activeManager != null) {
             WoodCommand cmd = activeManager.redo();
             if (cmd != null) {
-                undoRedoOrator.say(l -> l.onExecute(activeManager.getTreeModel()));
+                undoRedoOrator.say(l -> l.onExecute(activeManager.getTreeModel(), null));
             }
         }
     }
@@ -102,7 +102,7 @@ public class UndoManager implements TreeFocusListener {
         if (activeManager != null) {
             WoodCommand cmd = activeManager.skip_redo();
             if (cmd != null) {
-                undoRedoOrator.say(l -> l.onExecute(activeManager.getTreeModel()));
+                undoRedoOrator.say(l -> l.onExecute(activeManager.getTreeModel(), null));
             }
         }
     }

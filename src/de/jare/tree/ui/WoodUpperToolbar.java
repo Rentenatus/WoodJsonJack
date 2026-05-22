@@ -6,6 +6,8 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.SelectionStackManager;
 import de.jare.tree.control.UndoManager;
@@ -150,21 +152,22 @@ public class WoodUpperToolbar extends JPanel implements ContentListener, TreeFoc
     }
 
     @Override
-    public void onUndo(TreeModel model) {
+    public void onUndo(TreeModel model, CommandResult historyEvent) {
         updateButtons();
     }
 
     @Override
-    public void onExecute(TreeModel model) {
-        updateButtons();
-    }
-
-    public void onSkipped(TreeModel model) {
+    public void onExecute(TreeModel model, CommandResult historyEvent) {
         updateButtons();
     }
 
     @Override
-    public void onAddCommand(TreeModel model) {
+    public void onSkipped(TreeModel model, EditCommand command) {
+        updateButtons();
+    }
+
+    @Override
+    public void onAddCommand(TreeModel model, EditCommand command) {
         SwingUtilities.invokeLater(this::updateButtons);
     }
 

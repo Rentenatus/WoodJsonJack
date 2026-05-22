@@ -6,6 +6,8 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
@@ -144,17 +146,17 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
     }
 
     @Override
-    public void onUndo(TreeModel model) {
+    public void onUndo(TreeModel model, CommandResult historyEvent) {
         doRefreshIfModel(model);
     }
 
     @Override
-    public void onExecute(TreeModel model) {
+    public void onExecute(TreeModel model, CommandResult historyEvent) {
         doRefreshIfModel(model);
     }
 
     @Override
-    public void onSkipped(TreeModel model) {
+    public void onSkipped(TreeModel model, EditCommand command) {
         doRefreshIfModel(model);
     }
 

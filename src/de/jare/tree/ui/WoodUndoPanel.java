@@ -6,6 +6,8 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.UndoManager;
 import de.jare.tree.control.commands.WoodCommand;
@@ -51,25 +53,25 @@ public class WoodUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     }
 
     @Override
-    public void onAddCommand(TreeModel tm) {
+    public void onAddCommand(TreeModel tm, EditCommand command) {
         undoModel.fireTableDataChanged();
         SwingUtilities.invokeLater(this::selectCurrent);
     }
 
     @Override
-    public void onUndo(TreeModel tm) {
+    public void onUndo(TreeModel tm, CommandResult historyEvent) {
         undoModel.fireTableDataChanged();
         selectCurrent();
     }
 
     @Override
-    public void onExecute(TreeModel tm) {
+    public void onExecute(TreeModel tm, CommandResult historyEvent) {
         undoModel.fireTableDataChanged();
         selectCurrent();
     }
 
     @Override
-    public void onSkipped(TreeModel model) {
+    public void onSkipped(TreeModel model, EditCommand command) {
         undoModel.fireTableDataChanged();
         selectCurrent();
     }
