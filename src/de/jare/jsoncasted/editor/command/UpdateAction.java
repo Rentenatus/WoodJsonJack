@@ -12,5 +12,6 @@ package de.jare.jsoncasted.editor.command;
  */
 public enum UpdateAction {
     REBUILD_AFFECTED,
+    SELECT_ADDED,
     SELECT_UPDATED
 }

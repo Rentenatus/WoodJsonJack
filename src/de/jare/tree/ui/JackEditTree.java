@@ -11,7 +11,9 @@ import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.command.UpdateAction;
 import static de.jare.jsoncasted.editor.command.UpdateAction.REBUILD_AFFECTED;
+import static de.jare.jsoncasted.editor.command.UpdateAction.SELECT_ADDED;
 import static de.jare.jsoncasted.editor.command.UpdateAction.SELECT_UPDATED;
+import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.tree.control.JackMasterControl;
@@ -24,6 +26,9 @@ import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
 import de.jare.tree.control.model.JackTreeModel;
 import java.awt.*;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 import javax.swing.*;
 import javax.swing.tree.*;
 
@@ -225,42 +230,140 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         public void onSkipped(TreeModel model, EditCommand command) {
             // NoOp here
         }
-    }
 
-    private void doRefreshIfModel(TreeModel model, CommandResult cmdResult) {
-        if (model != jtree.getModel()) {
-            return;
+        private void doRefreshIfModel(TreeModel model, CommandResult cmdResult) {
+            if (model != jtree.getModel()) {
+                return;
+            }
+            Runnable uiTask = () -> applyUndoRedoResult(cmdResult);
+            SwingUtilities.invokeLater(uiTask);
         }
-        Runnable uiTask = () -> applyUndoRedoResult(cmdResult);
-        SwingUtilities.invokeLater(uiTask);
-    }
 
-    private void applyUndoRedoResult(CommandResult result) {
-        boolean fallbackReload = false;
+        private void applyUndoRedoResult(CommandResult result) {
+            boolean fallbackReload = false;
 
-        for (UpdateAction update : result.getUpdateActions()) {
-            switch (update) {
-                case REBUILD_AFFECTED -> {
-                    // Selection handling is managed by the model, so we can ignore this action in the model.
-                    break;
+            for (UpdateAction update : result.getUpdateActions()) {
+                switch (update) {
+                    case REBUILD_AFFECTED -> {
+                        fallbackReload = handleRebuildAffected(result);
+                        break;
+                    }
+                    case SELECT_ADDED -> {
+                        selectEditNodes(result.getAddedNodes());
+                        break;
+                    }
+                    case SELECT_UPDATED -> {
+                        selectEditNodes(result.getUpdatedNodes());
+                        break;
+                    }
+                    default -> {
+                        // Unknown update action, consider fallback reload to ensure consistency.
+                        fallbackReload = true;
+                    }
                 }
-                case SELECT_UPDATED -> {
-                    // todo
+                if (fallbackReload) {
                     break;
-                }
-                default -> {
-                    // Unknown update action, consider fallback reload to ensure consistency.
-                    fallbackReload = true;
                 }
             }
+
             if (fallbackReload) {
-                break;
+                getModel().rebuildFromDomain();
+                revalidate();
+                repaint();
             }
         }
 
-        if (fallbackReload) {
-            revalidate();
-            repaint();
+        private boolean handleRebuildAffected(CommandResult result) {
+            boolean fallbackReload = false;
+            for (EditNode editNode : result.getAffectedNodes()) {
+                fallbackReload |= !handleRebuildNode(editNode);
+            }
+            return fallbackReload;
+        }
+
+        private boolean handleRebuildNode(EditNode editNode) {
+            if (editNode == null) {
+                return false;
+            }
+            JackTreeModel model = getModel();
+            DefaultMutableTreeNode mutableTreeNode = model.findNodeById(editNode.getEditId());
+            if (mutableTreeNode == null) {
+                return true;
+            }
+            TreePath rootPath = new TreePath(mutableTreeNode.getPath());
+            Set<TreePath> expanded = saveExpandedPaths(rootPath);
+            mutableTreeNode.removeAllChildren();
+            model.buildSubtreeStructureChanged(mutableTreeNode, editNode);
+
+            restoreExpandedPaths(expanded);
+            return true;
+        }
+
+        private boolean handleUpdatedNode(EditNode editNode) {
+            if (editNode == null) {
+                return false;
+            }
+
+            JackTreeModel model = getModel();
+            DefaultMutableTreeNode swingNode = model.findNodeById(editNode.getEditId());
+            if (swingNode == null) {
+                return false;
+            }
+
+            swingNode.setUserObject(editNode);
+            model.nodeChanged(swingNode);
+            return true;
+        }
+
+        private boolean handleAddedNode(EditNode editNode) {
+            if (editNode == null) {
+                return false;
+            }
+
+            JackTreeModel model = getModel();
+            DefaultMutableTreeNode swingNode = model.findNodeById(editNode.getEditId());
+            if (swingNode != null) {
+                return true;
+            }
+
+            EditNode parentEditNode = editNode.getParent();
+            if (parentEditNode == null) {
+                return false;
+            }
+
+            DefaultMutableTreeNode parentSwingNode = model.findNodeById(parentEditNode.getEditId());
+            if (parentSwingNode == null) {
+                return false;
+            }
+
+            DefaultMutableTreeNode newSwingNode = JackTreeModel.buildSubtree(editNode);
+            int index = model.resolveChildIndex(parentEditNode, editNode);
+            if (index < 0 || index > parentSwingNode.getChildCount()) {
+                index = parentSwingNode.getChildCount();
+            }
+
+            model.insertNodeInto(newSwingNode, parentSwingNode, index);
+            return true;
+        }
+
+        private boolean handleRemovedNode(EditNode editNode) {
+            if (editNode == null) {
+                return false;
+            }
+
+            JackTreeModel model = getModel();
+            DefaultMutableTreeNode swingNode = model.findNodeById(editNode.getEditId());
+            if (swingNode == null) {
+                return false;
+            }
+
+            if (swingNode.getParent() != null) {
+                model.removeNodeFromParent(swingNode);
+            } else {
+                return false;
+            }
+
+            return true;
         }
     }
 
@@ -313,6 +416,54 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             }
         }
         return null;
+    }
+
+    /**
+     * Selects the given EditNodeAbstract nodes in the tree.Finds the
+     * corresponding tree nodes and sets the selection paths.
+     *
+     * @param nodes
+     */
+    public void selectEditNodes(EditNodeAbstract[] nodes) {
+        if (nodes == null || nodes.length == 0) {
+            return;
+        }
+
+        TreePath[] paths = new TreePath[nodes.length];
+        int pathCount = 0;
+
+        for (EditNodeAbstract node : nodes) {
+            DefaultMutableTreeNode treeNode = getModel().findNodeById(node.getEditId());
+            if (treeNode != null) {
+                paths[pathCount++] = new TreePath(treeNode.getPath());
+            }
+        }
+
+        if (pathCount > 0) {
+            TreePath[] selectedPaths = new TreePath[pathCount];
+            System.arraycopy(paths, 0, selectedPaths, 0, pathCount);
+            jtree.setSelectionPaths(selectedPaths);
+            if (selectedPaths.length > 0) {
+                jtree.scrollPathToVisible(selectedPaths[0]);
+            }
+        }
+    }
+
+    private Set<TreePath> saveExpandedPaths(TreePath rootPath) {
+        Set<TreePath> expanded = new HashSet<>();
+        Enumeration<TreePath> e = jtree.getExpandedDescendants(rootPath);
+        if (e != null) {
+            while (e.hasMoreElements()) {
+                expanded.add(e.nextElement());
+            }
+        }
+        return expanded;
+    }
+
+    private void restoreExpandedPaths(Set<TreePath> paths) {
+        for (TreePath p : paths) {
+            jtree.expandPath(p);
+        }
     }
 
     private void addNode() {

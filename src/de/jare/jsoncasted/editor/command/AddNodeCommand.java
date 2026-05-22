@@ -22,7 +22,8 @@ import java.util.Set;
  */
 public class AddNodeCommand extends AbstractEditCommand {
 
-    private static final UpdateAction[] UPDATE_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_UPDATED};
+    private static final UpdateAction[] ON_ADD_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_ADDED};
+    private static final UpdateAction[] ON_REMOVE_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_UPDATED};
 
     private final MovementEntry[] entries;
 
@@ -160,7 +161,7 @@ public class AddNodeCommand extends AbstractEditCommand {
                 null, //removedNodes
                 parents, // updatedNodes
                 failedtSet.toArray(new EditNodeAbstract[failedtSet.size()]),
-                UPDATE_ACTIONS
+                ON_ADD_ACTIONS
         );
     }
 
@@ -200,7 +201,7 @@ public class AddNodeCommand extends AbstractEditCommand {
                 removed,//removedNodes
                 parents, // updatedNodes
                 failedtSet.toArray(new EditNodeAbstract[failedtSet.size()]),
-                NO_UPDATE_ACTIONS
+                ON_REMOVE_ACTIONS
         );
     }
 
