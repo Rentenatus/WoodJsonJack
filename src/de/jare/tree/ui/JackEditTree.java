@@ -291,11 +291,11 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                 return true;
             }
             TreePath rootPath = new TreePath(mutableTreeNode.getPath());
-            Set<TreePath> expanded = saveExpandedPaths(rootPath);
+            Set<Long> expandedEditIds = saveExpandedEditIds(rootPath);
             mutableTreeNode.removeAllChildren();
             model.buildSubtreeStructureChanged(mutableTreeNode, editNode);
 
-            restoreExpandedPaths(expanded);
+            restoreExpandedPaths(expandedEditIds);
             return true;
         }
 
@@ -449,20 +449,33 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
     }
 
-    private Set<TreePath> saveExpandedPaths(TreePath rootPath) {
-        Set<TreePath> expanded = new HashSet<>();
+    private Set<Long> saveExpandedEditIds(TreePath rootPath) {
+        Set<Long> editIds = new HashSet<>();
         Enumeration<TreePath> e = jtree.getExpandedDescendants(rootPath);
         if (e != null) {
             while (e.hasMoreElements()) {
-                expanded.add(e.nextElement());
+                TreePath path = e.nextElement();
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+                Object userObject = node.getUserObject();
+                if (userObject instanceof EditNodeAbstract editNode) {
+                    editIds.add(editNode.getEditId());
+                }
             }
         }
-        return expanded;
+        return editIds;
     }
 
-    private void restoreExpandedPaths(Set<TreePath> paths) {
-        for (TreePath p : paths) {
-            jtree.expandPath(p);
+    private void restoreExpandedPaths(Set<Long> editIds) {
+        if (editIds == null || editIds.isEmpty()) {
+            return;
+        }
+        JackTreeModel model = getModel();
+        for (Long editId : editIds) {
+            DefaultMutableTreeNode node = model.findNodeById(editId);
+            if (node != null) {
+                TreePath path = new TreePath(node.getPath());
+                jtree.expandPath(path);
+            }
         }
     }
 
