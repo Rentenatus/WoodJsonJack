@@ -20,8 +20,8 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
         this.type = "";
     }
 
-    public EditNodeProperty(long editId, String propName, String type, String primValue) {
-        super(editId, primValue, propName);
+    public EditNodeProperty(long editId, long leftRange, long rightRange, String propName, String type, String primValue) {
+        super(editId, leftRange, rightRange, primValue, propName);
         this.propName = propName;
         this.type = type;
     }
@@ -96,6 +96,7 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
     @Override
     public EditNodeAbstract deepCopy(boolean regenerateEditId) {
         EditNodeProperty copy = new EditNodeProperty(
+                getLeftRange(), getRightRange(),
                 regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : getEditId(),
                 propName, type, getValue());
 

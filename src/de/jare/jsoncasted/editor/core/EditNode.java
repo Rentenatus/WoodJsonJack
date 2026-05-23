@@ -48,18 +48,17 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
 
     String getEditText();
 
+    public long getLeftRange();
+
+    public void setLeftRange(long leftRange);
+
+    public long getRightRange();
+
+    public void setRightRange(long rightRange);
+
     void setEditText(String editText);
 
     // ========== Tree structure methods ==========
-    /**
-     * Returns a unique identifier for this node (alias for getEditId)
-     *
-     * @return
-     */
-    default long getId() {
-        return getEditId();
-    }
-
     /**
      * Returns the display name of this node
      *
@@ -113,6 +112,8 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
     List<EditNode> getChildren();
 
     int getChildCount();
+
+    int getWeight();
 
     EditNode getChildAt(int index);
 

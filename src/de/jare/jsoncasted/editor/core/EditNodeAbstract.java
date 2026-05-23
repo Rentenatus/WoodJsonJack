@@ -16,18 +16,35 @@ import java.util.List;
  */
 public abstract non-sealed class EditNodeAbstract implements EditNode {
 
+    public final static long LEFT = Long.MIN_VALUE + 1;
+    public final static long RIGHT = Long.MAX_VALUE - 1;
+
     private final long editId;
+    private long leftRange;
+    private long rightRange;
     private String primValue;
     private EditNodeAbstract parent;
     private final List<EditNodeAbstract> children = new ArrayList<>();
+    private final List<EditNodeAbstract> sortedChildren = new ArrayList<>();
 
     public EditNodeAbstract(String objektInfo) {
         this.editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
+        this.leftRange = LEFT;
+        this.rightRange = RIGHT;
         this.primValue = null;
     }
 
     public EditNodeAbstract(long editId, String primValue, String objektInfo) {
         this.editId = editId;
+        this.leftRange = LEFT;
+        this.rightRange = RIGHT;
+        this.primValue = primValue;
+    }
+
+    public EditNodeAbstract(long editId, long leftRange, long rightRange, String primValue, String objektInfo) {
+        this.editId = editId;
+        this.leftRange = leftRange;
+        this.rightRange = rightRange;
         this.primValue = primValue;
     }
 
@@ -36,12 +53,27 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return editId;
     }
 
-    // ========== Tree structure methods ==========
     @Override
-    public long getId() {
-        return editId;
+    public long getLeftRange() {
+        return leftRange;
     }
 
+    @Override
+    public void setLeftRange(long leftRange) {
+        this.leftRange = leftRange;
+    }
+
+    @Override
+    public long getRightRange() {
+        return rightRange;
+    }
+
+    @Override
+    public void setRightRange(long rightRange) {
+        this.rightRange = rightRange;
+    }
+
+    // ========== Tree structure methods ==========
     @Override
     public String getValue() {
         return primValue;
@@ -76,6 +108,15 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     @Override
+    public int getWeight() {
+        int weight = 1;
+        for (EditNodeAbstract child : children) {
+            weight += child.getWeight();
+        }
+        return weight;
+    }
+
+    @Override
     public EditNodeAbstract getChildAt(int index) {
         return children.get(index);
     }
@@ -83,6 +124,25 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     @Override
     public int getChildIndex(EditNode child) {
         return children.indexOf(child);
+    }
+
+    public boolean isRangeConsistent() {
+        // Pruefe gegen sortedChildren (nach Range sortiert)
+        for (int i = 0; i < sortedChildren.size(); i++) {
+            EditNodeAbstract child = sortedChildren.get(i);
+            // Kind muss innerhalb des Eltern-Ranges liegen
+            if (child.getLeftRange() < this.leftRange || child.getRightRange() > this.rightRange) {
+                return false;
+            }
+            // In sortierter Liste: Keine Ueberlappung wenn rightRange <= next.leftRange
+            if (i < sortedChildren.size() - 1) {
+                EditNodeAbstract next = sortedChildren.get(i + 1);
+                if (child.getRightRange() > next.getLeftRange()) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     void addChild(EditNodeAbstract child) {
@@ -102,11 +162,65 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         }
         children.add(index, child);
         child.setParent(this);
+
+        // Finde den groessten freien Intervall in sortedChildren
+        long maxGapStart = this.leftRange;
+        long maxGapSize = 0;
+        EditNodeAbstract current;
+
+        // Pruefe Intervall vor dem ersten Kind
+        if (sortedChildren.isEmpty()) {
+            // Keine Kinder, ganzer Eltern-Range ist frei
+            maxGapSize = this.rightRange - this.leftRange + 1;
+            setNextFreeRangeTo(child, this.leftRange, maxGapSize);
+            sortedChildren.add(child);
+            return;
+        } else {
+            current = sortedChildren.get(0);
+            long gapSize = current.getLeftRange() - this.leftRange;
+            if (gapSize > maxGapSize) {
+                maxGapSize = gapSize;
+                maxGapStart = this.leftRange;
+            }
+        }
+        int sortedIndex = 0;
+
+        // Pruefe Intervalle zwischen den Kindern
+        for (int i = 1; i < sortedChildren.size(); i++) {
+            EditNodeAbstract next = sortedChildren.get(i);
+            long gapSize = next.getLeftRange() - current.getRightRange() - 1;
+            if (gapSize > maxGapSize) {
+                maxGapSize = gapSize;
+                maxGapStart = current.getRightRange() + 1;
+                sortedIndex = i;
+            }
+            current = next;
+        }
+
+        // Pruefe Intervall nach dem letzten Kind
+        long gapSize = this.rightRange - current.getRightRange() - 1;
+        if (gapSize > maxGapSize) {
+            maxGapSize = gapSize;
+            maxGapStart = current.getRightRange() + 1;
+            sortedIndex = sortedChildren.size();
+        }
+
+        setNextFreeRangeTo(child, maxGapStart, maxGapSize);
+        sortedChildren.add(sortedIndex, child);
+    }
+
+    private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize) {
+        // Verwende 25% des groessten freien Intervalls linksseitig 
+        long childRight = gapStart + (maxGapSize / 4);
+        child.setLeftRange(gapStart);
+        child.setRightRange(childRight);
+        return gapStart;
     }
 
     public boolean removeChild(EditNodeAbstract child) {
         boolean removed = children.remove(child);
         if (removed) {
+            sortedChildren.remove(child);
             child.setParent(null);
             // Notify child that it was removed
             child.sayOnRemoved(this);

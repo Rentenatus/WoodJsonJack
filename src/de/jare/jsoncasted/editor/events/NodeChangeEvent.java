@@ -17,13 +17,21 @@ public class NodeChangeEvent implements EditEvent {
      * Type of change that occurred.
      */
     public enum ChangeType {
-        /** A new node was added to the tree */
+        /**
+         * A new node was added to the tree
+         */
         ADDED,
-        /** A node was removed from the tree */
+        /**
+         * A node was removed from the tree
+         */
         REMOVED,
-        /** A node's value or name was modified */
+        /**
+         * A node's value or name was modified
+         */
         MODIFIED,
-        /** A node was moved to a different position or parent */
+        /**
+         * A node was moved to a different position or parent
+         */
         MOVED
     }
 
@@ -39,7 +47,7 @@ public class NodeChangeEvent implements EditEvent {
 
     /**
      * Creates a new node change event.
-     * 
+     *
      * @param source the source of this event
      * @param changeType the type of change
      * @param node the affected node
@@ -61,7 +69,7 @@ public class NodeChangeEvent implements EditEvent {
 
     /**
      * Creates a new node change event with a custom description.
-     * 
+     *
      * @param source the source of this event
      * @param changeType the type of change
      * @param node the affected node
@@ -111,14 +119,14 @@ public class NodeChangeEvent implements EditEvent {
 
     /**
      * Builds a default description based on the change type.
-     * 
+     *
      * @return the generated description
      */
     private String buildDescription() {
         StringBuilder sb = new StringBuilder();
         sb.append("Node ").append(changeType).append(" : ");
         sb.append("node=").append(node != null ? node.getName() : "null");
-        
+
         switch (changeType) {
             case ADDED:
                 sb.append(", newParent=").append(newParent != null ? newParent.getName() : "null");
@@ -143,7 +151,7 @@ public class NodeChangeEvent implements EditEvent {
 
     /**
      * Returns the type of change.
-     * 
+     *
      * @return the change type
      */
     public ChangeType getChangeType() {
@@ -152,7 +160,7 @@ public class NodeChangeEvent implements EditEvent {
 
     /**
      * Returns the affected node.
-     * 
+     *
      * @return the node, may be null
      */
     public EditNode getNode() {
@@ -160,10 +168,9 @@ public class NodeChangeEvent implements EditEvent {
     }
 
     /**
-     * Returns the previous parent before the change.
-     * For ADDED events, this is typically null.
-     * For MOVED events, this is the old parent.
-     * 
+     * Returns the previous parent before the change. For ADDED events, this is
+     * typically null. For MOVED events, this is the old parent.
+     *
      * @return the old parent, may be null
      */
     public EditNode getOldParent() {
@@ -171,10 +178,9 @@ public class NodeChangeEvent implements EditEvent {
     }
 
     /**
-     * Returns the new parent after the change.
-     * For REMOVED events, this is typically null.
-     * For MOVED events, this is the new parent.
-     * 
+     * Returns the new parent after the change. For REMOVED events, this is
+     * typically null. For MOVED events, this is the new parent.
+     *
      * @return the new parent, may be null
      */
     public EditNode getNewParent() {
@@ -183,7 +189,7 @@ public class NodeChangeEvent implements EditEvent {
 
     /**
      * Returns the index in the old parent before the change.
-     * 
+     *
      * @return the old index, or -1 if not applicable
      */
     public int getOldIndex() {
@@ -192,7 +198,7 @@ public class NodeChangeEvent implements EditEvent {
 
     /**
      * Returns the index in the new parent after the change.
-     * 
+     *
      * @return the new index, or -1 if not applicable
      */
     public int getNewIndex() {
@@ -201,7 +207,7 @@ public class NodeChangeEvent implements EditEvent {
 
     @Override
     public String toString() {
-        return "NodeChangeEvent[" + changeType + ", node=" + 
-               (node != null ? node.getId() : "null") + "]";
+        return "NodeChangeEvent[" + changeType + ", node="
+                + (node != null ? node.getEditId() : "null") + "]";
     }
 }

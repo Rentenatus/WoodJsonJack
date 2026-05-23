@@ -18,8 +18,8 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         this.objektInfo = objektInfo;
     }
 
-    public EditNodeObject(long editId, String primValue, String objektInfo) {
-        super(editId, primValue, objektInfo);
+    public EditNodeObject(long editId, long leftRange, long rightRange, String primValue, String objektInfo) {
+        super(editId, leftRange, rightRange, primValue, objektInfo);
         this.objektInfo = objektInfo;
     }
 
@@ -83,6 +83,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     @Override
     public EditNodeAbstract deepCopy(boolean regenerateEditId) {
         EditNodeObject copy = new EditNodeObject(
+                getLeftRange(), getRightRange(),
                 regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : getEditId(),
                 getValue(), objektInfo);
 
