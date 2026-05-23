@@ -217,6 +217,39 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return gapStart;
     }
 
+    public void rangeRelabeling() {
+        if (sortedChildren.isEmpty()) {
+            return;
+        }
+        final int size = sortedChildren.size();
+
+        // Cache für Gewichte
+        final List<Integer> weightCache = new ArrayList<>(size);
+        int totalWeight = size / 2; // rundungszuschlag
+        for (EditNodeAbstract child : sortedChildren) {
+            int weight = child.getWeight();
+            weightCache.add(weight);
+            totalWeight += weight;
+        }
+
+        // Mindestes 75.0% verteilen 
+        double availableRange = this.rightRange - this.leftRange + 1; // inklusiv
+        availableRange = availableRange * Math.max(0.75d, totalWeight / availableRange);
+
+        // Verteile anteilig an Gewichten chronologisch
+        long currentStart = this.leftRange;
+        for (int i = 0; i < size; i++) {
+            EditNodeAbstract child = sortedChildren.get(i);
+            double weight = weightCache.get(i);
+            double weightRatio = weight / totalWeight;
+            long rangeSize = (long) Math.round(weightRatio * availableRange);
+
+            child.setLeftRange(currentStart);
+            child.setRightRange(Math.min(this.rightRange, currentStart + rangeSize - 1)); // inklusiv
+            currentStart = Math.min(this.rightRange, currentStart + rangeSize);
+        }
+    }
+
     public boolean removeChild(EditNodeAbstract child) {
         boolean removed = children.remove(child);
         if (removed) {
