@@ -46,7 +46,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.cachedWeight = 1;
     }
 
-    public EditNodeAbstract(long editId, long leftRange, long rightRange, String primValue, String objektInfo) {
+    EditNodeAbstract(long editId, long leftRange, long rightRange, String primValue, String objektInfo) {
         this.editId = editId;
         this.leftRange = leftRange;
         this.rightRange = rightRange;
@@ -227,10 +227,13 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize) {
-        // Verwende 25% des groessten freien Intervalls linksseitig 
-        long childRight = gapStart + (maxGapSize / 4);
+        int weight = child.getWeight();
+        // Use 25% of the largest available interval on the left side—at least `weight * 2`,
+        //  but no more than the available amount.
+        long rangeSize = Math.min(maxGapSize, Math.max(weight + weight, maxGapSize / 4));
         child.setLeftRange(gapStart);
-        child.setRightRange(childRight);
+        child.setRightRange(gapStart + rangeSize);
+        child.rangeRelabelingFor(weight - 1);
         return gapStart;
     }
 

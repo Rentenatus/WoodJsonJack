@@ -91,15 +91,13 @@ public class EditTree {
 
         EditNodeAbstract parent = findNodeById(parentId);
         if (parent == null) {
-            throw new IllegalStateException("Parent node with ID " + parentId + " not found");
+            throw new IllegalStateException("Parent node with ID " + parentId + " not found.");
         }
 
         if (newNode.isOrHasParent(root)) {
-            throw new IllegalArgumentException("The parent node must be a node from the tree");
+            throw new IllegalArgumentException("The parent node must be a node from the tree.");
         }
-        if (hasNodeStarting(newNode, parent)) {
-            throw new IllegalArgumentException("A parent node must not be cyclically contained within a child node.");
-        }
+        checkCycles(newNode, parent);
 
         if (index >= 0) {
             parent.addChild(newNode, index);
@@ -111,58 +109,59 @@ public class EditTree {
     }
 
     public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText) {
-        if (parentNode == null) {
-            throw new IllegalArgumentException("Parent node cannot be null");
-        }
-        if (!parentNode.isOrHasParent(root)) {
-            throw new IllegalArgumentException("The parent node must be a node from the tree");
-        }
+        checkParentProps(parentNode);
         return parentNode.addNewChild(nodeText);
     }
 
     public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText, int index) {
-        if (parentNode == null) {
-            throw new IllegalArgumentException("Parent node cannot be null");
-        }
-        if (!parentNode.isOrHasParent(root)) {
-            throw new IllegalArgumentException("The parent node must be a node from the tree");
-        }
+        checkParentProps(parentNode);
         return parentNode.addNewChild(nodeText, index);
     }
 
-    public void addChild(EditNodeAbstract parentNode, EditNodeAbstract newNode) {
-        if (newNode == null || parentNode == null) {
-            throw new IllegalArgumentException("New and parent node cannot be null");
+    private void checkParentProps(EditNodeAbstract parentNode) throws IllegalArgumentException {
+        if (parentNode == null) {
+            throw new IllegalArgumentException("Parent node cannot be null.");
         }
+        checkParentMembership(parentNode);
+    }
+
+    private void checkNewAndParentProps(EditNodeAbstract newNode, EditNodeAbstract parentNode) throws IllegalArgumentException {
+        if (newNode == null || parentNode == null) {
+            throw new IllegalArgumentException("New and parent nodes cannot be null.");
+        }
+        checkParentMembership(parentNode);
+        checkCycles(newNode, parentNode);
+        if (!newNode.canBeChildOf(parentNode)) {
+            throw new IllegalArgumentException("This new node cannot become a child of the specified parent.");
+        }
+    }
+
+    private void checkParentMembership(EditNodeAbstract parentNode) throws IllegalArgumentException {
         if (!parentNode.isOrHasParent(root)) {
             throw new IllegalArgumentException("The parent node must be a node from the tree");
         }
+    }
+
+    private void checkCycles(EditNodeAbstract newNode, EditNodeAbstract parentNode) throws IllegalArgumentException {
         if (hasNodeStarting(newNode, parentNode)) {
             throw new IllegalArgumentException("A parent node must not be cyclically contained within a child node.");
         }
+    }
+
+    public void addChild(EditNodeAbstract parentNode, EditNodeAbstract newNode) {
+        checkNewAndParentProps(newNode, parentNode);
+
         parentNode.addChild(newNode);
     }
 
     public void addChild(EditNodeAbstract parentNode, EditNodeAbstract newNode, int index) {
-        if (newNode == null || parentNode == null) {
-            throw new IllegalArgumentException("New and parent node cannot be null");
-        }
-        if (!parentNode.isOrHasParent(root)) {
-            throw new IllegalArgumentException("The parent node must be a node from the tree");
-        }
-        if (hasNodeStarting(newNode, parentNode)) {
-            throw new IllegalArgumentException("A parent node must not be cyclically contained within a child node.");
-        }
+        checkNewAndParentProps(newNode, parentNode);
+
         parentNode.addChild(newNode, index);
     }
 
     public boolean removeChild(EditNodeAbstract parentNode, EditNodeAbstract child) {
-        if (parentNode == null) {
-            throw new IllegalArgumentException("Parent node cannot be null");
-        }
-        if (!parentNode.isOrHasParent(root)) {
-            throw new IllegalArgumentException("The parent node must be a node from the tree");
-        }
+        checkParentProps(parentNode);
         return parentNode.removeChild(child);
     }
 
@@ -174,9 +173,7 @@ public class EditTree {
         if (parentNode == null) {
             return false;
         }
-        if (!parentNode.isOrHasParent(root)) {
-            throw new IllegalArgumentException("The parent node must be a node from the tree");
-        }
+        checkParentMembership(parentNode);
         return parentNode.removeChild(child);
     }
 

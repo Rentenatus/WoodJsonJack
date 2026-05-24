@@ -20,7 +20,7 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
         this.type = "";
     }
 
-    public EditNodeProperty(long editId, long leftRange, long rightRange, String propName, String type, String primValue) {
+    private EditNodeProperty(long editId, long leftRange, long rightRange, String propName, String type, String primValue) {
         super(editId, leftRange, rightRange, primValue, propName);
         this.propName = propName;
         this.type = type;

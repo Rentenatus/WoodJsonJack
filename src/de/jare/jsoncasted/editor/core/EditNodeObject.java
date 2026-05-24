@@ -18,7 +18,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         this.objektInfo = objektInfo;
     }
 
-    public EditNodeObject(long editId, long leftRange, long rightRange, String primValue, String objektInfo) {
+    private EditNodeObject(long editId, long leftRange, long rightRange, String primValue, String objektInfo) {
         super(editId, leftRange, rightRange, primValue, objektInfo);
         this.objektInfo = objektInfo;
     }
