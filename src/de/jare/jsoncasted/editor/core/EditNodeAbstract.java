@@ -230,7 +230,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         int weight = child.getWeight();
         // Use 25% of the largest available interval on the left side—at least `weight * 2`,
         //  but no more than the available amount.
-        long rangeSize = Math.min(maxGapSize, Math.max(weight + weight, maxGapSize / 4));
+        long rangeSize = Math.max(0, Math.min(maxGapSize, Math.max(weight + weight, maxGapSize / 4)));
         child.setLeftRange(gapStart);
         child.setRightRange(gapStart + rangeSize);
         child.rangeRelabelingFor(weight - 1);

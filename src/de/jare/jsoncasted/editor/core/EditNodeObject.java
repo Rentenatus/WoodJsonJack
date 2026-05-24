@@ -83,8 +83,8 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     @Override
     public EditNodeAbstract deepCopy(boolean regenerateEditId) {
         EditNodeObject copy = new EditNodeObject(
-                getLeftRange(), getRightRange(),
                 regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : getEditId(),
+                getLeftRange(), getRightRange(),
                 getValue(), objektInfo);
 
         for (EditNodeAbstract child : getAbstractChildren()) {
