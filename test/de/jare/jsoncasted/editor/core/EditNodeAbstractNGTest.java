@@ -37,13 +37,22 @@ public class EditNodeAbstractNGTest {
     }
 
     @Test
-    public void testReflectionConstructorAndTreeOperations() throws Exception {
+    public void testReflectionConstructorAndTreeOperations_NarrowRange() throws Exception {
+        runRangeTest(10L, 19L, "NARROW RANGE TEST (10..19)");
+    }
+
+    @Test
+    public void testReflectionConstructorAndTreeOperations_WideRange() throws Exception {
+        runRangeTest(10L, 40000L, "WIDE RANGE TEST (10..40000)");
+    }
+
+    private void runRangeTest(long leftRange, long rightRange, String testName) throws Exception {
         // Create root node using reflection for private constructor
         long editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
         Constructor<EditNodeObject> nodeConstructor = EditNodeObject.class.getDeclaredConstructor(
                 long.class, long.class, long.class, String.class, String.class);
         nodeConstructor.setAccessible(true);
-        EditNodeObject root = nodeConstructor.newInstance(editId, 10L, 19L, "rootValue", "rootObject");
+        EditNodeObject root = nodeConstructor.newInstance(editId, leftRange, rightRange, "rootValue", "rootObject");
 
         // Create tree with the root using reflection for package-private constructor
         Constructor<EditTree> treeConstructor = EditTree.class.getDeclaredConstructor(EditNodeAbstract.class);
@@ -56,7 +65,7 @@ public class EditNodeAbstractNGTest {
         }
 
         // Print tree
-        System.out.println("\n--- Tree after adding 6 children ---");
+        System.out.println("\n--- " + testName + " - Tree after adding 6 children ---");
         printTree(root, "");
 
         EditNodeAbstract child3 = root.getChildAt(3);
@@ -64,11 +73,11 @@ public class EditNodeAbstractNGTest {
         // Make deep copy
         EditNodeAbstract copy = root.deepCopy();
 
-        // Add copy to root
+        // Add copy to child3
         tree.addChild(child3, copy);
 
         // Print everything again
-        System.out.println("\n--- Tree after adding deep copy ---");
+        System.out.println("\n--- " + testName + " - Tree after adding deep copy to child3 ---");
         printTree(root, "");
     }
 
