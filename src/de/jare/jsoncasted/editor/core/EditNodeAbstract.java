@@ -26,12 +26,16 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     private EditNodeAbstract parent;
     private final List<EditNodeAbstract> children = new ArrayList<>();
     private final List<EditNodeAbstract> sortedChildren = new ArrayList<>();
+    private int cachedWeight;
+
+    private final Object weightMonitor = new Object();
 
     public EditNodeAbstract(String objektInfo) {
         this.editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
         this.leftRange = LEFT;
         this.rightRange = RIGHT;
         this.primValue = null;
+        this.cachedWeight = 1;
     }
 
     public EditNodeAbstract(long editId, String primValue, String objektInfo) {
@@ -39,6 +43,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.leftRange = LEFT;
         this.rightRange = RIGHT;
         this.primValue = primValue;
+        this.cachedWeight = 1;
     }
 
     public EditNodeAbstract(long editId, long leftRange, long rightRange, String primValue, String objektInfo) {
@@ -46,6 +51,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.leftRange = leftRange;
         this.rightRange = rightRange;
         this.primValue = primValue;
+        this.cachedWeight = 1;
     }
 
     @Override
@@ -58,9 +64,10 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return leftRange;
     }
 
-    @Override
     public void setLeftRange(long leftRange) {
-        this.leftRange = leftRange;
+        synchronized (weightMonitor) {
+            this.leftRange = leftRange;
+        }
     }
 
     @Override
@@ -68,9 +75,10 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return rightRange;
     }
 
-    @Override
     public void setRightRange(long rightRange) {
-        this.rightRange = rightRange;
+        synchronized (weightMonitor) {
+            this.rightRange = rightRange;
+        }
     }
 
     // ========== Tree structure methods ==========
@@ -110,10 +118,17 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     @Override
     public int getWeight() {
         int weight = 1;
-        for (EditNodeAbstract child : children) {
-            weight += child.getWeight();
+        synchronized (weightMonitor) {
+            for (EditNodeAbstract child : children) {
+                weight += child.getWeight();
+            }
+            return cachedWeight = weight;
         }
-        return weight;
+    }
+
+    @Override
+    public int getCachedWeight() {
+        return cachedWeight;
     }
 
     @Override
@@ -163,50 +178,52 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         children.add(index, child);
         child.setParent(this);
 
-        // Finde den groessten freien Intervall in sortedChildren
-        long maxGapStart = this.leftRange;
-        long maxGapSize = 0;
-        EditNodeAbstract current;
+        synchronized (weightMonitor) {
+            // Finde den groessten freien Intervall in sortedChildren
+            long maxGapStart = this.leftRange;
+            long maxGapSize = 0;
+            EditNodeAbstract current;
 
-        // Pruefe Intervall vor dem ersten Kind
-        if (sortedChildren.isEmpty()) {
-            // Keine Kinder, ganzer Eltern-Range ist frei
-            maxGapSize = this.rightRange - this.leftRange + 1;
-            setNextFreeRangeTo(child, this.leftRange, maxGapSize);
-            sortedChildren.add(child);
-            return;
-        } else {
-            current = sortedChildren.get(0);
-            long gapSize = current.getLeftRange() - this.leftRange;
-            if (gapSize > maxGapSize) {
-                maxGapSize = gapSize;
-                maxGapStart = this.leftRange;
+            // Pruefe Intervall vor dem ersten Kind
+            if (sortedChildren.isEmpty()) {
+                // Keine Kinder, ganzer Eltern-Range ist frei
+                maxGapSize = this.rightRange - this.leftRange + 1;
+                setNextFreeRangeTo(child, this.leftRange, maxGapSize);
+                sortedChildren.add(child);
+                return;
+            } else {
+                current = sortedChildren.get(0);
+                long gapSize = current.getLeftRange() - this.leftRange;
+                if (gapSize > maxGapSize) {
+                    maxGapSize = gapSize;
+                    maxGapStart = this.leftRange;
+                }
             }
-        }
-        int sortedIndex = 0;
+            int sortedIndex = 0;
 
-        // Pruefe Intervalle zwischen den Kindern
-        for (int i = 1; i < sortedChildren.size(); i++) {
-            EditNodeAbstract next = sortedChildren.get(i);
-            long gapSize = next.getLeftRange() - current.getRightRange() - 1;
+            // Pruefe Intervalle zwischen den Kindern
+            for (int i = 1; i < sortedChildren.size(); i++) {
+                EditNodeAbstract next = sortedChildren.get(i);
+                long gapSize = next.getLeftRange() - current.getRightRange() - 1;
+                if (gapSize > maxGapSize) {
+                    maxGapSize = gapSize;
+                    maxGapStart = current.getRightRange() + 1;
+                    sortedIndex = i;
+                }
+                current = next;
+            }
+
+            // Pruefe Intervall nach dem letzten Kind
+            long gapSize = this.rightRange - current.getRightRange() - 1;
             if (gapSize > maxGapSize) {
                 maxGapSize = gapSize;
                 maxGapStart = current.getRightRange() + 1;
-                sortedIndex = i;
+                sortedIndex = sortedChildren.size();
             }
-            current = next;
-        }
 
-        // Pruefe Intervall nach dem letzten Kind
-        long gapSize = this.rightRange - current.getRightRange() - 1;
-        if (gapSize > maxGapSize) {
-            maxGapSize = gapSize;
-            maxGapStart = current.getRightRange() + 1;
-            sortedIndex = sortedChildren.size();
+            setNextFreeRangeTo(child, maxGapStart, maxGapSize);
+            sortedChildren.add(sortedIndex, child);
         }
-
-        setNextFreeRangeTo(child, maxGapStart, maxGapSize);
-        sortedChildren.add(sortedIndex, child);
     }
 
     private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize) {
@@ -221,42 +238,45 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         if (sortedChildren.isEmpty()) {
             return;
         }
-        final int size = sortedChildren.size();
-
-        // Cache für Gewichte
-        final List<Integer> weightCache = new ArrayList<>(size);
-        int totalWeight = size / 2; // rundungszuschlag
-        for (EditNodeAbstract child : sortedChildren) {
-            int weight = child.getWeight();
-            weightCache.add(weight);
-            totalWeight += weight;
+        int totalWeight = 0;
+        synchronized (weightMonitor) {
+            for (EditNodeAbstract child : sortedChildren) {
+                int weight = child.getWeight();
+                totalWeight += weight;
+            }
+            rangeRelabelingFor(totalWeight);
         }
+    }
 
-        // Mindestes 75.0% verteilen 
+    private void rangeRelabelingFor(int totalWeight) {
+        // Mindestes 75.0% verteilen
         double availableRange = this.rightRange - this.leftRange + 1; // inklusiv
         availableRange = availableRange * Math.max(0.75d, totalWeight / availableRange);
 
+        final int size = sortedChildren.size();
         // Verteile anteilig an Gewichten chronologisch
         long currentStart = this.leftRange;
         for (int i = 0; i < size; i++) {
             EditNodeAbstract child = sortedChildren.get(i);
-            double weight = weightCache.get(i);
+            int weight = child.getCachedWeight();
             double weightRatio = weight / totalWeight;
             long rangeSize = (long) Math.round(weightRatio * availableRange);
-
             child.setLeftRange(currentStart);
             child.setRightRange(Math.min(this.rightRange, currentStart + rangeSize - 1)); // inklusiv
             currentStart = Math.min(this.rightRange, currentStart + rangeSize);
+            child.rangeRelabelingFor(weight - 1);
         }
     }
 
     public boolean removeChild(EditNodeAbstract child) {
         boolean removed = children.remove(child);
         if (removed) {
-            sortedChildren.remove(child);
-            child.setParent(null);
-            // Notify child that it was removed
-            child.sayOnRemoved(this);
+            synchronized (weightMonitor) {
+                sortedChildren.remove(child);
+                child.setParent(null);
+                // Notify child that it was removed
+                child.sayOnRemoved(this);
+            }
         }
         return removed;
     }

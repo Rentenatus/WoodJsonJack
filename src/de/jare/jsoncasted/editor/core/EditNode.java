@@ -50,11 +50,7 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
 
     public long getLeftRange();
 
-    public void setLeftRange(long leftRange);
-
     public long getRightRange();
-
-    public void setRightRange(long rightRange);
 
     void setEditText(String editText);
 
@@ -114,6 +110,8 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
     int getChildCount();
 
     int getWeight();
+
+    int getCachedWeight();
 
     EditNode getChildAt(int index);
 
