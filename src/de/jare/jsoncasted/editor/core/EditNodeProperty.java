@@ -97,11 +97,11 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
     public EditNodeAbstract deepCopy(boolean regenerateEditId) {
         EditNodeProperty copy = new EditNodeProperty(
                 regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : getEditId(),
-                getLeftRange(), getRightRange(), 
+                getLeftRange(), getRightRange(),
                 propName, type, getValue());
 
         for (EditNodeAbstract child : getAbstractChildren()) {
-            copy.addChild(child.deepCopy(regenerateEditId));
+            copy.addChildPhase1(child.deepCopy(regenerateEditId), copy.getChildCount());
         }
         return copy;
     }

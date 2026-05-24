@@ -165,6 +165,11 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     void addChild(EditNodeAbstract child, int index) {
+        addChildPhase1(child, index);
+        addChildPhase2(child);
+    }
+
+    void addChildPhase1(EditNodeAbstract child, int index) {
         if (child == null) {
             throw new IllegalArgumentException("Child cannot be null");
         }
@@ -177,7 +182,9 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         }
         children.add(index, child);
         child.setParent(this);
+    }
 
+    private void addChildPhase2(EditNodeAbstract child) {
         synchronized (weightMonitor) {
             // Finde den groessten freien Intervall in sortedChildren
             long maxGapStart = this.leftRange;
@@ -252,6 +259,14 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     private void rangeRelabelingFor(int totalWeight) {
+        System.out.println(totalWeight + "  &&&&&&&&&&&&&&&&  " + getClass().getSimpleName()
+                + "[editId=" + getEditId()
+                + ", leftRange=" + getLeftRange()
+                + ", rightRange=" + getRightRange()
+                + ", name=" + getName()
+                + ", value=" + getValue()
+                + ", type=" + getTypeKey() + "]");
+
         // Mindestes 75.0% verteilen
         double availableRange = this.rightRange - this.leftRange + 1; // inklusiv
         availableRange = availableRange * Math.max(0.75d, totalWeight / availableRange);
