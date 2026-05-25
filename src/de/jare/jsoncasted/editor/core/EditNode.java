@@ -109,7 +109,7 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
 
     int getChildCount();
 
-    int getWeight();
+    int getWeight(Object weightMonitor);
 
     int getCachedWeight();
 

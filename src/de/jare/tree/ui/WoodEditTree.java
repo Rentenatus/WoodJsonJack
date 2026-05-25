@@ -268,10 +268,10 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         // neuen Kind-Knoten erzeugen
         EditNodeAbstract childData = null;
         if (data instanceof EditNodeObject obData) {
-            childData = obData.addNewChild("new");
+            childData = obData.addNewChild("new", this);
         }
         if (data instanceof EditNodeProperty propData) {
-            childData = propData.addNewChild("new");
+            childData = propData.addNewChild("new", this);
         }
         DefaultMutableTreeNode child = new DefaultMutableTreeNode(childData);
         selected.add(child);

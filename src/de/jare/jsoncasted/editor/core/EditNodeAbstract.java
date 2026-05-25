@@ -28,8 +28,6 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     private final List<EditNodeAbstract> sortedChildren = new ArrayList<>();
     private int cachedWeight;
 
-    private final Object weightMonitor = new Object();
-
     public EditNodeAbstract(String objektInfo) {
         this.editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
         this.leftRange = LEFT;
@@ -65,9 +63,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     public void setLeftRange(long leftRange) {
-        synchronized (weightMonitor) {
-            this.leftRange = leftRange;
-        }
+        this.leftRange = leftRange;
     }
 
     @Override
@@ -76,9 +72,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     public void setRightRange(long rightRange) {
-        synchronized (weightMonitor) {
-            this.rightRange = rightRange;
-        }
+        this.rightRange = rightRange;
     }
 
     // ========== Tree structure methods ==========
@@ -116,11 +110,11 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     @Override
-    public int getWeight() {
+    public int getWeight(Object weightMonitor) {
         int weight = 1;
         synchronized (weightMonitor) {
             for (EditNodeAbstract child : children) {
-                weight += child.getWeight();
+                weight += child.getWeight(weightMonitor);
             }
             return cachedWeight = weight;
         }
@@ -160,16 +154,16 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return true;
     }
 
-    void addChild(EditNodeAbstract child) {
-        addChild(child, children.size());
+    void addChild(EditNodeAbstract child, final Object weightMonitor) {
+        addChild(child, children.size(), weightMonitor);
     }
 
-    void addChild(EditNodeAbstract child, int index) {
-        addChildPhase1(child, index);
-        addChildPhase2(child);
+    void addChild(EditNodeAbstract child, int index, final Object weightMonitor) {
+        addChildPhase1(child, index, weightMonitor);
+        addChildPhase2(child, weightMonitor);
     }
 
-    void addChildPhase1(EditNodeAbstract child, int index) {
+    void addChildPhase1(EditNodeAbstract child, int index, Object weightMonitor) {
         if (child == null) {
             throw new IllegalArgumentException("Child cannot be null");
         }
@@ -178,13 +172,13 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         }
         EditNodeAbstract oldParent = child.getParent();
         if (oldParent != null && oldParent != this) {
-            oldParent.removeChild(child);
+            oldParent.removeChild(child, weightMonitor);
         }
         children.add(index, child);
         child.setParent(this);
     }
 
-    private void addChildPhase2(EditNodeAbstract child) {
+    private void addChildPhase2(EditNodeAbstract child, final Object weightMonitor) {
         synchronized (weightMonitor) {
             // Finde den groessten freien Intervall in sortedChildren
             long maxGapStart = this.leftRange;
@@ -195,7 +189,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
             if (sortedChildren.isEmpty()) {
                 // Keine Kinder, ganzer Eltern-Range ist frei
                 maxGapSize = this.rightRange - this.leftRange + 1;
-                setNextFreeRangeTo(child, this.leftRange, maxGapSize);
+                setNextFreeRangeTo(child, this.leftRange, maxGapSize, weightMonitor);
                 sortedChildren.add(child);
                 return;
             } else {
@@ -228,13 +222,13 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
                 sortedIndex = sortedChildren.size();
             }
 
-            setNextFreeRangeTo(child, maxGapStart, maxGapSize);
+            setNextFreeRangeTo(child, maxGapStart, maxGapSize, weightMonitor);
             sortedChildren.add(sortedIndex, child);
         }
     }
 
-    private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize) {
-        int weight = child.getWeight();
+    private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize, final Object weightMonitor) {
+        int weight = child.getWeight(weightMonitor);
         // Use 25% of the largest available interval on the left side—at least `weight * 2`,
         //  but no more than the available amount.
         long rangeSize = Math.max(0, Math.min(maxGapSize, Math.max(weight + weight, maxGapSize / 4)));
@@ -244,14 +238,14 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return gapStart;
     }
 
-    public void rangeRelabeling() {
+    public void rangeRelabeling(final Object weightMonitor) {
         if (sortedChildren.isEmpty()) {
             return;
         }
         int totalWeight = 0;
         synchronized (weightMonitor) {
             for (EditNodeAbstract child : sortedChildren) {
-                int weight = child.getWeight();
+                int weight = child.getWeight(weightMonitor);
                 totalWeight += weight;
             }
             rangeRelabelingFor(totalWeight);
@@ -286,7 +280,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         }
     }
 
-    public boolean removeChild(EditNodeAbstract child) {
+    public boolean removeChild(EditNodeAbstract child, final Object weightMonitor) {
         boolean removed = children.remove(child);
         if (removed) {
             synchronized (weightMonitor) {
@@ -312,9 +306,9 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     abstract void sayOnRemoved(EditNode parent);
 
     // ========== Factory methods ==========
-    abstract EditNodeAbstract addNewChild(String aName);
+    abstract EditNodeAbstract addNewChild(String aName, final Object weightMonitor);
 
-    abstract EditNodeAbstract addNewChild(String aName, int index);
+    abstract EditNodeAbstract addNewChild(String aName, int index, final Object weightMonitor);
 
     public abstract EditNodeAbstract createChild(String aName);
 

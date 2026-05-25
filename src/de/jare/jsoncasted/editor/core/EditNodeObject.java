@@ -56,16 +56,16 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     // ========== Factory methods ==========
     @Override
-    public EditNodeAbstract addNewChild(String aName) {
+    public EditNodeAbstract addNewChild(String aName, final Object weightMonitor) {
         EditNodeProperty child = createChild(aName);
-        addChild(child);
+        addChild(child, weightMonitor);
         return child;
     }
 
     @Override
-    EditNodeAbstract addNewChild(String aName, int index) {
+    EditNodeAbstract addNewChild(String aName, int index, final Object weightMonitor) {
         EditNodeProperty child = createChild(aName);
-        addChild(child, index);
+        addChild(child, index, weightMonitor);
         return child;
     }
 
@@ -88,7 +88,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
                 getValue(), objektInfo);
 
         for (EditNodeAbstract child : getAbstractChildren()) {
-            copy.addChildPhase1(child.deepCopy(regenerateEditId), copy.getChildCount());
+            copy.addChildPhase1(child.deepCopy(regenerateEditId), copy.getChildCount(), this);
         }
         return copy;
     }

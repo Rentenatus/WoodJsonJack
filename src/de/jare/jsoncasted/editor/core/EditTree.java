@@ -13,6 +13,7 @@ package de.jare.jsoncasted.editor.core;
 public class EditTree {
 
     private final EditNodeAbstract root;
+    private final Object weightMonitor = new Object();
 
     public EditTree(String rootText) {
         this(new EditNodeObject(String.valueOf(rootText)));
@@ -102,7 +103,7 @@ public class EditTree {
         if (index >= 0) {
             parent.addChild(newNode, index);
         } else {
-            parent.addChild(newNode);
+            parent.addChild(newNode, weightMonitor);
         }
 
         return true;
@@ -110,7 +111,7 @@ public class EditTree {
 
     public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText) {
         checkParentProps(parentNode);
-        return parentNode.addNewChild(nodeText);
+        return parentNode.addNewChild(nodeText, weightMonitor);
     }
 
     public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText, int index) {
@@ -151,7 +152,7 @@ public class EditTree {
     public void addChild(EditNodeAbstract parentNode, EditNodeAbstract newNode) {
         checkNewAndParentProps(newNode, parentNode);
 
-        parentNode.addChild(newNode);
+        parentNode.addChild(newNode, weightMonitor);
     }
 
     public void addChild(EditNodeAbstract parentNode, EditNodeAbstract newNode, int index) {
@@ -162,7 +163,7 @@ public class EditTree {
 
     public boolean removeChild(EditNodeAbstract parentNode, EditNodeAbstract child) {
         checkParentProps(parentNode);
-        return parentNode.removeChild(child);
+        return parentNode.removeChild(child, weightMonitor);
     }
 
     public boolean removeNode(EditNodeAbstract child) {
@@ -174,7 +175,7 @@ public class EditTree {
             return false;
         }
         checkParentMembership(parentNode);
-        return parentNode.removeChild(child);
+        return parentNode.removeChild(child, weightMonitor);
     }
 
     /**
@@ -215,7 +216,7 @@ public class EditTree {
             throw new IllegalStateException("Node has no parent");
         }
 
-        boolean removed = parent.removeChild(node);
+        boolean removed = parent.removeChild(node, weightMonitor);
 
         return removed ? node : null;
     }
@@ -260,7 +261,7 @@ public class EditTree {
     public void clear() {
         while (root.getChildCount() > 0) {
             EditNodeAbstract child = (EditNodeAbstract) root.getChildAt(0);
-            root.removeChild(child);
+            root.removeChild(child, weightMonitor);
         }
     }
 
