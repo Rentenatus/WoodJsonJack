@@ -50,9 +50,9 @@ public class EditNodeAbstractNGTest {
         // Create root node using reflection for private constructor
         long editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
         Constructor<EditNodeObject> nodeConstructor = EditNodeObject.class.getDeclaredConstructor(
-                long.class, long.class, long.class, String.class, String.class);
+                long.class, long.class, long.class, long.class, String.class, String.class);
         nodeConstructor.setAccessible(true);
-        EditNodeObject root = nodeConstructor.newInstance(editId, leftRange, rightRange, "rootValue", "rootObject");
+        EditNodeObject root = nodeConstructor.newInstance(editId, leftRange, rightRange, Long.MIN_VALUE, "rootValue", "rootObject");
 
         // Create tree with the root using reflection for package-private constructor
         Constructor<EditTree> treeConstructor = EditTree.class.getDeclaredConstructor(EditNodeAbstract.class);
@@ -68,13 +68,13 @@ public class EditNodeAbstractNGTest {
         System.out.println("\n--- " + testName + " - Tree after adding 6 children ---");
         printTree(root, "");
 
-        EditNodeAbstract child3 = root.getChildAt(3);
+        EditNodeAbstract childB = root.getChildAt(1);
 
         // Make deep copy
         EditNodeAbstract copy = root.deepCopy();
 
         // Add copy to child3
-        tree.addChild(child3, copy);
+        tree.addChild(childB, copy);
 
         // Print everything again
         System.out.println("\n--- " + testName + " - Tree after adding deep copy to child3 ---");
@@ -86,6 +86,7 @@ public class EditNodeAbstractNGTest {
                 + "[editId=" + node.getEditId()
                 + ", leftRange=" + node.getLeftRange()
                 + ", rightRange=" + node.getRightRange()
+                + ", timesRange=" + node.getTimesRange()
                 + ", name=" + node.getName()
                 + ", value=" + node.getValue()
                 + ", type=" + node.getTypeKey() + "]");

@@ -12,7 +12,7 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
-import de.jare.jsoncasted.editor.core.EditTime;
+import de.jare.jsoncasted.editor.core.EditTimes;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.commands.WoodCommandAddNodes;
@@ -269,10 +269,10 @@ public class WoodEditTree extends JPanel implements TreeFocusComponent, TreeFocu
         // neuen Kind-Knoten erzeugen
         EditNodeAbstract childData = null;
         if (data instanceof EditNodeObject obData) {
-            childData = obData.addNewChild("new", new EditTime());
+            childData = obData.addNewChild("new", new EditTimes());
         }
         if (data instanceof EditNodeProperty propData) {
-            childData = propData.addNewChild("new", new EditTime());
+            childData = propData.addNewChild("new", new EditTimes());
         }
         DefaultMutableTreeNode child = new DefaultMutableTreeNode(childData);
         selected.add(child);

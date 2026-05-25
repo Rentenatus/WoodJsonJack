@@ -13,7 +13,7 @@ package de.jare.jsoncasted.editor.core;
 public class EditTree {
 
     private final EditNodeAbstract root;
-    private final EditTime weightMonitor = new EditTime();
+    private final EditTimes weightMonitor = new EditTimes();
 
     public EditTree(String rootText) {
         this(new EditNodeObject(String.valueOf(rootText)));

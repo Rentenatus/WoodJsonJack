@@ -48,9 +48,11 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
 
     String getEditText();
 
-    public long getLeftRange();
+    long getLeftRange();
 
-    public long getRightRange();
+    long getRightRange();
+
+    long getTimesRange();
 
     void setEditText(String editText);
 
@@ -109,7 +111,7 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
 
     int getChildCount();
 
-    int getWeight(EditTime weightMonitor);
+    int getWeight(EditTimes weightMonitor);
 
     int getCachedWeight();
 

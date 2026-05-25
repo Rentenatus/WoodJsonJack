@@ -22,6 +22,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     private final long editId;
     private long leftRange;
     private long rightRange;
+    private long timesRange;
     private String primValue;
     private EditNodeAbstract parent;
     private final List<EditNodeAbstract> children = new ArrayList<>();
@@ -32,6 +33,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
         this.leftRange = LEFT;
         this.rightRange = RIGHT;
+        this.timesRange = RIGHT;
         this.primValue = null;
         this.cachedWeight = 1;
     }
@@ -40,14 +42,16 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.editId = editId;
         this.leftRange = LEFT;
         this.rightRange = RIGHT;
+        this.timesRange = RIGHT;
         this.primValue = primValue;
         this.cachedWeight = 1;
     }
 
-    EditNodeAbstract(long editId, long leftRange, long rightRange, String primValue, String objektInfo) {
+    EditNodeAbstract(long editId, long leftRange, long rightRange, long timesRange, String primValue, String objektInfo) {
         this.editId = editId;
         this.leftRange = leftRange;
         this.rightRange = rightRange;
+        this.timesRange = timesRange;
         this.primValue = primValue;
         this.cachedWeight = 1;
     }
@@ -62,7 +66,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return leftRange;
     }
 
-    public void setLeftRange(long leftRange) {
+    void setLeftRange(long leftRange) {
         this.leftRange = leftRange;
     }
 
@@ -71,8 +75,17 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return rightRange;
     }
 
-    public void setRightRange(long rightRange) {
+    void setRightRange(long rightRange) {
         this.rightRange = rightRange;
+    }
+
+    @Override
+    public long getTimesRange() {
+        return timesRange;
+    }
+
+    void setTimesRange(long timesRange) {
+        this.timesRange = timesRange;
     }
 
     // ========== Tree structure methods ==========
@@ -110,7 +123,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     @Override
-    public int getWeight(EditTime weightMonitor) {
+    public int getWeight(EditTimes weightMonitor) {
         int weight = 1;
         synchronized (weightMonitor) {
             for (EditNodeAbstract child : children) {
@@ -156,11 +169,11 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return true;
     }
 
-    void addChild(EditNodeAbstract child, final EditTime weightMonitor) {
+    void addChild(EditNodeAbstract child, final EditTimes weightMonitor) {
         addChild(child, children.size(), weightMonitor);
     }
 
-    void addChild(EditNodeAbstract child, int index, final EditTime weightMonitor) {
+    void addChild(EditNodeAbstract child, int index, final EditTimes weightMonitor) {
         addChildPhase1(child, index);
         addChildPhase2(child, weightMonitor);
     }
@@ -180,7 +193,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         child.setParent(this);
     }
 
-    private void addChildPhase2(EditNodeAbstract child, final EditTime weightMonitor) {
+    private void addChildPhase2(EditNodeAbstract child, final EditTimes weightMonitor) {
         synchronized (weightMonitor) {
             // Finde den groessten freien Intervall in sortedChildren
             long maxGapStart = this.leftRange;
@@ -231,6 +244,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
                     sortedIndex = sortedChildren.size();
                     child.setLeftRange(this.rightRange);
                     child.setRightRange(this.rightRange);
+                    child.setTimesRange(weightMonitor.update());
                     child.rangeRelabelingFor(1);
                 }
                 sortedChildren.add(sortedIndex, child);
@@ -244,18 +258,19 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         }
     }
 
-    private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize, final EditTime weightMonitor) {
+    private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize, final EditTimes weightMonitor) {
         int weight = child.getWeight(weightMonitor);
         // Use 25% of the largest available interval on the left side—at least `weight * 2`,
         //  but no more than the available amount.
         long rangeSize = Math.max(0, Math.min(maxGapSize, Math.max(weight + weight, maxGapSize / 4)));
         child.setLeftRange(gapStart);
         child.setRightRange(Math.min(this.rightRange, gapStart + rangeSize));
+        child.setTimesRange(weightMonitor.update());
         child.rangeRelabelingFor(weight - 1);
         return gapStart;
     }
 
-    public void rangeRelabeling(final EditTime weightMonitor) {
+    public void rangeRelabeling(final EditTimes weightMonitor) {
         int size;
         EditNodeAbstract[] sortetArr;
         synchronized (sortedChildren) {
@@ -270,6 +285,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
                 int weight = child.getWeight(weightMonitor);
                 totalWeight += weight;
             }
+            setTimesRange(weightMonitor.update());
             rangeRelabelingFor(totalWeight);
         }
     }
@@ -304,6 +320,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
             long rangeSize = Math.max(1, (long) (weightRatio * lookingRange + 0.5d));
             child.setLeftRange(currentStart);
             child.setRightRange(Math.min(this.rightRange, currentStart + rangeSize - 1)); // inklusiv
+            child.setTimesRange(getTimesRange());
             currentStart = Math.min(this.rightRange, child.getRightRange() + 1);
             child.rangeRelabelingFor(weight - 1);
         }
@@ -335,9 +352,9 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     abstract void sayOnRemoved(EditNode parent);
 
     // ========== Factory methods ==========
-    abstract EditNodeAbstract addNewChild(String aName, final EditTime weightMonitor);
+    abstract EditNodeAbstract addNewChild(String aName, final EditTimes weightMonitor);
 
-    abstract EditNodeAbstract addNewChild(String aName, int index, final EditTime weightMonitor);
+    abstract EditNodeAbstract addNewChild(String aName, int index, final EditTimes weightMonitor);
 
     public abstract EditNodeAbstract createChild(String aName);
 

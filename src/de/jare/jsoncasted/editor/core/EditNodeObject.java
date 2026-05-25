@@ -18,8 +18,8 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         this.objektInfo = objektInfo;
     }
 
-    private EditNodeObject(long editId, long leftRange, long rightRange, String primValue, String objektInfo) {
-        super(editId, leftRange, rightRange, primValue, objektInfo);
+    private EditNodeObject(long editId, long leftRange, long rightRange, long timesRange, String primValue, String objektInfo) {
+        super(editId, leftRange, rightRange, timesRange, primValue, objektInfo);
         this.objektInfo = objektInfo;
     }
 
@@ -56,14 +56,14 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     // ========== Factory methods ==========
     @Override
-    public EditNodeAbstract addNewChild(String aName, final EditTime weightMonitor) {
+    public EditNodeAbstract addNewChild(String aName, final EditTimes weightMonitor) {
         EditNodeProperty child = createChild(aName);
         addChild(child, weightMonitor);
         return child;
     }
 
     @Override
-    EditNodeAbstract addNewChild(String aName, int index, final EditTime weightMonitor) {
+    EditNodeAbstract addNewChild(String aName, int index, final EditTimes weightMonitor) {
         EditNodeProperty child = createChild(aName);
         addChild(child, index, weightMonitor);
         return child;
@@ -84,7 +84,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     public EditNodeAbstract deepCopy(boolean regenerateEditId) {
         EditNodeObject copy = new EditNodeObject(
                 regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : getEditId(),
-                getLeftRange(), getRightRange(),
+                getLeftRange(), getRightRange(), getTimesRange(),
                 getValue(), objektInfo);
 
         for (EditNodeAbstract child : getAbstractChildren()) {
