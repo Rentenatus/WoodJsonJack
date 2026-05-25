@@ -218,14 +218,21 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
                 }
 
                 // Pruefe Intervall nach dem letzten Kind
-                long gapSize = this.rightRange - current.getRightRange() - 1;
+                long gapSize = this.rightRange - current.getRightRange();
                 if (gapSize > maxGapSize) {
                     maxGapSize = gapSize;
                     maxGapStart = current.getRightRange() + 1;
                     sortedIndex = sortedChildren.size();
                 }
 
-                setNextFreeRangeTo(child, maxGapStart, maxGapSize, weightMonitor);
+                if (maxGapSize > 0) {
+                    setNextFreeRangeTo(child, maxGapStart, maxGapSize, weightMonitor);
+                } else {
+                    sortedIndex = sortedChildren.size();
+                    child.setLeftRange(this.rightRange);
+                    child.setRightRange(this.rightRange);
+                    child.rangeRelabelingFor(1);
+                }
                 sortedChildren.add(sortedIndex, child);
             }
         }
