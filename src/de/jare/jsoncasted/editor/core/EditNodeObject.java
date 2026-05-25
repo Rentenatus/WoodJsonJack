@@ -88,7 +88,9 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
                 getValue(), objektInfo);
 
         for (EditNodeAbstract child : getAbstractChildren()) {
-            copy.addChildPhase1(child.deepCopy(regenerateEditId), copy.getChildCount(), this);
+            final EditNodeAbstract deepCopy = child.deepCopy(regenerateEditId);
+            copy.addChildPhase1(deepCopy, copy.getChildCount(), this);
+            copy.addChildPhase2Fast(deepCopy);
         }
         return copy;
     }

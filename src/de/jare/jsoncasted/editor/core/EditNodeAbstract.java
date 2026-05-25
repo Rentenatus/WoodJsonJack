@@ -227,13 +227,17 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         }
     }
 
+    void addChildPhase2Fast(EditNodeAbstract child) {
+        sortedChildren.add(child);
+    }
+
     private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize, final Object weightMonitor) {
         int weight = child.getWeight(weightMonitor);
         // Use 25% of the largest available interval on the left side—at least `weight * 2`,
         //  but no more than the available amount.
         long rangeSize = Math.max(0, Math.min(maxGapSize, Math.max(weight + weight, maxGapSize / 4)));
         child.setLeftRange(gapStart);
-        child.setRightRange(gapStart + rangeSize);
+        child.setRightRange(Math.min(this.rightRange, gapStart + rangeSize));
         child.rangeRelabelingFor(weight - 1);
         return gapStart;
     }
@@ -260,22 +264,24 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
                 + ", name=" + getName()
                 + ", value=" + getValue()
                 + ", type=" + getTypeKey() + "]");
-
-        // Mindestes 75.0% verteilen
-        double availableRange = this.rightRange - this.leftRange + 1; // inklusiv
-        availableRange = availableRange * Math.max(0.75d, totalWeight / availableRange);
-
         final int size = sortedChildren.size();
+        if (size == 0) {
+            return;
+        }
+        // Mindestes 75.0% verteilen
+        double lookingRange = this.rightRange - this.leftRange + 1; // inklusiv
+        lookingRange = lookingRange * Math.max(0.75d, totalWeight / lookingRange);
+
         // Verteile anteilig an Gewichten chronologisch
         long currentStart = this.leftRange;
         for (int i = 0; i < size; i++) {
             EditNodeAbstract child = sortedChildren.get(i);
             int weight = child.getCachedWeight();
-            double weightRatio = weight / totalWeight;
-            long rangeSize = (long) Math.round(weightRatio * availableRange);
+            double weightRatio = ((double) weight) / totalWeight;
+            long rangeSize = Math.max(1, (long) (weightRatio * lookingRange + 0.5d));
             child.setLeftRange(currentStart);
             child.setRightRange(Math.min(this.rightRange, currentStart + rangeSize - 1)); // inklusiv
-            currentStart = Math.min(this.rightRange, currentStart + rangeSize);
+            currentStart = Math.min(this.rightRange, child.getRightRange() + 1);
             child.rangeRelabelingFor(weight - 1);
         }
     }
