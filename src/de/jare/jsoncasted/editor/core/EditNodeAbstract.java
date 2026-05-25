@@ -110,7 +110,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     @Override
-    public int getWeight(Object weightMonitor) {
+    public int getWeight(EditTime weightMonitor) {
         int weight = 1;
         synchronized (weightMonitor) {
             for (EditNodeAbstract child : children) {
@@ -136,34 +136,36 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     public boolean isRangeConsistent() {
-        // Pruefe gegen sortedChildren (nach Range sortiert)
-        for (int i = 0; i < sortedChildren.size(); i++) {
-            EditNodeAbstract child = sortedChildren.get(i);
-            // Kind muss innerhalb des Eltern-Ranges liegen
-            if (child.getLeftRange() < this.leftRange || child.getRightRange() > this.rightRange) {
-                return false;
-            }
-            // In sortierter Liste: Keine Ueberlappung wenn rightRange <= next.leftRange
-            if (i < sortedChildren.size() - 1) {
-                EditNodeAbstract next = sortedChildren.get(i + 1);
-                if (child.getRightRange() > next.getLeftRange()) {
+        synchronized (sortedChildren) {
+            // Pruefe gegen sortedChildren (nach Range sortiert)
+            for (int i = 0; i < sortedChildren.size(); i++) {
+                EditNodeAbstract child = sortedChildren.get(i);
+                // Kind muss innerhalb des Eltern-Ranges liegen
+                if (child.getLeftRange() < this.leftRange || child.getRightRange() > this.rightRange) {
                     return false;
+                }
+                // In sortierter Liste: Keine Ueberlappung wenn rightRange <= next.leftRange
+                if (i < sortedChildren.size() - 1) {
+                    EditNodeAbstract next = sortedChildren.get(i + 1);
+                    if (child.getRightRange() > next.getLeftRange()) {
+                        return false;
+                    }
                 }
             }
         }
         return true;
     }
 
-    void addChild(EditNodeAbstract child, final Object weightMonitor) {
+    void addChild(EditNodeAbstract child, final EditTime weightMonitor) {
         addChild(child, children.size(), weightMonitor);
     }
 
-    void addChild(EditNodeAbstract child, int index, final Object weightMonitor) {
-        addChildPhase1(child, index, weightMonitor);
+    void addChild(EditNodeAbstract child, int index, final EditTime weightMonitor) {
+        addChildPhase1(child, index);
         addChildPhase2(child, weightMonitor);
     }
 
-    void addChildPhase1(EditNodeAbstract child, int index, Object weightMonitor) {
+    void addChildPhase1(EditNodeAbstract child, int index) {
         if (child == null) {
             throw new IllegalArgumentException("Child cannot be null");
         }
@@ -172,66 +174,70 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         }
         EditNodeAbstract oldParent = child.getParent();
         if (oldParent != null && oldParent != this) {
-            oldParent.removeChild(child, weightMonitor);
+            oldParent.removeChild(child);
         }
         children.add(index, child);
         child.setParent(this);
     }
 
-    private void addChildPhase2(EditNodeAbstract child, final Object weightMonitor) {
+    private void addChildPhase2(EditNodeAbstract child, final EditTime weightMonitor) {
         synchronized (weightMonitor) {
             // Finde den groessten freien Intervall in sortedChildren
             long maxGapStart = this.leftRange;
             long maxGapSize = 0;
             EditNodeAbstract current;
 
-            // Pruefe Intervall vor dem ersten Kind
-            if (sortedChildren.isEmpty()) {
-                // Keine Kinder, ganzer Eltern-Range ist frei
-                maxGapSize = this.rightRange - this.leftRange + 1;
-                setNextFreeRangeTo(child, this.leftRange, maxGapSize, weightMonitor);
-                sortedChildren.add(child);
-                return;
-            } else {
-                current = sortedChildren.get(0);
-                long gapSize = current.getLeftRange() - this.leftRange;
-                if (gapSize > maxGapSize) {
-                    maxGapSize = gapSize;
-                    maxGapStart = this.leftRange;
+            synchronized (sortedChildren) {
+                // Pruefe Intervall vor dem ersten Kind
+                if (sortedChildren.isEmpty()) {
+                    // Keine Kinder, ganzer Eltern-Range ist frei
+                    maxGapSize = this.rightRange - this.leftRange + 1;
+                    setNextFreeRangeTo(child, this.leftRange, maxGapSize, weightMonitor);
+                    sortedChildren.add(child);
+                    return;
+                } else {
+                    current = sortedChildren.get(0);
+                    long gapSize = current.getLeftRange() - this.leftRange;
+                    if (gapSize > maxGapSize) {
+                        maxGapSize = gapSize;
+                        maxGapStart = this.leftRange;
+                    }
                 }
-            }
-            int sortedIndex = 0;
+                int sortedIndex = 0;
 
-            // Pruefe Intervalle zwischen den Kindern
-            for (int i = 1; i < sortedChildren.size(); i++) {
-                EditNodeAbstract next = sortedChildren.get(i);
-                long gapSize = next.getLeftRange() - current.getRightRange() - 1;
+                // Pruefe Intervalle zwischen den Kindern
+                for (int i = 1; i < sortedChildren.size(); i++) {
+                    EditNodeAbstract next = sortedChildren.get(i);
+                    long gapSize = next.getLeftRange() - current.getRightRange() - 1;
+                    if (gapSize > maxGapSize) {
+                        maxGapSize = gapSize;
+                        maxGapStart = current.getRightRange() + 1;
+                        sortedIndex = i;
+                    }
+                    current = next;
+                }
+
+                // Pruefe Intervall nach dem letzten Kind
+                long gapSize = this.rightRange - current.getRightRange() - 1;
                 if (gapSize > maxGapSize) {
                     maxGapSize = gapSize;
                     maxGapStart = current.getRightRange() + 1;
-                    sortedIndex = i;
+                    sortedIndex = sortedChildren.size();
                 }
-                current = next;
-            }
 
-            // Pruefe Intervall nach dem letzten Kind
-            long gapSize = this.rightRange - current.getRightRange() - 1;
-            if (gapSize > maxGapSize) {
-                maxGapSize = gapSize;
-                maxGapStart = current.getRightRange() + 1;
-                sortedIndex = sortedChildren.size();
+                setNextFreeRangeTo(child, maxGapStart, maxGapSize, weightMonitor);
+                sortedChildren.add(sortedIndex, child);
             }
-
-            setNextFreeRangeTo(child, maxGapStart, maxGapSize, weightMonitor);
-            sortedChildren.add(sortedIndex, child);
         }
     }
 
     void addChildPhase2Fast(EditNodeAbstract child) {
-        sortedChildren.add(child);
+        synchronized (sortedChildren) {
+            sortedChildren.add(child);
+        }
     }
 
-    private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize, final Object weightMonitor) {
+    private long setNextFreeRangeTo(EditNodeAbstract child, long gapStart, long maxGapSize, final EditTime weightMonitor) {
         int weight = child.getWeight(weightMonitor);
         // Use 25% of the largest available interval on the left side—at least `weight * 2`,
         //  but no more than the available amount.
@@ -242,13 +248,18 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return gapStart;
     }
 
-    public void rangeRelabeling(final Object weightMonitor) {
-        if (sortedChildren.isEmpty()) {
+    public void rangeRelabeling(final EditTime weightMonitor) {
+        int size;
+        EditNodeAbstract[] sortetArr;
+        synchronized (sortedChildren) {
+            sortetArr = sortedChildren.toArray(new EditNodeAbstract[size = sortedChildren.size()]);
+        }
+        if (size == 0) {
             return;
         }
         int totalWeight = 0;
         synchronized (weightMonitor) {
-            for (EditNodeAbstract child : sortedChildren) {
+            for (EditNodeAbstract child : sortetArr) {
                 int weight = child.getWeight(weightMonitor);
                 totalWeight += weight;
             }
@@ -264,7 +275,12 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
                 + ", name=" + getName()
                 + ", value=" + getValue()
                 + ", type=" + getTypeKey() + "]");
-        final int size = sortedChildren.size();
+        int size;
+        EditNodeAbstract[] sortetArr;
+        synchronized (sortedChildren) {
+            sortetArr = sortedChildren.toArray(new EditNodeAbstract[size = sortedChildren.size()]);
+        }
+
         if (size == 0) {
             return;
         }
@@ -275,7 +291,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         // Verteile anteilig an Gewichten chronologisch
         long currentStart = this.leftRange;
         for (int i = 0; i < size; i++) {
-            EditNodeAbstract child = sortedChildren.get(i);
+            EditNodeAbstract child = sortetArr[i];
             int weight = child.getCachedWeight();
             double weightRatio = ((double) weight) / totalWeight;
             long rangeSize = Math.max(1, (long) (weightRatio * lookingRange + 0.5d));
@@ -286,10 +302,10 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         }
     }
 
-    public boolean removeChild(EditNodeAbstract child, final Object weightMonitor) {
+    public boolean removeChild(EditNodeAbstract child) {
         boolean removed = children.remove(child);
         if (removed) {
-            synchronized (weightMonitor) {
+            synchronized (sortedChildren) {
                 sortedChildren.remove(child);
                 child.setParent(null);
                 // Notify child that it was removed
@@ -312,9 +328,9 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     abstract void sayOnRemoved(EditNode parent);
 
     // ========== Factory methods ==========
-    abstract EditNodeAbstract addNewChild(String aName, final Object weightMonitor);
+    abstract EditNodeAbstract addNewChild(String aName, final EditTime weightMonitor);
 
-    abstract EditNodeAbstract addNewChild(String aName, int index, final Object weightMonitor);
+    abstract EditNodeAbstract addNewChild(String aName, int index, final EditTime weightMonitor);
 
     public abstract EditNodeAbstract createChild(String aName);
 

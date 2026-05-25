@@ -13,7 +13,7 @@ package de.jare.jsoncasted.editor.core;
 public class EditTree {
 
     private final EditNodeAbstract root;
-    private final Object weightMonitor = new Object();
+    private final EditTime weightMonitor = new EditTime();
 
     public EditTree(String rootText) {
         this(new EditNodeObject(String.valueOf(rootText)));
@@ -101,7 +101,7 @@ public class EditTree {
         checkCycles(newNode, parent);
 
         if (index >= 0) {
-            parent.addChild(newNode, index);
+            parent.addChild(newNode, index, weightMonitor);
         } else {
             parent.addChild(newNode, weightMonitor);
         }
@@ -158,12 +158,12 @@ public class EditTree {
     public void addChild(EditNodeAbstract parentNode, EditNodeAbstract newNode, int index) {
         checkNewAndParentProps(newNode, parentNode);
 
-        parentNode.addChild(newNode, index);
+        parentNode.addChild(newNode, index, weightMonitor);
     }
 
     public boolean removeChild(EditNodeAbstract parentNode, EditNodeAbstract child) {
         checkParentProps(parentNode);
-        return parentNode.removeChild(child, weightMonitor);
+        return parentNode.removeChild(child);
     }
 
     public boolean removeNode(EditNodeAbstract child) {
@@ -175,7 +175,7 @@ public class EditTree {
             return false;
         }
         checkParentMembership(parentNode);
-        return parentNode.removeChild(child, weightMonitor);
+        return parentNode.removeChild(child);
     }
 
     /**
@@ -216,7 +216,7 @@ public class EditTree {
             throw new IllegalStateException("Node has no parent");
         }
 
-        boolean removed = parent.removeChild(node, weightMonitor);
+        boolean removed = parent.removeChild(node);
 
         return removed ? node : null;
     }
@@ -261,7 +261,7 @@ public class EditTree {
     public void clear() {
         while (root.getChildCount() > 0) {
             EditNodeAbstract child = (EditNodeAbstract) root.getChildAt(0);
-            root.removeChild(child, weightMonitor);
+            root.removeChild(child);
         }
     }
 
@@ -276,4 +276,5 @@ public class EditTree {
     public String toString() {
         return "EditTree[root=" + root + ", nodes=" + getNodeCount() + "]";
     }
+
 }
