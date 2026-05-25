@@ -116,7 +116,7 @@ public class EditTree {
 
     public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText, int index) {
         checkParentProps(parentNode);
-        return parentNode.addNewChild(nodeText, index);
+        return parentNode.addNewChild(nodeText, index, weightMonitor);
     }
 
     private void checkParentProps(EditNodeAbstract parentNode) throws IllegalArgumentException {
