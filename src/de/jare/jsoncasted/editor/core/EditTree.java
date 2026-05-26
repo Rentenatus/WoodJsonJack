@@ -27,13 +27,64 @@ public class EditTree {
         return root;
     }
 
+    public EditNodeAbstract findNodeByIdAndRange(long id, long left, long times) {
+        return findNodeByIdAndRange(id, left, times, root);
+    }
+
+    private EditNodeAbstract findNodeByIdAndRange(long id, long left, long times, EditNodeAbstract startNode) {
+        if (startNode == null) {
+            return null;
+        }
+
+        // Check if current node matches the id
+        if (startNode.getEditId() == id) {
+            return startNode;
+        }
+
+        // Iterate through all children
+        for (int i = 0; i < startNode.getChildCount(); i++) {
+            EditNodeAbstract child = startNode.getChildAt(i);
+            if (child == null) {
+                continue;
+            }
+
+            // If child matches the id, return it
+            if (child.getEditId() == id) {
+                return child;
+            }
+
+            // Check if timesRange is greater than times - use old method
+            if (child.getTimesRange() > times) {
+                EditNodeAbstract result = findNodeById(id, child);
+                if (result != null) {
+                    return result;
+                }
+                continue;
+            }
+
+            // Check if left is within the child's range (inclusive)
+            if (left >= child.getLeftRange() && left <= child.getRightRange()) {
+                EditNodeAbstract result = findNodeByIdAndRange(id, left, times, child);
+                if (result != null) {
+                    return result;
+                }
+            }
+        }
+
+        return null;
+    }
+
     public EditNodeAbstract findNodeById(long id) {
-        if (root == null) {
+        return findNodeById(id, root);
+    }
+
+    public EditNodeAbstract findNodeById(long id, EditNodeAbstract startNode) {
+        if (startNode == null) {
             return null;
         }
 
         java.util.ArrayDeque<EditNodeAbstract> stack = new java.util.ArrayDeque<>();
-        stack.push(root);
+        stack.push(startNode);
 
         while (!stack.isEmpty()) {
             EditNodeAbstract node = stack.pop();
