@@ -79,6 +79,12 @@ public class EditNodeAbstractNGTest {
         // Print everything again
         System.out.println("\n--- " + testName + " - Tree after adding deep copy to child3 ---");
         printTree(root, "");
+
+        tree.rangeRelabeling(copy);
+
+        // Print everything again
+        System.out.println("\n--- " + testName + " - Tree after range relabeling ---");
+        printTree(root, "");
     }
 
     private void printTree(EditNode node, String indent) {

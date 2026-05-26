@@ -279,15 +279,22 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         if (size == 0) {
             return;
         }
+
         int totalWeight = 0;
         synchronized (weightMonitor) {
             for (EditNodeAbstract child : sortetArr) {
                 int weight = child.getWeight(weightMonitor);
                 totalWeight += weight;
             }
-            setTimesRange(weightMonitor.update());
-            rangeRelabelingFor(totalWeight);
+            long range = rightRange - leftRange + 1;
+            if (parent == null || totalWeight + totalWeight < range) { // 100% offset
+                setTimesRange(weightMonitor.update());
+                rangeRelabelingFor(totalWeight);
+                return;
+            }
         }
+        // Fallback:
+        parent.rangeRelabeling(weightMonitor);
     }
 
     private void rangeRelabelingFor(int totalWeight) {
