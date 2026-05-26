@@ -279,7 +279,8 @@ public class TreeEditor {
         long parentId = parent != null ? parent.getEditId() : -1;
 
         StringBuilder sb = new StringBuilder();
-        sb.append(node.getName())
+        sb.append(node.getClass().getSimpleName())
+                .append(" {name =").append(node.getName())
                 .append(" {id=").append(node.getEditId())
                 .append(", parentId=").append(parentId);
 

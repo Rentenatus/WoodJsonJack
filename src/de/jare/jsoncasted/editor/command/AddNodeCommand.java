@@ -133,6 +133,13 @@ public class AddNodeCommand extends AbstractEditCommand {
         if (tree == null) {
             throw new IllegalArgumentException("Tree cannot be null");
         }
+        CommandAvailability checkResult = check(tree);
+        if (checkResult.isDisallowed()) {
+            throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());
+        }
+        if (checkResult.isUseless()) {
+            return null;
+        }
 
         EditNodeAbstract[] added = new EditNodeAbstract[entries.length];
         Set<EditNodeAbstract> parentSet = new HashSet<>();

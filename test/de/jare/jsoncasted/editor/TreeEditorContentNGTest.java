@@ -15,6 +15,7 @@ import de.jare.jsoncasted.editor.command.SetValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -53,9 +54,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
 
-        EditNodeObject node1 = new EditNodeObject("oldName1");
-        EditNodeObject node2 = new EditNodeObject("oldName2");
-        EditNodeObject node3 = new EditNodeObject("oldName3");
+        EditNodeProperty node1 = new EditNodeProperty("oldName1");
+        EditNodeProperty node2 = new EditNodeProperty("oldName2");
+        EditNodeProperty node3 = new EditNodeProperty("oldName3");
 
         editor.execute(new AddNodeCommand(root.getEditId(), node1));
         editor.execute(new AddNodeCommand(root.getEditId(), node2));
@@ -108,9 +109,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
 
-        EditNodeObject node1 = new EditNodeObject("valueNode1");
-        EditNodeObject node2 = new EditNodeObject("valueNode2");
-        EditNodeObject node3 = new EditNodeObject("valueNode3");
+        EditNodeProperty node1 = new EditNodeProperty("valueNode1");
+        EditNodeProperty node2 = new EditNodeProperty("valueNode2");
+        EditNodeProperty node3 = new EditNodeProperty("valueNode3");
 
         editor.execute(new AddNodeCommand(root.getEditId(), node1));
         editor.execute(new AddNodeCommand(root.getEditId(), node2));
@@ -163,9 +164,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
 
-        EditNodeObject node1 = new EditNodeObject("node1");
-        EditNodeObject node2 = new EditNodeObject("node2");
-        EditNodeObject node3 = new EditNodeObject("node3");
+        EditNodeProperty node1 = new EditNodeProperty("node1");
+        EditNodeProperty node2 = new EditNodeProperty("node2");
+        EditNodeProperty node3 = new EditNodeProperty("node3");
 
         editor.execute(new AddNodeCommand(root.getEditId(), node1));
         editor.execute(new AddNodeCommand(root.getEditId(), node2));
@@ -247,18 +248,21 @@ public class TreeEditorContentNGTest implements ATestTools {
         TreeEditor editor = new TreeEditor();
         EditNodeAbstract root = editor.getTree().getRoot();
 
-        EditNodeObject sourceParentSeed = new EditNodeObject("source");
-        EditNodeObject targetParentSeed = new EditNodeObject("target");
+        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("sourceProp")));
+        EditNodeAbstract sourceProp = root.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(root.getEditId(), sourceParentSeed));
-        editor.execute(new AddNodeCommand(root.getEditId(), targetParentSeed));
+        editor.execute(new AddNodeCommand(sourceProp.getEditId(), new EditNodeObject("source")));
+        EditNodeAbstract sourceParent = sourceProp.getChildAt(0);
 
-        EditNodeAbstract sourceParent = root.getChildAt(0);
-        EditNodeAbstract targetParent = root.getChildAt(1);
+        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("node1")));
+        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("node2")));
+        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("node3")));
 
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeObject("node1")));
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeObject("node2")));
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeObject("node3")));
+        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("targetProp")));
+        EditNodeAbstract targetProp = root.getChildAt(1);
+
+        editor.execute(new AddNodeCommand(targetProp.getEditId(), new EditNodeObject("target")));
+        EditNodeAbstract targetParent = targetProp.getChildAt(0);
 
         EditNodeAbstract node1 = sourceParent.getChildAt(0);
         EditNodeAbstract node2 = sourceParent.getChildAt(1);
