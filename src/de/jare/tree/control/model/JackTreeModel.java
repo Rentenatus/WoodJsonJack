@@ -1,6 +1,7 @@
 package de.jare.tree.control.model;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
@@ -23,14 +24,69 @@ public class JackTreeModel extends DefaultTreeModel {
         return editTree;
     }
 
+    public DefaultMutableTreeNode findNodeByIdAndRange(long id, long left, long times) {
+        return findNodeByIdAndRange(id, left, times, (DefaultMutableTreeNode) getRoot());
+    }
+
+    private DefaultMutableTreeNode findNodeByIdAndRange(long id, long left, long times, DefaultMutableTreeNode DMStart) {
+        if (DMStart == null) {
+            return null;
+        }
+        if (!(DMStart.getUserObject() instanceof EditNodeAbstract startNode)) {
+            return null;
+        }
+        // Check if current node matches the id
+        if (startNode.getEditId() == id) {
+            return DMStart;
+        }
+
+        // Iterate through all children
+        for (int i = 0; i < DMStart.getChildCount(); i++) {
+            DefaultMutableTreeNode DMChild = (DefaultMutableTreeNode) DMStart.getChildAt(i);
+            if (!(DMChild.getUserObject() instanceof EditNodeAbstract child)) {
+                continue;
+            }
+            if (child == null) {
+                continue;
+            }
+
+            // If child matches the id, return it
+            if (child.getEditId() == id) {
+                return DMChild;
+            }
+
+            // Check if timesRange is greater than times - use old method
+            if (child.getTimesRange() > times) {
+                DefaultMutableTreeNode DMResult = findNodeById(id, DMChild);
+                if (DMResult != null) {
+                    return DMResult;
+                }
+                continue;
+            }
+
+            // Check if left is within the child's range (inclusive)
+            if (left >= child.getLeftRange() && left <= child.getRightRange()) {
+                DefaultMutableTreeNode DMResult = findNodeByIdAndRange(id, left, times, DMChild);
+                if (DMResult != null) {
+                    return DMResult;
+                }
+            }
+
+        }
+        return null;
+    }
+
     public DefaultMutableTreeNode findNodeById(long id) {
-        DefaultMutableTreeNode DMroot = (DefaultMutableTreeNode) getRoot();
-        if (DMroot == null) {
+        return findNodeById(id, (DefaultMutableTreeNode) getRoot());
+    }
+
+    public DefaultMutableTreeNode findNodeById(long id, DefaultMutableTreeNode DMStart) {
+        if (DMStart == null) {
             return null;
         }
 
         java.util.ArrayDeque<DefaultMutableTreeNode> stack = new java.util.ArrayDeque<>();
-        stack.push(DMroot);
+        stack.push(DMStart);
 
         while (!stack.isEmpty()) {
             DefaultMutableTreeNode node = stack.pop();

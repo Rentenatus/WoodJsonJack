@@ -27,7 +27,8 @@ import de.jare.tree.control.listeners.UndoRedoListener;
 import de.jare.tree.control.model.JackTreeModel;
 import java.awt.*;
 import java.util.Enumeration;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import javax.swing.*;
 import javax.swing.tree.*;
@@ -286,12 +287,13 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                 return false;
             }
             JackTreeModel model = getModel();
-            DefaultMutableTreeNode mutableTreeNode = model.findNodeById(editNode.getEditId());
+            DefaultMutableTreeNode mutableTreeNode = model.findNodeByIdAndRange(
+                    editNode.getEditId(), editNode.getLeftRange(), editNode.getTimesRange());
             if (mutableTreeNode == null) {
                 return true;
             }
             TreePath rootPath = new TreePath(mutableTreeNode.getPath());
-            Set<Long> expandedEditIds = saveExpandedEditIds(rootPath);
+            Map<Long, LongPairLeftTimes> expandedEditIds = saveExpandedEditIds(rootPath);
             mutableTreeNode.removeAllChildren();
             model.buildSubtreeStructureChanged(mutableTreeNode, editNode);
 
@@ -305,7 +307,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             }
 
             JackTreeModel model = getModel();
-            DefaultMutableTreeNode swingNode = model.findNodeById(editNode.getEditId());
+            DefaultMutableTreeNode swingNode = model.findNodeByIdAndRange(
+                    editNode.getEditId(), editNode.getLeftRange(), editNode.getTimesRange());
             if (swingNode == null) {
                 return false;
             }
@@ -321,7 +324,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             }
 
             JackTreeModel model = getModel();
-            DefaultMutableTreeNode swingNode = model.findNodeById(editNode.getEditId());
+            DefaultMutableTreeNode swingNode = model.findNodeByIdAndRange(
+                    editNode.getEditId(), editNode.getLeftRange(), editNode.getTimesRange());
             if (swingNode != null) {
                 return true;
             }
@@ -433,7 +437,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         int pathCount = 0;
 
         for (EditNodeAbstract node : nodes) {
-            DefaultMutableTreeNode treeNode = getModel().findNodeById(node.getEditId());
+            DefaultMutableTreeNode treeNode = getModel().findNodeByIdAndRange(
+                    node.getEditId(), node.getLeftRange(), node.getTimesRange());
             if (treeNode != null) {
                 paths[pathCount++] = new TreePath(treeNode.getPath());
             }
@@ -449,8 +454,12 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
     }
 
-    private Set<Long> saveExpandedEditIds(TreePath rootPath) {
-        Set<Long> editIds = new HashSet<>();
+    public record LongPairLeftTimes(long left, long times) {
+
+    }
+
+    private Map<Long, LongPairLeftTimes> saveExpandedEditIds(TreePath rootPath) {
+        Map<Long, LongPairLeftTimes> editIds = new HashMap<>();
         Enumeration<TreePath> e = jtree.getExpandedDescendants(rootPath);
         if (e != null) {
             while (e.hasMoreElements()) {
@@ -458,20 +467,21 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                 DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
                 Object userObject = node.getUserObject();
                 if (userObject instanceof EditNodeAbstract editNode) {
-                    editIds.add(editNode.getEditId());
+                    editIds.put(editNode.getEditId(), new LongPairLeftTimes(editNode.getLeftRange(), editNode.getTimesRange()));
                 }
             }
         }
         return editIds;
     }
 
-    private void restoreExpandedPaths(Set<Long> editIds) {
+    private void restoreExpandedPaths(Map<Long, LongPairLeftTimes> editIds) {
         if (editIds == null || editIds.isEmpty()) {
             return;
         }
         JackTreeModel model = getModel();
-        for (Long editId : editIds) {
-            DefaultMutableTreeNode node = model.findNodeById(editId);
+        for (Long editId : editIds.keySet()) {
+            LongPairLeftTimes pair = editIds.get(editId);
+            DefaultMutableTreeNode node = model.findNodeByIdAndRange(editId, pair.left(), pair.times());
             if (node != null) {
                 TreePath path = new TreePath(node.getPath());
                 jtree.expandPath(path);

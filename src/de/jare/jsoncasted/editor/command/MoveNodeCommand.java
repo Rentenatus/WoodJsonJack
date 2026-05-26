@@ -529,7 +529,6 @@ public class MoveNodeCommand extends AbstractEditCommand {
             if (insertIndex < 0 || insertIndex > parent.getChildCount()) {
                 insertIndex = parent.getChildCount();
             }
-
             tree.addChild(parent, nodeToAdd, insertIndex);
             moved.add(nodeToAdd);
         }
