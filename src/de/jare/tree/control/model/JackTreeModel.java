@@ -25,7 +25,19 @@ public class JackTreeModel extends DefaultTreeModel {
     }
 
     public DefaultMutableTreeNode findNodeByIdAndRange(long id, long left, long times) {
-        return findNodeByIdAndRange(id, left, times, (DefaultMutableTreeNode) getRoot());
+        return findNodeByIdAndRange(id, left, times, (DefaultMutableTreeNode) getRoot(), true);
+    }
+
+    public DefaultMutableTreeNode findNodeByIdAndRange(long id, long left, long times, boolean fallback) {
+        return findNodeByIdAndRange(id, left, times, (DefaultMutableTreeNode) getRoot(), fallback);
+    }
+
+    public DefaultMutableTreeNode findNodeByIdAndRange(long id, long left, long times, DefaultMutableTreeNode DMStart, boolean fallback) {
+        DefaultMutableTreeNode ret = findNodeByIdAndRange(id, left, times, DMStart);
+        if (ret == null && fallback) {
+            return findNodeById(id, DMStart);
+        }
+        return ret;
     }
 
     private DefaultMutableTreeNode findNodeByIdAndRange(long id, long left, long times, DefaultMutableTreeNode DMStart) {

@@ -11,26 +11,38 @@ package de.jare.jsoncasted.editor.core;
  * of EditNode instances and provides fast lookup by ID.
  */
 public class EditTree {
-    
+
     private final EditNodeAbstract root;
     private final EditTimes weightMonitor = new EditTimes();
-    
+
     public EditTree(String rootText) {
         this(new EditNodeObject(String.valueOf(rootText)));
     }
-    
+
     EditTree(EditNodeAbstract root) {
         this.root = root;
     }
-    
+
     public EditNodeAbstract getRoot() {
         return root;
     }
-    
+
     public EditNodeAbstract findNodeByIdAndRange(long id, long left, long times) {
-        return findNodeByIdAndRange(id, left, times, root);
+        return findNodeByIdAndRange(id, left, times, root, true);
     }
-    
+
+    public EditNodeAbstract findNodeByIdAndRange(long id, long left, long times, boolean fallback) {
+        return findNodeByIdAndRange(id, left, times, root, fallback);
+    }
+
+    public EditNodeAbstract findNodeByIdAndRange(long id, long left, long times, EditNodeAbstract startNode, boolean fallback) {
+        EditNodeAbstract ret = findNodeByIdAndRange(id, left, times, startNode);
+        if (ret == null && fallback) {
+            return findNodeById(id, startNode);
+        }
+        return ret;
+    }
+
     private EditNodeAbstract findNodeByIdAndRange(long id, long left, long times, EditNodeAbstract startNode) {
         if (startNode == null) {
             return null;
@@ -72,26 +84,26 @@ public class EditTree {
         }
         return null;
     }
-    
+
     public EditNodeAbstract findNodeById(long id) {
         return findNodeById(id, root);
     }
-    
+
     public EditNodeAbstract findNodeById(long id, EditNodeAbstract startNode) {
         if (startNode == null) {
             return null;
         }
-        
+
         java.util.ArrayDeque<EditNodeAbstract> stack = new java.util.ArrayDeque<>();
         stack.push(startNode);
-        
+
         while (!stack.isEmpty()) {
             EditNodeAbstract node = stack.pop();
-            
+
             if (node.getEditId() == id) {
                 return node;
             }
-            
+
             for (int i = node.getChildCount() - 1; i >= 0; i--) {
                 EditNodeAbstract child = (EditNodeAbstract) node.getChildAt(i);
                 if (child != null) {
@@ -101,22 +113,22 @@ public class EditTree {
         }
         return null;
     }
-    
+
     public boolean hasNodeStarting(EditNodeAbstract start, EditNodeAbstract search) {
         if (start == null) {
             return false;
         }
-        
+
         java.util.ArrayDeque<EditNodeAbstract> stack = new java.util.ArrayDeque<>();
         stack.push(start);
-        
+
         while (!stack.isEmpty()) {
             EditNodeAbstract node = stack.pop();
-            
+
             if (node == search) {
                 return true;
             }
-            
+
             for (int i = node.getChildCount() - 1; i >= 0; i--) {
                 EditNodeAbstract child = (EditNodeAbstract) node.getChildAt(i);
                 if (child != null) {
@@ -126,53 +138,53 @@ public class EditTree {
         }
         return false;
     }
-    
+
     public boolean containsNode(long id) {
         return findNodeById(id) != null;
     }
-    
+
     public boolean addNode(long parentId, EditNodeAbstract newNode) {
         return addNode(parentId, newNode, -1);
     }
-    
+
     public boolean addNode(long parentId, EditNodeAbstract newNode, int index) {
         if (newNode == null) {
             throw new IllegalArgumentException("New node cannot be null");
         }
-        
+
         EditNodeAbstract parent = findNodeById(parentId);
         if (parent == null) {
             throw new IllegalStateException("Parent node with ID " + parentId + " not found.");
         }
-        
+
         checkCycles(newNode, parent);
-        
+
         if (index >= 0) {
             parent.addChild(newNode, index, weightMonitor);
         } else {
             parent.addChild(newNode, weightMonitor);
         }
-        
+
         return true;
     }
-    
+
     public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText) {
         checkParentProps(parentNode);
         return parentNode.addNewChild(nodeText, weightMonitor);
     }
-    
+
     public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText, int index) {
         checkParentProps(parentNode);
         return parentNode.addNewChild(nodeText, index, weightMonitor);
     }
-    
+
     private void checkParentProps(EditNodeAbstract parentNode) throws IllegalArgumentException {
         if (parentNode == null) {
             throw new IllegalArgumentException("Parent node cannot be null.");
         }
         checkParentMembership(parentNode);
     }
-    
+
     private void checkNewAndParentProps(EditNodeAbstract newNode, EditNodeAbstract parentNode) throws IllegalArgumentException {
         if (newNode == null || parentNode == null) {
             throw new IllegalArgumentException("New and parent nodes cannot be null.");
@@ -183,36 +195,36 @@ public class EditTree {
             throw new IllegalArgumentException("This new node cannot become a child of the specified parent.");
         }
     }
-    
+
     private void checkParentMembership(EditNodeAbstract parentNode) throws IllegalArgumentException {
         if (!parentNode.isOrHasParent(root)) {
             throw new IllegalArgumentException("The parent node must be a node from the tree");
         }
     }
-    
+
     private void checkCycles(EditNodeAbstract newNode, EditNodeAbstract parentNode) throws IllegalArgumentException {
         if (hasNodeStarting(newNode, parentNode)) {
             throw new IllegalArgumentException("A parent node must not be cyclically contained within a child node.");
         }
     }
-    
+
     public void addChild(EditNodeAbstract parentNode, EditNodeAbstract newNode) {
         checkNewAndParentProps(newNode, parentNode);
-        
+
         parentNode.addChild(newNode, weightMonitor);
     }
-    
+
     public void addChild(EditNodeAbstract parentNode, EditNodeAbstract newNode, int index) {
         checkNewAndParentProps(newNode, parentNode);
-        
+
         parentNode.addChild(newNode, index, weightMonitor);
     }
-    
+
     public boolean removeChild(EditNodeAbstract parentNode, EditNodeAbstract child) {
         checkParentProps(parentNode);
         return parentNode.removeChild(child);
     }
-    
+
     public boolean removeNode(EditNodeAbstract child) {
         if (child == null) {
             throw new IllegalArgumentException("Child node cannot be null");
@@ -241,30 +253,30 @@ public class EditTree {
         if (newNodes.length != parentIds.length || newNodes.length != indices.length) {
             throw new IllegalArgumentException("Arrays must have the same length");
         }
-        
+
         for (int i = 0; i < newNodes.length; i++) {
             addNode(parentIds[i], newNodes[i], indices[i]);
         }
         return true;
     }
-    
+
     public EditNode removeNode(long nodeId) {
         EditNodeAbstract node = findNodeById(nodeId);
         if (node == null) {
             return null;
         }
-        
+
         if (node == root) {
             throw new IllegalStateException("Cannot remove root node");
         }
-        
+
         EditNodeAbstract parent = node.getParent();
         if (parent == null) {
             throw new IllegalStateException("Node has no parent");
         }
-        
+
         boolean removed = parent.removeChild(node);
-        
+
         return removed ? node : null;
     }
 
@@ -280,20 +292,20 @@ public class EditTree {
             removeNode(nodeIds[i]);
         }
     }
-    
+
     public int getNodeCount() {
         if (root == null) {
             return 0;
         }
-        
+
         int count = 0;
         java.util.ArrayDeque<EditNodeAbstract> stack = new java.util.ArrayDeque<>();
         stack.push(root);
-        
+
         while (!stack.isEmpty()) {
             EditNodeAbstract node = stack.pop();
             count++;
-            
+
             for (int i = node.getChildCount() - 1; i >= 0; i--) {
                 EditNodeAbstract child = (EditNodeAbstract) node.getChildAt(i);
                 if (child != null) {
@@ -301,34 +313,34 @@ public class EditTree {
                 }
             }
         }
-        
+
         return count;
     }
-    
+
     public void clear() {
         while (root.getChildCount() > 0) {
             EditNodeAbstract child = (EditNodeAbstract) root.getChildAt(0);
             root.removeChild(child);
         }
     }
-    
+
     public void buildReachableSet(EditNode node, java.util.Set<Long> reachable) {
         reachable.add(node.getEditId());
         for (int i = 0; i < node.getChildCount(); i++) {
             buildReachableSet(node.getChildAt(i), reachable);
         }
     }
-    
+
     @Override
     public String toString() {
         return "EditTree[root=" + root + ", nodes=" + getNodeCount() + "]";
     }
-    
+
     public void rangeRelabeling(EditNodeAbstract node) {
         if (!node.isOrHasParent(root)) {
             throw new IllegalArgumentException("The node must be a node from the tree");
         }
         node.rangeRelabeling(weightMonitor);
     }
-    
+
 }
