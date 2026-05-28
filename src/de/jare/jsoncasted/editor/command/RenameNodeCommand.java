@@ -139,11 +139,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
     }
 
     @Override
-    public CommandResult execute(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
-
+    protected CommandResult doExecute(EditTree tree) {
         EditNodeAbstract[] updated = new EditNodeAbstract[entries.length];
 
         for (int i = 0; i < entries.length; i++) {

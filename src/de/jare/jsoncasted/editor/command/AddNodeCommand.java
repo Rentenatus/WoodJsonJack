@@ -129,10 +129,7 @@ public class AddNodeCommand extends AbstractEditCommand {
     }
 
     @Override
-    public CommandResult execute(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
+    protected CommandResult doExecute(EditTree tree) {
         CommandAvailability checkResult = check(tree);
         if (checkResult.isDisallowed()) {
             throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());

@@ -194,10 +194,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
     }
 
     @Override
-    public CommandResult execute(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
+    protected CommandResult doExecute(EditTree tree) {
         CommandAvailability availability = validate(tree);
         if (!availability.isAllowed()) {
             throw new IllegalStateException(availability.toString());

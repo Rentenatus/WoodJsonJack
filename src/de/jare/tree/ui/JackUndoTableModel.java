@@ -6,6 +6,7 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.command.CommandAction;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.tree.control.JackUndoManagerModel;
 import javax.swing.table.AbstractTableModel;
@@ -22,7 +23,7 @@ public class JackUndoTableModel extends AbstractTableModel {
         }
     }
 
-    private static final String[] COLS = {"Index", "Action", "Description"};
+    private static final String[] COLS = {"Status", "Action", "Description"};
 
     @Override
     public int getColumnCount() {
@@ -58,7 +59,8 @@ public class JackUndoTableModel extends AbstractTableModel {
         if (rowIndex == redoCount) {
             // Trenner-Zeile
             return switch (columnIndex) {
-                case 0, 1, 2 ->
+                case 0 -> "---";
+                case 1, 2 ->
                     "<---";
                 default ->
                     "";
@@ -79,7 +81,7 @@ public class JackUndoTableModel extends AbstractTableModel {
 
         return switch (columnIndex) {
             case 0 ->
-                (rowIndex < redoCount) ? (redoCount - rowIndex) : (rowIndex - redoCount);
+                formatStatus(cmd);
             case 1 ->
                 cmd.getTypeText();
             case 2 ->
@@ -92,5 +94,31 @@ public class JackUndoTableModel extends AbstractTableModel {
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
         return false;
+    }
+
+    private String formatStatus(EditCommand cmd) {
+        if (cmd instanceof de.jare.jsoncasted.editor.command.AbstractEditCommand) {
+            de.jare.jsoncasted.editor.command.AbstractEditCommand absCmd = 
+                (de.jare.jsoncasted.editor.command.AbstractEditCommand) cmd;
+            CommandAction action = absCmd.getLastAction();
+            int updated = absCmd.getLastUpdatedCount();
+            int failed = absCmd.getLastFailedCount();
+            
+            if (action == null) {
+                return "";
+            }
+            
+            StringBuilder sb = new StringBuilder();
+            sb.append(action.toString());
+            if (updated > 0 || failed > 0) {
+                sb.append("(").append(updated);
+                if (failed > 0) {
+                    sb.append("/").append(failed);
+                }
+                sb.append(")");
+            }
+            return sb.toString();
+        }
+        return "";
     }
 }

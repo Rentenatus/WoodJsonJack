@@ -117,11 +117,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
     }
 
     @Override
-    public CommandResult execute(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
-
+    protected CommandResult doExecute(EditTree tree) {
         MovementEntry[] deleteOrder = Arrays.copyOf(entries, entries.length);
         Arrays.sort(deleteOrder, Comparator
                 .comparingLong((MovementEntry e)

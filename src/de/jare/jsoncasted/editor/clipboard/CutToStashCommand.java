@@ -94,7 +94,7 @@ public class CutToStashCommand extends AbstractToStashCommand {
     }
 
     @Override
-    public CommandResult execute(EditTree tree) {
+    protected CommandResult doExecute(EditTree tree) {
         requireExecutable(tree);
         captureState(tree);
 

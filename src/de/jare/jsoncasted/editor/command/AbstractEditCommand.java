@@ -6,7 +6,6 @@
  */
 package de.jare.jsoncasted.editor.command;
 
-import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import java.util.Set;
@@ -27,6 +26,10 @@ public abstract class AbstractEditCommand implements EditCommand {
     private final CommandType type;
     private String description;
     boolean skipped;
+    
+    private CommandAction lastAction;
+    private int lastUpdatedCount;
+    private int lastFailedCount;
 
     /**
      * Creates a new abstract edit command with the specified type.
@@ -70,9 +73,39 @@ public abstract class AbstractEditCommand implements EditCommand {
         this.description = description;
     }
 
+    /**
+     * Returns the last action performed by this command.
+     *
+     * @return the last command action
+     */
+    public CommandAction getLastAction() {
+        return lastAction;
+    }
+
+    /**
+     * Returns the number of nodes updated in the last operation.
+     *
+     * @return the count of updated nodes
+     */
+    public int getLastUpdatedCount() {
+        return lastUpdatedCount;
+    }
+
+    /**
+     * Returns the number of nodes that failed in the last operation.
+     *
+     * @return the count of failed nodes
+     */
+    public int getLastFailedCount() {
+        return lastFailedCount;
+    }
+
     @Override
     public void skipped() {
         skipped = true;
+        lastAction = CommandAction.SKIPPED;
+        lastUpdatedCount = 0;
+        lastFailedCount = 0;
     }
 
     public boolean consumeSkipped() {
@@ -82,14 +115,45 @@ public abstract class AbstractEditCommand implements EditCommand {
     }
 
     @Override
+    public final CommandResult execute(EditTree tree) {
+        if (tree == null) {
+            throw new IllegalArgumentException("Tree cannot be null");
+        }
+        CommandResult result = doExecute(tree);
+        if (result != null) {
+            lastAction = result.getAction();
+            lastUpdatedCount = result.getUpdatedNodes().length;
+            lastFailedCount = result.getFailedNodes().length;
+        }
+        return result;
+    }
+
+    /**
+     * Executes the command on the given tree. Subclasses must implement this method.
+     *
+     * @param tree the tree to modify
+     * @return the result describing the changes caused by this execution
+     */
+    protected abstract CommandResult doExecute(EditTree tree);
+
+    @Override
     public final CommandResult undo(EditTree tree) {
         if (tree == null) {
             throw new IllegalArgumentException("Tree cannot be null");
         }
         if (consumeSkipped()) {
+            lastAction = CommandAction.SKIPPED;
+            lastUpdatedCount = 0;
+            lastFailedCount = 0;
             return new CommandResult(this, CommandAction.SKIPPED, null, null, null, null, null, NO_UPDATE_ACTIONS);
         }
-        return doUndo(tree);
+        CommandResult result = doUndo(tree);
+        if (result != null) {
+            lastAction = result.getAction();
+            lastUpdatedCount = result.getUpdatedNodes().length;
+            lastFailedCount = result.getFailedNodes().length;
+        }
+        return result;
     }
 
     /**

@@ -373,11 +373,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * @return the command result
      */
     @Override
-    public CommandResult execute(EditTree tree) {
-        if (tree == null) {
-            throw new IllegalArgumentException("Tree cannot be null");
-        }
-
+    protected CommandResult doExecute(EditTree tree) {
         MoveBubble[] successfullyRemoved = removeAll(tree, oldEntries, newEntries);
         EditNodeAbstract[] moved = addAll(tree, newEntries, successfullyRemoved);
         EditNodeAbstract[] failed = failed(tree, oldEntries, successfullyRemoved);

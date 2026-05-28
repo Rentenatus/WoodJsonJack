@@ -47,7 +47,7 @@ public class CopyToStashCommand extends AbstractToStashCommand {
     }
 
     @Override
-    public CommandResult execute(EditTree tree) {
+    protected CommandResult doExecute(EditTree tree) {
         requireExecutable(tree);
 
         clipboardManager.copyToStash(stashName, tree, nodeIds);
