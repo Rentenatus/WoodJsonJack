@@ -196,4 +196,8 @@ public class JackUndoManagerModel implements SimpleStringSplitter {
         return historyManager == source;
     }
 
+    public HistoryManager getHistoryManager() {
+        return historyManager;
+    }
+
 }

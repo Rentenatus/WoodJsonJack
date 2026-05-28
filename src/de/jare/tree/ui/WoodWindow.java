@@ -88,6 +88,7 @@ public class WoodWindow extends JFrame {
         });
         // initial
         master.setActiveEditor(editorTree1.getLeftTree(), master);
+        jackmaster.setActiveEditor(editorTree2.getLeftTree(), this);
 
         WoodEditPopup popup = new WoodEditPopup(master);
         WoodEditPopup.installOn(editorTree1.getLeftTree().getTree(), popup);
@@ -102,6 +103,7 @@ public class WoodWindow extends JFrame {
         bottomTabs.addTab("Properties", createPropertiesPanel());
         bottomTabs.addTab("Clipboard", createClipboardPanel());
         bottomTabs.addTab("Undo", createUndoPanel());
+        bottomTabs.addTab("Jack Undo", createJackUndoPanel());
         bottomTabs.addTab("KI Assistant", createKIAssistant());
 
         JPanel bottomToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -146,10 +148,16 @@ public class WoodWindow extends JFrame {
     }
 
     private WoodUndoPanel panel;
+    private JackUndoPanel jackPanel;
 
     private JPanel createUndoPanel() {
         panel = new WoodUndoPanel(master);
         return panel;
+    }
+
+    private JPanel createJackUndoPanel() {
+        jackPanel = new JackUndoPanel(jackmaster);
+        return jackPanel;
     }
 
     private WoodClipboardTree clipboardTree;
