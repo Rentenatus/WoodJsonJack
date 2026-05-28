@@ -155,6 +155,10 @@ public class JackUndoManagerModel implements SimpleStringSplitter {
         return historyManager.redoSize();
     }
 
+    public int getTotalSize() {
+        return historyManager.getTotalSize();
+    }
+
     public EditCommand getRedo(int index) {
         return historyManager.getRedo(index);
     }
@@ -194,10 +198,6 @@ public class JackUndoManagerModel implements SimpleStringSplitter {
 
     boolean containsHistory(HistoryManager source) {
         return historyManager == source;
-    }
-
-    public HistoryManager getHistoryManager() {
-        return historyManager;
     }
 
 }

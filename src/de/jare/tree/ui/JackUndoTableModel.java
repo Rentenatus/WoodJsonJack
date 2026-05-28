@@ -7,18 +7,17 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.command.EditCommand;
-import de.jare.jsoncasted.editor.events.HistoryManager;
-import java.util.List;
+import de.jare.tree.control.JackUndoManagerModel;
 import javax.swing.table.AbstractTableModel;
 
 public class JackUndoTableModel extends AbstractTableModel {
 
-    private HistoryManager historyManager = null;
+    private JackUndoManagerModel manager = null;
 
-    public void setHistoryManager(HistoryManager historyManager) {
-        HistoryManager historyManagerAlt = this.historyManager;
-        this.historyManager = historyManager;
-        if (historyManagerAlt != this.historyManager) {
+    public void setManager(JackUndoManagerModel manager) {
+        JackUndoManagerModel managerAlt = this.manager;
+        this.manager = manager;
+        if (managerAlt != this.manager) {
             fireTableDataChanged();
         }
     }
@@ -37,18 +36,18 @@ public class JackUndoTableModel extends AbstractTableModel {
 
     // --- Sichtberechnung -----------------------------------------------------
     public int getRedoCount() {
-        if (historyManager == null) {
+        if (manager == null) {
             return 0;
         }
-        return historyManager.redoSize();
+        return manager.redoSize();
     }
 
     @Override
     public int getRowCount() {
-        if (historyManager == null) {
+        if (manager == null) {
             return 0;
         }
-        return historyManager.getTotalSize() + 1;
+        return manager.getTotalSize() + 1;
     }
 
     // --- TableModel-API ------------------------------------------------------
@@ -66,13 +65,13 @@ public class JackUndoTableModel extends AbstractTableModel {
             };
         }
 
-        if (historyManager == null) {
+        if (manager == null) {
             return "";
         }
 
         EditCommand cmd = (rowIndex < redoCount)
-                ? historyManager.getRedo(redoCount - 1 - rowIndex)
-                : historyManager.getUndo(rowIndex - redoCount - 1);
+                ? manager.getRedo(redoCount - 1 - rowIndex)
+                : manager.getUndo(rowIndex - redoCount - 1);
 
         if (cmd == null) {
             return "";

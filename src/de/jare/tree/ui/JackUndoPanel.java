@@ -59,8 +59,8 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
 
     private void updateModelFromActiveManager() {
         JackUndoManagerModel activeManager = undoMan.getActiveManager();
-        if (activeManager != null && activeManager.getHistoryManager() != null) {
-            undoModel.setHistoryManager(activeManager.getHistoryManager());
+        if (activeManager != null) {
+            undoModel.setManager(activeManager);
             activeManager.addListener(this);
         }
     }
@@ -91,24 +91,12 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
 
     @Override
     public void onClear(HistoryEvent event) {
-        SwingUtilities.invokeLater(() -> {
-            HistoryManager hm = event.getSource();
-            if (hm != null) {
-                undoModel.setHistoryManager(hm);
-            }
-            selectCurrent();
-        });
+        SwingUtilities.invokeLater(this::selectCurrent);
     }
 
     @Override
     public void onAction(HistoryEvent event) {
-        SwingUtilities.invokeLater(() -> {
-            HistoryManager hm = event.getSource();
-            if (hm != null) {
-                undoModel.setHistoryManager(hm);
-            }
-            selectCurrent();
-        });
+        SwingUtilities.invokeLater(this::selectCurrent);
     }
 
     @Override
