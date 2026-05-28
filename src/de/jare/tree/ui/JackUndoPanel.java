@@ -30,6 +30,7 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     private final JTable undoTable;
     private final JackUndoManager undoMan;
     private final JackUndoButtonPanel buttonPanel;
+    private JackUndoManagerModel currentManager;
 
     public JackUndoPanel(JackMasterControl master) {
         super(new BorderLayout());
@@ -59,7 +60,11 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
 
     private void updateModelFromActiveManager() {
         JackUndoManagerModel activeManager = undoMan.getActiveManager();
-        if (activeManager != null) {
+        if (activeManager != null && activeManager != currentManager) {
+            if (currentManager != null) {
+                currentManager.removeListener(this);
+            }
+            currentManager = activeManager;
             undoModel.setManager(activeManager);
             activeManager.addListener(this);
         }
@@ -69,6 +74,7 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     public void onExecute(TreeModel model, CommandResult result) {
         SwingUtilities.invokeLater(() -> {
             updateModelFromActiveManager();
+            undoModel.fireTableDataChanged();
             selectCurrent();
         });
     }
@@ -77,6 +83,7 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     public void onUndo(TreeModel model, CommandResult result) {
         SwingUtilities.invokeLater(() -> {
             updateModelFromActiveManager();
+            undoModel.fireTableDataChanged();
             selectCurrent();
         });
     }
@@ -85,18 +92,25 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     public void onSkipped(TreeModel model, EditCommand command) {
         SwingUtilities.invokeLater(() -> {
             updateModelFromActiveManager();
+            undoModel.fireTableDataChanged();
             selectCurrent();
         });
     }
 
     @Override
     public void onClear(HistoryEvent event) {
-        SwingUtilities.invokeLater(this::selectCurrent);
+        SwingUtilities.invokeLater(() -> {
+            undoModel.fireTableDataChanged();
+            selectCurrent();
+        });
     }
 
     @Override
     public void onAction(HistoryEvent event) {
-        SwingUtilities.invokeLater(this::selectCurrent);
+        SwingUtilities.invokeLater(() -> {
+            undoModel.fireTableDataChanged();
+            selectCurrent();
+        });
     }
 
     @Override

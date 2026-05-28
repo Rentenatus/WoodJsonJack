@@ -23,7 +23,7 @@ public class JackUndoTableModel extends AbstractTableModel {
         }
     }
 
-    private static final String[] COLS = {"Status", "Action", "Description"};
+    private static final String[] COLS = {"Status", "Updated", "Failed", "Action", "Description"};
 
     @Override
     public int getColumnCount() {
@@ -59,8 +59,7 @@ public class JackUndoTableModel extends AbstractTableModel {
         if (rowIndex == redoCount) {
             // Trenner-Zeile
             return switch (columnIndex) {
-                case 0 -> "---";
-                case 1, 2 ->
+                case 0, 1, 2, 3, 4 ->
                     "<---";
                 default ->
                     "";
@@ -79,24 +78,6 @@ public class JackUndoTableModel extends AbstractTableModel {
             return "";
         }
 
-        return switch (columnIndex) {
-            case 0 ->
-                formatStatus(cmd);
-            case 1 ->
-                cmd.getTypeText();
-            case 2 ->
-                cmd.getDescription();
-            default ->
-                "";
-        };
-    }
-
-    @Override
-    public boolean isCellEditable(int rowIndex, int columnIndex) {
-        return false;
-    }
-
-    private String formatStatus(EditCommand cmd) {
         if (cmd instanceof de.jare.jsoncasted.editor.command.AbstractEditCommand) {
             de.jare.jsoncasted.editor.command.AbstractEditCommand absCmd = 
                 (de.jare.jsoncasted.editor.command.AbstractEditCommand) cmd;
@@ -104,21 +85,26 @@ public class JackUndoTableModel extends AbstractTableModel {
             int updated = absCmd.getLastUpdatedCount();
             int failed = absCmd.getLastFailedCount();
             
-            if (action == null) {
-                return "";
-            }
-            
-            StringBuilder sb = new StringBuilder();
-            sb.append(action.toString());
-            if (updated > 0 || failed > 0) {
-                sb.append("(").append(updated);
-                if (failed > 0) {
-                    sb.append("/").append(failed);
-                }
-                sb.append(")");
-            }
-            return sb.toString();
+            return switch (columnIndex) {
+                case 0 -> action != null ? action.toString() : "";
+                case 1 -> String.valueOf(updated);
+                case 2 -> String.valueOf(failed);
+                case 3 -> cmd.getTypeText();
+                case 4 -> cmd.getDescription();
+                default -> "";
+            };
         }
-        return "";
+        
+        return switch (columnIndex) {
+            case 0, 1, 2 -> "";
+            case 3 -> cmd.getTypeText();
+            case 4 -> cmd.getDescription();
+            default -> "";
+        };
+    }
+
+    @Override
+    public boolean isCellEditable(int rowIndex, int columnIndex) {
+        return false;
     }
 }
