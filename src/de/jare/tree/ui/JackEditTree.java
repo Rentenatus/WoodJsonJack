@@ -6,6 +6,11 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
+import de.jare.jsoncasted.editor.clipboard.ClipboardStash;
+import de.jare.jsoncasted.editor.clipboard.CopyToStashCommand;
+import de.jare.jsoncasted.editor.clipboard.CutToStashCommand;
+import de.jare.jsoncasted.editor.clipboard.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.AddNodeCommand;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
@@ -16,6 +21,7 @@ import static de.jare.jsoncasted.editor.command.UpdateAction.SELECT_UPDATED;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.MasterControl;
@@ -563,70 +569,87 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     private void copySelection(boolean cut) {
-//        TreePath[] paths = tree.getSelectionPaths();
-//        if (paths == null || paths.length == 0 || master == null) {
-//            return;
-//        }
-//
-//        master.getClipboardTree().copySelection(this, paths, cut);
-//
-//        if (cut) {
-//            DefaultTreeModel srcModel = (DefaultTreeModel) tree.getModel();
-//            DefaultMutableTreeNode[] nodes = new DefaultMutableTreeNode[paths.length];
-//            DefaultMutableTreeNode[] parents = new DefaultMutableTreeNode[paths.length];
-//
-//            for (int i = 0; i < paths.length; i++) {
-//                DefaultMutableTreeNode n = (DefaultMutableTreeNode) paths[i].getLastPathComponent();
-//                nodes[i] = n;
-//                parents[i] = (DefaultMutableTreeNode) n.getParent();
-//            }
-//
-//            // Undo-Command f�r Cut
-//            master.getUndoManager().pushCommand(
-//                    new WoodCommandDeleteNodes(nodes, parents)
-//            );
-//
-//            // physisch entfernen (von unten nach oben)
-//            for (int i = paths.length - 1; i >= 0; i--) {
-//                DefaultMutableTreeNode n = nodes[i];
-//                MutableTreeNode p = (MutableTreeNode) n.getParent();
-//                if (p != null) {
-//                    srcModel.removeNodeFromParent(n);
-//                }
-//            }
-//        }
+        TreePath[] paths = jtree.getSelectionPaths();
+        if (paths == null || paths.length == 0 || master == null) {
+            return;
+        }
+
+        // Extract EditNode IDs from selected tree paths
+        long[] nodeIds = new long[paths.length];
+        for (int i = 0; i < paths.length; i++) {
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) paths[i].getLastPathComponent();
+            Object uo = node.getUserObject();
+            if (uo instanceof EditNodeAbstract editNode) {
+                nodeIds[i] = editNode.getEditId();
+            } else {
+                // Cannot copy non-EditNode objects
+                return;
+            }
+        }
+
+        ClipboardManager clipboardManager = master.getClipboardManager();
+
+        EditCommand command;
+        if (cut) {
+            command = new CutToStashCommand(
+                    clipboardManager,
+                    ClipboardManager.CLIPBOARD_STASH_NAME,
+                    nodeIds
+            );
+        } else {
+            command = new CopyToStashCommand(
+                    clipboardManager,
+                    ClipboardManager.CLIPBOARD_STASH_NAME,
+                    nodeIds
+            );
+        }
+
+        master.getUndoManager().executeCommand(command);
     }
 
     private void pasteClipboard() {
-//        if (master == null) {
-//            return;
-//        }
-//
-//        TreePath path = tree.getSelectionPath();
-//        if (path == null) {
-//            return;
-//        }
-//
-//        DefaultMutableTreeNode target = (DefaultMutableTreeNode) path.getLastPathComponent();
-//        Object targetUo = target.getUserObject();
-//        if (!(targetUo instanceof EditNode targetData)) {
-//            return;
-//        }
-//
-//        if (!master.getClipboardTree().canPasteTo(targetData)) {
-//            UIManager.getLookAndFeel().provideErrorFeedback(this);
-//            return;
-//        }
-//
-//        // Wenn Typ passt, regul?r einf?gen
-//        master.getClipboardTree().pasteClipboard(this, path);
-//
-//        // Events (Properties etc.)
-//        if (master != null && master.getActiveEditor() == this) {
-//            DefaultMutableTreeNode sel
-//                    = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
-//            master.fireSelection(sel, this, false);
-//        }
+        if (master == null) {
+            return;
+        }
+
+        TreePath path = jtree.getSelectionPath();
+        if (path == null) {
+            return;
+        }
+
+        DefaultMutableTreeNode target = (DefaultMutableTreeNode) path.getLastPathComponent();
+        Object targetUo = target.getUserObject();
+        if (!(targetUo instanceof EditNodeAbstract targetData)) {
+            return;
+        }
+
+        ClipboardManager clipboardManager = master.getClipboardManager();
+
+        // Use the standard clipboard stash
+        String stashName = ClipboardManager.CLIPBOARD_STASH_NAME;
+
+        // Check if there's content in the clipboard stash
+        ClipboardStash stash = clipboardManager.getStash(stashName);
+        if (stash == null || stash.isEmpty()) {
+            UIManager.getLookAndFeel().provideErrorFeedback(jtree);
+            return;
+        }
+
+        // Create and execute paste command
+        long parentId = targetData.getEditId();
+        PasteFromStashCommand command = new PasteFromStashCommand(
+                clipboardManager,
+                stashName,
+                parentId
+        );
+
+        master.getUndoManager().executeCommand(command);
+
+        // Select the pasted nodes - fire selection to update properties
+        if (master != null && master.getActiveEditor() == this) {
+            DefaultMutableTreeNode sel = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
+            master.fireSelection(sel, this, false);
+        }
     }
 
 }

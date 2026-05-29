@@ -6,6 +6,7 @@
  */
 package de.jare.tree.control;
 
+import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
@@ -23,10 +24,12 @@ public class JackMasterControl {
     private Object activeEditor; // bewusst generisch
     private JackUndoManager undoMan;
     private SelectionStackManager selectionStack;
+    private ClipboardManager clipboardManager;
 
     public JackMasterControl() {
         this.undoMan = new JackUndoManager();
         this.selectionStack = new SelectionStackManager();
+        this.clipboardManager = new ClipboardManager();
         addSelectionListener(6, this.undoMan);
         addSelectionListener(8, this.selectionStack);
     }
@@ -117,6 +120,10 @@ public class JackMasterControl {
 
     public SelectionStackManager getSelectionStackManager() {
         return selectionStack;
+    }
+
+    public ClipboardManager getClipboardManager() {
+        return clipboardManager;
     }
 
 }

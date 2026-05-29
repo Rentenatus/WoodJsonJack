@@ -6,7 +6,6 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.settings.SettingsService;
@@ -20,7 +19,6 @@ public class WoodWindow extends JFrame {
 
     private final MasterControl master;
     private final JackMasterControl jackmaster;
-    private final ClipboardManager jackClipboardManager;
     private final JTabbedPane centerTabs;
     private final WoodEditTreeContainer editorTree1;
     private final JackEditTreeContainer editorTree2;
@@ -37,7 +35,6 @@ public class WoodWindow extends JFrame {
         settings.useThemeSuite(themeSuite);
         master = new MasterControl();
         jackmaster = new JackMasterControl();
-        jackClipboardManager = new ClipboardManager();
 
         setTitle("Wood Json Studio");
         setSize(1200, 800);
@@ -65,7 +62,7 @@ public class WoodWindow extends JFrame {
         centerTabs.addTab("Tree Editor 2", new JScrollPane(editorTree2));
 
         // Erstelle Jack Clipboard Panel
-        jackClipboardPanel = new JackClipboardPanel(jackClipboardManager, editorTree2.getLeftTree());
+        jackClipboardPanel = new JackClipboardPanel(jackmaster.getClipboardManager(), editorTree2.getLeftTree());
 
         // obere Toolbar ueber den Editor-Tabs
         // obere Toolbar �ber den Editor-Tabs
