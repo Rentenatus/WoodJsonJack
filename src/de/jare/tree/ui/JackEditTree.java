@@ -589,17 +589,20 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
         ClipboardManager clipboardManager = master.getClipboardManager();
 
+        // Verwende den aktuellen aktiven Stash des ClipboardManagers
+        String stashName = clipboardManager.getActiveStashName();
+
         EditCommand command;
         if (cut) {
             command = new CutToStashCommand(
                     clipboardManager,
-                    ClipboardManager.CLIPBOARD_STASH_NAME,
+                    stashName,
                     nodeIds
             );
         } else {
             command = new CopyToStashCommand(
                     clipboardManager,
-                    ClipboardManager.CLIPBOARD_STASH_NAME,
+                    stashName,
                     nodeIds
             );
         }
@@ -625,10 +628,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
         ClipboardManager clipboardManager = master.getClipboardManager();
 
-        // Use the standard clipboard stash
-        String stashName = ClipboardManager.CLIPBOARD_STASH_NAME;
+        // Use the currently active stash from ClipboardManager
+        String stashName = clipboardManager.getActiveStashName();
 
-        // Check if there's content in the clipboard stash
+        // Check if there's content in the active stash
         ClipboardStash stash = clipboardManager.getStash(stashName);
         if (stash == null || stash.isEmpty()) {
             UIManager.getLookAndFeel().provideErrorFeedback(jtree);

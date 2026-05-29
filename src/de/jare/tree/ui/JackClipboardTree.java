@@ -35,6 +35,9 @@ public class JackClipboardTree extends JTree {
         setRootVisible(true);
         setShowsRootHandles(true);
         
+        // Registriere Listener für Clipboard-Änderungen
+        clipboardManager.addClipboardChangeListener(this::onClipboardChanged);
+        
         // Standardmäßig den Clipboard Stash anzeigen
         showStashContent(currentStashName);
     }
@@ -95,6 +98,20 @@ public class JackClipboardTree extends JTree {
         // Root-Name aktualisieren
         root.setUserObject("Clipboard - " + stashName);
         ((DefaultTreeModel) getModel()).nodeChanged(root);
+    }
+
+    /**
+     * Listener-Callback für Clipboard-Änderungen.
+     * Wird aufgerufen, wenn sich ein Stash ändert.
+     *
+     * @param stashName der Name des geänderten Stash, oder null für alle
+     */
+    private void onClipboardChanged(String stashName) {
+        // Aktualisiere die Anzeige, wenn der geänderte Stash der aktuelle ist
+        // oder wenn alle Stashes betroffen sind (stashName == null)
+        if (stashName == null || stashName.equals(currentStashName)) {
+            SwingUtilities.invokeLater(() -> refreshCurrentStash());
+        }
     }
 
     /**

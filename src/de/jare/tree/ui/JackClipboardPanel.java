@@ -32,6 +32,18 @@ public class JackClipboardPanel extends JPanel {
         this.clipboardTree = new JackClipboardTree(clipboardManager);
         this.clipboardTree.setSourceTree(sourceTree);
 
+        // Registriere Listener für Stash-Listen-Änderungen
+        clipboardManager.addClipboardChangeListener(stashName -> {
+            // Aktualisiere die ComboBox bei Änderungen
+            SwingUtilities.invokeLater(() -> {
+                updateStashList();
+                // Wenn ein spezifischer Stash geändert wurde, wähle ihn aus
+                if (stashName != null) {
+                    stashComboBox.setSelectedItem(stashName);
+                }
+            });
+        });
+
         setLayout(new BorderLayout());
         
         // Erstelle das Steuerungspanel
@@ -44,12 +56,12 @@ public class JackClipboardPanel extends JPanel {
         // Initialisiere die Stash-ComboBox
         updateStashList();
         
-        // Wähle den Clipboard-Stash als Standard aus
-        String defaultStash = ClipboardManager.CLIPBOARD_STASH_NAME;
+        // Wähle den aktiven Stash des ClipboardManagers aus
+        String activeStash = clipboardManager.getActiveStashName();
         for (int i = 0; i < stashComboBox.getItemCount(); i++) {
-            if (defaultStash.equals(stashComboBox.getItemAt(i))) {
+            if (activeStash.equals(stashComboBox.getItemAt(i))) {
                 stashComboBox.setSelectedIndex(i);
-                clipboardTree.switchStash(defaultStash);
+                clipboardTree.switchStash(activeStash);
                 break;
             }
         }
@@ -70,6 +82,9 @@ public class JackClipboardPanel extends JPanel {
             public void actionPerformed(ActionEvent e) {
                 String selectedStash = (String) stashComboBox.getSelectedItem();
                 if (selectedStash != null) {
+                    // Wechsle den aktiven Stash im ClipboardManager
+                    clipboardManager.switchToStash(selectedStash);
+                    // Aktualisiere die Anzeige
                     clipboardTree.switchStash(selectedStash);
                 }
             }

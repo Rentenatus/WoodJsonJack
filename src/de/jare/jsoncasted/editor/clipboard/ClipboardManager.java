@@ -10,6 +10,7 @@ package de.jare.jsoncasted.editor.clipboard;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.tree.control.Orator;
 
 /**
  * Manages multiple clipboard stashes and provides operations for copying,
@@ -27,12 +28,21 @@ import de.jare.jsoncasted.editor.core.EditTree;
  */
 public class ClipboardManager {
 
+    /**
+     * Functional interface for clipboard change listeners.
+     */
+    @FunctionalInterface
+    public interface ClipboardChangeListener {
+        void onClipboardChanged(String stashName);
+    }
+
     public static final String DEFAULT_STASH_NAME = "default";
     public static final String CLIPBOARD_STASH_NAME = "clipboard";
 
     private final java.util.Map<String, ClipboardStash> stashes;
     private String activeStashName;
     private final java.util.List<String> stashOrder;
+    private final Orator<ClipboardChangeListener> clipboardOrator = new Orator<>();
 
     /**
      * Creates a new clipboard manager with the default stash.
@@ -47,6 +57,47 @@ public class ClipboardManager {
 
         // Create clipboard stash for UI integration
         createStash(CLIPBOARD_STASH_NAME);
+    }
+
+    // ========================================================================
+    // Listener Management
+    // ========================================================================
+
+    /**
+     * Adds a listener to be notified when clipboard content changes.
+     *
+     * @param listener the listener to add
+     */
+    public void addClipboardChangeListener(ClipboardChangeListener listener) {
+        clipboardOrator.addListener(listener);
+    }
+
+    /**
+     * Adds a listener to be notified when clipboard content changes with priority.
+     *
+     * @param level the priority level
+     * @param listener the listener to add
+     */
+    public void addClipboardChangeListener(int level, ClipboardChangeListener listener) {
+        clipboardOrator.addListener(level, listener);
+    }
+
+    /**
+     * Removes a previously added listener.
+     *
+     * @param listener the listener to remove
+     */
+    public void removeClipboardChangeListener(ClipboardChangeListener listener) {
+        clipboardOrator.removeListener(listener);
+    }
+
+    /**
+     * Notifies all registered listeners about a change in the specified stash.
+     *
+     * @param stashName the name of the stash that changed, or null for all stashes
+     */
+    private void fireClipboardChanged(String stashName) {
+        clipboardOrator.say(listener -> listener.onClipboardChanged(stashName));
     }
 
     /**
@@ -67,6 +118,7 @@ public class ClipboardManager {
         ClipboardStash stash = new ClipboardStash(name);
         stashes.put(name, stash);
         stashOrder.add(name);
+        fireClipboardChanged(name);
         return stash;
     }
 
@@ -89,6 +141,7 @@ public class ClipboardManager {
         ClipboardStash removed = stashes.remove(name);
         if (removed != null) {
             stashOrder.remove(name);
+            fireClipboardChanged(name);
         }
         return removed;
     }
@@ -107,6 +160,7 @@ public class ClipboardManager {
             throw new IllegalArgumentException("Stash with name " + name + " does not exist");
         }
         this.activeStashName = name;
+        fireClipboardChanged(name);
     }
 
     /**
@@ -201,6 +255,7 @@ public class ClipboardManager {
             }
         }
         stash.setNodes(nodes);
+        fireClipboardChanged(stashName);
     }
 
     /**
@@ -235,6 +290,7 @@ public class ClipboardManager {
             copiedNodes[i] = nodes[i] != null ? nodes[i].deepCopy(false) : null;
         }
         stash.setNodes(copiedNodes);
+        fireClipboardChanged(stashName);
     }
 
     /**
@@ -285,6 +341,7 @@ public class ClipboardManager {
             }
         }
         stash.setNodes(snapshots);
+        fireClipboardChanged(stashName);
     }
 
     /**
@@ -423,6 +480,7 @@ public class ClipboardManager {
         ClipboardStash stash = getActiveStash();
         if (stash != null) {
             stash.clear();
+            fireClipboardChanged(activeStashName);
         }
     }
 
@@ -435,6 +493,7 @@ public class ClipboardManager {
         ClipboardStash stash = getStash(stashName);
         if (stash != null) {
             stash.clear();
+            fireClipboardChanged(stashName);
         }
     }
 
@@ -445,6 +504,7 @@ public class ClipboardManager {
         for (ClipboardStash stash : stashes.values()) {
             stash.clear();
         }
+        fireClipboardChanged(null);
     }
 
     /**
@@ -477,6 +537,7 @@ public class ClipboardManager {
         if (activeStashName.equals(oldName)) {
             activeStashName = newName;
         }
+        fireClipboardChanged(newName);
     }
 
     /**

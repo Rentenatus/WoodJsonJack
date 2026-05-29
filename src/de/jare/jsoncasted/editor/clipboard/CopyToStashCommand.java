@@ -8,7 +8,6 @@ package de.jare.jsoncasted.editor.clipboard;
 
 import de.jare.jsoncasted.editor.command.CommandAction;
 import de.jare.jsoncasted.editor.command.CommandResult;
-import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 
