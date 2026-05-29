@@ -6,6 +6,7 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.MasterControl;
 import de.jare.tree.settings.SettingsService;
@@ -19,6 +20,7 @@ public class WoodWindow extends JFrame {
 
     private final MasterControl master;
     private final JackMasterControl jackmaster;
+    private final ClipboardManager jackClipboardManager;
     private final JTabbedPane centerTabs;
     private final WoodEditTreeContainer editorTree1;
     private final JackEditTreeContainer editorTree2;
@@ -26,6 +28,7 @@ public class WoodWindow extends JFrame {
     private final WoodSettings settings;
     private final ThemeSuite themeSuite;
     private PreferencesDialog preferencesDialog;
+    private JackClipboardPanel jackClipboardPanel;
 
     public WoodWindow() {
         settingsService = new SettingsService();
@@ -34,6 +37,7 @@ public class WoodWindow extends JFrame {
         settings.useThemeSuite(themeSuite);
         master = new MasterControl();
         jackmaster = new JackMasterControl();
+        jackClipboardManager = new ClipboardManager();
 
         setTitle("Wood Json Studio");
         setSize(1200, 800);
@@ -59,6 +63,9 @@ public class WoodWindow extends JFrame {
 
         centerTabs.addTab("Tree Editor 1", new JScrollPane(editorTree1));
         centerTabs.addTab("Tree Editor 2", new JScrollPane(editorTree2));
+
+        // Erstelle Jack Clipboard Panel
+        jackClipboardPanel = new JackClipboardPanel(jackClipboardManager, editorTree2.getLeftTree());
 
         // obere Toolbar ueber den Editor-Tabs
         // obere Toolbar �ber den Editor-Tabs
@@ -105,6 +112,7 @@ public class WoodWindow extends JFrame {
         bottomTabs.addTab("Undo", createUndoPanel());
         bottomTabs.addTab("Jack Undo", createJackUndoPanel());
         bottomTabs.addTab("KI Assistant", createKIAssistant());
+        bottomTabs.addTab("Jack Clipboard", createJackClipboardPanel());
 
         JPanel bottomToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JButton btnApply = new JButton("Apply");
@@ -181,6 +189,10 @@ public class WoodWindow extends JFrame {
         borderedPanel.add(new JScrollPane(prompt), BorderLayout.CENTER);
         borderedPanel.add(askBtn, BorderLayout.SOUTH);
         return borderedPanel;
+    }
+
+    private JPanel createJackClipboardPanel() {
+        return jackClipboardPanel;
     }
 
     public void openPreferences() {
