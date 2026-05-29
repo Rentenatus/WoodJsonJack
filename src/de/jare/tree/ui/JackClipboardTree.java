@@ -26,6 +26,7 @@ public class JackClipboardTree extends JTree {
     private final ClipboardManager clipboardManager;
     private JackEditTree sourceTree;
     private String currentStashName;
+    private final ClipboardManager.ClipboardChangeListener clipboardChangeListener = this::onClipboardChanged;
 
     public JackClipboardTree(ClipboardManager clipboardManager) {
         super(new DefaultMutableTreeNode("Clipboard"));
@@ -35,8 +36,8 @@ public class JackClipboardTree extends JTree {
         setRootVisible(true);
         setShowsRootHandles(true);
         
-        // Registriere Listener für Clipboard-Änderungen
-        clipboardManager.addClipboardChangeListener(this::onClipboardChanged);
+        // Registriere Listener für Clipboard-Änderungen (höhere Priorität für Inhaltsupdate)
+        clipboardManager.addClipboardChangeListener(4, clipboardChangeListener);
         
         // Standardmäßig den Clipboard Stash anzeigen
         showStashContent(currentStashName);

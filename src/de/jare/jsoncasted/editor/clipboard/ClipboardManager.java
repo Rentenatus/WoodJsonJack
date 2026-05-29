@@ -37,7 +37,7 @@ public class ClipboardManager {
     }
 
     public static final String DEFAULT_STASH_NAME = "default";
-    public static final String CLIPBOARD_STASH_NAME = "clipboard";
+    public static final String CLIPBOARD_STASH_NAME = "clipboard 1";
 
     private final java.util.Map<String, ClipboardStash> stashes;
     private String activeStashName;
@@ -159,8 +159,10 @@ public class ClipboardManager {
         if (!stashes.containsKey(name)) {
             throw new IllegalArgumentException("Stash with name " + name + " does not exist");
         }
-        this.activeStashName = name;
-        fireClipboardChanged(name);
+        if (!name.equals(activeStashName)) {
+            this.activeStashName = name;
+            fireClipboardChanged(name);
+        }
     }
 
     /**

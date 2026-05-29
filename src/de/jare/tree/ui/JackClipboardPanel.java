@@ -26,14 +26,15 @@ public class JackClipboardPanel extends JPanel {
     private JButton deleteStashButton;
     private JButton refreshButton;
     private JButton clearButton;
+    private final ClipboardManager.ClipboardChangeListener clipboardChangeListener;
 
     public JackClipboardPanel(ClipboardManager clipboardManager, JackEditTree sourceTree) {
         this.clipboardManager = clipboardManager;
         this.clipboardTree = new JackClipboardTree(clipboardManager);
         this.clipboardTree.setSourceTree(sourceTree);
 
-        // Registriere Listener für Stash-Listen-Änderungen
-        clipboardManager.addClipboardChangeListener(stashName -> {
+        // Starke Referenz auf den Listener für GC-Schutz
+        this.clipboardChangeListener = stashName -> {
             // Aktualisiere die ComboBox bei Änderungen
             SwingUtilities.invokeLater(() -> {
                 updateStashList();
@@ -42,7 +43,10 @@ public class JackClipboardPanel extends JPanel {
                     stashComboBox.setSelectedItem(stashName);
                 }
             });
-        });
+        };
+
+        // Registriere Listener für Stash-Listen-Änderungen (niedrige Priorität für UI-Liste)
+        clipboardManager.addClipboardChangeListener(2, clipboardChangeListener);
 
         setLayout(new BorderLayout());
         
@@ -83,6 +87,7 @@ public class JackClipboardPanel extends JPanel {
                 String selectedStash = (String) stashComboBox.getSelectedItem();
                 if (selectedStash != null) {
                     // Wechsle den aktiven Stash im ClipboardManager
+                    // (switchToStash prüft selbst, ob es bereits der aktive ist)
                     clipboardManager.switchToStash(selectedStash);
                     // Aktualisiere die Anzeige
                     clipboardTree.switchStash(selectedStash);
