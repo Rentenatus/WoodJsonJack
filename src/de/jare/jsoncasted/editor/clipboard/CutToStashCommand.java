@@ -98,12 +98,8 @@ public class CutToStashCommand extends AbstractToStashCommand {
         requireExecutable(tree);
         captureState(tree);
 
-        ClipboardStash stash = clipboardManager.getStash(stashName);
-        if (stash == null) {
-            throw new IllegalStateException("Stash with name " + stashName + " does not exist");
-        }
-
-        stash.setNodes(removedSnapshots);
+        // Verwende ClipboardManager, um Snapshots zu speichern und Events auszulösen
+        clipboardManager.cutToStash(stashName, tree, nodeIds);
         tree.removeNodes(nodeIds);
 
         return new CommandResult(

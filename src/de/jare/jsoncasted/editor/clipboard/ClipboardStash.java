@@ -20,8 +20,8 @@ import java.util.Set;
  * originated from copy or cut, and it does not remember a source tree.</p>
  *
  * <p>
- * Additionally, a stash can optionally store the expansion state of nodes
- * (as a set of edit IDs) to restore the visual state in a clipboard tree.</p>
+ * Additionally, a stash can optionally store the expansion state of nodes (as a
+ * set of edit IDs) to restore the visual state in a clipboard tree.</p>
  */
 public class ClipboardStash {
 
@@ -68,15 +68,19 @@ public class ClipboardStash {
     }
 
     /**
-     * Sets the nodes for this stash.
+     * Sets the nodes for this stash. Use
+     * {@link ClipboardManager#setStashContent} instead to ensure proper event
+     * notification.
      *
      * <p>
      * A defensive copy of the array is stored. The node instances are assumed
      * to already represent clipboard-safe snapshots.</p>
      *
+     * Package-private for use by ClipboardManager.
+     *
      * @param nodes the nodes to store
      */
-    public void setNodes(EditNodeAbstract[] nodes) {
+    void setNodes(EditNodeAbstract[] nodes) {
         if (nodes == null) {
             this.nodes = new EditNodeAbstract[0];
         } else {
@@ -88,18 +92,20 @@ public class ClipboardStash {
     /**
      * Sets the expansion state for nodes in this stash.
      *
-     * @param expandedNodeIds a set of edit IDs for nodes that were expanded, or null
+     * @param expandedNodeIds a set of edit IDs for nodes that were expanded, or
+     * null
      */
     public void setExpandedNodeIds(Set<Long> expandedNodeIds) {
-        this.expandedNodeIds = expandedNodeIds != null 
-                ? Collections.unmodifiableSet(expandedNodeIds) 
+        this.expandedNodeIds = expandedNodeIds != null
+                ? Collections.unmodifiableSet(expandedNodeIds)
                 : null;
     }
 
     /**
      * Returns the expansion state for nodes in this stash.
      *
-     * @return an unmodifiable set of expanded node IDs, or null if not available
+     * @return an unmodifiable set of expanded node IDs, or null if not
+     * available
      */
     public Set<Long> getExpandedNodeIds() {
         return expandedNodeIds;

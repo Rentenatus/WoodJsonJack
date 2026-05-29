@@ -101,6 +101,22 @@ public class ClipboardManager {
     }
 
     /**
+     * Sets the content of a specific stash and notifies listeners.
+     * This is the preferred way to modify stash content, as it ensures
+     * proper event notification.
+     *
+     * @param stashName the name of the stash
+     * @param nodes the nodes to store in the stash
+     */
+    public void setStashContent(String stashName, EditNodeAbstract[] nodes) {
+        ClipboardStash stash = getStash(stashName);
+        if (stash != null) {
+            stash.setNodes(nodes);
+            fireClipboardChanged(stashName);
+        }
+    }
+
+    /**
      * Creates a new named stash.
      *
      * @param name the name of the stash
@@ -256,8 +272,7 @@ public class ClipboardManager {
                 nodes[i] = node.deepCopy(false);
             }
         }
-        stash.setNodes(nodes);
-        fireClipboardChanged(stashName);
+        setStashContent(stashName, nodes);
     }
 
     /**
@@ -291,8 +306,7 @@ public class ClipboardManager {
         for (int i = 0; i < nodes.length; i++) {
             copiedNodes[i] = nodes[i] != null ? nodes[i].deepCopy(false) : null;
         }
-        stash.setNodes(copiedNodes);
-        fireClipboardChanged(stashName);
+        setStashContent(stashName, copiedNodes);
     }
 
     /**
@@ -342,8 +356,7 @@ public class ClipboardManager {
                 snapshots[i] = node.deepCopy(false);
             }
         }
-        stash.setNodes(snapshots);
-        fireClipboardChanged(stashName);
+        setStashContent(stashName, snapshots);
     }
 
     /**
