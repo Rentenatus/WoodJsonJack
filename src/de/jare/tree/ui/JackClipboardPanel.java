@@ -187,23 +187,30 @@ public class JackClipboardPanel extends JPanel {
         
         if (result == JOptionPane.YES_OPTION) {
             try {
-                // Merke den aktuellen Stash
-                String currentStash = clipboardTree.getCurrentStashName();
+                // Erst auf einen anderen Stash switchen (der erste, der nicht der ausgewählte ist)
+                String newActiveStash = null;
+                for (String name : stashNames) {
+                    if (!name.equals(selected)) {
+                        newActiveStash = name;
+                        break;
+                    }
+                }
                 
-                // Lösche den Stash
+                if (newActiveStash != null) {
+                    clipboardManager.switchToStash(newActiveStash);
+                }
+                
+                // Dann den ausgewählten Stash löschen
                 clipboardManager.removeStash(selected);
                 
                 // Aktualisiere die ComboBox
                 updateStashList();
                 
-                // Falls der gelöschte Stash der aktuelle war, wechsle zum ersten verfügbaren
-                if (selected.equals(currentStash)) {
-                    if (stashComboBox.getItemCount() > 0) {
-                        stashComboBox.setSelectedIndex(0);
-                    }
-                } else {
-                    // Behalte die aktuelle Auswahl bei, falls noch vorhanden
-                    stashComboBox.setSelectedItem(currentStash);
+                // Wähle den neuen aktiven Stash aus
+                if (newActiveStash != null) {
+                    stashComboBox.setSelectedItem(newActiveStash);
+                } else if (stashComboBox.getItemCount() > 0) {
+                    stashComboBox.setSelectedIndex(0);
                 }
                 
             } catch (IllegalArgumentException e) {

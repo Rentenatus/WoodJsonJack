@@ -12,6 +12,7 @@ import de.jare.jsoncasted.editor.clipboard.CopyToStashCommand;
 import de.jare.jsoncasted.editor.clipboard.CutToStashCommand;
 import de.jare.jsoncasted.editor.clipboard.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.AddNodeCommand;
+import java.util.Set;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.command.UpdateAction;
@@ -588,9 +589,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
 
         ClipboardManager clipboardManager = master.getClipboardManager();
-
-        // Verwende den aktuellen aktiven Stash des ClipboardManagers
         String stashName = clipboardManager.getActiveStashName();
+
+        // Sichere die Expansionszustände der ausgewählten Knoten
+        java.util.Set<Long> expandedNodeIds = saveExpandedNodeIdsForPaths(paths);
 
         EditCommand command;
         if (cut) {
@@ -608,6 +610,54 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
 
         master.getUndoManager().executeCommand(command);
+
+        // Speichere die Expansionszustände im Stash
+        ClipboardStash stash = clipboardManager.getStash(stashName);
+        if (stash != null && expandedNodeIds != null && !expandedNodeIds.isEmpty()) {
+            stash.setExpandedNodeIds(expandedNodeIds);
+        }
+    }
+
+    /**
+     * Speichert die Expansionszustände für die gegebenen Pfade.
+     * Nur Knoten, deren Pfad tatsächlich expanded ist, werden gespeichert.
+     *
+     * @param paths die TreePath-Array
+     * @return Set der expandierten Node-IDs
+     */
+    private java.util.Set<Long> saveExpandedNodeIdsForPaths(TreePath[] paths) {
+        java.util.Set<Long> expandedIds = new java.util.HashSet<>();
+        for (TreePath path : paths) {
+            collectExpandedNodeIds(path, expandedIds);
+        }
+        return expandedIds;
+    }
+
+    /**
+     * Rekursiv alle expandierten Knoten unter einem Pfad sammeln.
+     * Nur Knoten, deren Pfad expanded ist, werden zur Liste hinzugefügt.
+     */
+    private void collectExpandedNodeIds(TreePath path, java.util.Set<Long> expandedIds) {
+        if (path == null) {
+            return;
+        }
+        
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+        
+        // Nur hinzufügen, wenn dieser Pfad expanded ist
+        if (jtree.isExpanded(path)) {
+            Object uo = node.getUserObject();
+            if (uo instanceof EditNodeAbstract editNode) {
+                expandedIds.add(editNode.getEditId());
+            }
+            
+            // Rekursiv alle Kinder durchgehen
+            for (int i = 0; i < node.getChildCount(); i++) {
+                DefaultMutableTreeNode child = (DefaultMutableTreeNode) node.getChildAt(i);
+                TreePath childPath = path.pathByAddingChild(child);
+                collectExpandedNodeIds(childPath, expandedIds);
+            }
+        }
     }
 
     private void pasteClipboard() {

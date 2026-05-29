@@ -7,6 +7,8 @@
 package de.jare.jsoncasted.editor.clipboard;
 
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * Represents a single clipboard stash that holds an array of EditNode
@@ -16,12 +18,17 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
  * In the revised clipboard model, a stash is intentionally neutral: it stores
  * only pasteable subtree snapshots and does not encode whether the content
  * originated from copy or cut, and it does not remember a source tree.</p>
+ *
+ * <p>
+ * Additionally, a stash can optionally store the expansion state of nodes
+ * (as a set of edit IDs) to restore the visual state in a clipboard tree.</p>
  */
 public class ClipboardStash {
 
     private final String name;
     private EditNodeAbstract[] nodes;
     private long timestamp;
+    private Set<Long> expandedNodeIds;
 
     /**
      * Creates a new clipboard stash with the given name.
@@ -35,6 +42,7 @@ public class ClipboardStash {
         this.name = name;
         this.nodes = new EditNodeAbstract[0];
         this.timestamp = System.currentTimeMillis();
+        this.expandedNodeIds = null;
     }
 
     /**
@@ -78,6 +86,26 @@ public class ClipboardStash {
     }
 
     /**
+     * Sets the expansion state for nodes in this stash.
+     *
+     * @param expandedNodeIds a set of edit IDs for nodes that were expanded, or null
+     */
+    public void setExpandedNodeIds(Set<Long> expandedNodeIds) {
+        this.expandedNodeIds = expandedNodeIds != null 
+                ? Collections.unmodifiableSet(expandedNodeIds) 
+                : null;
+    }
+
+    /**
+     * Returns the expansion state for nodes in this stash.
+     *
+     * @return an unmodifiable set of expanded node IDs, or null if not available
+     */
+    public Set<Long> getExpandedNodeIds() {
+        return expandedNodeIds;
+    }
+
+    /**
      * Returns the timestamp when this stash was last updated.
      *
      * @return the timestamp in milliseconds
@@ -100,6 +128,7 @@ public class ClipboardStash {
      */
     public void clear() {
         this.nodes = new EditNodeAbstract[0];
+        this.expandedNodeIds = null;
         this.timestamp = System.currentTimeMillis();
     }
 
@@ -117,7 +146,7 @@ public class ClipboardStash {
      *
      * @param regenerateEditIds whether copied nodes should regenerate their
      * edit IDs
-     * @return a new stash with copied node snapshots
+     * @return a new stash with copied node snapshots and expansion state
      */
     public ClipboardStash deepCopy(boolean regenerateEditIds) {
         ClipboardStash copy = new ClipboardStash(this.name);
@@ -129,6 +158,10 @@ public class ClipboardStash {
                         : null;
             }
             copy.setNodes(copiedNodes);
+        }
+        // Copy expansion state if available
+        if (this.expandedNodeIds != null) {
+            copy.setExpandedNodeIds(java.util.Collections.unmodifiableSet(this.expandedNodeIds));
         }
         return copy;
     }

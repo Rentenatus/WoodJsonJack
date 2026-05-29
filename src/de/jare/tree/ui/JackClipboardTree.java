@@ -12,6 +12,7 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.listeners.TreeFocusComponent;
+import java.util.Set;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
@@ -92,13 +93,58 @@ public class JackClipboardTree extends JTree {
         }
         
         ((DefaultTreeModel) getModel()).reload();
-        if (getRowCount() > 0) {
-            expandRow(0);
-        }
         
         // Root-Name aktualisieren
         root.setUserObject("Clipboard - " + stashName);
         ((DefaultTreeModel) getModel()).nodeChanged(root);
+        
+        // Expansionszustand wiederherstellen, falls verfügbar
+        Set<Long> expandedNodeIds = stash.getExpandedNodeIds();
+        if (expandedNodeIds != null && !expandedNodeIds.isEmpty()) {
+            restoreExpandedNodes(expandedNodeIds);
+        } else if (getRowCount() > 0) {
+            // Fallback: erster Knoten expanded
+            expandRow(0);
+        }
+    }
+
+    /**
+     * Stellt die Expansionszustände für die angegebenen EditNode-IDs wieder her.
+     *
+     * @param expandedNodeIds Set der EditNode-IDs, die expanded sein sollen
+     */
+    private void restoreExpandedNodes(Set<Long> expandedNodeIds) {
+        if (expandedNodeIds == null || expandedNodeIds.isEmpty()) {
+            return;
+        }
+        
+        restoreExpandedNodes((DefaultMutableTreeNode) getModel().getRoot(), expandedNodeIds);
+    }
+
+    /**
+     * Rekursiv: Stellt die Expansionszustände für Kinder eines Knotens wieder her.
+     */
+    private void restoreExpandedNodes(DefaultMutableTreeNode node, Set<Long> expandedNodeIds) {
+        if (node == null) {
+            return;
+        }
+        
+        Object uo = node.getUserObject();
+        if (uo instanceof EditNodeAbstract editNode) {
+            if (expandedNodeIds.contains(editNode.getEditId())) {
+                TreePath path = new TreePath(node.getPath());
+                expandPath(path);
+                // Rekursiv für alle Kinder
+                for (int i = 0; i < node.getChildCount(); i++) {
+                    restoreExpandedNodes((DefaultMutableTreeNode) node.getChildAt(i), expandedNodeIds);
+                }
+            }
+        } else {
+            // Für alle Kinder prüfen
+            for (int i = 0; i < node.getChildCount(); i++) {
+                restoreExpandedNodes((DefaultMutableTreeNode) node.getChildAt(i), expandedNodeIds);
+            }
+        }
     }
 
     /**
