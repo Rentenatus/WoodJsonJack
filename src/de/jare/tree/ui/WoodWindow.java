@@ -8,6 +8,7 @@ package de.jare.tree.ui;
 
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.MasterControl;
+// import de.jare.tree.control.MasterControl;
 import de.jare.tree.settings.SettingsService;
 import de.jare.tree.settings.WoodSettings;
 import de.jare.tree.settings.theme.ThemeSuite;
@@ -17,10 +18,9 @@ import javax.swing.*;
 
 public class WoodWindow extends JFrame {
 
-    private final MasterControl master;
     private final JackMasterControl jackmaster;
     private final JTabbedPane centerTabs;
-    private final WoodEditTreeContainer editorTree1;
+    private final JackEditTreeContainer editorTree1;
     private final JackEditTreeContainer editorTree2;
     private final SettingsService settingsService;
     private final WoodSettings settings;
@@ -33,7 +33,6 @@ public class WoodWindow extends JFrame {
         settings = settingsService.loadWoodSettings(false);
         themeSuite = settingsService.loadThemeSuite(false);
         settings.useThemeSuite(themeSuite);
-        master = new MasterControl();
         jackmaster = new JackMasterControl();
 
         setTitle("Wood Json Studio");
@@ -41,7 +40,7 @@ public class WoodWindow extends JFrame {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        WoodMainMenu bar = new WoodMainMenu(this, master);
+        JackMainMenu bar = new JackMainMenu(this, jackmaster);
         setJMenuBar(bar);
 
         JSplitPane horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
@@ -55,7 +54,7 @@ public class WoodWindow extends JFrame {
         // Center: editor tabs + upper toolbar
         centerTabs = new JTabbedPane();
 
-        editorTree1 = new WoodEditTreeContainer(master, "Root1", "Scene1", "Character1", "Scene2", "Character2", "Scene3", "Character3");
+        editorTree1 = new JackEditTreeContainer(jackmaster, "Root1", "Scene1", "Character1", "Scene2", "Character2", "Scene3", "Character3");
         editorTree2 = new JackEditTreeContainer(jackmaster, "Root2", "Scene4", "Character4", "Scene5", "Character6", "Scene7");
 
         centerTabs.addTab("Tree Editor 1", new JScrollPane(editorTree1));
@@ -65,8 +64,7 @@ public class WoodWindow extends JFrame {
         jackClipboardPanel = new JackClipboardPanel(jackmaster.getClipboardManager(), editorTree2.getLeftTree());
 
         // obere Toolbar ueber den Editor-Tabs
-        // obere Toolbar �ber den Editor-Tabs
-        JPanel upperToolbar = new WoodUpperToolbar(master);
+        JPanel upperToolbar = new JackUpperToolbar(jackmaster);
 
         JPanel centerPanel = new JPanel(new BorderLayout());
         centerPanel.add(upperToolbar, BorderLayout.NORTH);
@@ -79,8 +77,8 @@ public class WoodWindow extends JFrame {
             int idx = centerTabs.getSelectedIndex();
             switch (idx) {
                 case 0:
-                    WoodEditTree editor = editorTree1.getLeftTree();
-                    master.setActiveEditor(editor, this);
+                    JackEditTree editor = editorTree1.getLeftTree();
+                    jackmaster.setActiveEditor(editor, this);
                     break;
                 case 1:
                     JackEditTree editor2 = editorTree2.getLeftTree();
@@ -91,22 +89,20 @@ public class WoodWindow extends JFrame {
             };
         });
         // initial
-        master.setActiveEditor(editorTree1.getLeftTree(), master);
-        jackmaster.setActiveEditor(editorTree2.getLeftTree(), this);
-
-        WoodEditPopup popup = new WoodEditPopup(master);
-        WoodEditPopup.installOn(editorTree1.getLeftTree().getTree(), popup);
-        WoodEditPopup.installOn(editorTree2.getLeftTree().getTree(), popup);
+        jackmaster.addSelectionListener(propertyModel);
+        jackmaster.setActiveEditor(editorTree1.getLeftTree(), this);
 
         JackWoodEditPopup jackPopup = new JackWoodEditPopup(jackmaster);
+
+        JackWoodEditPopup.installOn(editorTree1.getLeftTree().getTree(), jackPopup);
+        JackWoodEditPopup.installOn(editorTree1.getRightTree().getTree(), jackPopup);
+
         JackWoodEditPopup.installOn(editorTree2.getLeftTree().getTree(), jackPopup);
         JackWoodEditPopup.installOn(editorTree2.getRightTree().getTree(), jackPopup);
 
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
         bottomTabs.addTab("Properties", createPropertiesPanel());
-        bottomTabs.addTab("Clipboard", createClipboardPanel());
-        bottomTabs.addTab("Undo", createUndoPanel());
         bottomTabs.addTab("Jack Undo", createJackUndoPanel());
         bottomTabs.addTab("KI Assistant", createKIAssistant());
         bottomTabs.addTab("Jack Clipboard", createJackClipboardPanel());
@@ -131,9 +127,6 @@ public class WoodWindow extends JFrame {
         add(verticalSplit, BorderLayout.CENTER);
 
         // Properties an Selection-Orator h?ngen
-        master.addSelectionListener(propertyModel);
-        master.setClipboardTree(clipboardTree);
-
         setLocationRelativeTo(null);
         setVisible(true);
     }
@@ -152,13 +145,7 @@ public class WoodWindow extends JFrame {
         return borderedPanel;
     }
 
-    private WoodUndoPanel panel;
     private JackUndoPanel jackPanel;
-
-    private JPanel createUndoPanel() {
-        panel = new WoodUndoPanel(master);
-        return panel;
-    }
 
     private JPanel createJackUndoPanel() {
         jackPanel = new JackUndoPanel(jackmaster);
@@ -166,13 +153,6 @@ public class WoodWindow extends JFrame {
     }
 
     private WoodClipboardTree clipboardTree;
-
-    private JPanel createClipboardPanel() {
-        clipboardTree = new WoodClipboardTree();
-        JPanel borderedPanel = new JPanel(new BorderLayout());
-        borderedPanel.add(new JScrollPane(clipboardTree), BorderLayout.CENTER);
-        return borderedPanel;
-    }
 
     public WoodClipboardTree getClipboardTree() {
         return clipboardTree;

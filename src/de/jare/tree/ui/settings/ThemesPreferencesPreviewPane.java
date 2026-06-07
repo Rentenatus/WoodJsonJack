@@ -6,10 +6,10 @@
  */
 package de.jare.tree.ui.settings;
 
-import de.jare.tree.control.MasterControl;
+import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.settings.theme.ColorScheme;
 import de.jare.tree.settings.theme.Theme;
-import de.jare.tree.ui.WoodEditTree;
+import de.jare.tree.ui.JackEditTree;
 import java.awt.BorderLayout;
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
@@ -19,16 +19,16 @@ import javax.swing.event.ChangeListener;
 
 public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListener {
 
-    private final MasterControl previewMasterControl;
-    private final WoodEditTree previewTree;
+    private final JackMasterControl previewMasterControl;
+    private final JackEditTree previewTree;
 
     private Theme currentTheme;
 
     public ThemesPreferencesPreviewPane() {
         super(new BorderLayout(8, 8));
 
-        this.previewMasterControl = new MasterControl();
-        this.previewTree = new WoodEditTree(previewMasterControl, "woodedit", "project", "assets", "scene");
+        this.previewMasterControl = new JackMasterControl();
+        this.previewTree = new JackEditTree(previewMasterControl, "preview", "project", "assets", "scene");
 
         setBorder(BorderFactory.createTitledBorder("Preview"));
 
@@ -73,11 +73,11 @@ public class ThemesPreferencesPreviewPane extends JPanel implements ChangeListen
         repaint();
     }
 
-    public MasterControl getPreviewMasterControl() {
+    public JackMasterControl getPreviewMasterControl() {
         return previewMasterControl;
     }
 
-    public WoodEditTree getPreviewTree() {
+    public JackEditTree getPreviewTree() {
         return previewTree;
     }
 }

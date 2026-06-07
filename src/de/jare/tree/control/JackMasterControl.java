@@ -89,7 +89,7 @@ public class JackMasterControl {
         if (previous == editor) {
             return;
         }
-        this.activeEditor = editor;
+        setActiveEditorSilent(editor);
 
         // Fokus-Events verteilen
         if (previous != null) {
@@ -101,7 +101,10 @@ public class JackMasterControl {
         selectionOrator.say(l -> l.onEditorSelected(editor, trigger));
     }
 
-    
+    void setActiveEditorSilent(TreeFocusComponent editor) {
+        this.activeEditor = editor;
+    }
+
     public void fireSelection(Object node, Object trigger, boolean rootSelected) {
         selectionOrator.say(l -> l.onNodeSelected(node, trigger, rootSelected));
     }
