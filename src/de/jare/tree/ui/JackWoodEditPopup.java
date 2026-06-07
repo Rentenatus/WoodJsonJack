@@ -6,7 +6,6 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.tree.control.MasterControl;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;

@@ -12,6 +12,8 @@ import de.jare.jsoncasted.editor.clipboard.CopyToStashCommand;
 import de.jare.jsoncasted.editor.clipboard.CutToStashCommand;
 import de.jare.jsoncasted.editor.clipboard.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.AddNodeCommand;
+import de.jare.jsoncasted.editor.command.DeleteNodeCommand;
+import java.util.Arrays;
 import java.util.Set;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
@@ -517,49 +519,37 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     private void deleteNode() {
-//        TreePath path = tree.getSelectionPath();
-//        if (path == null) {
-//            return;
-//        }
-//        DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
-//        if (selected.getParent() == null) {
-//            return;
-//        }
-//        DefaultTreeModel model = (DefaultTreeModel) tree.getModel();
-//        DefaultMutableTreeNode parent = (DefaultMutableTreeNode) selected.getParent();
-//        int idx = parent.getIndex(selected);
-//
-//        if (selected.getUserObject() instanceof EditNode selectedData) {
-//            if (parent.getUserObject() instanceof EditNode parentData) {
-//                selectedData.sayOnRemoved(parentData);
-//            }
-//        }
-//
-//        master.getUndoManager().pushCommand(new WoodCommandDeleteNodes(
-//                new DefaultMutableTreeNode[]{selected},
-//                new DefaultMutableTreeNode[]{parent}
-//        ));
-//        model.removeNodeFromParent(selected);
-//
-//        // neue Selektion ermitteln: naechster/vorheriger Bruder oder nichts
-//        DefaultMutableTreeNode newSelection = null;
-//        if (parent.getChildCount() > 0) {
-//            int newIdx = Math.min(idx, parent.getChildCount() - 1);
-//            newSelection = (DefaultMutableTreeNode) parent.getChildAt(newIdx);
-//            TreePath newPath = new TreePath(newSelection.getPath());
-//            tree.setSelectionPath(newPath);
-//            tree.scrollPathToVisible(newPath);
-//        } else {
-//            // keine Selektion mehr
-//            tree.clearSelection();
-//        }
-//
-//        // explizit auch null melden, damit Properties sich leeren koennen
-//        if (master != null && master.getActiveEditor() == this) {
-//            boolean rootSelected = newSelection != null && newSelection.getParent() == null;
-//            master.fireSelection(newSelection, this, rootSelected);
-//        }
+        TreePath[] paths = jtree.getSelectionPaths();
+        if (paths == null || paths.length == 0) {
+            return;
+        }
 
+        EditNodeAbstract[] nodesToDelete = new EditNodeAbstract[paths.length];
+        int validCount = 0;
+
+        for (TreePath path : paths) {
+            DefaultMutableTreeNode treeNode = (DefaultMutableTreeNode) path.getLastPathComponent();
+            Object uo = treeNode.getUserObject();
+            if (uo instanceof EditNodeAbstract editNode) {
+                if (editNode.getParent() == null) {
+                    continue; // Cannot delete root node
+                }
+                nodesToDelete[validCount++] = editNode;
+            }
+        }
+
+        if (validCount == 0) {
+            return;
+        }
+
+        if (validCount < nodesToDelete.length) {
+            nodesToDelete = Arrays.copyOf(nodesToDelete, validCount);
+        }
+
+        DeleteNodeCommand command = new DeleteNodeCommand(nodesToDelete);
+        if (master != null) {
+            master.getUndoManager().executeCommand(command);
+        }
     }
 
     private void renameNode() {
