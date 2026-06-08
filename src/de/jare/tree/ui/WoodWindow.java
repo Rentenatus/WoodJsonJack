@@ -92,13 +92,13 @@ public class WoodWindow extends JFrame {
         jackmaster.addSelectionListener(propertyModel);
         jackmaster.setActiveEditor(editorTree1.getLeftTree(), this);
 
-        JackWoodEditPopup jackPopup = new JackWoodEditPopup(jackmaster);
+        JackEditPopup jackPopup = new JackEditPopup(jackmaster);
 
-        JackWoodEditPopup.installOn(editorTree1.getLeftTree().getTree(), jackPopup);
-        JackWoodEditPopup.installOn(editorTree1.getRightTree().getTree(), jackPopup);
+        JackEditPopup.installOn(editorTree1.getLeftTree().getTree(), jackPopup);
+        JackEditPopup.installOn(editorTree1.getRightTree().getTree(), jackPopup);
 
-        JackWoodEditPopup.installOn(editorTree2.getLeftTree().getTree(), jackPopup);
-        JackWoodEditPopup.installOn(editorTree2.getRightTree().getTree(), jackPopup);
+        JackEditPopup.installOn(editorTree2.getLeftTree().getTree(), jackPopup);
+        JackEditPopup.installOn(editorTree2.getRightTree().getTree(), jackPopup);
 
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();

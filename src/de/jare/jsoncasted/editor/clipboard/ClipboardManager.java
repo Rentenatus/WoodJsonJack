@@ -33,6 +33,7 @@ public class ClipboardManager {
      */
     @FunctionalInterface
     public interface ClipboardChangeListener {
+
         void onClipboardChanged(String stashName);
     }
 
@@ -62,7 +63,6 @@ public class ClipboardManager {
     // ========================================================================
     // Listener Management
     // ========================================================================
-
     /**
      * Adds a listener to be notified when clipboard content changes.
      *
@@ -73,7 +73,8 @@ public class ClipboardManager {
     }
 
     /**
-     * Adds a listener to be notified when clipboard content changes with priority.
+     * Adds a listener to be notified when clipboard content changes with
+     * priority.
      *
      * @param level the priority level
      * @param listener the listener to add
@@ -94,16 +95,17 @@ public class ClipboardManager {
     /**
      * Notifies all registered listeners about a change in the specified stash.
      *
-     * @param stashName the name of the stash that changed, or null for all stashes
+     * @param stashName the name of the stash that changed, or null for all
+     * stashes
      */
     private void fireClipboardChanged(String stashName) {
         clipboardOrator.say(listener -> listener.onClipboardChanged(stashName));
     }
 
     /**
-     * Sets the content of a specific stash and notifies listeners.
-     * This is the preferred way to modify stash content, as it ensures
-     * proper event notification.
+     * Sets the content of a specific stash and notifies listeners. This is the
+     * preferred way to modify stash content, as it ensures proper event
+     * notification.
      *
      * @param stashName the name of the stash
      * @param nodes the nodes to store in the stash
@@ -605,6 +607,32 @@ public class ClipboardManager {
         for (int i = 0; i < node.getChildCount(); i++) {
             EditNode child = node.getChildAt(i);
             if (child != null && !areAllEditIdsFree(tree, child)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean canPasteTo(EditNode targetData) {
+        if (targetData == null) {
+            return false;
+        }
+
+        ClipboardStash stash = getActiveStash();
+        if (stash == null || stash.isEmpty()) {
+            return false;
+        }
+
+        EditNodeAbstract[] nodes = stash.getNodes();
+        if (nodes == null || nodes.length == 0) {
+            return false;
+        }
+
+        for (EditNodeAbstract candidate : nodes) {
+            if (candidate == null) {
+                continue;
+            }
+            if (!targetData.canBeChildOf(candidate)) {
                 return false;
             }
         }

@@ -241,11 +241,4 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
         return List.of();
     }
 
-    public boolean canPasteTo(EditNode targetData) {
-        //todo: implementiere sauber: canPasteTo(EditNode targetData)
-        System.out.println("//todo: implementiere sauber: canPasteTo(EditNode targetData)");
-        return false;
-
-    }
-
 }

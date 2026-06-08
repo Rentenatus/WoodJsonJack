@@ -23,11 +23,18 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
 
-public class JackWoodEditPopup extends JPopupMenu {
+public class JackEditPopup extends JPopupMenu {
 
-    public JackWoodEditPopup(JackMasterControl master) {
+    private final JMenuItem pasteItem;
+    private final JMenuItem deleteNodeItem;
+    private final JMenuItem cutItem;
+    private final JackMasterControl master;
+    private Object lastSelectedNode;
+
+    public JackEditPopup(JackMasterControl master) {
+        this.master = master;
         JMenuItem addNodeItem = new JMenuItem("Node hinzufügen");
-        JMenuItem deleteNodeItem = new JMenuItem("Node löschen");
+        deleteNodeItem = new JMenuItem("Node löschen");
         JMenuItem renameNodeItem = new JMenuItem("Node umbenennen");
 
         addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
@@ -39,8 +46,8 @@ public class JackWoodEditPopup extends JPopupMenu {
         add(renameNodeItem);
 
         JMenuItem copyItem = new JMenuItem("Copy");
-        JMenuItem cutItem = new JMenuItem("Cut");
-        JMenuItem pasteItem = new JMenuItem("Paste");
+        cutItem = new JMenuItem("Cut");
+        pasteItem = new JMenuItem("Paste");
 
         copyItem.addActionListener(e -> master.fireContentCommand(EDIT_COPY, this));
         cutItem.addActionListener(e -> master.fireContentCommand(EDIT_CUT, this));
@@ -54,19 +61,12 @@ public class JackWoodEditPopup extends JPopupMenu {
         master.addSelectionListener(8, new TreeFocusListener() {
             @Override
             public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+                lastSelectedNode = node;
                 boolean enableCutDelete = !rootSelected && node != null;
                 deleteNodeItem.setEnabled(enableCutDelete);
                 cutItem.setEnabled(enableCutDelete);
 
-                boolean canPaste = false;
-                if (node instanceof DefaultMutableTreeNode dmtn) {
-                    Object uo = dmtn.getUserObject();
-                    if (uo instanceof EditNode targetData) {
-                        JackUndoManager undoMan = master.getUndoManager();
-                        canPaste = undoMan.canPasteTo(targetData);
-                    }
-                }
-                pasteItem.setEnabled(canPaste);
+                updatePasteEnabled();
             }
 
             @Override
@@ -74,6 +74,20 @@ public class JackWoodEditPopup extends JPopupMenu {
                 // optional: Menü bei Editorwechsel anpassen
             }
         });
+
+        master.getClipboardManager().addClipboardChangeListener(9,
+                stashName -> updatePasteEnabled());
+    }
+
+    private void updatePasteEnabled() {
+        boolean canPaste = false;
+        if (lastSelectedNode instanceof DefaultMutableTreeNode dmtn) {
+            Object uo = dmtn.getUserObject();
+            if (uo instanceof EditNode targetData) {
+                canPaste = master.getClipboardManager().canPasteTo(targetData);
+            }
+        }
+        pasteItem.setEnabled(canPaste);
     }
 
     /**
@@ -82,26 +96,26 @@ public class JackWoodEditPopup extends JPopupMenu {
      * @param tree
      * @param popup
      */
-    public static void installOn(JTree tree, JackWoodEditPopup popup) {
+    public static void installOn(JTree tree, JackEditPopup popup) {
 
         tree.addMouseListener(new MouseAdapter() {
             @Override
-            public void mousePressed(MouseEvent e) {
-                handlePopupTrigger(e);
+            public void mousePressed(MouseEvent event) {
+                handlePopupTrigger(event);
             }
 
             @Override
-            public void mouseReleased(MouseEvent e) {
-                handlePopupTrigger(e);
+            public void mouseReleased(MouseEvent event) {
+                handlePopupTrigger(event);
             }
 
-            private void handlePopupTrigger(MouseEvent e) {
-                if (!e.isPopupTrigger()) {
+            private void handlePopupTrigger(MouseEvent event) {
+                if (!event.isPopupTrigger()) {
                     return;
                 }
-                int x = e.getX();
-                int y = e.getY();
-                JTree tree = (JTree) e.getSource();
+                int x = event.getX();
+                int y = event.getY();
+                JTree tree = (JTree) event.getSource();
                 TreePath path = tree.getPathForLocation(x, y);
                 if (path == null) {
                     return;
@@ -110,8 +124,8 @@ public class JackWoodEditPopup extends JPopupMenu {
                 TreePath[] selectedPaths = tree.getSelectionPaths();
                 boolean alreadySelected = false;
                 if (selectedPaths != null) {
-                    for (TreePath p : selectedPaths) {
-                        if (p.equals(path)) {
+                    for (TreePath selPath : selectedPaths) {
+                        if (selPath.equals(path)) {
                             alreadySelected = true;
                             break;
                         }

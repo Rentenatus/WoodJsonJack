@@ -24,6 +24,10 @@ public class JackMainMenu extends JMenuBar {
 
     private final WoodWindow woodWindow;
     private final JackMasterControl master;
+    private final JMenuItem pasteItem;
+    private final JMenuItem deleteNodeItem;
+    private final JMenuItem cutItem;
+    private Object lastSelectedNode;
 
     public JackMainMenu(WoodWindow mainFrame, JackMasterControl master) {
         this.woodWindow = mainFrame;
@@ -49,8 +53,8 @@ public class JackMainMenu extends JMenuBar {
         projectMenu.add(exitItem);
 
         JMenuItem copyItem = new JMenuItem("Copy");
-        JMenuItem cutItem = new JMenuItem("Cut");
-        JMenuItem pasteItem = new JMenuItem("Paste");
+        cutItem = new JMenuItem("Cut");
+        pasteItem = new JMenuItem("Paste");
 
         copyItem.addActionListener(e -> master.fireContentCommand(EDIT_COPY, this));
         cutItem.addActionListener(e -> master.fireContentCommand(EDIT_CUT, this));
@@ -66,7 +70,7 @@ public class JackMainMenu extends JMenuBar {
         editMenu.setMnemonic(KeyEvent.VK_E);
 
         JMenuItem addNodeItem = new JMenuItem("Node hinzufügen");
-        JMenuItem deleteNodeItem = new JMenuItem("Node löschen");
+        deleteNodeItem = new JMenuItem("Node löschen");
         JMenuItem renameNodeItem = new JMenuItem("Node umbenennen");
 
         addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
@@ -106,18 +110,12 @@ public class JackMainMenu extends JMenuBar {
         master.addSelectionListener(7, new TreeFocusListener() {
             @Override
             public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+                lastSelectedNode = node;
                 boolean enableCutDelete = !rootSelected && node instanceof DefaultMutableTreeNode;
                 deleteNodeItem.setEnabled(enableCutDelete);
                 cutItem.setEnabled(enableCutDelete);
 
-                boolean canPaste = false;
-                if (node instanceof DefaultMutableTreeNode dmtn) {
-                    Object uo = dmtn.getUserObject();
-                    if (uo instanceof EditNode targetData) {
-                        canPaste = master.getUndoManager().canPasteTo(targetData);
-                    }
-                }
-                pasteItem.setEnabled(canPaste);
+                updatePasteEnabled();
             }
 
             @Override
@@ -127,6 +125,20 @@ public class JackMainMenu extends JMenuBar {
             }
         });
 
+        master.getClipboardManager().addClipboardChangeListener(9,
+                stashName -> updatePasteEnabled());
+
+    }
+
+    private void updatePasteEnabled() {
+        boolean canPaste = false;
+        if (lastSelectedNode instanceof DefaultMutableTreeNode dmtn) {
+            Object uo = dmtn.getUserObject();
+            if (uo instanceof EditNode targetData) {
+                canPaste = master.getClipboardManager().canPasteTo(targetData);
+            }
+        }
+        pasteItem.setEnabled(canPaste);
     }
 
     private void openPreferences() {

@@ -8,6 +8,7 @@ package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.events.EventBus;
 import de.jare.jsoncasted.editor.events.HistoryListener;
 import de.jare.jsoncasted.editor.events.HistoryManager;
