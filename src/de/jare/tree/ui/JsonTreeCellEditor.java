@@ -6,9 +6,9 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.tree.control.UndoManager;
-import de.jare.tree.control.commands.WoodCommand;
-import de.jare.tree.control.commands.WoodCommandEditNodeData;
+import de.jare.jsoncasted.editor.command.SetValueCommand;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.settings.WoodSettings;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -20,16 +20,14 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeCellEditor;
-import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 public class JsonTreeCellEditor extends AbstractCellEditor implements TreeCellEditor {
 
     private final JTextField textField = new JTextField();
-    private EditNodeAbstract currentData;
-    private final UndoManager undoMan;
+    private EditNode currentData;
+    private final JackUndoManager undoMan;
 
-    public JsonTreeCellEditor(UndoManager undoMan) {
+    public JsonTreeCellEditor(JackUndoManager undoMan) {
         // Optional: Grundspaltenzahl, falls Metrics noch nicht da sind
         textField.setColumns(10);
         this.undoMan = undoMan;
@@ -60,7 +58,7 @@ public class JsonTreeCellEditor extends AbstractCellEditor implements TreeCellEd
 
         currentData = null;
         if (value instanceof DefaultMutableTreeNode dmtn
-                && dmtn.getUserObject() instanceof EditNodeAbstract data) {
+                && dmtn.getUserObject() instanceof EditNode data) {
             currentData = data;
             textField.setText(data.getEditText());
             String foreKey = "light." + data.getTypeKey();
@@ -106,10 +104,8 @@ public class JsonTreeCellEditor extends AbstractCellEditor implements TreeCellEd
         if (currentData == null || currentData.getEditText() != null && currentData.getEditText().equals(textField.getText())) {
             return;
         }
-        EditNodeAbstract oldData = currentData.deepCopy(false);
-        currentData.setEditText(textField.getText());
-        WoodCommand command = new WoodCommandEditNodeData(currentData, oldData, currentData);
-        undoMan.pushCommand(command);
+        SetValueCommand command = new SetValueCommand(currentData, textField.getText());
+        undoMan.executeCommand(command);
     }
 
 }

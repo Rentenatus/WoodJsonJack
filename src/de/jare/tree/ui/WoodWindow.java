@@ -7,8 +7,6 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.control.JackMasterControl;
-import de.jare.tree.control.MasterControl;
-// import de.jare.tree.control.MasterControl;
 import de.jare.tree.settings.SettingsService;
 import de.jare.tree.settings.WoodSettings;
 import de.jare.tree.settings.theme.ThemeSuite;
@@ -27,6 +25,7 @@ public class WoodWindow extends JFrame {
     private final ThemeSuite themeSuite;
     private PreferencesDialog preferencesDialog;
     private JackClipboardPanel jackClipboardPanel;
+    private JackUndoPanel jackPanel;
 
     public WoodWindow() {
         settingsService = new SettingsService();
@@ -145,17 +144,9 @@ public class WoodWindow extends JFrame {
         return borderedPanel;
     }
 
-    private JackUndoPanel jackPanel;
-
     private JPanel createJackUndoPanel() {
         jackPanel = new JackUndoPanel(jackmaster);
         return jackPanel;
-    }
-
-    private WoodClipboardTree clipboardTree;
-
-    public WoodClipboardTree getClipboardTree() {
-        return clipboardTree;
     }
 
     private JPanel createKIAssistant() {

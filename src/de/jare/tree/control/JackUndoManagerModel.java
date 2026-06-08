@@ -8,25 +8,18 @@ package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
-import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.events.EventBus;
 import de.jare.jsoncasted.editor.events.HistoryListener;
 import de.jare.jsoncasted.editor.events.HistoryManager;
 import de.jare.jsoncasted.tools.SimpleStringSplitter;
-import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.model.JackTreeModel;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * Simple undo/redo manager for the tree editor.
- * <p>
- * Commands must implement {@link WoodCommand} and are pushed via
- * {@link #executeCommand(WoodCommand)}. The manager keeps two stacks for undo
- * and redo operations.
- * </p>
+ *
  */
 public class JackUndoManagerModel implements SimpleStringSplitter {
 

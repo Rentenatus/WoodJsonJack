@@ -11,7 +11,6 @@ import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
-import de.jare.tree.ui.WoodClipboardTree;
 
 public class MasterControl {
 
@@ -20,7 +19,6 @@ public class MasterControl {
     private final Orator<TreeFocusListener> selectionOrator = new Orator<>();
     private final Orator<ContentListener> contentOrator = new Orator<>();
 
-    private WoodClipboardTree clipboardTree;
     // welcher Editor ist aktuell aktiv (Tab-basiert)?
     private Object activeEditor; // bewusst generisch
     private UndoManager undoMan;
@@ -80,14 +78,6 @@ public class MasterControl {
 
     public void removeUndoRedoListener(UndoRedoListener l) {
         undoMan.removeUndoRedoListener(l);
-    }
-
-    public void setClipboardTree(WoodClipboardTree clipboardTree) {
-        this.clipboardTree = clipboardTree;
-    }
-
-    public WoodClipboardTree getClipboardTree() {
-        return clipboardTree;
     }
 
     // Vom UI (z.B. JTabbedPane) gerufen, wenn ein Tab gewaehlt wird

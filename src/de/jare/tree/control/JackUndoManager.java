@@ -8,11 +8,9 @@ package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
-import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.events.HistoryEvent;
 import de.jare.jsoncasted.editor.events.HistoryEvent.ChangeType;
 import de.jare.jsoncasted.editor.events.HistoryListener;
-import de.jare.tree.control.commands.WoodCommand;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
@@ -20,8 +18,6 @@ import de.jare.tree.control.model.JackTreeModel;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Consumer;
-
 import javax.swing.tree.TreeModel;
 
 /**

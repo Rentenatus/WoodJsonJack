@@ -7,10 +7,8 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.control.JackMasterControl;
-import de.jare.tree.control.MasterControl;
-
-import javax.swing.*;
 import java.awt.*;
+import javax.swing.*;
 
 /**
  * Container für zwei JackEditTree-Instanzen, die nebeneinander angezeigt werden
