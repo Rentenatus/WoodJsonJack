@@ -7,12 +7,11 @@
 package de.jare.tree.settings.theme;
 
 import java.awt.Font;
-import javax.swing.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.BiConsumer;
 import java.util.Set;
-import java.util.HashSet;
+import java.util.function.BiConsumer;
+import javax.swing.*;
 
 public class FontSettings {
 

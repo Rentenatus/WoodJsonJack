@@ -7,8 +7,6 @@
 package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.Theme;
-import de.jare.tree.settings.theme.ThemeSuite;
-import javax.swing.BorderFactory;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;

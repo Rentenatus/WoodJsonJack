@@ -6,6 +6,8 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.tree.control.JackMasterControl;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
@@ -19,9 +21,6 @@ import java.awt.event.MouseEvent;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreePath;
-import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.tree.control.JackMasterControl;
-import de.jare.tree.control.JackUndoManager;
 
 public class JackEditPopup extends JPopupMenu {
 

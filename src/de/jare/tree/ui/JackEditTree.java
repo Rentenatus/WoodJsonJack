@@ -24,7 +24,6 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
-import de.jare.tree.control.MasterControl;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
@@ -383,11 +382,6 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         return master;
     }
 
-    @Override
-    public MasterControl getMaster() {
-        return null;
-    }
-
     protected JCheckBox getLinkCheckBox() {
         return linkCheckBox;
     }
@@ -606,8 +600,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Speichert die Expansionszustände für die gegebenen Pfade.
-     * Nur Knoten, deren Pfad tatsächlich expanded ist, werden gespeichert.
+     * Speichert die Expansionszustände für die gegebenen Pfade. Nur Knoten,
+     * deren Pfad tatsächlich expanded ist, werden gespeichert.
      *
      * @param paths die TreePath-Array
      * @return Set der expandierten Node-IDs
@@ -621,23 +615,23 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Rekursiv alle expandierten Knoten unter einem Pfad sammeln.
-     * Nur Knoten, deren Pfad expanded ist, werden zur Liste hinzugefügt.
+     * Rekursiv alle expandierten Knoten unter einem Pfad sammeln. Nur Knoten,
+     * deren Pfad expanded ist, werden zur Liste hinzugefügt.
      */
     private void collectExpandedNodeIds(TreePath path, java.util.Set<Long> expandedIds) {
         if (path == null) {
             return;
         }
-        
+
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
-        
+
         // Nur hinzufügen, wenn dieser Pfad expanded ist
         if (jtree.isExpanded(path)) {
             Object uo = node.getUserObject();
             if (uo instanceof EditNodeAbstract editNode) {
                 expandedIds.add(editNode.getEditId());
             }
-            
+
             // Rekursiv alle Kinder durchgehen
             for (int i = 0; i < node.getChildCount(); i++) {
                 DefaultMutableTreeNode child = (DefaultMutableTreeNode) node.getChildAt(i);

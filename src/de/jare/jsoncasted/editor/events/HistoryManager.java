@@ -10,7 +10,6 @@ import de.jare.jsoncasted.editor.command.CommandAction;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditTree;
-import de.jare.jsoncasted.editor.events.EventBus;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;

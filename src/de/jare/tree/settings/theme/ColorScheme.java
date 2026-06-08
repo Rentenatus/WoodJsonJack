@@ -8,9 +8,7 @@ package de.jare.tree.settings.theme;
 
 import java.awt.Color;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import javax.swing.UIManager;
 

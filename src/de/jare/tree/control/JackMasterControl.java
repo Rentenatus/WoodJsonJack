@@ -22,9 +22,9 @@ public class JackMasterControl {
 
     // welcher Editor ist aktuell aktiv (Tab-basiert)?
     private Object activeEditor; // bewusst generisch
-    private JackUndoManager undoMan;
-    private SelectionStackManager selectionStack;
-    private ClipboardManager clipboardManager;
+    private final JackUndoManager undoMan;
+    private final SelectionStackManager selectionStack;
+    private final ClipboardManager clipboardManager;
 
     public JackMasterControl() {
         this.undoMan = new JackUndoManager();

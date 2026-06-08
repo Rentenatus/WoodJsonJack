@@ -10,7 +10,6 @@ import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.events.HistoryEvent;
 import de.jare.jsoncasted.editor.events.HistoryListener;
-import de.jare.jsoncasted.editor.events.HistoryManager;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.JackUndoManagerModel;

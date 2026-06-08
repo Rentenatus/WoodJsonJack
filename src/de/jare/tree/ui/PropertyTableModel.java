@@ -7,10 +7,8 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.control.listeners.TreeFocusComponent;
-import javax.swing.JTree;
-import javax.swing.table.AbstractTableModel;
 import de.jare.tree.control.listeners.TreeFocusListener;
-import javax.swing.JComponent;
+import javax.swing.table.AbstractTableModel;
 
 public class PropertyTableModel extends AbstractTableModel implements TreeFocusListener {
 

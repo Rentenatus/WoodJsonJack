@@ -7,11 +7,10 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
-import de.jare.jsoncasted.editor.clipboard.ClipboardStash;
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import javax.swing.*;
 
 /**
  * Panel zur Steuerung der Clipboard-Stashes mit Wechselmöglichkeit.
