@@ -6,6 +6,8 @@
  */
 package de.jare.jsoncasted.editor.command;
 
+import de.jare.jsoncasted.editor.core.AbstractEntry;
+import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 /**
@@ -29,17 +31,22 @@ public final class EditCommandEntry {
      * command type, {@code snapshot} may contain a subtree copy used for
      * undo/redo reconstruction.</p>
      */
-    public static final class MovementEntry {
-
-        /**
-         * The ID of the affected node, or {@code -1} if not yet known.
-         */
-        public final long nodeId;
+    public static final class MovementEntry extends AbstractEntry {
 
         /**
          * The ID of the parent node.
          */
         public final long parentEditId;
+
+        /**
+         * The leftRange of the parent node, or {@code -1} if not yet known.
+         */
+        public final long parentLeftRange;
+
+        /**
+         * The timesRange of the parent node, or {@code -1} if not yet known.
+         */
+        public final long parentTimesRange;
 
         /**
          * The child index inside the parent, or {@code -1} for append
@@ -60,7 +67,7 @@ public final class EditCommandEntry {
          * @param snapshot an optional subtree snapshot
          */
         public MovementEntry(long parentEditId, int index, EditNodeAbstract snapshot) {
-            this(-1, parentEditId, index, snapshot);
+            this(-1, -1, Long.MIN_VALUE, parentEditId, -1, Long.MIN_VALUE, index, snapshot);
         }
 
         /**
@@ -72,10 +79,49 @@ public final class EditCommandEntry {
          * @param snapshot an optional subtree snapshot
          */
         public MovementEntry(long nodeId, long parentEditId, int index, EditNodeAbstract snapshot) {
-            this.nodeId = nodeId;
+            this(nodeId, -1, Long.MIN_VALUE, parentEditId, -1, Long.MIN_VALUE, index, snapshot);
+        }
+
+        /**
+         * Creates a movement entry.
+         *
+         * @param nodeId the affected node ID
+         * @param leftRange value of fast indexing in tree.
+         * @param timesRange times to fast indexing in tree if possible.
+         * @param parentEditId the parent node ID
+         * @param parentLeftRange value of fast indexing in tree.
+         * @param parentTimesRange times to fast indexing in tree if possible.
+         * @param index the child index
+         * @param snapshot an optional subtree snapshot
+         */
+        public MovementEntry(long nodeId, long leftRange, long timesRange,
+                long parentEditId, long parentLeftRange, long parentTimesRange,
+                int index, EditNodeAbstract snapshot) {
+            super(nodeId, leftRange, timesRange);
             this.parentEditId = parentEditId;
+            this.parentLeftRange = parentLeftRange;
+            this.parentTimesRange = parentTimesRange;
             this.index = index;
             this.snapshot = snapshot;
+        }
+
+        /**
+         * Creates a movement entry.
+         *
+         * @param node what about this node
+         * @param parent node.getParent() or null
+         * @param index the child index
+         */
+        public MovementEntry(EditNodeAbstract node, EditNode parent, int index) {
+            this(node.getEditId(), // nodeId
+                    node.getLeftRange(),
+                    node.getTimesRange(),
+                    parent == null ? -1 : parent.getEditId(),
+                    parent == null ? -1 : parent.getLeftRange(),
+                    parent == null ? Long.MIN_VALUE : parent.getTimesRange(),
+                    index,
+                    node.deepCopy(false) // snapshot
+            );
         }
     }
 
@@ -85,12 +131,7 @@ public final class EditCommandEntry {
      * <p>
      * This entry is used for commands such as rename and set-value.</p>
      */
-    public static final class ContentEntry {
-
-        /**
-         * The ID of the affected node.
-         */
-        public final long nodeId;
+    public static final class ContentEntry extends AbstractEntry {
 
         /**
          * The previous value.
@@ -110,9 +151,39 @@ public final class EditCommandEntry {
          * @param newValue the new value
          */
         public ContentEntry(long nodeId, String oldValue, String newValue) {
-            this.nodeId = nodeId;
+            this(nodeId, -1, Long.MIN_VALUE, oldValue, newValue);
+        }
+
+        /**
+         * Creates a content entry.
+         *
+         * @param nodeId the affected node ID
+         * @param leftRange value of fast indexing in tree.
+         * @param timesRange times to fast indexing in tree if possible.
+         * @param oldValue the previous value
+         * @param newValue the new value
+         */
+        public ContentEntry(long nodeId, long leftRange, long timesRange, String oldValue, String newValue) {
+            super(nodeId, leftRange, timesRange);
             this.oldValue = oldValue;
             this.newValue = newValue;
         }
+
+        /**
+         * Creates a content entry.
+         *
+         * @param node what about this node
+         * @param oldValue the previous value
+         * @param newValue the new value
+         */
+        public ContentEntry(EditNode node, String oldValue, String newValue) {
+            this(node.getEditId(), // nodeId
+                    node.getLeftRange(),
+                    node.getTimesRange(),
+                    oldValue,
+                    newValue
+            );
+        }
     }
+
 }

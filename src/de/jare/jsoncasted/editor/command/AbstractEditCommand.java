@@ -26,7 +26,7 @@ public abstract class AbstractEditCommand implements EditCommand {
     private final CommandType type;
     private String description;
     boolean skipped;
-    
+
     private CommandAction lastAction;
     private int lastUpdatedCount;
     private int lastFailedCount;
@@ -129,7 +129,8 @@ public abstract class AbstractEditCommand implements EditCommand {
     }
 
     /**
-     * Executes the command on the given tree. Subclasses must implement this method.
+     * Executes the command on the given tree. Subclasses must implement this
+     * method.
      *
      * @param tree the tree to modify
      * @return the result describing the changes caused by this execution
@@ -169,14 +170,100 @@ public abstract class AbstractEditCommand implements EditCommand {
         return getClass().getSimpleName() + "[type=" + type + ", description='" + description + "']";
     }
 
-    public final EditNodeAbstract[] collectParentNodes(EditNodeAbstract[] children) {
-        Set<EditNodeAbstract> parentNodes = new java.util.HashSet<>();
-        for (EditNodeAbstract node : children) {
+    /**
+     *
+     * @param children1
+     * @param children2orNull
+     * @return
+     */
+    public final EditNodeAbstract[] unionParentNodes(EditNodeAbstract[] children1, EditNodeAbstract[] children2orNull) {
+        Set<EditNodeAbstract> union = new java.util.HashSet<>();
+        for (EditNodeAbstract node : children1) {
             EditNodeAbstract parent = node.getParent();
             if (parent != null) {
-                parentNodes.add(parent);
+                removeChildrenOf(union, parent);
+                if (!hasParentIn(union, parent)) {
+                    union.add(parent);
+                }
             }
         }
-        return parentNodes.toArray(new EditNodeAbstract[parentNodes.size()]);
+        if (children2orNull != null) {
+            for (EditNodeAbstract node : children2orNull) {
+                EditNodeAbstract parent = node.getParent();
+                if (parent != null) {
+                    removeChildrenOf(union, parent);
+                    if (!hasParentIn(union, parent)) {
+                        union.add(parent);
+                    }
+                }
+            }
+        }
+        return union.toArray(new EditNodeAbstract[union.size()]);
+    }
+
+    /**
+     * Checks if the specified node has any parent in the given set of nodes.
+     * This method iterates through the set of nodes and checks if the provided
+     * node has any of them as a parent. If a parent is found, it returns true;
+     * otherwise, it returns false after checking all nodes in the set. This is
+     * useful for determining if a node is a descendant of any node in a
+     * collection, which can help in managing relationships between nodes in a
+     * tree structure.
+     *
+     * @param club the set of nodes to check against
+     * @param node the node for which to check parent relationships
+     * @return true if the node has a parent in the set, false otherwise
+     */
+    public final boolean hasParentIn(Set<EditNodeAbstract> club, EditNodeAbstract node) {
+        for (EditNodeAbstract member : club) {
+            if (node.hasParent(member)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Removes any nodes from the given set that are parents of the specified
+     * node. This method iterates through the set of nodes and checks if any of
+     * them are parents of the provided node. If a parent is found, it is
+     * removed from the set. This is useful for maintaining a collection of
+     * nodes that should not include any ancestors of a particular node,
+     * ensuring that only relevant nodes are kept in the set.
+     *
+     * @param club the set of nodes from which to remove parents
+     * @param node the node for which to remove parent nodes from the set
+     */
+    public final void removeChildrenOf(Set<EditNodeAbstract> club, EditNodeAbstract node) {
+        for (EditNodeAbstract member : club) {
+            if (member.hasParent(node)) {
+                club.remove(member);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Returns the union of two arrays of nodes, eliminating duplicates. If the
+     * second array is null, only the first array is considered. The resulting
+     * array contains all unique nodes from both input arrays. This method is
+     * useful for combining sets of nodes while ensuring that each node appears
+     * only once in the result.
+     *
+     * @param nodes1 the first array of nodes to union
+     * @param nodes2orNull the second array of nodes to union, which may be null
+     * @return an array containing the unique nodes from both input arrays
+     */
+    public final EditNodeAbstract[] unionNodes(EditNodeAbstract[] nodes1, EditNodeAbstract[] nodes2orNull) {
+        Set<EditNodeAbstract> union = new java.util.HashSet<>();
+        for (EditNodeAbstract node : nodes1) {
+            union.add(node);
+        }
+        if (nodes2orNull != null) {
+            for (EditNodeAbstract node : nodes2orNull) {
+                union.add(node);
+            }
+        }
+        return union.toArray(new EditNodeAbstract[union.size()]);
     }
 }

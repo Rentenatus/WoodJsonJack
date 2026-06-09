@@ -95,9 +95,9 @@ public class TreeEditorArraysNGTest implements ATestTools {
         TreeEditor editor = new TreeEditor();
         EditNodeAbstract root = editor.getTree().getRoot();
 
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("deleteNode1")));
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("deleteNode2")));
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("deleteNode3")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("deleteNode1")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("deleteNode2")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("deleteNode3")));
         assertEquals(root.getChildCount(), 3);
 
         EditNodeAbstract n1 = root.getChildAt(0);
@@ -134,20 +134,20 @@ public class TreeEditorArraysNGTest implements ATestTools {
         TreeEditor editor = new TreeEditor();
         EditNodeAbstract root = editor.getTree().getRoot();
 
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("sourceProp")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("sourceProp")));
         EditNodeAbstract sourceProp = root.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(sourceProp.getEditId(), new EditNodeObject("source")));
+        editor.execute(new AddNodeCommand(sourceProp, new EditNodeObject("source")));
         EditNodeAbstract sourceParent = sourceProp.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("moveNode1")));
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("moveNode2")));
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("moveNode3")));
+        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("moveNode1")));
+        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("moveNode2")));
+        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("moveNode3")));
 
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("targetProp")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("targetProp")));
         EditNodeAbstract targetProp = root.getChildAt(1);
 
-        editor.execute(new AddNodeCommand(targetProp.getEditId(), new EditNodeObject("target")));
+        editor.execute(new AddNodeCommand(targetProp, new EditNodeObject("target")));
         EditNodeAbstract targetParent = targetProp.getChildAt(0);
 
         EditNodeAbstract node1 = sourceParent.getChildAt(0);
@@ -170,7 +170,7 @@ public class TreeEditorArraysNGTest implements ATestTools {
         printSubtree(editor, "target after move", targetParent);
 
         assertNotNull(moveResult, "Move result should not be null");
-        assertEquals(moveResult.getAffectedNodes().length, 1, "Three nodes should be reported as moved");
+        assertEquals(moveResult.getAffectedNodes().length, 2, "Two parent nodes should be reported as moved");
 
         assertEquals(sourceParent.getChildCount(), 0, "Source should be empty");
         assertEquals(targetParent.getChildCount(), 3, "Target should have 3 nodes");
@@ -195,24 +195,24 @@ public class TreeEditorArraysNGTest implements ATestTools {
         TreeEditor editor = new TreeEditor();
         EditNodeAbstract root = editor.getTree().getRoot();
 
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("sourceProp")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("sourceProp")));
         EditNodeAbstract sourceProp = root.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(sourceProp.getEditId(), new EditNodeObject("source")));
+        editor.execute(new AddNodeCommand(sourceProp, new EditNodeObject("source")));
         EditNodeAbstract sourceParent = sourceProp.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("moveNode1")));
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("moveNode2")));
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("moveNode3")));
+        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("moveNode1")));
+        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("moveNode2")));
+        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("moveNode3")));
 
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("targetProp")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("targetProp")));
         EditNodeAbstract targetProp = root.getChildAt(1);
 
-        editor.execute(new AddNodeCommand(targetProp.getEditId(), new EditNodeObject("target")));
+        editor.execute(new AddNodeCommand(targetProp, new EditNodeObject("target")));
         EditNodeAbstract targetParent = targetProp.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(targetParent.getEditId(), new EditNodeProperty("existing1")));
-        editor.execute(new AddNodeCommand(targetParent.getEditId(), new EditNodeProperty("existing2")));
+        editor.execute(new AddNodeCommand(targetParent, new EditNodeProperty("existing1")));
+        editor.execute(new AddNodeCommand(targetParent, new EditNodeProperty("existing2")));
 
         EditNodeAbstract node1 = sourceParent.getChildAt(0);
         EditNodeAbstract node2 = sourceParent.getChildAt(1);
@@ -245,9 +245,9 @@ public class TreeEditorArraysNGTest implements ATestTools {
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
 
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("valueNode1")));
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("valueNode2")));
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("valueNode3")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("valueNode1")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("valueNode2")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("valueNode3")));
 
         EditNode node1 = root.getChildAt(0);
         EditNode node2 = root.getChildAt(1);
@@ -274,9 +274,9 @@ public class TreeEditorArraysNGTest implements ATestTools {
         printCommandResult("undoResult", undoResult);
         printSubtree(editor, "root after undo set value", root);
 
-        assertNull(root.getChildAt(0).getEditText(), "After undo, node1 should have null text");
-        assertNull(root.getChildAt(1).getEditText(), "After undo, node2 should have null text");
-        assertNull(root.getChildAt(2).getEditText(), "After undo, node3 should have null text");
+        assertEquals(root.getChildAt(0).getEditText(), "valueNode1", "After undo, node1 should have valueNode1 text");
+        assertEquals(root.getChildAt(1).getEditText(), "valueNode2", "After undo, node2 should have valueNode2 text");
+        assertEquals(root.getChildAt(2).getEditText(), "valueNode3", "After undo, node3 should have valueNode3 text");
 
         CommandResult redoResult = editor.redo();
         printCommandResult("redoResult", redoResult);

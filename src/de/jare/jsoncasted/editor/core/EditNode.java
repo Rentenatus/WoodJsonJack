@@ -46,13 +46,13 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
         return false;
     }
 
-    String getEditText();
-
     long getLeftRange();
 
     long getRightRange();
 
     long getTimesRange();
+
+    String getEditText();
 
     void setEditText(String editText);
 

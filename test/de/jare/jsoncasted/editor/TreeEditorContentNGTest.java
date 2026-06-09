@@ -58,9 +58,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         EditNodeProperty node2 = new EditNodeProperty("oldName2");
         EditNodeProperty node3 = new EditNodeProperty("oldName3");
 
-        editor.execute(new AddNodeCommand(root.getEditId(), node1));
-        editor.execute(new AddNodeCommand(root.getEditId(), node2));
-        editor.execute(new AddNodeCommand(root.getEditId(), node3));
+        editor.execute(new AddNodeCommand(root, node1));
+        editor.execute(new AddNodeCommand(root, node2));
+        editor.execute(new AddNodeCommand(root, node3));
 
         EditNode treeNode1 = root.getChildAt(0);
         EditNode treeNode2 = root.getChildAt(1);
@@ -113,9 +113,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         EditNodeProperty node2 = new EditNodeProperty("valueNode2");
         EditNodeProperty node3 = new EditNodeProperty("valueNode3");
 
-        editor.execute(new AddNodeCommand(root.getEditId(), node1));
-        editor.execute(new AddNodeCommand(root.getEditId(), node2));
-        editor.execute(new AddNodeCommand(root.getEditId(), node3));
+        editor.execute(new AddNodeCommand(root, node1));
+        editor.execute(new AddNodeCommand(root, node2));
+        editor.execute(new AddNodeCommand(root, node3));
 
         EditNode treeNode1 = root.getChildAt(0);
         EditNode treeNode2 = root.getChildAt(1);
@@ -130,25 +130,25 @@ public class TreeEditorContentNGTest implements ATestTools {
         ));
         printCommandResult("setValueResult", setValueResult);
 
-        assertEquals(treeNode1.getEditText(), "value1");
-        assertEquals(treeNode2.getEditText(), "value2");
-        assertEquals(treeNode3.getEditText(), "value3");
+        assertEquals(treeNode1.getValue(), "value1");
+        assertEquals(treeNode2.getValue(), "value2");
+        assertEquals(treeNode3.getValue(), "value3");
 
         printSubtree(editor, "tree after setValue", root);
 
         CommandResult undoResult = editor.undo();
         printCommandResult("undoResult", undoResult);
 
-        assertNull(treeNode1.getEditText(), "After undo, node1 should have null text");
-        assertNull(treeNode2.getEditText(), "After undo, node2 should have null text");
-        assertNull(treeNode3.getEditText(), "After undo, node3 should have null text");
+        assertEquals(root.getChildAt(0).getValue(), "");
+        assertEquals(root.getChildAt(1).getValue(), "");
+        assertEquals(root.getChildAt(2).getValue(), "");
 
         CommandResult redoResult = editor.redo();
         printCommandResult("redoResult", redoResult);
 
-        assertEquals(treeNode1.getEditText(), "value1");
-        assertEquals(treeNode2.getEditText(), "value2");
-        assertEquals(treeNode3.getEditText(), "value3");
+        assertEquals(treeNode1.getValue(), "value1");
+        assertEquals(treeNode2.getValue(), "value2");
+        assertEquals(treeNode3.getValue(), "value3");
 
         printSubtree(editor, "tree after redo", root);
         printTestFooter();
@@ -168,9 +168,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         EditNodeProperty node2 = new EditNodeProperty("node2");
         EditNodeProperty node3 = new EditNodeProperty("node3");
 
-        editor.execute(new AddNodeCommand(root.getEditId(), node1));
-        editor.execute(new AddNodeCommand(root.getEditId(), node2));
-        editor.execute(new AddNodeCommand(root.getEditId(), node3));
+        editor.execute(new AddNodeCommand(root, node1));
+        editor.execute(new AddNodeCommand(root, node2));
+        editor.execute(new AddNodeCommand(root, node3));
 
         EditNode treeNode1 = root.getChildAt(0);
         EditNode treeNode2 = root.getChildAt(1);
@@ -195,18 +195,18 @@ public class TreeEditorContentNGTest implements ATestTools {
         assertEquals(treeNode2.getName(), "renamed2");
         assertEquals(treeNode3.getName(), "renamed3");
 
-        assertEquals(treeNode1.getEditText(), "text1");
-        assertEquals(treeNode2.getEditText(), "text2");
-        assertEquals(treeNode3.getEditText(), "text3");
+        assertEquals(treeNode1.getValue(), "text1");
+        assertEquals(treeNode2.getValue(), "text2");
+        assertEquals(treeNode3.getValue(), "text3");
 
         printSubtree(editor, "tree after rename + setValue", root);
 
         CommandResult undoSetValueResult = editor.undo();
         printCommandResult("undoSetValueResult", undoSetValueResult);
 
-        assertNull(treeNode1.getEditText());
-        assertNull(treeNode2.getEditText());
-        assertNull(treeNode3.getEditText());
+        assertEquals(treeNode1.getValue(), "");
+        assertEquals(treeNode2.getValue(), "");
+        assertEquals(treeNode3.getValue(), "");
 
         assertEquals(treeNode1.getName(), "renamed1");
         assertEquals(treeNode2.getName(), "renamed2");
@@ -229,9 +229,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         assertEquals(treeNode2.getName(), "renamed2");
         assertEquals(treeNode3.getName(), "renamed3");
 
-        assertEquals(treeNode1.getEditText(), "text1");
-        assertEquals(treeNode2.getEditText(), "text2");
-        assertEquals(treeNode3.getEditText(), "text3");
+        assertEquals(treeNode1.getValue(), "text1");
+        assertEquals(treeNode2.getValue(), "text2");
+        assertEquals(treeNode3.getValue(), "text3");
 
         printSubtree(editor, "tree after redo chain", root);
         printTestFooter();
@@ -248,20 +248,20 @@ public class TreeEditorContentNGTest implements ATestTools {
         TreeEditor editor = new TreeEditor();
         EditNodeAbstract root = editor.getTree().getRoot();
 
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("sourceProp")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("sourceProp")));
         EditNodeAbstract sourceProp = root.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(sourceProp.getEditId(), new EditNodeObject("source")));
+        editor.execute(new AddNodeCommand(sourceProp, new EditNodeObject("source")));
         EditNodeAbstract sourceParent = sourceProp.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("node1")));
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("node2")));
-        editor.execute(new AddNodeCommand(sourceParent.getEditId(), new EditNodeProperty("node3")));
+        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("node1")));
+        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("node2")));
+        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("node3")));
 
-        editor.execute(new AddNodeCommand(root.getEditId(), new EditNodeProperty("targetProp")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("targetProp")));
         EditNodeAbstract targetProp = root.getChildAt(1);
 
-        editor.execute(new AddNodeCommand(targetProp.getEditId(), new EditNodeObject("target")));
+        editor.execute(new AddNodeCommand(targetProp, new EditNodeObject("target")));
         EditNodeAbstract targetParent = targetProp.getChildAt(0);
 
         EditNodeAbstract node1 = sourceParent.getChildAt(0);
@@ -307,9 +307,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         assertEquals(node1.getName(), "renamed1");
         assertEquals(node2.getName(), "renamed2");
         assertEquals(node3.getName(), "renamed3");
-        assertEquals(node1.getEditText(), "value1");
-        assertEquals(node2.getEditText(), "value2");
-        assertEquals(node3.getEditText(), "value3");
+        assertEquals(node1.getValue(), "value1");
+        assertEquals(node2.getValue(), "value2");
+        assertEquals(node3.getValue(), "value3");
 
         printSubtree(editor, "source after move/rename/setValue", sourceParent);
         printSubtree(editor, "target after move/rename/setValue", targetParent);
@@ -334,9 +334,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         assertEquals(node2.getName(), "node2");
         assertEquals(node3.getName(), "node3");
 
-        assertNull(node1.getEditText());
-        assertNull(node2.getEditText());
-        assertNull(node3.getEditText());
+        assertEquals(node1.getValue(), "");
+        assertEquals(node2.getValue(), "");
+        assertEquals(node3.getValue(), "");
 
         printSubtree(editor, "source after undo chain", sourceParent);
         printSubtree(editor, "target after undo chain", targetParent);
@@ -367,9 +367,9 @@ public class TreeEditorContentNGTest implements ATestTools {
         assertTrue(redoneSetValue.getTrigger() instanceof SetValueCommand);
         printCommandResult("redoneSetValue", redoneSetValue);
 
-        assertEquals(node1.getEditText(), "value1");
-        assertEquals(node2.getEditText(), "value2");
-        assertEquals(node3.getEditText(), "value3");
+        assertEquals(node1.getValue(), "value1");
+        assertEquals(node2.getValue(), "value2");
+        assertEquals(node3.getValue(), "value3");
 
         assertEquals(sourceParent.getChildCount(), 3, "SetValue redo should not move nodes");
         assertEquals(targetParent.getChildCount(), 0);

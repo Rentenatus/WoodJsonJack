@@ -30,27 +30,26 @@ public class AddNodeCommand extends AbstractEditCommand {
     /**
      * Creates a command to add a single node.
      *
-     * @param parentId the ID of the parent node
+     * @param parent the parent node
      * @param node the node to add
      */
-    public AddNodeCommand(long parentId, EditNodeAbstract node) {
-        this(parentId, node, -1);
+    public AddNodeCommand(EditNode parent, EditNodeAbstract node) {
+        this(parent, node, -1);
     }
 
     /**
      * Creates a command to add a single node at a specific index.
      *
-     * @param parentId the ID of the parent node
+     * @param parent the parent node
      * @param node the node to add
      * @param index the index at which to insert the node, or -1 to append
      */
-    public AddNodeCommand(long parentId, EditNodeAbstract node, int index) {
+    public AddNodeCommand(EditNode parent, EditNodeAbstract node, int index) {
         this(new MovementEntry[]{
             new MovementEntry(
-            requireNode(node).getEditId(), // nodeId
-            requireValidParentId(parentId), // parentEditId
-            index, // index
-            node.deepCopy(false) // snapshot
+            requireNode(node),
+            requireValidParent(parent), // parentEditId
+            index // index
             )
         });
     }
@@ -148,7 +147,7 @@ public class AddNodeCommand extends AbstractEditCommand {
             // Snapshot liefert den Teilbaum, ID bleibt erhalten
             EditNodeAbstract newNode = entry.snapshot.deepCopy(false);
             if (tree.addNode(entry.parentEditId, newNode, entry.index)) {
-                parentSet.add(tree.findNodeById(entry.parentEditId));
+                parentSet.add(tree.findNodeByIdAndRange(entry.parentEditId, entry.leftRange, entry.timesRange));
                 added[i] = newNode;
             } else {
                 failedtSet.add(newNode);
@@ -254,20 +253,52 @@ public class AddNodeCommand extends AbstractEditCommand {
         return entries[0].snapshot != null ? entries[0].snapshot.getEditId() : -1;
     }
 
-    private static EditNode requireNode(EditNode node) {
+    /**
+     * Validates that the given node is not null. If the node is null, an
+     * IllegalArgumentException is thrown with a descriptive message. This
+     * method is used to ensure that a valid node is provided when creating an
+     * AddNodeCommand, as a null node would not be meaningful in the context of
+     * adding a node to the tree.
+     *
+     * @param node the node to validate
+     * @return the validated node if valid
+     * @throws IllegalArgumentException if the node is null
+     */
+    private static EditNodeAbstract requireNode(EditNodeAbstract node) {
         if (node == null) {
             throw new IllegalArgumentException("Node cannot be null");
         }
         return node;
     }
 
-    private static long requireValidParentId(long parentId) {
-        if (parentId < 0) {
+    /**
+     * Validates the given parent node.
+     *
+     * @param parent the parent node to validate
+     * @return the validated parent node if valid
+     * @throws IllegalArgumentException if the parent is null or has an invalid
+     * edit ID
+     */
+    private static EditNode requireValidParent(EditNode parent) {
+        if (parent == null || parent.getEditId() < 0) {
             throw new IllegalArgumentException("ParentId cannot be negative");
         }
-        return parentId;
+        return parent;
     }
 
+    /**
+     * Creates a copy of the given entries array and validates each entry. This
+     * method checks that each entry is not null, has a valid snapshot, a
+     * non-negative parentEditId, and an index that is either -1 or
+     * non-negative. If any entry fails validation, an IllegalArgumentException
+     * is thrown with a descriptive message indicating the issue and the index
+     * of the problematic entry. The method returns a new array containing
+     * copies of the valid entries.
+     *
+     * @param entries the array of entries to copy and validate
+     * @return a new array containing copies of the valid entries
+     * @throws IllegalArgumentException if any entry is invalid
+     */
     private static MovementEntry[] copyAndValidate(MovementEntry[] entries) {
         MovementEntry[] copy = new MovementEntry[entries.length];
 
@@ -289,12 +320,15 @@ public class AddNodeCommand extends AbstractEditCommand {
             // nodeId aus Entry mit uebernehmen, Snapshot geklont
             copy[i] = new MovementEntry(
                     entry.nodeId,
+                    entry.leftRange,
+                    entry.timesRange,
                     entry.parentEditId,
+                    entry.parentLeftRange,
+                    entry.parentTimesRange,
                     entry.index,
                     entry.snapshot.deepCopy(false)
             );
         }
-
         return copy;
     }
 }

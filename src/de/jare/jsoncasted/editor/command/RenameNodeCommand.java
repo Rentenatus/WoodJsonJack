@@ -35,7 +35,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
 
         String oldName = node.getName();
         this.entries = new ContentEntry[]{
-            new ContentEntry(node.getEditId(), oldName, newName)
+            new ContentEntry(node, oldName, newName)
         };
 
         setDescription("Rename node: " + text(oldName) + " -> " + text(newName));
@@ -68,7 +68,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
             }
 
             this.entries[i] = new ContentEntry(
-                    node.getEditId(),
+                    node,
                     node.getName(),
                     newNames[i]
             );
@@ -111,7 +111,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
         for (int i = 0; i < entries.length; i++) {
             ContentEntry entry = entries[i];
 
-            EditNode node = tree.findNodeById(entry.nodeId);
+            EditNode node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
                 return CommandAvailability.disallowed(
                         "editor.command.rename.nodeMissing",
@@ -144,7 +144,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
 
         for (int i = 0; i < entries.length; i++) {
             ContentEntry entry = entries[i];
-            EditNodeAbstract node = tree.findNodeById(entry.nodeId);
+            EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
                 throw new IllegalStateException(
                         "Cannot rename node: node with id " + entry.nodeId + " not found");
@@ -172,7 +172,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
 
         for (int i = 0; i < entries.length; i++) {
             ContentEntry entry = entries[i];
-            EditNodeAbstract node = tree.findNodeById(entry.nodeId);
+            EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
                 throw new IllegalStateException(
                         "Cannot undo rename: node with id " + entry.nodeId + " not found");
@@ -241,33 +241,6 @@ public class RenameNodeCommand extends AbstractEditCommand {
         return values;
     }
 
-    /**
-     * Returns the node ID of the first entry.
-     *
-     * @return the node ID
-     */
-    public long getNodeId() {
-        return entries[0].nodeId;
-    }
-
-    /**
-     * Returns the old name of the first entry.
-     *
-     * @return the old name
-     */
-    public String getOldName() {
-        return entries[0].oldValue;
-    }
-
-    /**
-     * Returns the new name of the first entry.
-     *
-     * @return the new name
-     */
-    public String getNewName() {
-        return entries[0].newValue;
-    }
-
     private static ContentEntry[] copyAndValidate(ContentEntry[] entries) {
         ContentEntry[] copy = new ContentEntry[entries.length];
 
@@ -282,11 +255,12 @@ public class RenameNodeCommand extends AbstractEditCommand {
 
             copy[i] = new ContentEntry(
                     entry.nodeId,
+                    entry.leftRange,
+                    entry.timesRange,
                     entry.oldValue,
                     entry.newValue
             );
         }
-
         return copy;
     }
 

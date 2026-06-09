@@ -273,10 +273,9 @@ public class DeleteNodeCommand extends AbstractEditCommand {
             }
 
             result[i] = new MovementEntry(
-                    node.getEditId(), // nodeId
-                    parent.getEditId(), // parentEditId
-                    index,
-                    node.deepCopy(false) // snapshot
+                    node,
+                    parent,
+                    index
             );
         }
 
@@ -367,6 +366,12 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return depth;
     }
 
+    /**
+     *
+     * @param tree
+     * @param entry
+     * @return
+     */
     private static long resolveNodeId(EditTree tree, MovementEntry entry) {
         if (entry.nodeId >= 0) {
             return entry.nodeId;

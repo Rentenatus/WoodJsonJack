@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Command that moves one or more nodes to new parent/index positions.
@@ -40,10 +41,12 @@ public class MoveNodeCommand extends AbstractEditCommand {
     class MoveBubble {
 
         EditNodeAbstract removed;
+        EditNodeAbstract oldParent;
         EditNodeAbstract newParent;
 
-        private MoveBubble(EditNodeAbstract removed, EditNodeAbstract newParent) {
+        private MoveBubble(EditNodeAbstract removed, EditNodeAbstract oldParent, EditNodeAbstract newParent) {
             this.removed = removed;
+            this.oldParent = oldParent;
             this.newParent = newParent;
         }
     }
@@ -52,15 +55,16 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * Creates a command to move a single node to a new parent and index.
      *
      * @param node the node to move
-     * @param newParentId the target parent ID
+     * @param newParent the target parent
      * @param newIndex the target index, or {@code -1} to append
      */
-    public MoveNodeCommand(EditNodeAbstract node, long newParentId, int newIndex) {
+    public MoveNodeCommand(EditNodeAbstract node, EditNode newParent, int newIndex) {
         super(CommandType.MOVE_NODE);
 
         if (node == null) {
             throw new IllegalArgumentException("Node cannot be null");
         }
+        final long newParentId = newParent.getEditId();
         if (newParentId < 0) {
             throw new IllegalArgumentException("New parentId cannot be negative");
         }
@@ -76,17 +80,16 @@ public class MoveNodeCommand extends AbstractEditCommand {
             throw new IllegalArgumentException("Node must have a valid parent and index");
         }
 
-        final EditNodeAbstract deepCopyNode = node.deepCopy(false);
         this.oldEntries = new MovementEntry[]{
-            new MovementEntry(node.getEditId(), oldParentId, oldIndex, deepCopyNode)
+            new MovementEntry(node, parent, oldIndex)
         };
         if (oldParentId == newParentId && (newIndex >= oldIndex)) {
             this.newEntries = new MovementEntry[]{
-                new MovementEntry(node.getEditId(), newParentId, newIndex - 1, deepCopyNode)
+                new MovementEntry(node, newParent, newIndex - 1)
             };
         } else {
             this.newEntries = new MovementEntry[]{
-                new MovementEntry(node.getEditId(), newParentId, newIndex, deepCopyNode)
+                new MovementEntry(node, newParent, newIndex)
             };
         }
 
@@ -101,7 +104,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * @param newIndex the target index, or {@code -1} to append
      */
     public MoveNodeCommand(EditNodeAbstract node, int newIndex) {
-        this(node, requireParentId(node), newIndex);
+        this(node, requireParent(node), newIndex);
     }
 
     /**
@@ -184,18 +187,16 @@ public class MoveNodeCommand extends AbstractEditCommand {
             }
 
             this.oldEntries[i] = new MovementEntry(
-                    node.getEditId(),
-                    oldParentId,
-                    oldIndex,
-                    node.deepCopy(false)
+                    node,
+                    parent,
+                    oldIndex
             );
 
             int targetIndex = newIndex - shift;
             this.newEntries[i] = new MovementEntry(
-                    node.getEditId(),
-                    newParentId,
-                    targetIndex + i,
-                    node.deepCopy(false)
+                    node,
+                    newParent,
+                    targetIndex + i
             );
         }
 
@@ -250,7 +251,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
             MovementEntry oldEntry = oldEntries[i];
             MovementEntry newEntry = newEntries[i];
 
-            EditNode node = tree.findNodeById(oldEntry.nodeId);
+            EditNode node = tree.findNodeByIdAndRange(oldEntry);
             if (node == null) {
                 return CommandAvailability.disallowed(
                         "editor.command.move.nodeMissing",
@@ -258,7 +259,9 @@ public class MoveNodeCommand extends AbstractEditCommand {
                         Integer.toString(i));
             }
 
-            EditNode sourceParent = tree.findNodeById(oldEntry.parentEditId);
+            EditNode sourceParent = tree.findNodeByIdAndRange(
+                    oldEntry.parentEditId, oldEntry.parentLeftRange, oldEntry.parentTimesRange
+            );
             if (sourceParent == null) {
                 return CommandAvailability.disallowed(
                         "editor.command.move.sourceParentMissing",
@@ -266,7 +269,9 @@ public class MoveNodeCommand extends AbstractEditCommand {
                         Integer.toString(i));
             }
 
-            EditNode targetParent = tree.findNodeById(newEntry.parentEditId);
+            EditNode targetParent = tree.findNodeByIdAndRange(
+                    newEntry.parentEditId, newEntry.parentLeftRange, newEntry.parentTimesRange
+            );
             if (targetParent == null) {
                 return CommandAvailability.disallowed(
                         "editor.command.move.targetParentMissing",
@@ -324,7 +329,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
             MovementEntry oldEntry = oldEntries[i];
             MovementEntry newEntry = newEntries[i];
 
-            EditNode node = tree.findNodeById(oldEntry.nodeId);
+            EditNode node = tree.findNodeByIdAndRange(oldEntry);
             if (node == null || node.getParent() == null) {
                 return false;
             }
@@ -381,7 +386,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
         return new CommandResult(
                 this,
                 CommandAction.EXECUTE,
-                collectParentNodes(moved),
+                unionParentNodes(successfullyRemoved),
                 null,
                 null,
                 moved,
@@ -410,7 +415,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
         return new CommandResult(
                 this,
                 CommandAction.UNDO,
-                collectParentNodes(moved),
+                unionParentNodes(successfullyRemoved),
                 null,
                 null,
                 moved,
@@ -441,13 +446,13 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * Returns the parent ID of the given node.
      *
      * @param node the node to inspect
-     * @return the parent ID
+     * @return the parent
      */
-    private static long requireParentId(EditNode node) {
+    private static EditNode requireParent(EditNode node) {
         if (node == null || node.getParent() == null) {
             throw new IllegalArgumentException("Node must have a parent");
         }
-        return node.getParent().getEditId();
+        return node.getParent();
     }
 
     /**
@@ -488,7 +493,11 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
             copy[i] = new MovementEntry(
                     entry.nodeId,
+                    entry.leftRange,
+                    entry.timesRange,
                     entry.parentEditId,
+                    entry.parentLeftRange,
+                    entry.parentTimesRange,
                     entry.index,
                     entry.snapshot
             );
@@ -497,20 +506,58 @@ public class MoveNodeCommand extends AbstractEditCommand {
         return copy;
     }
 
-    private MoveBubble[] removeAll(EditTree tree, MovementEntry[] entries, MovementEntry[] parentCheck) {
+    /**
+     * Removes nodes from the tree based on the provided movement entries and
+     * their corresponding target check entries. This method iterates through
+     * the movement entries and checks if the corresponding target check entry
+     * indicates a valid target position. If a valid target is found, it
+     * retrieves the node to remove and its old parent from the tree, removes
+     * the node from its current position, and creates a MoveBubble to store the
+     * removed node along with its old and new parent information. The method
+     * collects all successfully removed nodes into an array of MoveBubbles and
+     * returns it.
+     *
+     * @param tree the tree from which nodes should be removed
+     * @param entries the movement entries containing the source positions of
+     * the nodes to remove
+     * @param targetCheck the movement entries containing the target positions
+     * to check for validity before removal
+     * @return an array of MoveBubbles representing the successfully removed
+     * nodes and their parent information
+     */
+    private MoveBubble[] removeAll(EditTree tree, MovementEntry[] entries, MovementEntry[] targetCheck) {
         MoveBubble[] successfullyRemoved = new MoveBubble[entries.length];
         for (int i = 0; i < entries.length; i++) {
             MovementEntry entry = entries[i];
-            EditNodeAbstract node = tree.findNodeById(entry.nodeId);
-            EditNodeAbstract nodeParent = tree.findNodeById(parentCheck[i].parentEditId);
-            if (node != null && node.getParent() != null && nodeParent != null) {
+            EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
+            EditNodeAbstract parentTarget = tree.findNodeByIdAndRange(
+                    targetCheck[i].parentEditId, targetCheck[i].parentLeftRange, targetCheck[i].parentTimesRange
+            );
+            if (node != null && node.getParent() != null && parentTarget != null) {
+                EditNodeAbstract oldParent = node.getParent();
                 tree.removeNode(node);
-                successfullyRemoved[i] = new MoveBubble(node, nodeParent);
+                successfullyRemoved[i] = new MoveBubble(node, oldParent, parentTarget);
             }
         }
         return successfullyRemoved;
     }
 
+    /**
+     * Adds nodes to the tree based on the provided movement entries and their
+     * corresponding move bubbles. This method iterates through the movement
+     * entries and checks if the corresponding move bubble indicates a
+     * successful removal. If a move bubble is present, it retrieves the node to
+     * add and its new parent from the move bubble, and then adds the node to
+     * the tree at the specified index. The method collects all successfully
+     * moved nodes into a list and returns them as an array.
+     *
+     * @param tree the tree to which nodes should be added
+     * @param entries the movement entries containing the target positions for
+     * the nodes
+     * @param successfullyRemoved the array of move bubbles indicating which
+     * nodes were successfully removed and their new parents
+     * @return an array of nodes that were successfully added to the tree
+     */
     private EditNodeAbstract[] addAll(EditTree tree, MovementEntry[] entries, MoveBubble[] successfullyRemoved) {
         List<EditNode> moved = new ArrayList<>();
         for (int i = 0; i < entries.length; i++) {
@@ -531,6 +578,21 @@ public class MoveNodeCommand extends AbstractEditCommand {
         return moved.toArray(new EditNodeAbstract[moved.size()]);
     }
 
+    /**
+     * Returns the nodes for which the move operation failed. This method
+     * iterates through the entries and checks if the corresponding move bubble
+     * indicates a successful removal. If a move bubble is null, it means that
+     * the node was not successfully removed from its original position, and
+     * therefore the node is considered to have failed to move. The method
+     * collects all such nodes into a list and returns them as an array.
+     *
+     * @param tree the tree in which the move operation was attempted
+     * @param entries the movement entries corresponding to the attempted move
+     * operations
+     * @param successfullyRemoved the array of move bubbles indicating which
+     * nodes were successfully removed
+     * @return an array of nodes for which the move operation failed
+     */
     private EditNodeAbstract[] failed(EditTree tree, MovementEntry[] entries, MoveBubble[] successfullyRemoved) {
         List<EditNode> failed = new ArrayList<>();
         for (int i = 0; i < entries.length; i++) {
@@ -541,6 +603,37 @@ public class MoveNodeCommand extends AbstractEditCommand {
             failed.add(entry.snapshot);
         }
         return failed.toArray(new EditNodeAbstract[failed.size()]);
+    }
+
+    /**
+     * Returns the union of parent nodes involved in the given move bubbles.
+     * This method iterates through the array of move bubbles and collects the
+     * old and new parent nodes into a set, ensuring that each parent node is
+     * included only once. If a parent node is found to be a child of another
+     * parent already in the set, it is removed to maintain a collection of
+     * unique parent nodes that are relevant to the move operation. The
+     * resulting array contains all unique parent nodes from the move bubbles.
+     *
+     * @param moveBubbles the array of move bubbles to process
+     * @return an array of unique parent nodes involved in the move bubbles
+     */
+    private EditNodeAbstract[] unionParentNodes(MoveBubble[] moveBubbles) {
+        Set<EditNodeAbstract> union = new java.util.HashSet<>();
+        for (MoveBubble moveBubble : moveBubbles) {
+            if (moveBubble.oldParent != null) {
+                removeChildrenOf(union, moveBubble.oldParent);
+                if (!hasParentIn(union, moveBubble.oldParent)) {
+                    union.add(moveBubble.oldParent);
+                }
+            }
+            if (moveBubble.newParent != null) {
+                removeChildrenOf(union, moveBubble.newParent);
+                if (!hasParentIn(union, moveBubble.newParent)) {
+                    union.add(moveBubble.newParent);
+                }
+            }
+        }
+        return union.toArray(new EditNodeAbstract[union.size()]);
     }
 
 }

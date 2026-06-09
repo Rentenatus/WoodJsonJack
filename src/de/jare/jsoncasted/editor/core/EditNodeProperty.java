@@ -12,17 +12,20 @@ package de.jare.jsoncasted.editor.core;
 public final class EditNodeProperty extends EditNodeAbstract implements EditNode {
 
     private String propName;
+    private String primValue;
     private String type;
 
     public EditNodeProperty(String propName) {
         super(propName);
         this.propName = propName;
+        this.primValue = null;
         this.type = "";
     }
 
     private EditNodeProperty(long editId, long leftRange, long rightRange, long timesRange, String propName, String type, String primValue) {
         super(editId, leftRange, rightRange, timesRange, primValue, propName);
-        this.propName = propName;
+        this.propName = propName; 
+        this.primValue = null;
         this.type = type;
     }
 

@@ -500,9 +500,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             return; // Secure
         }
 
-        long selEditId = selectedData.getEditId();
         EditNodeAbstract newNode = selectedData.createChild("new");
-        AddNodeCommand command = new AddNodeCommand(selEditId, newNode);
+        AddNodeCommand command = new AddNodeCommand(selectedData, newNode);
 
         if (master != null) {
             master.getUndoManager().executeCommand(command);

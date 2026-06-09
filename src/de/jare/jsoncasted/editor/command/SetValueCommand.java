@@ -32,9 +32,9 @@ public class SetValueCommand extends AbstractEditCommand {
         if (node == null) {
             throw new IllegalArgumentException("Node cannot be null");
         }
-        String oldValue = node.getEditText();
+        String oldValue = node.getValue();
         this.entries = new ContentEntry[]{
-            new ContentEntry(node.getEditId(), oldValue, newValue)
+            new ContentEntry(node, oldValue, newValue)
         };
         setDescription("Set value: " + valueText(oldValue) + " -> " + valueText(newValue));
     }
@@ -64,9 +64,9 @@ public class SetValueCommand extends AbstractEditCommand {
             if (node == null) {
                 throw new IllegalArgumentException("Node at index " + i + " cannot be null");
             }
-            String oldValue = node.getEditText();
+            String oldValue = node.getValue();
             this.entries[i] = new ContentEntry(
-                    node.getEditId(),
+                    node,
                     oldValue,
                     newValues[i]
             );
@@ -109,7 +109,7 @@ public class SetValueCommand extends AbstractEditCommand {
         for (int i = 0; i < entries.length; i++) {
             ContentEntry entry = entries[i];
 
-            EditNode node = tree.findNodeById(entry.nodeId);
+            EditNode node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
                 return CommandAvailability.disallowed(
                         "editor.command.setValue.nodeMissing",
@@ -128,14 +128,14 @@ public class SetValueCommand extends AbstractEditCommand {
 
         for (int i = 0; i < entries.length; i++) {
             ContentEntry entry = entries[i];
-            EditNodeAbstract node = tree.findNodeById(entry.nodeId);
+            EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
                 throw new IllegalStateException(
                         "Cannot set value: node with id " + entry.nodeId + " not found");
             }
 
             String newValue = entry.newValue;
-            node.setEditText(newValue != null ? newValue : "");
+            node.setValue(newValue != null ? newValue : "");
             updated[i] = node;
         }
 
@@ -157,14 +157,14 @@ public class SetValueCommand extends AbstractEditCommand {
 
         for (int i = 0; i < entries.length; i++) {
             ContentEntry entry = entries[i];
-            EditNodeAbstract node = tree.findNodeById(entry.nodeId);
+            EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
                 throw new IllegalStateException(
                         "Cannot undo set value: node with id " + entry.nodeId + " not found");
             }
 
             String oldValue = entry.oldValue;
-            node.setEditText(oldValue != null ? oldValue : "");
+            node.setValue(oldValue != null ? oldValue : "");
             updated[i] = node;
         }
 
@@ -227,33 +227,6 @@ public class SetValueCommand extends AbstractEditCommand {
         return values;
     }
 
-    /**
-     * Returns the node ID of the first entry.
-     *
-     * @return the node ID
-     */
-    public long getNodeId() {
-        return entries[0].nodeId;
-    }
-
-    /**
-     * Returns the old value of the first entry.
-     *
-     * @return the old value
-     */
-    public String getOldValue() {
-        return entries[0].oldValue;
-    }
-
-    /**
-     * Returns the new value of the first entry.
-     *
-     * @return the new value
-     */
-    public String getNewValue() {
-        return entries[0].newValue;
-    }
-
     private static ContentEntry[] copyAndValidate(ContentEntry[] entries) {
         ContentEntry[] copy = new ContentEntry[entries.length];
 
@@ -268,11 +241,12 @@ public class SetValueCommand extends AbstractEditCommand {
 
             copy[i] = new ContentEntry(
                     entry.nodeId,
+                    entry.leftRange,
+                    entry.timesRange,
                     entry.oldValue,
                     entry.newValue
             );
         }
-
         return copy;
     }
 
