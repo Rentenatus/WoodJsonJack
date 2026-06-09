@@ -84,10 +84,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         final JackTreeModel jackTreeModel = new JackTreeModel(rootName);
         jtree = new JTree(jackTreeModel);
         jtree.setShowsRootHandles(true);
-        jtree.setCellRenderer(new JsonTreeCellRenderer());
+        jtree.setCellRenderer(new JsonJackTreeCellRenderer());
         jtree.setEditable(true);
         final JackUndoManager undoMan = master != null ? master.getUndoManager() : null;
-        jtree.setCellEditor(new JackJsonTreeCellEditor(undoMan));
+        jtree.setCellEditor(new JsonJackTreeCellEditor(undoMan));
 
         // Selektionslistener für den Tree
         jtree.addTreeSelectionListener(e -> {

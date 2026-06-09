@@ -125,8 +125,8 @@ public class ClipboardEditMixTestNG implements ATestTools {
         printEditorState(editorB, "After MOVE on editorB");
         printSubtree(editorB, "Subtree B/root after move", rootB);
 
-        pasted1.setEditText("a1_changed_after_paste");
-        System.out.println("VALUE CHANGE: pasted1 renamed to " + pasted1.getEditText());
+        pasted1.setName("a1_changed_after_paste");
+        System.out.println("VALUE CHANGE: pasted1 renamed to " + pasted1.getName());
         printEditorState(editorB, "After VALUE CHANGE on editorB");
 
         // ------------------------------------------------------------
@@ -224,8 +224,8 @@ public class ClipboardEditMixTestNG implements ATestTools {
         printEditorState(editorB, "After MOVE in cut scenario");
         printSubtree(editorB, "Subtree B/root after move in cut scenario", rootB);
 
-        pasted2.setEditText("a2_changed_after_cut_paste");
-        System.out.println("VALUE CHANGE: pasted2 renamed to " + pasted2.getEditText());
+        pasted2.setName("a2_changed_after_cut_paste");
+        System.out.println("VALUE CHANGE: pasted2 renamed to " + pasted2.getName());
         printEditorState(editorB, "After VALUE CHANGE in cut scenario");
 
         // ------------------------------------------------------------

@@ -19,13 +19,13 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeCellRenderer;
 import de.jare.jsoncasted.editor.core.EditNode;
 
-public class JsonTreeCellRenderer implements TreeCellRenderer {
+public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
     private final JPanel panel = new JPanel(new BorderLayout());
     private final JLabel editLabel = new JLabel();
     private final JLabel infoLabel = new JLabel();
 
-    public JsonTreeCellRenderer() {
+    public JsonJackTreeCellRenderer() {
         panel.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
         panel.add(editLabel, BorderLayout.WEST);
         panel.add(infoLabel, BorderLayout.EAST);
@@ -46,7 +46,7 @@ public class JsonTreeCellRenderer implements TreeCellRenderer {
         }
 
         if (data != null) {
-            editLabel.setText(data.getEditText());
+            editLabel.setText(data.getName());
             String foreKey = "light." + data.getTypeKey();
             editLabel.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
             infoLabel.setText(data.rightString());

@@ -285,7 +285,7 @@ public class TreeEditor {
                 .append(", parentId=").append(parentId);
 
         try {
-            String text = node.getEditText();
+            String text = node.getName();
             if (text != null) {
                 sb.append(", text='").append(text).append('\'');
             }

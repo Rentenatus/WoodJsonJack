@@ -6,6 +6,7 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.command.RenameNodeCommand;
 import de.jare.jsoncasted.editor.command.SetValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.tree.control.JackUndoManager;
@@ -21,13 +22,13 @@ import javax.swing.event.DocumentListener;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeCellEditor;
 
-public class JackJsonTreeCellEditor extends AbstractCellEditor implements TreeCellEditor {
+public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCellEditor {
 
     private final JTextField textField = new JTextField();
     private EditNode currentData;
     private final JackUndoManager undoMan;
 
-    public JackJsonTreeCellEditor(JackUndoManager undoMan) {
+    public JsonJackTreeCellEditor(JackUndoManager undoMan) {
         // Optional: Grundspaltenzahl, falls Metrics noch nicht da sind
         textField.setColumns(10);
         this.undoMan = undoMan;
@@ -60,7 +61,7 @@ public class JackJsonTreeCellEditor extends AbstractCellEditor implements TreeCe
         if (value instanceof DefaultMutableTreeNode dmtn
                 && dmtn.getUserObject() instanceof EditNode data) {
             currentData = data;
-            textField.setText(data.getEditText());
+            textField.setText(data.getName());
             String foreKey = "light." + data.getTypeKey();
             textField.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
         } else {
@@ -101,10 +102,10 @@ public class JackJsonTreeCellEditor extends AbstractCellEditor implements TreeCe
     }
 
     protected void updateEditedObject() {
-        if (currentData == null || currentData.getEditText() != null && currentData.getEditText().equals(textField.getText())) {
+        if (currentData == null || currentData.getName() != null && currentData.getName().equals(textField.getText())) {
             return;
         }
-        SetValueCommand command = new SetValueCommand(currentData, textField.getText());
+        RenameNodeCommand command = new RenameNodeCommand(currentData, textField.getText());
         undoMan.executeCommand(command);
     }
 

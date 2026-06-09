@@ -14,12 +14,12 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     private String objektInfo;
 
     public EditNodeObject(String objektInfo) {
-        super(objektInfo);
+        super();
         this.objektInfo = objektInfo;
     }
 
-    private EditNodeObject(long editId, long leftRange, long rightRange, long timesRange, String primValue, String objektInfo) {
-        super(editId, leftRange, rightRange, timesRange, primValue, objektInfo);
+    private EditNodeObject(long editId, long leftRange, long rightRange, long timesRange, String objektInfo) {
+        super(editId, leftRange, rightRange, timesRange);
         this.objektInfo = objektInfo;
     }
 
@@ -32,6 +32,17 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     @Override
     public void setName(String name) {
         this.objektInfo = name;
+    }
+
+    /**
+     * Returns the value of this node
+     *
+     * @return default objektInfo
+     */
+    public String getValue() {
+
+        // todo: Spaeter muss der Value aus den Properties hier hin!!! 
+        return objektInfo;
     }
 
     // ========== JsonTreeNodeData methods ==========
@@ -85,7 +96,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         EditNodeObject copy = new EditNodeObject(
                 regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : getEditId(),
                 getLeftRange(), getRightRange(), getTimesRange(),
-                getValue(), objektInfo);
+                objektInfo);
 
         for (EditNodeAbstract child : getAbstractChildren()) {
             final EditNodeAbstract deepCopy = child.deepCopy(regenerateEditId);
@@ -112,17 +123,6 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     @Override
     public boolean canBeParentOfPropertyData() {
         return true;
-    }
-
-    // ========== Edit text ==========
-    @Override
-    public String getEditText() {
-        return getValue();
-    }
-
-    @Override
-    public void setEditText(String editText) {
-        setValue(editText == null || editText.isEmpty() ? null : editText);
     }
 
     @Override

@@ -52,46 +52,28 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
 
     long getTimesRange();
 
-    String getEditText();
+    String getName();
 
-    void setEditText(String editText);
-
-    // ========== Tree structure methods ==========
-    /**
-     * Returns the display name of this node
-     *
-     * @return
-     */
-    default String getName() {
-        return getEditText();
-    }
-
-    /**
-     * Sets the display name of this node
-     *
-     * @param name
-     */
-    default void setName(String name) {
-        setEditText(name);
-    }
+    void setName(String editText);
 
     /**
      * Returns the value of this node
      *
-     * @return
+     * @return default null
      */
     default String getValue() {
         return null;
     }
 
     /**
-     * Sets the value of this node
+     * Sets the value of this node, no op, value are ignored.
      *
-     * @param value
+     * @param value value
      */
     default void setValue(String value) {
     }
 
+    // ========== Tree structure methods ==========
     EditNode getParent();
 
     default boolean isOrHasParent(EditNode maybeParent) {

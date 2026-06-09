@@ -16,16 +16,16 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
     private String type;
 
     public EditNodeProperty(String propName) {
-        super(propName);
+        super();
         this.propName = propName;
         this.primValue = null;
         this.type = "";
     }
 
     private EditNodeProperty(long editId, long leftRange, long rightRange, long timesRange, String propName, String type, String primValue) {
-        super(editId, leftRange, rightRange, timesRange, primValue, propName);
-        this.propName = propName; 
-        this.primValue = null;
+        super(editId, leftRange, rightRange, timesRange);
+        this.propName = propName;
+        this.primValue = primValue;
         this.type = type;
     }
 
@@ -49,6 +49,16 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
         this.propName = propName.replace('=', ' ')
                 .trim()
                 .replace(' ', '_');
+    }
+
+    @Override
+    public String getValue() {
+        return primValue;
+    }
+
+    @Override
+    public void setValue(String value) {
+        this.primValue = value;
     }
 
     public String getType() {
@@ -132,17 +142,6 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
     @Override
     public boolean canBeParentOfObjectData() {
         return true;
-    }
-
-    // ========== Edit text ==========
-    @Override
-    public String getEditText() {
-        return propName;
-    }
-
-    @Override
-    public void setEditText(String editText) {
-        this.propName = editText;
     }
 
     @Override

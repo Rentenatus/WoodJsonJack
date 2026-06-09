@@ -23,36 +23,32 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     private long leftRange;
     private long rightRange;
     private long timesRange;
-    private String primValue;
     private EditNodeAbstract parent;
     private final List<EditNodeAbstract> children = new ArrayList<>();
     private final List<EditNodeAbstract> sortedChildren = new ArrayList<>();
     private int cachedWeight;
 
-    public EditNodeAbstract(String objektInfo) {
+    public EditNodeAbstract() {
         this.editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
         this.leftRange = LEFT;
         this.rightRange = RIGHT;
         this.timesRange = RIGHT;
-        this.primValue = null;
         this.cachedWeight = 1;
     }
 
-    public EditNodeAbstract(long editId, String primValue, String objektInfo) {
+    public EditNodeAbstract(long editId) {
         this.editId = editId;
         this.leftRange = LEFT;
         this.rightRange = RIGHT;
         this.timesRange = RIGHT;
-        this.primValue = primValue;
         this.cachedWeight = 1;
     }
 
-    EditNodeAbstract(long editId, long leftRange, long rightRange, long timesRange, String primValue, String objektInfo) {
+    EditNodeAbstract(long editId, long leftRange, long rightRange, long timesRange) {
         this.editId = editId;
         this.leftRange = leftRange;
         this.rightRange = rightRange;
         this.timesRange = timesRange;
-        this.primValue = primValue;
         this.cachedWeight = 1;
     }
 
@@ -89,16 +85,6 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     // ========== Tree structure methods ==========
-    @Override
-    public String getValue() {
-        return primValue;
-    }
-
-    @Override
-    public void setValue(String value) {
-        this.primValue = value;
-    }
-
     @Override
     public EditNodeAbstract getParent() {
         return parent;
