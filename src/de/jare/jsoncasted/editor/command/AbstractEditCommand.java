@@ -6,8 +6,10 @@
  */
 package de.jare.jsoncasted.editor.command;
 
+import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -22,6 +24,8 @@ import java.util.Set;
 public abstract class AbstractEditCommand implements EditCommand {
 
     public static final UpdateAction[] NO_UPDATE_ACTIONS = new UpdateAction[0];
+    private static final UpdateAction[] ON_ADD_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_ADDED};
+    private static final UpdateAction[] ON_REMOVE_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_UPDATED};
 
     private final CommandType type;
     private String description;
@@ -201,6 +205,156 @@ public abstract class AbstractEditCommand implements EditCommand {
         return union.toArray(new EditNodeAbstract[union.size()]);
     }
 
+    protected CommandResult doAdd(EditTree tree, final EditCommandEntry.MovementEntry[] entries) {
+        CommandAvailability checkResult = check(tree);
+        if (checkResult.isDisallowed()) {
+            throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());
+        }
+        if (checkResult.isUseless()) {
+            return null;
+        }
+
+        EditNodeAbstract[] added = new EditNodeAbstract[entries.length];
+        Set<EditNodeAbstract> parentSet = new HashSet<>();
+        Set<EditNodeAbstract> failedtSet = new HashSet<>();
+
+        for (int i = 0; i < entries.length; i++) {
+            EditCommandEntry.MovementEntry entry = entries[i];
+
+            // Snapshot liefert den Teilbaum, ID bleibt erhalten
+            EditNodeAbstract newNode = entry.snapshot.deepCopy(false);
+            if (tree.addNode(entry.parentEditId, newNode, entry.index)) {
+                parentSet.add(tree.findNodeByIdAndRange(entry.parentEditId, entry.leftRange, entry.timesRange));
+                added[i] = newNode;
+            } else {
+                failedtSet.add(newNode);
+            }
+
+        }
+        final EditNodeAbstract[] parents = parentSet.toArray(new EditNodeAbstract[parentSet.size()]);
+
+        return new CommandResult(
+                this,
+                CommandAction.EXECUTE,
+                parents, // affectedNodes
+                added, // addedNodes
+                null, //removedNodes
+                parents, // updatedNodes
+                failedtSet.toArray(new EditNodeAbstract[failedtSet.size()]),
+                ON_ADD_ACTIONS
+        );
+    }
+
+    protected CommandResult doDelete(EditTree tree, final EditCommandEntry.MovementEntry[] entries) {
+
+        EditNodeAbstract[] removed = new EditNodeAbstract[entries.length];
+        Set<EditNodeAbstract> parentSet = new HashSet<>();
+        Set<EditNodeAbstract> failedtSet = new HashSet<>();
+
+        // rueckwaerts, um Indizes stabil zu halten
+        for (int i = entries.length - 1; i >= 0; i--) {
+            EditCommandEntry.MovementEntry entry = entries[i];
+
+            // bevorzugt nodeId nutzen; fallback auf snapshot-Id, falls nodeId == -1
+            long id = entry.nodeId >= 0 ? entry.nodeId : entry.snapshot.getEditId();
+
+            EditNodeAbstract existingNode = tree.findNodeByIdAndRange(id, entry.leftRange, entry.timesRange);
+            if (existingNode == null) {
+                failedtSet.add(entry.snapshot);
+                continue;
+            }
+            final EditNodeAbstract parent = existingNode.getParent();
+            if (parent != null) {
+                parentSet.add(parent);
+            }
+            tree.removeNode(existingNode.getEditId(), existingNode.getLeftRange(), existingNode.getTimesRange());
+            removed[i] = existingNode;
+        }
+        final EditNodeAbstract[] parents = parentSet.toArray(new EditNodeAbstract[parentSet.size()]);
+
+        return new CommandResult(
+                this,
+                CommandAction.UNDO,
+                parents, // affectedNodes
+                null, // addedNodes
+                removed,//removedNodes
+                parents, // updatedNodes
+                failedtSet.toArray(new EditNodeAbstract[failedtSet.size()]),
+                ON_REMOVE_ACTIONS
+        );
+    }
+
+    /**
+     * Returns true if candidateAncestor is an ancestor of node (strict).
+     *
+     * @param node
+     * @param candidateAncestor
+     * @return
+     */
+    public static boolean isAncestorOf(EditNode node, EditNode candidateAncestor) {
+        EditNode current = node.getParent();
+        while (current != null) {
+            if (current == candidateAncestor) {
+                return true;
+            }
+            current = current.getParent();
+        }
+        return false;
+    }
+
+    /**
+     * Returns the parent ID of the given node.
+     *
+     * @param node the node to inspect
+     * @return the parent
+     */
+    public static EditNode requireParent(EditNode node) {
+        if (node == null || node.getParent() == null) {
+            throw new IllegalArgumentException("Node must have a parent");
+        }
+        if (node.getParent().getEditId() < 0) {
+            throw new IllegalArgumentException("ParentId cannot be negative");
+        }
+        return node.getParent();
+    }
+
+    /**
+     * Validates that the given node is not null.If the node is null, an
+     * IllegalArgumentException is thrown with a descriptive message. This
+     * method is used to ensure that a valid node is provided when creating an
+     * AddNodeCommand, as a null node would not be meaningful in the context of
+     * adding a node to the tree.
+     *
+     * @param node the node to validate
+     * @param index at index
+     * @return the validated node if valid
+     * @throws IllegalArgumentException if the node is null
+     */
+    public static EditNodeAbstract requireNode(EditNodeAbstract node, int index) {
+        if (node == null) {
+            throw new IllegalArgumentException("Node at index " + index + " cannot be null");
+        }
+        return node;
+    }
+
+    /**
+     * Validates that the given node is not null. If the node is null, an
+     * IllegalArgumentException is thrown with a descriptive message. This
+     * method is used to ensure that a valid node is provided when creating an
+     * AddNodeCommand, as a null node would not be meaningful in the context of
+     * adding a node to the tree.
+     *
+     * @param node the node to validate
+     * @return the validated node if valid
+     * @throws IllegalArgumentException if the node is null
+     */
+    public static EditNodeAbstract requireNode(EditNodeAbstract node) {
+        if (node == null) {
+            throw new IllegalArgumentException("Node cannot be null");
+        }
+        return node;
+    }
+
     /**
      * Checks if the specified node has any parent in the given set of nodes.
      * This method iterates through the set of nodes and checks if the provided
@@ -214,7 +368,7 @@ public abstract class AbstractEditCommand implements EditCommand {
      * @param node the node for which to check parent relationships
      * @return true if the node has a parent in the set, false otherwise
      */
-    public final boolean hasParentIn(Set<EditNodeAbstract> club, EditNodeAbstract node) {
+    public static boolean hasParentIn(Set<EditNodeAbstract> club, EditNodeAbstract node) {
         for (EditNodeAbstract member : club) {
             if (node.hasParent(member)) {
                 return true;
@@ -234,7 +388,7 @@ public abstract class AbstractEditCommand implements EditCommand {
      * @param club the set of nodes from which to remove parents
      * @param node the node for which to remove parent nodes from the set
      */
-    public final void removeChildrenOf(Set<EditNodeAbstract> club, EditNodeAbstract node) {
+    public static void removeChildrenOf(Set<EditNodeAbstract> club, EditNodeAbstract node) {
         for (EditNodeAbstract member : club) {
             if (member.hasParent(node)) {
                 club.remove(member);
@@ -254,7 +408,7 @@ public abstract class AbstractEditCommand implements EditCommand {
      * @param nodes2orNull the second array of nodes to union, which may be null
      * @return an array containing the unique nodes from both input arrays
      */
-    public final EditNodeAbstract[] unionNodes(EditNodeAbstract[] nodes1, EditNodeAbstract[] nodes2orNull) {
+    public static EditNodeAbstract[] unionNodes(EditNodeAbstract[] nodes1, EditNodeAbstract[] nodes2orNull) {
         Set<EditNodeAbstract> union = new java.util.HashSet<>();
         for (EditNodeAbstract node : nodes1) {
             union.add(node);

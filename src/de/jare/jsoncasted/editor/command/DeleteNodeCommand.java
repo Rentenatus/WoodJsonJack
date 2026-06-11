@@ -70,6 +70,42 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         }
     }
 
+    private static MovementEntry[] copyAndValidate(MovementEntry[] entries) {
+        MovementEntry[] copy = new MovementEntry[entries.length];
+
+        for (int i = 0; i < entries.length; i++) {
+            MovementEntry entry = entries[i];
+            if (entry == null) {
+                throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
+            }
+            if (entry.nodeId < 0) {
+                throw new IllegalArgumentException("Entry nodeId at index " + i + " is invalid");
+            }
+            if (entry.snapshot == null) {
+                throw new IllegalArgumentException("Entry snapshot at index " + i + " cannot be null");
+            }
+            if (entry.parentEditId < 0) {
+                throw new IllegalArgumentException("Entry parentEditId at index " + i + " is invalid");
+            }
+            if (entry.index < -1) {
+                throw new IllegalArgumentException("Entry index at index " + i + " is invalid");
+            }
+
+            copy[i] = new MovementEntry(
+                    entry.nodeId,
+                    entry.leftRange,
+                    entry.timesRange,
+                    entry.parentEditId,
+                    entry.parentLeftRange,
+                    entry.parentTimesRange,
+                    entry.index,
+                    entry.snapshot.deepCopy(false)
+            );
+        }
+
+        return copy;
+    }
+
     @Override
     public CommandAvailability check(EditTree tree) {
         if (tree == null) {
@@ -79,7 +115,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
 
         for (int i = 0; i < entries.length; i++) {
             MovementEntry entry = entries[i];
-            long nodeId = resolveNodeId(tree, entry);
+            long nodeId = entry.nodeId;
 
             EditNode node = tree.findNodeByIdAndRange(nodeId, entry.leftRange, entry.timesRange);
             if (node == null) {
@@ -118,81 +154,12 @@ public class DeleteNodeCommand extends AbstractEditCommand {
 
     @Override
     protected CommandResult doExecute(EditTree tree) {
-        MovementEntry[] deleteOrder = Arrays.copyOf(entries, entries.length);
-        Arrays.sort(deleteOrder, Comparator
-                .comparingLong((MovementEntry e) -> {
-                    long id = resolveNodeId(tree, e);
-                    EditNode node = tree.findNodeByIdAndRange(id, e.leftRange, e.timesRange);
-                    return depthOf(node, tree);
-                })
-                .reversed()
-                .thenComparingInt((MovementEntry e) -> e.index)
-                .reversed());
-
-        EditNodeAbstract[] removed = new EditNodeAbstract[deleteOrder.length];
-
-        int idx = 0;
-        for (MovementEntry entry : deleteOrder) {
-            long id = resolveNodeId(tree, entry);
-            EditNodeAbstract node = tree.findNodeByIdAndRange(id, entry.leftRange, entry.timesRange);
-            if (node != null) {
-                tree.removeNode(node.getEditId(), node.getLeftRange(), node.getRightRange());
-                removed[idx++] = node;
-            }
-        }
-
-        if (idx < removed.length) {
-            removed = Arrays.copyOf(removed, idx);
-        }
-
-        return new CommandResult(
-                this,
-                CommandAction.EXECUTE,
-                removed,
-                null,
-                removed,
-                null, null,
-                NO_UPDATE_ACTIONS
-        );
+        return doDelete(tree, entries);
     }
 
     @Override
     public CommandResult doUndo(EditTree tree) {
-
-        MovementEntry[] restoreOrder = Arrays.copyOf(entries, entries.length);
-        Arrays.sort(restoreOrder, Comparator
-                .comparingInt((MovementEntry e) -> ancestorDepth(e.snapshot))
-                .thenComparingLong(e -> e.parentEditId)
-                .thenComparingInt(e -> e.index));
-
-        EditNodeAbstract[] restored = new EditNodeAbstract[restoreOrder.length];
-
-        int idx = 0;
-        for (MovementEntry entry : restoreOrder) {
-            EditNode parent = tree.findNodeByIdAndRange(entry.parentEditId, entry.parentLeftRange, entry.parentTimesRange);
-            if (parent == null) {
-                throw new IllegalStateException(
-                        "Cannot undo delete: parent node with id " + entry.parentEditId + " not found");
-            }
-
-            EditNodeAbstract restoredNode = entry.snapshot.deepCopy(false);
-            tree.addNode(entry.parentEditId, restoredNode, entry.index);
-            restored[idx++] = restoredNode;
-        }
-
-        if (idx < restored.length) {
-            restored = Arrays.copyOf(restored, idx);
-        }
-
-        return new CommandResult(
-                this,
-                CommandAction.UNDO,
-                restored,
-                restored,
-                null,
-                null, null,
-                NO_UPDATE_ACTIONS
-        );
+        return doAdd(tree, entries);
     }
 
     /**
@@ -202,51 +169,6 @@ public class DeleteNodeCommand extends AbstractEditCommand {
      */
     public MovementEntry[] getEntries() {
         return Arrays.copyOf(entries, entries.length);
-    }
-
-    /**
-     * Returns the first entry.
-     *
-     * @return the first movement entry
-     */
-    public MovementEntry getEntry() {
-        return entries[0];
-    }
-
-    /**
-     * Returns the snapshot of the first entry.
-     *
-     * @return the node snapshot
-     */
-    public EditNode getSnapshot() {
-        return entries[0].snapshot;
-    }
-
-    /**
-     * Returns the node ID of the first entry.
-     *
-     * @return the node edit ID, or -1 if snapshot is null
-     */
-    public long getNodeId() {
-        return entries[0].snapshot != null ? entries[0].snapshot.getEditId() : -1;
-    }
-
-    /**
-     * Returns the parent ID of the first entry.
-     *
-     * @return the parent node ID
-     */
-    public long getParentId() {
-        return entries[0].parentEditId;
-    }
-
-    /**
-     * Returns the index of the first entry.
-     *
-     * @return the child index
-     */
-    public int getIndex() {
-        return entries[0].index;
     }
 
     private static MovementEntry[] toEntries(EditNodeAbstract[] nodes) {
@@ -285,49 +207,6 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return result;
     }
 
-    private static EditNodeAbstract requireNode(EditNodeAbstract node, int index) {
-        if (node == null) {
-            throw new IllegalArgumentException("Node at index " + index + " cannot be null");
-        }
-        return node;
-    }
-
-    private static MovementEntry[] copyAndValidate(MovementEntry[] entries) {
-        MovementEntry[] copy = new MovementEntry[entries.length];
-
-        for (int i = 0; i < entries.length; i++) {
-            MovementEntry entry = entries[i];
-            if (entry == null) {
-                throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
-            }
-            if (entry.nodeId < 0) {
-                throw new IllegalArgumentException("Entry nodeId at index " + i + " is invalid");
-            }
-            if (entry.snapshot == null) {
-                throw new IllegalArgumentException("Entry snapshot at index " + i + " cannot be null");
-            }
-            if (entry.parentEditId < 0) {
-                throw new IllegalArgumentException("Entry parentEditId at index " + i + " is invalid");
-            }
-            if (entry.index < -1) {
-                throw new IllegalArgumentException("Entry index at index " + i + " is invalid");
-            }
-
-            copy[i] = new MovementEntry(
-                    entry.nodeId,
-                    entry.leftRange,
-                    entry.timesRange,
-                    entry.parentEditId,
-                    entry.parentLeftRange,
-                    entry.parentTimesRange,
-                    entry.index,
-                    entry.snapshot.deepCopy(false)
-            );
-        }
-
-        return copy;
-    }
-
     private static List<EditNodeAbstract> normalizeNodes(EditNodeAbstract[] nodes) {
         Map<Long, EditNodeAbstract> unique = new LinkedHashMap<>();
         for (EditNodeAbstract node : nodes) {
@@ -359,40 +238,4 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         return false;
     }
 
-    private static int ancestorDepth(EditNode node) {
-        int depth = 0;
-        EditNode current = node;
-        while (current != null) {
-            depth++;
-            current = current.getParent();
-        }
-        return depth;
-    }
-
-    private static int depthOf(EditNode node, EditTree tree) {
-        if (node == null) {
-            return Integer.MAX_VALUE;
-        }
-
-        int depth = 0;
-        EditNode current = node;
-        while (current != null && current != tree.getRoot()) {
-            depth++;
-            current = current.getParent();
-        }
-        return depth;
-    }
-
-    /**
-     *
-     * @param tree
-     * @param entry
-     * @return
-     */
-    private static long resolveNodeId(EditTree tree, MovementEntry entry) {
-        if (entry.nodeId >= 0) {
-            return entry.nodeId;
-        }
-        return entry.snapshot.getEditId();
-    }
 }

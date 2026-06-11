@@ -237,6 +237,57 @@ public class MoveNodeCommand extends AbstractEditCommand {
         }
     }
 
+    /**
+     * Copies and validates movement entries.
+     *
+     * @param entries the entries to copy
+     * @param requireSourceIndex whether the index must be non-negative
+     * @return the validated copy
+     */
+    private static MovementEntry[] copyAndValidate(
+            MovementEntry[] entries,
+            boolean requireSourceIndex) {
+
+        MovementEntry[] copy = new MovementEntry[entries.length];
+
+        for (int i = 0; i < entries.length; i++) {
+            MovementEntry entry = entries[i];
+            if (entry == null) {
+                throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
+            }
+            if (entry.nodeId < 0) {
+                throw new IllegalArgumentException("Entry nodeId at index " + i + " is invalid");
+            }
+            if (entry.parentEditId < 0) {
+                throw new IllegalArgumentException("Entry parentEditId at index " + i + " is invalid");
+            }
+            if (requireSourceIndex) {
+                if (entry.index < 0) {
+                    throw new IllegalArgumentException(
+                            "Source entry index at index " + i + " is invalid");
+                }
+            } else {
+                if (entry.index < -1) {
+                    throw new IllegalArgumentException(
+                            "Target entry index at index " + i + " is invalid");
+                }
+            }
+
+            copy[i] = new MovementEntry(
+                    entry.nodeId,
+                    entry.leftRange,
+                    entry.timesRange,
+                    entry.parentEditId,
+                    entry.parentLeftRange,
+                    entry.parentTimesRange,
+                    entry.index,
+                    entry.snapshot
+            );
+        }
+
+        return copy;
+    }
+
     @Override
     public CommandAvailability check(EditTree tree) {
         if (tree == null) {
@@ -358,20 +409,6 @@ public class MoveNodeCommand extends AbstractEditCommand {
     }
 
     /**
-     * Returns true if candidateAncestor is an ancestor of node (strict).
-     */
-    private static boolean isAncestorOf(EditNode node, EditNode candidateAncestor) {
-        EditNode current = node.getParent();
-        while (current != null) {
-            if (current == candidateAncestor) {
-                return true;
-            }
-            current = current.getParent();
-        }
-        return false;
-    }
-
-    /**
      * Executes the move operation.
      *
      * @param tree the target tree
@@ -440,70 +477,6 @@ public class MoveNodeCommand extends AbstractEditCommand {
      */
     public MovementEntry[] getNewEntries() {
         return Arrays.copyOf(newEntries, newEntries.length);
-    }
-
-    /**
-     * Returns the parent ID of the given node.
-     *
-     * @param node the node to inspect
-     * @return the parent
-     */
-    private static EditNode requireParent(EditNode node) {
-        if (node == null || node.getParent() == null) {
-            throw new IllegalArgumentException("Node must have a parent");
-        }
-        return node.getParent();
-    }
-
-    /**
-     * Copies and validates movement entries.
-     *
-     * @param entries the entries to copy
-     * @param requireSourceIndex whether the index must be non-negative
-     * @return the validated copy
-     */
-    private static MovementEntry[] copyAndValidate(
-            MovementEntry[] entries,
-            boolean requireSourceIndex) {
-
-        MovementEntry[] copy = new MovementEntry[entries.length];
-
-        for (int i = 0; i < entries.length; i++) {
-            MovementEntry entry = entries[i];
-            if (entry == null) {
-                throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
-            }
-            if (entry.nodeId < 0) {
-                throw new IllegalArgumentException("Entry nodeId at index " + i + " is invalid");
-            }
-            if (entry.parentEditId < 0) {
-                throw new IllegalArgumentException("Entry parentEditId at index " + i + " is invalid");
-            }
-            if (requireSourceIndex) {
-                if (entry.index < 0) {
-                    throw new IllegalArgumentException(
-                            "Source entry index at index " + i + " is invalid");
-                }
-            } else {
-                if (entry.index < -1) {
-                    throw new IllegalArgumentException(
-                            "Target entry index at index " + i + " is invalid");
-                }
-            }
-
-            copy[i] = new MovementEntry(
-                    entry.nodeId,
-                    entry.leftRange,
-                    entry.timesRange,
-                    entry.parentEditId,
-                    entry.parentLeftRange,
-                    entry.parentTimesRange,
-                    entry.index,
-                    entry.snapshot
-            );
-        }
-
-        return copy;
     }
 
     /**
