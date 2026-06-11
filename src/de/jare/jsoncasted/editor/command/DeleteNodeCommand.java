@@ -81,7 +81,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
             MovementEntry entry = entries[i];
             long nodeId = resolveNodeId(tree, entry);
 
-            EditNode node = tree.findNodeById(nodeId);
+            EditNode node = tree.findNodeByIdAndRange(nodeId, entry.leftRange, entry.timesRange);
             if (node == null) {
                 return CommandAvailability.disallowed(
                         "editor.command.delete.nodeMissing",
@@ -120,8 +120,11 @@ public class DeleteNodeCommand extends AbstractEditCommand {
     protected CommandResult doExecute(EditTree tree) {
         MovementEntry[] deleteOrder = Arrays.copyOf(entries, entries.length);
         Arrays.sort(deleteOrder, Comparator
-                .comparingLong((MovementEntry e)
-                        -> depthOf(tree.findNodeById(resolveNodeId(tree, e)), tree))
+                .comparingLong((MovementEntry e) -> {
+                    long id = resolveNodeId(tree, e);
+                    EditNode node = tree.findNodeByIdAndRange(id, e.leftRange, e.timesRange);
+                    return depthOf(node, tree);
+                })
                 .reversed()
                 .thenComparingInt((MovementEntry e) -> e.index)
                 .reversed());
@@ -131,9 +134,9 @@ public class DeleteNodeCommand extends AbstractEditCommand {
         int idx = 0;
         for (MovementEntry entry : deleteOrder) {
             long id = resolveNodeId(tree, entry);
-            EditNodeAbstract node = tree.findNodeById(id);
+            EditNodeAbstract node = tree.findNodeByIdAndRange(id, entry.leftRange, entry.timesRange);
             if (node != null) {
-                tree.removeNode(node.getEditId());
+                tree.removeNode(node.getEditId(), node.getLeftRange(), node.getRightRange());
                 removed[idx++] = node;
             }
         }
@@ -166,7 +169,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
 
         int idx = 0;
         for (MovementEntry entry : restoreOrder) {
-            EditNode parent = tree.findNodeById(entry.parentEditId);
+            EditNode parent = tree.findNodeByIdAndRange(entry.parentEditId, entry.parentLeftRange, entry.parentTimesRange);
             if (parent == null) {
                 throw new IllegalStateException(
                         "Cannot undo delete: parent node with id " + entry.parentEditId + " not found");
@@ -290,12 +293,15 @@ public class DeleteNodeCommand extends AbstractEditCommand {
     }
 
     private static MovementEntry[] copyAndValidate(MovementEntry[] entries) {
-        MovementEntry[] copy = Arrays.copyOf(entries, entries.length);
+        MovementEntry[] copy = new MovementEntry[entries.length];
 
-        for (int i = 0; i < copy.length; i++) {
-            MovementEntry entry = copy[i];
+        for (int i = 0; i < entries.length; i++) {
+            MovementEntry entry = entries[i];
             if (entry == null) {
                 throw new IllegalArgumentException("Entry at index " + i + " cannot be null");
+            }
+            if (entry.nodeId < 0) {
+                throw new IllegalArgumentException("Entry nodeId at index " + i + " is invalid");
             }
             if (entry.snapshot == null) {
                 throw new IllegalArgumentException("Entry snapshot at index " + i + " cannot be null");
@@ -303,9 +309,20 @@ public class DeleteNodeCommand extends AbstractEditCommand {
             if (entry.parentEditId < 0) {
                 throw new IllegalArgumentException("Entry parentEditId at index " + i + " is invalid");
             }
-            if (entry.index < 0) {
+            if (entry.index < -1) {
                 throw new IllegalArgumentException("Entry index at index " + i + " is invalid");
             }
+
+            copy[i] = new MovementEntry(
+                    entry.nodeId,
+                    entry.leftRange,
+                    entry.timesRange,
+                    entry.parentEditId,
+                    entry.parentLeftRange,
+                    entry.parentTimesRange,
+                    entry.index,
+                    entry.snapshot.deepCopy(false)
+            );
         }
 
         return copy;

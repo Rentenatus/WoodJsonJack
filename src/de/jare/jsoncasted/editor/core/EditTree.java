@@ -631,26 +631,17 @@ public class EditTree {
     }
 
     /**
-     * Removes a node from the tree based on the provided node ID. This method
-     * takes the ID of the node to be removed as a parameter. It first finds the
-     * node in the tree using the provided node ID. If the node is not found, it
-     * returns null, indicating that no node with the specified ID exists in the
-     * tree. If the node is found, it checks if the node is the root node, and
-     * if so, it throws an IllegalStateException since the root node cannot be
-     * removed. Then, it retrieves the parent node of the found node. If the
-     * parent node is null, it throws an IllegalStateException since a node
-     * without a parent cannot be removed from the tree. Finally, it removes the
-     * found node from its parent and returns the removed node if it was
-     * successfully removed, or null if it was not found among the parent's
-     * children.
+     * Removes a node from the tree based on the provided node ID.
      *
      * @param nodeId the ID of the node to be removed from the tree
+     * @param nodeLeft the left range of the node to search for
+     * @param nodeTimes the times range of the node to search for
      * @return the removed node if it was successfully removed from the tree, or
      * null if no node with the specified ID exists in the tree or if the node
      * could not be removed
      */
-    public EditNode removeNode(long nodeId) {
-        EditNodeAbstract node = findNodeById(nodeId);
+    public EditNode removeNode(long nodeId, long nodeLeft, long nodeTimes) {
+        EditNodeAbstract node = findNodeByIdAndRange(nodeId, nodeLeft, nodeTimes);
         if (node == null) {
             return null;
         }
@@ -673,12 +664,12 @@ public class EditTree {
      * Removes multiple nodes from the tree efficiently. Nodes are removed in
      * reverse order to maintain correct indices.
      *
-     * @param nodeIds the IDs of the nodes to remove
+     * @param entries of the nodes to remove
      */
-    public void removeNodes(long[] nodeIds) {
+    public void removeNodes(AbstractEntry[] entries) {
         // Remove in reverse order to maintain correct indices
-        for (int i = nodeIds.length - 1; i >= 0; i--) {
-            removeNode(nodeIds[i]);
+        for (int i = entries.length - 1; i >= 0; i--) {
+            removeNode(entries[i].nodeId, entries[i].leftRange, entries[i].timesRange);
         }
     }
 

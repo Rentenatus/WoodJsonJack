@@ -84,7 +84,7 @@ public class AddNodeCommand extends AbstractEditCommand {
         for (int i = 0; i < entries.length; i++) {
             MovementEntry entry = entries[i];
 
-            EditNode parent = tree.findNodeById(entry.parentEditId);
+            EditNode parent = tree.findNodeByIdAndRange(entry.parentEditId, entry.parentLeftRange, entry.parentTimesRange);
             if (parent == null) {
                 return CommandAvailability.disallowed(
                         "editor.command.add.parentMissing",
@@ -182,7 +182,7 @@ public class AddNodeCommand extends AbstractEditCommand {
             // bevorzugt nodeId nutzen; fallback auf snapshot-Id, falls nodeId == -1
             long id = entry.nodeId >= 0 ? entry.nodeId : entry.snapshot.getEditId();
 
-            EditNodeAbstract existingNode = tree.findNodeById(id);
+            EditNodeAbstract existingNode = tree.findNodeByIdAndRange(id, entry.leftRange, entry.timesRange);
             if (existingNode == null) {
                 failedtSet.add(entry.snapshot);
                 continue;
@@ -191,7 +191,7 @@ public class AddNodeCommand extends AbstractEditCommand {
             if (parent != null) {
                 parentSet.add(parent);
             }
-            tree.removeNode(existingNode.getEditId());
+            tree.removeNode(existingNode.getEditId(), existingNode.getLeftRange(), existingNode.getTimesRange());
             removed[i] = existingNode;
         }
         final EditNodeAbstract[] parents = parentSet.toArray(new EditNodeAbstract[parentSet.size()]);
