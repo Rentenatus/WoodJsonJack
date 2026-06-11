@@ -17,6 +17,7 @@ import java.awt.FontMetrics;
 import javax.swing.AbstractCellEditor;
 import javax.swing.JTextField;
 import javax.swing.JTree;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -36,17 +37,24 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
         textField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
-                updateFieldSize();
+                updateByDocument();
             }
 
             @Override
             public void removeUpdate(DocumentEvent e) {
-                updateFieldSize();
+                updateByDocument();
             }
 
             @Override
             public void changedUpdate(DocumentEvent e) {
-                updateFieldSize();
+                updateByDocument();
+            }
+
+            public void updateByDocument() {
+                final String text = textField.getText();
+                if (text != null && !text.isBlank()) {
+                    updateFieldSize(text);
+                }
             }
         });
 
@@ -58,41 +66,43 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
             boolean expanded, boolean leaf, int row) {
 
         currentData = null;
+        String text;
         if (value instanceof DefaultMutableTreeNode dmtn
                 && dmtn.getUserObject() instanceof EditNode data) {
             currentData = data;
-            textField.setText(data.getName());
+            textField.setText(text = data.getName());
             String foreKey = "light." + data.getTypeKey();
             textField.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
         } else {
-            textField.setText("");
+            textField.setText(text = "");
             textField.setForeground(tree.getForeground());
         }
-        updateFieldSize();
+        updateFieldSize(text);
 
         return textField;
     }
 
-    private void updateFieldSize() {
-        String text = textField.getText();
+    private void updateFieldSize(String text) {
         if (text == null) {
             text = "";
         }
 
-        FontMetrics fm = textField.getFontMetrics(textField.getFont());
+        final FontMetrics fm = textField.getFontMetrics(textField.getFont());
         // Breite des Textes + etwas Padding
         int textWidth = fm.stringWidth(text) + 10;
 
         // Mindestbreite: 10 Zeichen oder 128px, je nachdem was gr��er ist
-        int min10Chars = Math.max(textWidth, fm.charWidth('M') * 10);
-        int minWidth = Math.max(min10Chars, 128);
+        final int min10Chars = Math.max(textWidth, fm.charWidth('M') * 10);
+        final int minWidth = Math.max(min10Chars, 128);
 
-        int width = Math.max(textWidth, minWidth);
-        Dimension size = textField.getPreferredSize();
+        final int width = Math.max(textWidth, minWidth);
+        final Dimension size = textField.getPreferredSize();
         size.width = width;
         textField.setPreferredSize(size);
         textField.setMinimumSize(size);
-        textField.setSize(size);
+        SwingUtilities.invokeLater(() -> {
+            textField.setSize(size);
+        });
     }
 
     @Override
