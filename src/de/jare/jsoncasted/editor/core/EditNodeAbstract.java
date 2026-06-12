@@ -16,8 +16,9 @@ import java.util.List;
  */
 public abstract non-sealed class EditNodeAbstract implements EditNode {
 
-    public final static long LEFT = Long.MIN_VALUE + 1;
+    public final static long LEFT = 0; // range = RIGHT - LEFT  my be a Long too.
     public final static long RIGHT = Long.MAX_VALUE - 1;
+    public final static long ONSET = Long.MIN_VALUE + 1;
 
     private final long editId;
     private long leftRange;
@@ -32,7 +33,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
         this.leftRange = LEFT;
         this.rightRange = RIGHT;
-        this.timesRange = RIGHT;
+        this.timesRange = ONSET;
         this.cachedWeight = 1;
     }
 
@@ -40,7 +41,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.editId = editId;
         this.leftRange = LEFT;
         this.rightRange = RIGHT;
-        this.timesRange = RIGHT;
+        this.timesRange = ONSET;
         this.cachedWeight = 1;
     }
 

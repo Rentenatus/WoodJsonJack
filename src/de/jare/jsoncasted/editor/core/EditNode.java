@@ -102,4 +102,5 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
     int getChildIndex(EditNode child);
 
     public String getTypeKey();
+
 }

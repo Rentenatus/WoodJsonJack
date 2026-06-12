@@ -206,7 +206,7 @@ public abstract class AbstractEditCommand implements EditCommand {
     }
 
     protected CommandResult doAdd(EditTree tree, final EditCommandEntry.MovementEntry[] entries) {
-        CommandAvailability checkResult = check(tree);
+        CommandAvailability checkResult = checkAdd(tree, entries);
         if (checkResult.isDisallowed()) {
             throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());
         }
@@ -245,8 +245,58 @@ public abstract class AbstractEditCommand implements EditCommand {
         );
     }
 
-    protected CommandResult doDelete(EditTree tree, final EditCommandEntry.MovementEntry[] entries) {
+    protected CommandAvailability checkAdd(EditTree tree, final EditCommandEntry.MovementEntry[] entries) {
+        if (tree == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.tree.missing");
+        }
 
+        for (int i = 0; i < entries.length; i++) {
+            EditCommandEntry.MovementEntry entry = entries[i];
+
+            EditNode parent = tree.findNodeByIdAndRange(entry.parentEditId, entry.parentLeftRange, entry.parentTimesRange);
+            if (parent == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.add.parentMissing",
+                        Long.toString(entry.parentEditId),
+                        Integer.toString(i));
+            }
+
+            if (entry.index < -1 || entry.index > parent.getChildCount()) {
+                return CommandAvailability.disallowed(
+                        "editor.command.add.indexInvalid",
+                        Integer.toString(entry.index),
+                        Integer.toString(parent.getChildCount()),
+                        Integer.toString(i));
+            }
+
+            EditNode child = entry.snapshot;
+            if (child == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.add.snapshotMissing",
+                        Integer.toString(i));
+            }
+
+            if (!child.canBeChildOf(parent)) {
+                return CommandAvailability.disallowed(
+                        "editor.command.add.childNotAllowedForParent",
+                        child.getTypeKey(),
+                        parent.getTypeKey(),
+                        Integer.toString(i));
+            }
+        }
+
+        return CommandAvailability.allowed("editor.command.add.allowed");
+    }
+
+    protected CommandResult doDelete(EditTree tree, final EditCommandEntry.MovementEntry[] entries) {
+        CommandAvailability checkResult = checkDelete(tree, entries);
+        if (checkResult.isDisallowed()) {
+            throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());
+        }
+        if (checkResult.isUseless()) {
+            return null;
+        }
         EditNodeAbstract[] removed = new EditNodeAbstract[entries.length];
         Set<EditNodeAbstract> parentSet = new HashSet<>();
         Set<EditNodeAbstract> failedtSet = new HashSet<>();
@@ -267,7 +317,7 @@ public abstract class AbstractEditCommand implements EditCommand {
             if (parent != null) {
                 parentSet.add(parent);
             }
-            tree.removeNode(existingNode.getEditId(), existingNode.getLeftRange(), existingNode.getTimesRange());
+            tree.removeNode(existingNode);
             removed[i] = existingNode;
         }
         final EditNodeAbstract[] parents = parentSet.toArray(new EditNodeAbstract[parentSet.size()]);
@@ -282,6 +332,51 @@ public abstract class AbstractEditCommand implements EditCommand {
                 failedtSet.toArray(new EditNodeAbstract[failedtSet.size()]),
                 ON_REMOVE_ACTIONS
         );
+    }
+
+    protected CommandAvailability checkDelete(EditTree tree, final EditCommandEntry.MovementEntry[] entries) {
+        if (tree == null) {
+            return CommandAvailability.disallowed(
+                    "editor.command.tree.missing");
+        }
+
+        for (int i = 0; i < entries.length; i++) {
+            EditCommandEntry.MovementEntry entry = entries[i];
+            long nodeId = entry.nodeId;
+
+            EditNode node = tree.findNodeByIdAndRange(nodeId, entry.leftRange, entry.timesRange);
+            if (node == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.delete.nodeMissing",
+                        Long.toString(nodeId),
+                        Integer.toString(i));
+            }
+
+            if (node == tree.getRoot()) {
+                return CommandAvailability.disallowed(
+                        "editor.command.delete.rootNotAllowed",
+                        Long.toString(nodeId));
+            }
+
+            EditNode parent = node.getParent();
+            if (parent == null) {
+                return CommandAvailability.disallowed(
+                        "editor.command.delete.parentMissing",
+                        Long.toString(nodeId),
+                        Integer.toString(i));
+            }
+
+            int currentIndex = parent.getChildIndex(node);
+            if (currentIndex < 0) {
+                return CommandAvailability.disallowed(
+                        "editor.command.delete.nodeNotChildOfParent",
+                        Long.toString(nodeId),
+                        Long.toString(parent.getEditId()),
+                        Integer.toString(i));
+            }
+        }
+
+        return CommandAvailability.allowed("editor.command.delete.allowed");
     }
 
     /**

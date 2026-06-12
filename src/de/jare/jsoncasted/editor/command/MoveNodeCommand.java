@@ -59,41 +59,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * @param newIndex the target index, or {@code -1} to append
      */
     public MoveNodeCommand(EditNodeAbstract node, EditNode newParent, int newIndex) {
-        super(CommandType.MOVE_NODE);
-
-        if (node == null) {
-            throw new IllegalArgumentException("Node cannot be null");
-        }
-        final long newParentId = newParent.getEditId();
-        if (newParentId < 0) {
-            throw new IllegalArgumentException("New parentId cannot be negative");
-        }
-        if (newIndex < -1) {
-            throw new IllegalArgumentException("New index cannot be < -1");
-        }
-
-        EditNodeAbstract parent = node.getParent();
-        long oldParentId = parent != null ? parent.getEditId() : -1;
-        int oldIndex = parent != null ? parent.getChildIndex(node) : -1;
-
-        if (oldParentId < 0 || oldIndex < 0) {
-            throw new IllegalArgumentException("Node must have a valid parent and index");
-        }
-
-        this.oldEntries = new MovementEntry[]{
-            new MovementEntry(node, parent, oldIndex)
-        };
-        if (oldParentId == newParentId && (newIndex >= oldIndex)) {
-            this.newEntries = new MovementEntry[]{
-                new MovementEntry(node, newParent, newIndex - 1)
-            };
-        } else {
-            this.newEntries = new MovementEntry[]{
-                new MovementEntry(node, newParent, newIndex)
-            };
-        }
-
-        setDescription("Move node: " + node.getName());
+        this(new EditNodeAbstract[]{node}, newParent, newIndex);
     }
 
     /**
@@ -120,7 +86,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * @param newParent the target parent
      * @param newIndex the starting target index, or {@code -1} to append
      */
-    public MoveNodeCommand(EditNodeAbstract[] nodes, EditNodeAbstract newParent, int newIndex) {
+    public MoveNodeCommand(EditNodeAbstract[] nodes, EditNode newParent, int newIndex) {
         super(CommandType.MOVE_NODE);
 
         if (newParent == null) {

@@ -58,10 +58,7 @@ public class EditTree {
      * Finds a node in the tree based on the provided reference node. This
      * method uses the edit ID (and by interval labeling left range, and times
      * range) of the reference node to locate the corresponding node in the
-     * tree. It performs a search starting from the root node and traverses the
-     * tree structure to find a node that matches the specified criteria. If a
-     * matching node is found, it is returned; otherwise, the method may return
-     * null or throw an exception depending on the implementation.
+     * tree.
      *
      * @param referenz the reference node containing the edit ID, (and by
      * interval labeling left range, and times range) to search for in the tree
@@ -77,10 +74,7 @@ public class EditTree {
      * Finds a node in the tree based on the provided abstract entry. This
      * method uses the node ID (and by interval labeling left range, and times
      * range) of the abstract entry to locate the corresponding node in the
-     * tree. It performs a search starting from the root node and traverses the
-     * tree structure to find a node that matches the specified criteria. If a
-     * matching node is found, it is returned; otherwise, the method may return
-     * null or throw an exception depending on the implementation.
+     * tree.
      *
      * Start is the root node.
      *
@@ -95,13 +89,9 @@ public class EditTree {
 
     /**
      * Finds a node in the tree based on the provided node ID, left range, and
-     * times range. This method performs a search starting from the root node
-     * and traverses the tree structure to find a node that matches the
-     * specified criteria. The search can be configured to use a fallback
-     * mechanism that allows for finding a node by ID alone if the initial
-     * search using the left range and times range does not yield a result. If a
-     * matching node is found, it is returned; otherwise, the method may return
-     * null or throw an exception depending on the implementation.
+     * times range. This method uses the node ID (and by interval labeling left
+     * range, and times range) of the abstract entry to locate the corresponding
+     * node in the tree.
      *
      * Start is the root node.
      *
@@ -117,13 +107,9 @@ public class EditTree {
 
     /**
      * Finds a node in the tree based on the provided node ID, left range, and
-     * times range, with an option for fallback. This method performs a search
-     * starting from the root node and traverses the tree structure to find a
-     * node that matches the specified criteria. If the fallback option is
-     * enabled and the initial search using the left range and times range does
-     * not yield a result, the method will attempt to find a node by ID alone.
-     * If a matching node is found, it is returned; otherwise, the method may
-     * return null or throw an exception depending on the implementation.
+     * times range, with an option for fallback. This method uses the node ID
+     * (and by interval labeling left range, and times range) of the abstract
+     * entry to locate the corresponding node in the tree.
      *
      * @param id the ID of the node to search for
      * @param left the left range of the node by interval labeling to search for
@@ -138,6 +124,10 @@ public class EditTree {
     }
 
     /**
+     * Finds a node in the tree based on the provided node ID, left range, and
+     * times range, with an option for fallback. This method uses the node ID
+     * (and by interval labeling left range, and times range) of the abstract
+     * entry to locate the corresponding node in the tree.
      *
      * @param id the ID of the node to search for
      * @param left the left range of the node by interval labeling to search for
@@ -217,18 +207,10 @@ public class EditTree {
 
     /**
      * Finds a node in the tree based on the provided node ID, starting from a
-     * specified node. This method performs a search through the tree structure
-     * beginning at the given start node to find a node that matches the
-     * specified ID. The search checks if the current node matches the ID, and
-     * if not, it iterates through the children of the current node to find a
-     * match based on the ID alone. If a matching node is found, it is returned;
-     * otherwise, the method returns null.
+     * specified node.
      *
      * It dont using interval labeling, so it is not as efficient as
-     * findNodeByIdAndRange, but it can be used as a fallback if the left range
-     * and times range are not yet known or if the initial search fails to find
-     * a node. This method is useful for cases where the node ID is the only
-     * available information for locating a node in the tree.
+     * findNodeByIdAndRange.
      *
      * Start is the root node.
      *
@@ -250,10 +232,7 @@ public class EditTree {
      * otherwise, the method returns null.
      *
      * It dont using interval labeling, so it is not as efficient as
-     * findNodeByIdAndRange, but it can be used as a fallback if the left range
-     * and times range are not yet known or if the initial search fails to find
-     * a node. This method is useful for cases where the node ID is the only
-     * available information for locating a node in the tree.
+     * findNodeByIdAndRange.
      *
      * @param id the ID of the node to search for
      * @param startNode the node to start the search from
@@ -285,67 +264,30 @@ public class EditTree {
         return null;
     }
 
+    public boolean isNodeOfThisTree(EditNode node) {
+        return node.isOrHasParent(root);
+    }
+
     /**
-     * Checks if the tree contains a node with the specified ID. This method
-     * performs a search through the tree structure to determine if any node in
-     * the tree has an edit ID that matches the provided ID. It utilizes the
-     * findNodeById method to locate a node with the given ID, and returns true
-     * if such a node is found, or false if no matching node exists in the tree.
-     * This is a convenient way to quickly check for the presence of a node
-     * without needing to retrieve the node itself.
-     *
-     * It dont using interval labeling, so it is not as efficient as
-     * findNodeByIdAndRange, but it can be used as a fallback if the left range
-     * and times range are not yet known or if the initial search fails to find
-     * a node. This method is useful for cases where the node ID is the only
-     * available information for determining the existence of a node in the
-     * tree.
+     * Checks if the tree contains a node with the specified ID.
      *
      * @param start the node to start the search from
      * @param search the node to search for within the tree
      * @return true if the tree contains a node with the specified ID, false
      * otherwise
      */
-    public boolean hasNodeStarting(EditNodeAbstract start, EditNodeAbstract search) {
+    public boolean hasNodeStarting(EditNodeAbstract start, EditNode search) {
         if (start == null) {
             return false;
         }
-
-        java.util.ArrayDeque<EditNodeAbstract> stack = new java.util.ArrayDeque<>();
-        stack.push(start);
-
-        while (!stack.isEmpty()) {
-            EditNodeAbstract node = stack.pop();
-
-            if (node == search) {
-                return true;
-            }
-
-            for (int i = node.getChildCount() - 1; i >= 0; i--) {
-                EditNodeAbstract child = (EditNodeAbstract) node.getChildAt(i);
-                if (child != null) {
-                    stack.push(child);
-                }
-            }
-        }
-        return false;
+        return findNodeByIdAndRange(search.getEditId(), search.getLeftRange(), search.getTimesRange(), start) != null;
     }
 
     /**
-     * Checks if the tree contains a node with the specified ID. This method
-     * performs a search through the tree structure to determine if any node in
-     * the tree has an edit ID that matches the provided ID. It utilizes the
-     * findNodeById method to locate a node with the given ID, and returns true
-     * if such a node is found, or false if no matching node exists in the tree.
-     * This is a convenient way to quickly check for the presence of a node
-     * without needing to retrieve the node itself.
+     * Checks if the tree contains a node with the specified ID.
      *
      * It dont using interval labeling, so it is not as efficient as
-     * findNodeByIdAndRange, but it can be used as a fallback if the left range
-     * and times range are not yet known or if the initial search fails to find
-     * a node. This method is useful for cases where the node ID is the only
-     * available information for determining the existence of a node in the
-     * tree.
+     * findNodeByIdAndRange.
      *
      * @param id the ID of the node to check for in the tree
      * @return
@@ -355,14 +297,7 @@ public class EditTree {
     }
 
     /**
-     * Adds a new node to the tree under the specified parent node. This method
-     * takes the ID of the parent node and the new node to be added as
-     * parameters. It first checks if the new node is null and throws an
-     * IllegalArgumentException if it is. Then, it finds the parent node in the
-     * tree using the provided parent ID. If the parent node is not found, it
-     * throws an IllegalStateException. Finally, it adds the new node as a child
-     * of the parent node, either at a specified index or by appending it to the
-     * end of the children list, depending on whether an index is provided.
+     * Adds a new node to the tree under the specified parent node.
      *
      * @param parentId the ID of the parent node under which the new node should
      * be added
@@ -420,12 +355,7 @@ public class EditTree {
 
     /**
      * Adds a new child node to the specified parent node. This method takes the
-     * parent node and the text for the new child node as parameters. It first
-     * checks if the parent node is null and throws an IllegalArgumentException
-     * if it is. Then, it checks if the parent node is part of the tree using
-     * the checkParentMembership method. Finally, it creates a new child node
-     * with the provided text and adds it as a child of the parent node,
-     * returning the newly created child node.
+     * parent node and the text for the new child node as parameters.
      *
      * @param parentNode the parent node under which the new child node should
      * be added
@@ -440,13 +370,7 @@ public class EditTree {
     /**
      * Adds a new child node to the specified parent node at a given index. This
      * method takes the parent node, the text for the new child node, and the
-     * index at which the new child node should be inserted as parameters. It
-     * first checks if the parent node is null and throws an
-     * IllegalArgumentException if it is. Then, it checks if the parent node is
-     * part of the tree using the checkParentMembership method. Finally, it
-     * creates a new child node with the provided text and adds it as a child of
-     * the parent node at the specified index, returning the newly created child
-     * node.
+     * index at which the new child node should be inserted as parameters.
      *
      * @param parentNode the parent node under which the new child node should
      * be added
@@ -474,7 +398,7 @@ public class EditTree {
      * @throws IllegalArgumentException if the parent node is null or not part
      * of the tree
      */
-    private void checkParentProps(EditNodeAbstract parentNode) throws IllegalArgumentException {
+    public void checkParentProps(EditNode parentNode) throws IllegalArgumentException {
         if (parentNode == null) {
             throw new IllegalArgumentException("Parent node cannot be null.");
         }
@@ -498,7 +422,7 @@ public class EditTree {
      * @throws IllegalArgumentException if either node is null or the new node
      * cannot be a child of the parent node
      */
-    private void checkNewAndParentProps(EditNodeAbstract newNode, EditNodeAbstract parentNode) throws IllegalArgumentException {
+    public void checkNewAndParentProps(EditNodeAbstract newNode, EditNode parentNode) throws IllegalArgumentException {
         if (newNode == null || parentNode == null) {
             throw new IllegalArgumentException("New and parent nodes cannot be null.");
         }
@@ -512,13 +436,13 @@ public class EditTree {
     /**
      * Checks if the parent node is part of the tree structure.
      *
-     * @param parentNode the parent node to be checked
+     * @param node the parent node to be checked
      * @throws IllegalArgumentException if the parent node is not part of the
      * tree
      */
-    private void checkParentMembership(EditNodeAbstract parentNode) throws IllegalArgumentException {
-        if (!parentNode.isOrHasParent(root)) {
-            throw new IllegalArgumentException("The parent node must be a node from the tree");
+    public void checkParentMembership(EditNode node) throws IllegalArgumentException {
+        if (!isNodeOfThisTree(node)) {
+            throw new IllegalArgumentException("The node must be a node from the tree");
         }
     }
 
@@ -529,7 +453,7 @@ public class EditTree {
      * @param parentNode the parent node to be checked
      * @throws IllegalArgumentException if a cycle is detected
      */
-    private void checkCycles(EditNodeAbstract newNode, EditNodeAbstract parentNode) throws IllegalArgumentException {
+    public void checkCycles(EditNodeAbstract newNode, EditNode parentNode) throws IllegalArgumentException {
         if (hasNodeStarting(newNode, parentNode)) {
             throw new IllegalArgumentException("A parent node must not be cyclically contained within a child node.");
         }
@@ -561,12 +485,7 @@ public class EditTree {
 
     /**
      * Removes a child node from the specified parent node. This method takes
-     * the parent node and the child node to be removed as parameters. It first
-     * checks if the parent node is null and throws an IllegalArgumentException
-     * if it is. Then, it checks if the parent node is part of the tree using
-     * the checkParentMembership method. Finally, it removes the child node from
-     * the parent node and returns true if the child was successfully removed,
-     * or false if the child was not found among the parent's children.
+     * the parent node and the child node to be removed as parameters.
      *
      * @param parentNode the parent node from which the child node should be
      * removed
@@ -582,14 +501,13 @@ public class EditTree {
     /**
      * Removes a node from the tree based on the provided child node. This
      * method takes the child node to be removed as a parameter. It first checks
-     * if the child node is null and throws an IllegalArgumentException if it
-     * is. Then, it retrieves the parent node of the child node. If the parent
-     * node is null, it returns false, indicating that the child node cannot be
-     * removed because it has no parent. If the parent node is found, it checks
-     * if the parent node is part of the tree using the checkParentMembership
-     * method. Finally, it removes the child node from its parent and returns
-     * true if the child was successfully removed, or false if the child was not
-     * found among the parent's children.
+     * if the child node is null. Then, it retrieves the parent node of the
+     * child node. If the parent node is null, it returns false, indicating that
+     * the child node cannot be removed because it has no parent. If the parent
+     * node is found, it checks if the parent node is part of the tree using the
+     * checkParentMembership method. Finally, it removes the child node from its
+     * parent and returns true if the child was successfully removed, or false
+     * if the child was not found among the parent's children.
      *
      * @param child the child node to be removed from the tree
      * @return true if the child node was successfully removed from the tree,
@@ -711,9 +629,7 @@ public class EditTree {
      * Clears the tree by removing all nodes. This method iterates through the
      * children of the root node and removes each child node until there are no
      * more children left. It effectively resets the tree to an empty state,
-     * leaving only the root node without any descendants. This can be useful
-     * for reusing the same tree structure for different data or for resetting
-     * the tree after certain operations.
+     * leaving only the root node without any descendants.
      */
     public void clear() {
         while (root.getChildCount() > 0) {
@@ -754,9 +670,7 @@ public class EditTree {
      * @param node the node to perform range relabeling on
      */
     public void rangeRelabeling(EditNodeAbstract node) {
-        if (!node.isOrHasParent(root)) {
-            throw new IllegalArgumentException("The node must be a node from the tree");
-        }
+        checkParentMembership(node);
         node.rangeRelabeling(weightMonitor);
     }
 

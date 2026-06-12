@@ -40,13 +40,15 @@ public class AddNodeCommand extends AbstractEditCommand {
      * @param index the index at which to insert the node, or -1 to append
      */
     public AddNodeCommand(EditNode parent, EditNodeAbstract node, int index) {
-        this(new MovementEntry[]{
+        super(CommandType.ADD_NODE);
+        this.entries = (new MovementEntry[]{
             new MovementEntry(
             requireNode(node),
-            requireParent(parent), // parentEditId
+            parent,
             index // index
             )
         });
+        setDescription("Add node: " + node.getName());
     }
 
     /**
@@ -117,55 +119,7 @@ public class AddNodeCommand extends AbstractEditCommand {
 
     @Override
     public CommandAvailability check(EditTree tree) {
-        if (tree == null) {
-            return CommandAvailability.disallowed(
-                    "editor.command.tree.missing");
-        }
-
-        for (int i = 0; i < entries.length; i++) {
-            MovementEntry entry = entries[i];
-
-            EditNode parent = tree.findNodeByIdAndRange(entry.parentEditId, entry.parentLeftRange, entry.parentTimesRange);
-            if (parent == null) {
-                return CommandAvailability.disallowed(
-                        "editor.command.add.parentMissing",
-                        Long.toString(entry.parentEditId),
-                        Integer.toString(i));
-            }
-
-            if (entry.index < -1 || entry.index > parent.getChildCount()) {
-                return CommandAvailability.disallowed(
-                        "editor.command.add.indexInvalid",
-                        Integer.toString(entry.index),
-                        Integer.toString(parent.getChildCount()),
-                        Integer.toString(i));
-            }
-
-            EditNode child = entry.snapshot;
-            if (child == null) {
-                return CommandAvailability.disallowed(
-                        "editor.command.add.snapshotMissing",
-                        Integer.toString(i));
-            }
-
-            long id = entry.nodeId >= 0 ? entry.nodeId : child.getEditId();
-            if (tree.containsNode(id)) {
-                return CommandAvailability.disallowed(
-                        "editor.command.add.idConflict",
-                        Long.toString(id),
-                        Integer.toString(i));
-            }
-
-            if (!child.canBeChildOf(parent)) {
-                return CommandAvailability.disallowed(
-                        "editor.command.add.childNotAllowedForParent",
-                        child.getTypeKey(),
-                        parent.getTypeKey(),
-                        Integer.toString(i));
-            }
-        }
-
-        return CommandAvailability.allowed("editor.command.add.allowed");
+        return checkAdd(tree, entries);
     }
 
     @Override
