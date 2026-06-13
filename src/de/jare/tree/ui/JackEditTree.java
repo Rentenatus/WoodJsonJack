@@ -25,6 +25,7 @@ import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.ContentListener;
+import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE_UNDERNEATH;
 import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -193,6 +194,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                     copySelection(true);
                 case EDIT_PASTE ->
                     pasteClipboard();
+                case EDIT_PASTE_UNDERNEATH ->
+                    pasteClipboardUnderneath();
             }
         }
     }
@@ -673,6 +676,68 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                 clipboardManager,
                 stashName,
                 targetData
+        );
+
+        master.getUndoManager().executeCommand(command);
+
+        // Select the pasted nodes - fire selection to update properties
+        if (master != null && master.getActiveEditor() == this) {
+            DefaultMutableTreeNode sel = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
+            master.fireSelection(sel, this, false);
+        }
+    }
+
+    private void pasteClipboardUnderneath() {
+        if (master == null) {
+            return;
+        }
+
+        TreePath path = jtree.getSelectionPath();
+        if (path == null) {
+            return;
+        }
+
+        DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) path.getLastPathComponent();
+        Object selectedUo = selectedNode.getUserObject();
+        if (!(selectedUo instanceof EditNodeAbstract selectedData)) {
+            return;
+        }
+
+        // Get parent of selected node
+        DefaultMutableTreeNode parentTreeNode = (DefaultMutableTreeNode) selectedNode.getParent();
+        if (parentTreeNode == null) {
+            // Cannot paste underneath root
+            UIManager.getLookAndFeel().provideErrorFeedback(jtree);
+            return;
+        }
+
+        Object parentUo = parentTreeNode.getUserObject();
+        if (!(parentUo instanceof EditNodeAbstract parentData)) {
+            return;
+        }
+
+        ClipboardManager clipboardManager = master.getClipboardManager();
+
+        // Use the currently active stash from ClipboardManager
+        String stashName = clipboardManager.getActiveStashName();
+
+        // Check if there's content in the active stash
+        ClipboardStash stash = clipboardManager.getStash(stashName);
+        if (stash == null || stash.isEmpty()) {
+            UIManager.getLookAndFeel().provideErrorFeedback(jtree);
+            return;
+        }
+
+        // Get index of selected node in parent
+        int selectedIndex = parentTreeNode.getIndex(selectedNode);
+        int targetIndex = selectedIndex + 1;
+
+        // Create and execute paste command with parent and index
+        PasteFromStashCommand command = new PasteFromStashCommand(
+                clipboardManager,
+                stashName,
+                parentData,
+                targetIndex
         );
 
         master.getUndoManager().executeCommand(command);

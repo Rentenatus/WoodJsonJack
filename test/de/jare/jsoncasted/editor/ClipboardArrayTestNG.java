@@ -43,9 +43,9 @@ public class ClipboardArrayTestNG implements ATestTools {
     private EditNodeAbstract rootA;
     private EditNodeAbstract rootB;
 
-    private EditNode childA1;
-    private EditNode childA2;
-    private EditNode childA3;
+    private EditNodeAbstract childA1;
+    private EditNodeAbstract childA2;
+    private EditNodeAbstract childA3;
 
     @BeforeMethod
     public void setUp() {
@@ -75,16 +75,16 @@ public class ClipboardArrayTestNG implements ATestTools {
         printSubtree(editorA, "Initial subtree A/root", rootA);
         printSubtree(editorB, "Initial subtree B/root", rootB);
 
-        long[] copiedIds = {
-            childA1.getEditId(),
-            childA2.getEditId(),
-            childA3.getEditId()
+        EditNodeAbstract[] copied = {
+            childA1,
+            childA2,
+            childA3
         };
 
         CopyToStashCommand copyCmd = new CopyToStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                copiedIds
+                copied
         );
         CommandResult copyExecuteResult = copyCmd.execute(treeA);
         printCommandResult("COPY[3] execute", copyExecuteResult);
@@ -93,7 +93,7 @@ public class ClipboardArrayTestNG implements ATestTools {
         PasteFromStashCommand pasteCmd = new PasteFromStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                rootB.getEditId(),
+                rootB,
                 -1
         );
         CommandResult pasteExecuteResult = pasteCmd.execute(treeB);
@@ -141,16 +141,16 @@ public class ClipboardArrayTestNG implements ATestTools {
         printSubtree(editorA, "Initial subtree A/root", rootA);
         printSubtree(editorB, "Initial subtree B/root", rootB);
 
-        long[] cutIds = {
-            childA1.getEditId(),
-            childA2.getEditId(),
-            childA3.getEditId()
+        EditNodeAbstract[] cut = {
+            childA1,
+            childA2,
+            childA3
         };
 
         CutToStashCommand cutCmd = new CutToStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                cutIds
+                cut
         );
         CommandResult cutExecuteResult = cutCmd.execute(treeA);
         printCommandResult("CUT[3] execute", cutExecuteResult);
@@ -185,7 +185,7 @@ public class ClipboardArrayTestNG implements ATestTools {
         PasteFromStashCommand pasteCmd = new PasteFromStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                rootB.getEditId(),
+                rootB,
                 -1
         );
         CommandResult pasteExecuteResult = pasteCmd.execute(treeB);

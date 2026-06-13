@@ -13,6 +13,7 @@ import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE;
+import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE_UNDERNEATH;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -25,6 +26,7 @@ import javax.swing.tree.TreePath;
 public class JackEditPopup extends JPopupMenu {
 
     private final JMenuItem pasteItem;
+    private final JMenuItem pasteUnderneathItem;
     private final JMenuItem deleteNodeItem;
     private final JMenuItem cutItem;
     private final JackMasterControl master;
@@ -46,16 +48,19 @@ public class JackEditPopup extends JPopupMenu {
 
         JMenuItem copyItem = new JMenuItem("Copy");
         cutItem = new JMenuItem("Cut");
-        pasteItem = new JMenuItem("Paste");
+        pasteItem = new JMenuItem("paste into this node");
+        pasteUnderneathItem = new JMenuItem("Paste underneath this node.");
 
         copyItem.addActionListener(e -> master.fireContentCommand(EDIT_COPY, this));
         cutItem.addActionListener(e -> master.fireContentCommand(EDIT_CUT, this));
         pasteItem.addActionListener(e -> master.fireContentCommand(EDIT_PASTE, this));
+        pasteUnderneathItem.addActionListener(e -> master.fireContentCommand(EDIT_PASTE_UNDERNEATH, this));
 
         addSeparator();
         add(copyItem);
         add(cutItem);
         add(pasteItem);
+        add(pasteUnderneathItem);
 
         master.addSelectionListener(8, new TreeFocusListener() {
             @Override
@@ -80,13 +85,23 @@ public class JackEditPopup extends JPopupMenu {
 
     private void updatePasteEnabled() {
         boolean canPaste = false;
+        boolean canPasteUnderneath = false;
         if (lastSelectedNode instanceof DefaultMutableTreeNode dmtn) {
             Object uo = dmtn.getUserObject();
             if (uo instanceof EditNode targetData) {
                 canPaste = master.getClipboardManager().canPasteTo(targetData);
             }
+            // For paste underneath, check if parent exists and can accept paste
+            DefaultMutableTreeNode parent = (DefaultMutableTreeNode) dmtn.getParent();
+            if (parent != null) {
+                Object parentUo = parent.getUserObject();
+                if (parentUo instanceof EditNode parentData) {
+                    canPasteUnderneath = master.getClipboardManager().canPasteTo(parentData);
+                }
+            }
         }
         pasteItem.setEnabled(canPaste);
+        pasteUnderneathItem.setEnabled(canPasteUnderneath);
     }
 
     /**

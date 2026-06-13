@@ -9,6 +9,7 @@ package de.jare.tree.control.listeners;
 public interface ContentListener {
 
     public static final String EDIT_PASTE = "edit.paste";
+    public static final String EDIT_PASTE_UNDERNEATH = "edit.pasteUnderneath";
     public static final String EDIT_CUT = "edit.cut";
     public static final String EDIT_COPY = "edit.copy";
     public static final String EDIT_RENAME_NODE = "edit.renameNode";

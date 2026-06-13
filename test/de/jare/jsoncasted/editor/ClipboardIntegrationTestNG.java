@@ -44,8 +44,8 @@ public class ClipboardIntegrationTestNG implements ATestTools {
     private EditNodeAbstract rootA;
     private EditNodeAbstract rootB;
 
-    private EditNode childA1;
-    private EditNode childA2;
+    private EditNodeAbstract childA1;
+    private EditNodeAbstract childA2;
 
     @BeforeMethod
     public void setUp() {
@@ -72,7 +72,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         printSubtree(editorA, "Initial subtree A/root", rootA);
         printSubtree(editorB, "Initial subtree B/root", rootB);
 
-        long a1Id = childA1.getEditId();
+   
         long a2Id = childA2.getEditId();
 
         // ============================================================
@@ -81,7 +81,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         CopyToStashCommand copyCmd = new CopyToStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                new long[]{a1Id}
+                new EditNodeAbstract[]{childA1}
         );
         CommandResult copyResult = copyCmd.execute(treeA);
         ClipboardStash stash = clipboard.getStash(ClipboardManager.CLIPBOARD_STASH_NAME);
@@ -94,7 +94,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         PasteFromStashCommand pasteCopyCmd = new PasteFromStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                rootB.getEditId(),
+                rootB ,
                 -1
         );
         CommandResult pasteCopyExecuteResult = pasteCopyCmd.execute(treeB);
@@ -127,7 +127,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         CutToStashCommand cutCmd = new CutToStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                new long[]{a2Id}
+                new EditNodeAbstract[]{childA2}
         );
         CommandResult cutExecuteResult = cutCmd.execute(treeA);
         printCommandResult("CUT execute", cutExecuteResult);
@@ -165,7 +165,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         PasteFromStashCommand pasteCutCmd = new PasteFromStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                rootB.getEditId(),
+                rootB ,
                 -1
         );
         CommandResult pasteCutExecuteResult = pasteCutCmd.execute(treeB);

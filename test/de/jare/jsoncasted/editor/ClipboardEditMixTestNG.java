@@ -47,8 +47,8 @@ public class ClipboardEditMixTestNG implements ATestTools {
     private EditNodeAbstract rootA;
     private EditNodeAbstract rootB;
 
-    private EditNode a1;
-    private EditNode a2;
+    private EditNodeAbstract a1;
+    private EditNodeAbstract a2;
     private EditNode a3;
 
     private EditNode b1;
@@ -83,7 +83,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
         printSubtree(editorA, "Initial subtree A/root", rootA);
         printSubtree(editorB, "Initial subtree B/root", rootB);
 
-        long[] copyIds = {a1.getEditId(), a2.getEditId()};
+        EditNodeAbstract[] copyIds = {a1, a2};
 
         CopyToStashCommand copyCmd = new CopyToStashCommand(
                 clipboard,
@@ -96,7 +96,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
         PasteFromStashCommand pasteCmd = new PasteFromStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                rootB.getEditId(),
+                rootB,
                 -1
         );
         CommandResult pasteExecute = pasteCmd.execute(treeB);
@@ -177,12 +177,12 @@ public class ClipboardEditMixTestNG implements ATestTools {
         printEditorState(editorA, "Initial editorA");
         printEditorState(editorB, "Initial editorB");
 
-        long[] cutIds = {a1.getEditId(), a2.getEditId()};
+        EditNodeAbstract[] cutI = {a1, a2};
 
         CutToStashCommand cutCmd = new CutToStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                cutIds
+                cutI
         );
         CommandResult cutExecute = cutCmd.execute(treeA);
         printCommandResult("CUT[2] execute", cutExecute);
@@ -197,7 +197,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
         PasteFromStashCommand pasteCmd = new PasteFromStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                rootB.getEditId(),
+                rootB,
                 -1
         );
         CommandResult pasteExecute = pasteCmd.execute(treeB);
