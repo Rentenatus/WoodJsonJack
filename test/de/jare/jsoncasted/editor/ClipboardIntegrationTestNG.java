@@ -2,9 +2,9 @@ package de.jare.jsoncasted.editor;
 
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.jsoncasted.editor.clipboard.ClipboardStash;
-import de.jare.jsoncasted.editor.clipboard.CopyToStashCommand;
-import de.jare.jsoncasted.editor.clipboard.CutToStashCommand;
-import de.jare.jsoncasted.editor.clipboard.PasteFromStashCommand;
+import de.jare.jsoncasted.editor.command.CopyToStashCommand;
+import de.jare.jsoncasted.editor.command.CutToStashCommand;
+import de.jare.jsoncasted.editor.command.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;

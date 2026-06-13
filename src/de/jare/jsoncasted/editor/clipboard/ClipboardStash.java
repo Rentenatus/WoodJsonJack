@@ -80,7 +80,7 @@ public class ClipboardStash {
      *
      * @param nodes the nodes to store
      */
-    void setNodes(EditNodeAbstract[] nodes) {
+    public void setNodes(EditNodeAbstract[] nodes) {
         if (nodes == null) {
             this.nodes = new EditNodeAbstract[0];
         } else {

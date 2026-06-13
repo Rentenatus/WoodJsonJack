@@ -8,9 +8,9 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.jsoncasted.editor.clipboard.ClipboardStash;
-import de.jare.jsoncasted.editor.clipboard.CopyToStashCommand;
-import de.jare.jsoncasted.editor.clipboard.CutToStashCommand;
-import de.jare.jsoncasted.editor.clipboard.PasteFromStashCommand;
+import de.jare.jsoncasted.editor.command.CopyToStashCommand;
+import de.jare.jsoncasted.editor.command.CutToStashCommand;
+import de.jare.jsoncasted.editor.command.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.AddNodeCommand;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.DeleteNodeCommand;
@@ -556,12 +556,12 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
 
         // Extract EditNode IDs from selected tree paths
-        long[] nodeIds = new long[paths.length];
+        EditNodeAbstract[] nodes = new EditNodeAbstract[paths.length];
         for (int i = 0; i < paths.length; i++) {
             DefaultMutableTreeNode node = (DefaultMutableTreeNode) paths[i].getLastPathComponent();
             Object uo = node.getUserObject();
             if (uo instanceof EditNodeAbstract editNode) {
-                nodeIds[i] = editNode.getEditId();
+                nodes[i] = editNode;
             } else {
                 // Cannot copy non-EditNode objects
                 return;
@@ -579,13 +579,13 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             command = new CutToStashCommand(
                     clipboardManager,
                     stashName,
-                    nodeIds
+                    nodes
             );
         } else {
             command = new CopyToStashCommand(
                     clipboardManager,
                     stashName,
-                    nodeIds
+                    nodes
             );
         }
 
@@ -669,11 +669,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
 
         // Create and execute paste command
-        long parentId = targetData.getEditId();
         PasteFromStashCommand command = new PasteFromStashCommand(
                 clipboardManager,
                 stashName,
-                parentId
+                targetData
         );
 
         master.getUndoManager().executeCommand(command);

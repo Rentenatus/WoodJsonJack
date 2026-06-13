@@ -1,7 +1,7 @@
-package de.jare.jsoncasted.editor.clipboard;
+package de.jare.jsoncasted.editor.command;
 
-import de.jare.jsoncasted.editor.command.AbstractEditCommand;
-import de.jare.jsoncasted.editor.command.CommandAvailability;
+import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
+import de.jare.jsoncasted.editor.clipboard.ClipboardStash;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;

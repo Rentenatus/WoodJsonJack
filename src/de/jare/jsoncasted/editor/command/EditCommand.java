@@ -73,6 +73,9 @@ public interface EditCommand {
         MOVE_NODE("command.move_node"),
         SET_VALUE("command.set_value"),
         RENAME_NODE("command.Rename_node"),
+        CUT_NODE("command.cut_node"),
+        COPY_NODE("command.copy_node"),
+        PASTE_NODE("command.paste_node"),
         OTHER("command.other");
 
         private final String labelKey;
