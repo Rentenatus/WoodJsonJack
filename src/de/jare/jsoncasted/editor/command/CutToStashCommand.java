@@ -219,11 +219,7 @@ public class CutToStashCommand extends AbstractEditCommand {
         }
 
         // Store nodes in stash via ClipboardManager
-        long[] nodeIds = new long[entries.length];
-        for (int i = 0; i < entries.length; i++) {
-            nodeIds[i] = entries[i].nodeId;
-        }
-        clipboardManager.cutToStash(stashName, tree, nodeIds);
+        clipboardManager.cutToStash(stashName, tree, entries);
 
         // Perform the delete operation
         return doDelete(tree, entries, CommandAction.EXECUTE);

@@ -184,43 +184,6 @@ public class JackClipboardTree extends JTree {
     }
 
     /**
-     * Kopiert die aktuelle Auswahl in den angegebenen Stash.
-     *
-     * @param stashName der Name des Ziel-Stash
-     * @param cut ob es sich um einen Cut- oder Copy-Vorgang handelt
-     */
-    public void copySelectionToStash(String stashName, boolean cut) {
-        if (sourceTree == null) {
-            return;
-        }
-
-        TreePath[] paths = sourceTree.getTree().getSelectionPaths();
-        if (paths == null || paths.length == 0) {
-            return;
-        }
-
-        long[] nodeIds = new long[paths.length];
-        for (int i = 0; i < paths.length; i++) {
-            DefaultMutableTreeNode node = (DefaultMutableTreeNode) paths[i].getLastPathComponent();
-            Object userObject = node.getUserObject();
-            if (userObject instanceof EditNodeAbstract editNode) {
-                nodeIds[i] = editNode.getEditId();
-            }
-        }
-
-        if (cut) {
-            clipboardManager.cutToStash(stashName, sourceTree.getModel().getEditTree(), nodeIds);
-        } else {
-            clipboardManager.copyToStash(stashName, sourceTree.getModel().getEditTree(), nodeIds);
-        }
-
-        // Aktualisiere die Anzeige, falls der aktuelle Stash betroffen ist
-        if (stashName.equals(currentStashName)) {
-            showStashContent(stashName);
-        }
-    }
-
-    /**
      * Prüft, ob die Nodes des aktuellen Stash an der Zielposition eingefügt
      * werden können.
      *

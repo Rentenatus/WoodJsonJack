@@ -7,6 +7,8 @@
 package de.jare.jsoncasted.editor.clipboard;
 
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 import java.util.Collections;
 import java.util.Set;
 
@@ -29,6 +31,7 @@ public class ClipboardStash {
     private EditNodeAbstract[] nodes;
     private long timestamp;
     private Set<Long> expandedNodeIds;
+    private boolean isFreshlyCut;
 
     /**
      * Creates a new clipboard stash with the given name.
@@ -43,6 +46,7 @@ public class ClipboardStash {
         this.nodes = new EditNodeAbstract[0];
         this.timestamp = System.currentTimeMillis();
         this.expandedNodeIds = null;
+        this.isFreshlyCut = false;
     }
 
     /**
@@ -87,6 +91,35 @@ public class ClipboardStash {
             this.nodes = nodes.clone();
         }
         this.timestamp = System.currentTimeMillis();
+        this.isFreshlyCut = false;
+    }
+
+    /**
+     * Sets the nodes for this stash by copying them from a tree.
+     *
+     * <p>
+     * Creates deep copies (snapshots) of the nodes from the tree, preserving
+     * their edit IDs. The freshly cut flag is set to false.</p>
+     *
+     * @param tree the source tree
+     * @param entries the entries containing node IDs and ranges to copy
+     */
+    public void setNodesFromTree(EditTree tree, SimpleEntry[] entries) {
+        if (entries == null || entries.length == 0) {
+            this.nodes = new EditNodeAbstract[0];
+            this.timestamp = System.currentTimeMillis();
+            this.isFreshlyCut = false;
+            return;
+        }
+
+        EditNodeAbstract[] nodes = new EditNodeAbstract[entries.length];
+        for (int i = 0; i < entries.length; i++) {
+            EditNodeAbstract node = tree.findNodeByIdAndRange(entries[i]);
+            if (node != null) {
+                nodes[i] = node.deepCopy(false);
+            }
+        }
+        setNodes(nodes);
     }
 
     /**
@@ -136,6 +169,7 @@ public class ClipboardStash {
         this.nodes = new EditNodeAbstract[0];
         this.expandedNodeIds = null;
         this.timestamp = System.currentTimeMillis();
+        this.isFreshlyCut = false;
     }
 
     /**
@@ -145,6 +179,24 @@ public class ClipboardStash {
      */
     public boolean isEmpty() {
         return nodes == null || nodes.length == 0;
+    }
+
+    /**
+     * Returns whether the content was freshly cut (not copied).
+     *
+     * @return true if the content was cut, false if copied
+     */
+    public boolean isFreshlyCut() {
+        return isFreshlyCut;
+    }
+
+    /**
+     * Sets whether the content was freshly cut.
+     *
+     * @param isFreshlyCut true if content was cut, false if copied
+     */
+    public void setFreshlyCut(boolean isFreshlyCut) {
+        this.isFreshlyCut = isFreshlyCut;
     }
 
     /**
@@ -169,6 +221,8 @@ public class ClipboardStash {
         if (this.expandedNodeIds != null) {
             copy.setExpandedNodeIds(java.util.Collections.unmodifiableSet(this.expandedNodeIds));
         }
+        // Copy freshly cut flag
+        copy.setFreshlyCut(this.isFreshlyCut);
         return copy;
     }
 

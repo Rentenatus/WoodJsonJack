@@ -10,6 +10,7 @@ package de.jare.jsoncasted.editor.clipboard;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 import de.jare.tree.control.Orator;
 
 /**
@@ -239,14 +240,14 @@ public class ClipboardManager {
      * Copies nodes to the active stash.
      *
      * @param tree the source tree
-     * @param nodeIds the IDs of the nodes to copy
+     * @param entries the entries containing node IDs and ranges to copy
      */
-    public void cutToActiveStash(EditTree tree, long[] nodeIds) {
-        copyToStash(activeStashName, tree, nodeIds);
+    public void cutToActiveStash(EditTree tree, SimpleEntry[] entries) {
+        cutToStash(activeStashName, tree, entries);
     }
 
     /**
-     * Copies nodes to a specific stash.
+     * Cuts nodes to a specific stash.
      *
      * <p>
      * Snapshots keep their edit IDs. Whether these IDs can be reused in the
@@ -254,21 +255,27 @@ public class ClipboardManager {
      *
      * @param stashName the name of the target stash
      * @param tree the source tree
-     * @param nodeIds the IDs of the nodes to copy
+     * @param entries the entries containing node IDs and ranges to cut
      * @throws IllegalArgumentException if the stash does not exist
      */
-    public void cutToStash(String stashName, EditTree tree, long[] nodeIds) {
-        copyToStash(stashName, tree, nodeIds);
+    public void cutToStash(String stashName, EditTree tree, SimpleEntry[] entries) {
+        ClipboardStash stash = getStash(stashName);
+        if (stash == null) {
+            throw new IllegalArgumentException("Stash with name " + stashName + " does not exist");
+        }
+        stash.setNodesFromTree(tree, entries);
+        stash.setFreshlyCut(true);
+        fireClipboardChanged(stashName);
     }
 
     /**
      * Copies nodes to the active stash.
      *
      * @param tree the source tree
-     * @param nodeIds the IDs of the nodes to copy
+     * @param entries the entries containing node IDs and ranges to copy
      */
-    public void copyToActiveStash(EditTree tree, long[] nodeIds) {
-        copyToStash(activeStashName, tree, nodeIds);
+    public void copyToActiveStash(EditTree tree, SimpleEntry[] entries) {
+        copyToStash(activeStashName, tree, entries);
     }
 
     /**
@@ -280,27 +287,17 @@ public class ClipboardManager {
      *
      * @param stashName the name of the target stash
      * @param tree the source tree
-     * @param nodeIds the IDs of the nodes to copy
+     * @param entries the entries containing node IDs and ranges to copy
      * @throws IllegalArgumentException if the stash does not exist
      */
-    public void copyToStash(String stashName, EditTree tree, long[] nodeIds) {
-        if (nodeIds == null || nodeIds.length == 0) {
-            return;
-        }
+    public void copyToStash(String stashName, EditTree tree, SimpleEntry[] entries) {
         ClipboardStash stash = getStash(stashName);
         if (stash == null) {
             throw new IllegalArgumentException("Stash with name " + stashName + " does not exist");
         }
-
-        EditNodeAbstract[] nodes = new EditNodeAbstract[nodeIds.length];
-        for (int i = 0; i < nodeIds.length; i++) {
-            EditNodeAbstract node = tree.findNodeById(nodeIds[i]);
-            if (node != null) {
-                // Snapshot with existing edit IDs
-                nodes[i] = node.deepCopy(false);
-            }
-        }
-        setStashContent(stashName, nodes);
+        stash.setNodesFromTree(tree, entries);
+        stash.setFreshlyCut(false);
+        fireClipboardChanged(stashName);
     }
 
     /**

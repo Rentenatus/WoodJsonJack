@@ -219,11 +219,7 @@ public class CopyToStashCommand extends AbstractEditCommand {
         }
 
         // Store node copies in stash via ClipboardManager
-        long[] nodeIds = new long[entries.length];
-        for (int i = 0; i < entries.length; i++) {
-            nodeIds[i] = entries[i].nodeId;
-        }
-        clipboardManager.copyToStash(stashName, tree, nodeIds);
+        clipboardManager.copyToStash(stashName, tree, entries);
 
         // Collect the copied nodes for the result
         EditNodeAbstract[] copiedNodes = collectNodes(tree);
