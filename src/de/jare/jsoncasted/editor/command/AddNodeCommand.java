@@ -124,7 +124,7 @@ public class AddNodeCommand extends AbstractEditCommand {
 
     @Override
     protected CommandResult doExecute(EditTree tree) {
-        return doAdd(tree, entries, CommandAction.EXECUTE);
+        return doAdd(tree, entries, true, CommandAction.EXECUTE);
     }
 
     @Override

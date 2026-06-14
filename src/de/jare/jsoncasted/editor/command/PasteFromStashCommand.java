@@ -32,8 +32,6 @@ import java.util.List;
  */
 public class PasteFromStashCommand extends AbstractEditCommand {
 
-    private static final UpdateAction[] UPDATE_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_ADDED};
-
     private final ClipboardManager clipboardManager;
     private final String stashName;
     private final MovementEntry[] entries;
@@ -246,11 +244,17 @@ public class PasteFromStashCommand extends AbstractEditCommand {
             throw new IllegalStateException(availability.toString());
         }
 
+        ClipboardStash stash = clipboardManager.getStash(stashName);
+        if (stash == null) {
+            return null;
+        }
+
         // Perform the add operation
-        CommandResult result = doAdd(tree, entries, CommandAction.EXECUTE);
+        CommandResult result = doAdd(tree, entries, !stash.isFreshlyCut(), CommandAction.EXECUTE);
 
         // Capture the IDs of the pasted nodes
         if (result != null) {
+            stash.setFreshlyCut(false);
             EditNodeAbstract[] addedNodes = result.getAddedNodes();
             this.pastedEntries = new SimpleEntry[addedNodes.length];
             for (int i = 0; i < addedNodes.length; i++) {

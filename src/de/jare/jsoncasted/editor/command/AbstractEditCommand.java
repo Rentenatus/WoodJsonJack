@@ -170,7 +170,7 @@ public abstract class AbstractEditCommand implements EditCommand {
      */
     protected abstract CommandResult doUndo(EditTree tree);
 
-    protected CommandResult doAdd(EditTree tree, final EditCommandEntry.MovementEntry[] entries, CommandAction action) {
+    protected CommandResult doAdd(EditTree tree, final EditCommandEntry.MovementEntry[] entries, boolean regenerateEditId, CommandAction action) {
         CommandAvailability checkResult = checkAdd(tree, entries);
         if (checkResult.isDisallowed()) {
             throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());
@@ -186,7 +186,7 @@ public abstract class AbstractEditCommand implements EditCommand {
         for (int i = 0; i < entries.length; i++) {
             EditCommandEntry.MovementEntry entry = entries[i];
             EditNodeAbstract parent = tree.findNodeByIdAndRange(entry.parentEditId, entry.leftRange, entry.timesRange);
-            EditNodeAbstract newNode = tree.addNode(parent, entry.snapshot, entry.index, false);
+            EditNodeAbstract newNode = tree.addNode(parent, entry.snapshot, entry.index, regenerateEditId);
 
             if (newNode != null) {
                 parentSet.add(parent);

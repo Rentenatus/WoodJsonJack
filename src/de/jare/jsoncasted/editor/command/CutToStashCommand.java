@@ -235,7 +235,7 @@ public class CutToStashCommand extends AbstractEditCommand {
         }
 
         // Perform the add operation (undo of delete is add)
-        return doAdd(tree, entries, CommandAction.UNDO);
+        return doAdd(tree, entries, false, CommandAction.UNDO);
     }
 
     /**

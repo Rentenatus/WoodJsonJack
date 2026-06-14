@@ -118,7 +118,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
 
     @Override
     public CommandResult doUndo(EditTree tree) {
-        return doAdd(tree, entries, CommandAction.UNDO);
+        return doAdd(tree, entries, false, CommandAction.UNDO);
     }
 
     /**
