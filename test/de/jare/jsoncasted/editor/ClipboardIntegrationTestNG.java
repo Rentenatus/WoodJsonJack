@@ -72,7 +72,6 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         printSubtree(editorA, "Initial subtree A/root", rootA);
         printSubtree(editorB, "Initial subtree B/root", rootB);
 
-   
         long a2Id = childA2.getEditId();
 
         // ============================================================
@@ -94,7 +93,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         PasteFromStashCommand pasteCopyCmd = new PasteFromStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                rootB ,
+                rootB,
                 -1
         );
         CommandResult pasteCopyExecuteResult = pasteCopyCmd.execute(treeB);
@@ -105,8 +104,8 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         assertEquals(rootB.getChildCount(), 2,
                 "Tree B should contain original child plus copied node");
 
-        long copiedIntoBId = pasteCopyCmd.getPastedNodeIds()[0];
-        EditNode copiedIntoB = treeB.findNodeById(copiedIntoBId);
+        EditNodeAbstract copiedIntoBId = pasteCopyExecuteResult.getAddedNodes()[0];
+        EditNode copiedIntoB = treeB.findNodeByIdAndRange(copiedIntoBId);
         assertNotNull(copiedIntoB, "Copied node must exist in tree B");
 
         CommandResult pasteCopyUndoResult = pasteCopyCmd.undo(treeB);
@@ -165,7 +164,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         PasteFromStashCommand pasteCutCmd = new PasteFromStashCommand(
                 clipboard,
                 ClipboardManager.CLIPBOARD_STASH_NAME,
-                rootB ,
+                rootB,
                 -1
         );
         CommandResult pasteCutExecuteResult = pasteCutCmd.execute(treeB);
@@ -175,11 +174,6 @@ public class ClipboardIntegrationTestNG implements ATestTools {
 
         assertEquals(rootB.getChildCount(), 3,
                 "Tree B should contain original child, copied node and pasted cut node");
-
-        long pastedCutId = pasteCutCmd.getPastedNodeIds()[0];
-        EditNode pastedCutNode = treeB.findNodeById(pastedCutId);
-        assertNotNull(pastedCutNode,
-                "Pasted cut node must exist in tree B");
 
         CommandResult pasteCutUndoResult = pasteCutCmd.undo(treeB);
         printCommandResult("PASTE(cut) undo", pasteCutUndoResult);

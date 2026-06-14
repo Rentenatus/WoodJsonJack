@@ -19,8 +19,9 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 
 /**
- * Clipboard Tree Implementation für JackEditTree mit ClipboardStash Unterstützung.
- * Zeigt den Inhalt des aktuellen Stash an und erlaubt das Wechseln zwischen Stashes.
+ * Clipboard Tree Implementation für JackEditTree mit ClipboardStash
+ * Unterstützung. Zeigt den Inhalt des aktuellen Stash an und erlaubt das
+ * Wechseln zwischen Stashes.
  */
 public class JackClipboardTree extends JTree {
 
@@ -36,10 +37,10 @@ public class JackClipboardTree extends JTree {
         setEditable(false);
         setRootVisible(true);
         setShowsRootHandles(true);
-        
+
         // Registriere Listener für Clipboard-Änderungen (höhere Priorität für Inhaltsupdate)
         clipboardManager.addClipboardChangeListener(4, clipboardChangeListener);
-        
+
         // Standardmäßig den Clipboard Stash anzeigen
         showStashContent(currentStashName);
     }
@@ -58,7 +59,7 @@ public class JackClipboardTree extends JTree {
 
     /**
      * Wechselt den angezeigten Stash und zeigt dessen Inhalt an.
-     * 
+     *
      * @param stashName der Name des Stash, der angezeigt werden soll
      */
     public void switchStash(String stashName) {
@@ -71,7 +72,7 @@ public class JackClipboardTree extends JTree {
 
     /**
      * Zeigt den Inhalt des angegebenen Stash im Tree an.
-     * 
+     *
      * @param stashName der Name des Stash
      */
     public void showStashContent(String stashName) {
@@ -82,7 +83,7 @@ public class JackClipboardTree extends JTree {
 
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) getModel().getRoot();
         root.removeAllChildren();
-        
+
         EditNodeAbstract[] nodes = stash.getNodes();
         if (nodes != null && nodes.length > 0) {
             for (EditNodeAbstract node : nodes) {
@@ -91,13 +92,13 @@ public class JackClipboardTree extends JTree {
                 }
             }
         }
-        
+
         ((DefaultTreeModel) getModel()).reload();
-        
+
         // Root-Name aktualisieren
         root.setUserObject("Clipboard - " + stashName);
         ((DefaultTreeModel) getModel()).nodeChanged(root);
-        
+
         // Expansionszustand wiederherstellen, falls verfügbar
         Set<Long> expandedNodeIds = stash.getExpandedNodeIds();
         if (expandedNodeIds != null && !expandedNodeIds.isEmpty()) {
@@ -109,7 +110,8 @@ public class JackClipboardTree extends JTree {
     }
 
     /**
-     * Stellt die Expansionszustände für die angegebenen EditNode-IDs wieder her.
+     * Stellt die Expansionszustände für die angegebenen EditNode-IDs wieder
+     * her.
      *
      * @param expandedNodeIds Set der EditNode-IDs, die expanded sein sollen
      */
@@ -117,18 +119,19 @@ public class JackClipboardTree extends JTree {
         if (expandedNodeIds == null || expandedNodeIds.isEmpty()) {
             return;
         }
-        
+
         restoreExpandedNodes((DefaultMutableTreeNode) getModel().getRoot(), expandedNodeIds);
     }
 
     /**
-     * Rekursiv: Stellt die Expansionszustände für Kinder eines Knotens wieder her.
+     * Rekursiv: Stellt die Expansionszustände für Kinder eines Knotens wieder
+     * her.
      */
     private void restoreExpandedNodes(DefaultMutableTreeNode node, Set<Long> expandedNodeIds) {
         if (node == null) {
             return;
         }
-        
+
         Object uo = node.getUserObject();
         if (uo instanceof EditNodeAbstract editNode) {
             if (expandedNodeIds.contains(editNode.getEditId())) {
@@ -148,8 +151,8 @@ public class JackClipboardTree extends JTree {
     }
 
     /**
-     * Listener-Callback für Clipboard-Änderungen.
-     * Wird aufgerufen, wenn sich ein Stash ändert.
+     * Listener-Callback für Clipboard-Änderungen. Wird aufgerufen, wenn sich
+     * ein Stash ändert.
      *
      * @param stashName der Name des geänderten Stash, oder null für alle
      */
@@ -163,26 +166,26 @@ public class JackClipboardTree extends JTree {
 
     /**
      * Erstellt einen JTree-Knoten aus einem EditNodeAbstract.
-     * 
+     *
      * @param node der EditNodeAbstract
      * @return der erstellte DefaultMutableTreeNode
      */
     private DefaultMutableTreeNode buildTreeNodeFromEditNode(EditNodeAbstract node) {
         DefaultMutableTreeNode treeNode = new DefaultMutableTreeNode(node);
-        
+
         for (int i = 0; i < node.getChildCount(); i++) {
             EditNodeAbstract child = node.getChildAt(i);
             if (child != null) {
                 treeNode.add(buildTreeNodeFromEditNode(child));
             }
         }
-        
+
         return treeNode;
     }
 
     /**
      * Kopiert die aktuelle Auswahl in den angegebenen Stash.
-     * 
+     *
      * @param stashName der Name des Ziel-Stash
      * @param cut ob es sich um einen Cut- oder Copy-Vorgang handelt
      */
@@ -218,56 +221,9 @@ public class JackClipboardTree extends JTree {
     }
 
     /**
-     * Fügt den Inhalt des aktuellen Stash an der angegebenen Position ein.
-     * 
-     * @param trigger der auslösende TreeFocusComponent
-     * @param path der Ziel-Pfad
-     */
-    public void pasteFromCurrentStash(TreeFocusComponent trigger, TreePath path) {
-        if (path == null || trigger == null) {
-            return;
-        }
-
-        DefaultMutableTreeNode target = (DefaultMutableTreeNode) path.getLastPathComponent();
-        Object targetUo = target.getUserObject();
-        
-        if (!(targetUo instanceof EditNode targetData)) {
-            return;
-        }
-        ClipboardStash stash = clipboardManager.getStash(currentStashName);
-        if (stash == null || stash.isEmpty()) {
-            return;
-        }
-
-        EditNodeAbstract[] nodes = stash.getNodes();
-        
-        // Prüfe, ob die Nodes eingefügt werden können
-        if (!canPasteTo(targetData, nodes)) {
-            UIManager.getLookAndFeel().provideErrorFeedback(this);
-            return;
-        }
-
-        // Füge die Nodes ein
-        long parentId = targetData.getEditId();
-        long[] pastedIds = clipboardManager.pasteFromStash(currentStashName, 
-                sourceTree.getModel().getEditTree(), parentId, -1);
-
-        // Selektiere die eingefügten Nodes
-        if (pastedIds != null && pastedIds.length > 0) {
-            // Finde die eingefügten Nodes im Tree
-            for (long id : pastedIds) {
-                EditNodeAbstract pastedNode = sourceTree.getModel().getEditTree().findNodeById(id);
-                if (pastedNode != null) {
-                    // Hier könnte man die Selektion setzen, aber das wird normalerweise 
-                    // durch den Command Handler erledigt
-                }
-            }
-        }
-    }
-
-    /**
-     * Prüft, ob die Nodes des aktuellen Stash an der Zielposition eingefügt werden können.
-     * 
+     * Prüft, ob die Nodes des aktuellen Stash an der Zielposition eingefügt
+     * werden können.
+     *
      * @param targetData das Ziel-EditNode
      * @return true, wenn das Einfügen möglich ist
      */
@@ -309,7 +265,7 @@ public class JackClipboardTree extends JTree {
 
     /**
      * Gibt den aktuellen Stash-Namen zurück.
-     * 
+     *
      * @return der Name des aktuellen Stash
      */
     public String getCurrentStashName() {
@@ -318,7 +274,7 @@ public class JackClipboardTree extends JTree {
 
     /**
      * Gibt den ClipboardManager zurück.
-     * 
+     *
      * @return der ClipboardManager
      */
     public ClipboardManager getClipboardManager() {
@@ -335,7 +291,7 @@ public class JackClipboardTree extends JTree {
 
     /**
      * Erstellt einen neuen Stash mit dem angegebenen Namen.
-     * 
+     *
      * @param name der Name des neuen Stash
      */
     public void createNewStash(String name) {
@@ -347,7 +303,7 @@ public class JackClipboardTree extends JTree {
 
     /**
      * Löscht den Stash mit dem angegebenen Namen.
-     * 
+     *
      * @param name der Name des zu löschenden Stash
      */
     public void removeStash(String name) {
@@ -359,7 +315,7 @@ public class JackClipboardTree extends JTree {
 
     /**
      * Gibt alle verfügbaren Stash-Namen zurück.
-     * 
+     *
      * @return Array mit allen Stash-Namen
      */
     public String[] getAllStashNames() {
@@ -368,7 +324,7 @@ public class JackClipboardTree extends JTree {
 
     /**
      * Gibt den aktuellen Stash zurück.
-     * 
+     *
      * @return der aktuelle ClipboardStash
      */
     public ClipboardStash getCurrentStash() {

@@ -104,12 +104,12 @@ public class ClipboardArrayTestNG implements ATestTools {
         assertEquals(rootB.getChildCount(), 4,
                 "Tree B should contain original child plus three pasted nodes");
 
-        long[] pastedIds = pasteCmd.getPastedNodeIds();
-        assertEquals(pastedIds.length, 3,
+        EditNodeAbstract[] pasted = pasteExecuteResult.getAddedNodes();
+        assertEquals(pasted.length, 3,
                 "Exactly three nodes must have been pasted");
 
-        for (long pastedId : pastedIds) {
-            assertNotNull(treeB.findNodeById(pastedId),
+        for (EditNodeAbstract pa : pasted) {
+            assertNotNull(treeB.findNodeByIdAndRange(pa),
                     "Every pasted node must exist in tree B");
         }
 
@@ -196,12 +196,12 @@ public class ClipboardArrayTestNG implements ATestTools {
         assertEquals(rootB.getChildCount(), 4,
                 "Tree B should contain original child plus three pasted cut nodes");
 
-        long[] pastedIds = pasteCmd.getPastedNodeIds();
-        assertEquals(pastedIds.length, 3,
+        EditNodeAbstract[] pasted = pasteExecuteResult.getAddedNodes();
+        assertEquals(pasted.length, 3,
                 "Exactly three cut nodes must have been pasted");
 
-        for (long pastedId : pastedIds) {
-            assertNotNull(treeB.findNodeById(pastedId),
+        for (EditNodeAbstract pa : pasted) {
+            assertNotNull(treeB.findNodeByIdAndRange(pa),
                     "Every pasted cut node must exist in tree B");
         }
 

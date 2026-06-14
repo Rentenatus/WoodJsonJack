@@ -90,8 +90,8 @@ public class ClipboardEditMixTestNG implements ATestTools {
                 ClipboardManager.CLIPBOARD_STASH_NAME,
                 copyIds
         );
-        CommandResult copyExecute = copyCmd.execute(treeA);
-        printCommandResult("COPY[2] execute", copyExecute);
+        CommandResult copyExecuteResult = copyCmd.execute(treeA);
+        printCommandResult("COPY[2] execute", copyExecuteResult);
 
         PasteFromStashCommand pasteCmd = new PasteFromStashCommand(
                 clipboard,
@@ -99,20 +99,20 @@ public class ClipboardEditMixTestNG implements ATestTools {
                 rootB,
                 -1
         );
-        CommandResult pasteExecute = pasteCmd.execute(treeB);
-        printCommandResult("PASTE(copy)[2] execute", pasteExecute);
+        CommandResult pasteExecuteResult = pasteCmd.execute(treeB);
+        printCommandResult("PASTE(copy)[2] execute", pasteExecuteResult);
         printEditorState(editorB, "After PASTE(copy)[2]");
         printSubtree(editorB, "Subtree B/root after paste(copy)[2]", rootB);
 
         softly.assertEquals(rootB.getChildCount(), 4,
                 "Tree B should contain b1, b2 and two pasted nodes");
 
-        long[] pastedIds = pasteCmd.getPastedNodeIds();
-        softly.assertEquals(pastedIds.length, 2,
+        EditNodeAbstract[] pasted = pasteExecuteResult.getAddedNodes();
+        softly.assertEquals(pasted.length, 2,
                 "Exactly two nodes should be pasted");
 
-        EditNodeAbstract pasted1 = treeB.findNodeById(pastedIds[0]);
-        EditNodeAbstract pasted2 = treeB.findNodeById(pastedIds[1]);
+        EditNodeAbstract pasted1 = treeB.findNodeByIdAndRange(pasted[0]);
+        EditNodeAbstract pasted2 = treeB.findNodeByIdAndRange(pasted[1]);
         softly.assertNotNull(pasted1, "First pasted node must exist");
         softly.assertNotNull(pasted2, "Second pasted node must exist");
 
@@ -120,8 +120,8 @@ public class ClipboardEditMixTestNG implements ATestTools {
         // Zwischenänderungen: Move + Value/Text change
         // ------------------------------------------------------------
         MoveNodeCommand moveCmd = new MoveNodeCommand(pasted2, 0);
-        CommandResult moveExecute = moveCmd.execute(treeB);
-        printCommandResult("MOVE pasted2 -> index 0 execute", moveExecute);
+        CommandResult moveExecuteResult = moveCmd.execute(treeB);
+        printCommandResult("MOVE pasted2 -> index 0 execute", moveExecuteResult);
         printEditorState(editorB, "After MOVE on editorB");
         printSubtree(editorB, "Subtree B/root after move", rootB);
 
@@ -132,35 +132,35 @@ public class ClipboardEditMixTestNG implements ATestTools {
         // ------------------------------------------------------------
         // Undo paste trotz Zwischenänderungen
         // ------------------------------------------------------------
-        CommandResult pasteUndo = pasteCmd.undo(treeB);
-        printCommandResult("PASTE(copy)[2] undo", pasteUndo);
+        CommandResult pasteUndoResult = pasteCmd.undo(treeB);
+        printCommandResult("PASTE(copy)[2] undo", pasteUndoResult);
         printEditorState(editorB, "After undo PASTE(copy)[2]");
         printSubtree(editorB, "Subtree B/root after undo paste(copy)[2]", rootB);
 
         softly.assertEquals(rootB.getChildCount(), 2,
                 "Undo paste should remove both pasted nodes even after move/value-change");
-        softly.assertNull(treeB.findNodeById(pastedIds[0]),
+        softly.assertNull(treeB.findNodeByIdAndRange(pasted[0]),
                 "First pasted node must be gone after undo");
-        softly.assertNull(treeB.findNodeById(pastedIds[1]),
+        softly.assertNull(treeB.findNodeByIdAndRange(pasted[1]),
                 "Second pasted node must be gone after undo");
 
         // ------------------------------------------------------------
         // Redo paste nach dazwischenhängenden Änderungen
         // ------------------------------------------------------------
-        CommandResult pasteRedo = pasteCmd.execute(treeB);
-        printCommandResult("PASTE(copy)[2] redo", pasteRedo);
+        CommandResult pasteRedoResult = pasteCmd.execute(treeB);
+        printCommandResult("PASTE(copy)[2] redo", pasteRedoResult);
         printEditorState(editorB, "After redo PASTE(copy)[2]");
         printSubtree(editorB, "Subtree B/root after redo paste(copy)[2]", rootB);
 
         softly.assertEquals(rootB.getChildCount(), 4,
                 "Redo paste should restore two pasted nodes");
 
-        long[] redoIds = pasteCmd.getPastedNodeIds();
-        softly.assertEquals(redoIds.length, 2,
+        EditNodeAbstract[] redos = pasteExecuteResult.getRemovedNodes();
+        softly.assertEquals(redos.length, 2,
                 "Redo should again produce two pasted node IDs");
-        softly.assertNotNull(treeB.findNodeById(redoIds[0]),
+        softly.assertNotNull(treeB.findNodeByIdAndRange(redos[0]),
                 "Redo pasted node 1 must exist");
-        softly.assertNotNull(treeB.findNodeById(redoIds[1]),
+        softly.assertNotNull(treeB.findNodeByIdAndRange(redos[1]),
                 "Redo pasted node 2 must exist");
 
         softly.assertAll();
@@ -200,17 +200,17 @@ public class ClipboardEditMixTestNG implements ATestTools {
                 rootB,
                 -1
         );
-        CommandResult pasteExecute = pasteCmd.execute(treeB);
-        printCommandResult("PASTE(cut)[2] execute", pasteExecute);
+        CommandResult pasteExecuteResult = pasteCmd.execute(treeB);
+        printCommandResult("PASTE(cut)[2] execute", pasteExecuteResult);
         printEditorState(editorB, "After PASTE(cut)[2] on editorB");
         printSubtree(editorB, "Subtree B/root after paste(cut)[2]", rootB);
 
         softly.assertEquals(rootB.getChildCount(), 4,
                 "Tree B should contain b1, b2 and two pasted cut nodes");
 
-        long[] pastedIds = pasteCmd.getPastedNodeIds();
-        EditNodeAbstract pasted1 = treeB.findNodeById(pastedIds[0]);
-        EditNodeAbstract pasted2 = treeB.findNodeById(pastedIds[1]);
+        EditNodeAbstract[] pastedIds = pasteExecuteResult.getAddedNodes();
+        EditNodeAbstract pasted1 = treeB.findNodeByIdAndRange(pastedIds[0]);
+        EditNodeAbstract pasted2 = treeB.findNodeByIdAndRange(pastedIds[1]);
 
         softly.assertNotNull(pasted1, "First pasted cut node must exist");
         softly.assertNotNull(pasted2, "Second pasted cut node must exist");
@@ -219,8 +219,8 @@ public class ClipboardEditMixTestNG implements ATestTools {
         // Zwischenänderungen: Move + Value/Text change
         // ------------------------------------------------------------
         MoveNodeCommand moveCmd = new MoveNodeCommand(pasted1, 0);
-        CommandResult moveExecute = moveCmd.execute(treeB);
-        printCommandResult("MOVE pasted1 -> index 0 execute", moveExecute);
+        CommandResult moveExecuteResult = moveCmd.execute(treeB);
+        printCommandResult("MOVE pasted1 -> index 0 execute", moveExecuteResult);
         printEditorState(editorB, "After MOVE in cut scenario");
         printSubtree(editorB, "Subtree B/root after move in cut scenario", rootB);
 
@@ -231,33 +231,33 @@ public class ClipboardEditMixTestNG implements ATestTools {
         // ------------------------------------------------------------
         // Undo paste
         // ------------------------------------------------------------
-        CommandResult pasteUndo = pasteCmd.undo(treeB);
-        printCommandResult("PASTE(cut)[2] undo", pasteUndo);
+        CommandResult pasteUndoResult = pasteCmd.undo(treeB);
+        printCommandResult("PASTE(cut)[2] undo", pasteUndoResult);
         printEditorState(editorB, "After undo PASTE(cut)[2]");
         printSubtree(editorB, "Subtree B/root after undo paste(cut)[2]", rootB);
 
         softly.assertEquals(rootB.getChildCount(), 2,
                 "Undo paste should remove both pasted cut nodes");
-        softly.assertNull(treeB.findNodeById(pastedIds[0]),
+        softly.assertNull(treeB.findNodeByIdAndRange(pastedIds[0]),
                 "First pasted cut node must be gone after undo");
-        softly.assertNull(treeB.findNodeById(pastedIds[1]),
+        softly.assertNull(treeB.findNodeByIdAndRange(pastedIds[1]),
                 "Second pasted cut node must be gone after undo");
 
         // ------------------------------------------------------------
         // Redo paste
         // ------------------------------------------------------------
-        CommandResult pasteRedo = pasteCmd.execute(treeB);
-        printCommandResult("PASTE(cut)[2] redo", pasteRedo);
+        CommandResult pasteRedoResult = pasteCmd.execute(treeB);
+        printCommandResult("PASTE(cut)[2] redo", pasteRedoResult);
         printEditorState(editorB, "After redo PASTE(cut)[2]");
         printSubtree(editorB, "Subtree B/root after redo paste(cut)[2]", rootB);
 
         softly.assertEquals(rootB.getChildCount(), 4,
                 "Redo paste should restore both cut nodes into tree B");
 
-        long[] redoIds = pasteCmd.getPastedNodeIds();
-        softly.assertNotNull(treeB.findNodeById(redoIds[0]),
+        EditNodeAbstract[] redos = pasteExecuteResult.getRemovedNodes();
+        softly.assertNotNull(treeB.findNodeByIdAndRange(redos[0]),
                 "Redo pasted cut node 1 must exist");
-        softly.assertNotNull(treeB.findNodeById(redoIds[1]),
+        softly.assertNotNull(treeB.findNodeByIdAndRange(redos[1]),
                 "Redo pasted cut node 2 must exist");
 
         // Optional zusätzlich: Undo des Cuts im Source-Tree

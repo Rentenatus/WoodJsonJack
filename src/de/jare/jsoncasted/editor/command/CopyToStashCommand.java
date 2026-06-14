@@ -30,15 +30,14 @@ import java.util.Map;
  *
  * <p>
  * For multi-selection, descendant nodes are ignored if one of their ancestors
- * is already part of the copy set. This prevents duplicate content in the stash.</p>
+ * is already part of the copy set. This prevents duplicate content in the
+ * stash.</p>
  *
  * <p>
  * The command uses MovementEntry[] for storing node snapshots, similar to
  * AddNodeCommand but without actually adding nodes to the tree.</p>
  */
 public class CopyToStashCommand extends AbstractEditCommand {
-
-    public static final UpdateAction[] NO_UPDATE_ACTIONS = new UpdateAction[0];
 
     private final ClipboardManager clipboardManager;
     private final String stashName;

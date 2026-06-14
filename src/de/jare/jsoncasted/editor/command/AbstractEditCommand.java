@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -169,43 +170,7 @@ public abstract class AbstractEditCommand implements EditCommand {
      */
     protected abstract CommandResult doUndo(EditTree tree);
 
-    @Override
-    public String toString() {
-        return getClass().getSimpleName() + "[type=" + type + ", description='" + description + "']";
-    }
-
-    /**
-     *
-     * @param children1
-     * @param children2orNull
-     * @return
-     */
-    public final EditNodeAbstract[] unionParentNodes(EditNodeAbstract[] children1, EditNodeAbstract[] children2orNull) {
-        Set<EditNodeAbstract> union = new java.util.HashSet<>();
-        for (EditNodeAbstract node : children1) {
-            EditNodeAbstract parent = node.getParent();
-            if (parent != null) {
-                removeChildrenOf(union, parent);
-                if (!hasParentIn(union, parent)) {
-                    union.add(parent);
-                }
-            }
-        }
-        if (children2orNull != null) {
-            for (EditNodeAbstract node : children2orNull) {
-                EditNodeAbstract parent = node.getParent();
-                if (parent != null) {
-                    removeChildrenOf(union, parent);
-                    if (!hasParentIn(union, parent)) {
-                        union.add(parent);
-                    }
-                }
-            }
-        }
-        return union.toArray(new EditNodeAbstract[union.size()]);
-    }
-
-    protected CommandResult doAdd(EditTree tree, final EditCommandEntry.MovementEntry[] entries) {
+    protected CommandResult doAdd(EditTree tree, final EditCommandEntry.MovementEntry[] entries, CommandAction action) {
         CommandAvailability checkResult = checkAdd(tree, entries);
         if (checkResult.isDisallowed()) {
             throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());
@@ -220,22 +185,22 @@ public abstract class AbstractEditCommand implements EditCommand {
 
         for (int i = 0; i < entries.length; i++) {
             EditCommandEntry.MovementEntry entry = entries[i];
+            EditNodeAbstract parent = tree.findNodeByIdAndRange(entry.parentEditId, entry.leftRange, entry.timesRange);
+            EditNodeAbstract newNode = tree.addNode(parent, entry.snapshot, entry.index, false);
 
-            // Snapshot liefert den Teilbaum, ID bleibt erhalten
-            EditNodeAbstract newNode = entry.snapshot.deepCopy(false);
-            if (tree.addNode(entry.parentEditId, newNode, entry.index)) {
-                parentSet.add(tree.findNodeByIdAndRange(entry.parentEditId, entry.leftRange, entry.timesRange));
+            if (newNode != null) {
+                parentSet.add(parent);
                 added[i] = newNode;
             } else {
                 failedtSet.add(newNode);
             }
 
         }
-        final EditNodeAbstract[] parents = parentSet.toArray(new EditNodeAbstract[parentSet.size()]);
+        final EditNodeAbstract[] parents = unionNodes(parentSet, null);
 
         return new CommandResult(
                 this,
-                CommandAction.EXECUTE,
+                action,
                 parents, // affectedNodes
                 added, // addedNodes
                 null, //removedNodes
@@ -289,7 +254,7 @@ public abstract class AbstractEditCommand implements EditCommand {
         return CommandAvailability.allowed("editor.command.add.allowed");
     }
 
-    protected CommandResult doDelete(EditTree tree, final EditCommandEntry.MovementEntry[] entries) {
+    protected CommandResult doDelete(EditTree tree, final EditCommandEntry.MovementEntry[] entries, CommandAction action) {
         CommandAvailability checkResult = checkDelete(tree, entries);
         if (checkResult.isDisallowed()) {
             throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());
@@ -320,11 +285,11 @@ public abstract class AbstractEditCommand implements EditCommand {
             tree.removeNode(existingNode);
             removed[i] = existingNode;
         }
-        final EditNodeAbstract[] parents = parentSet.toArray(new EditNodeAbstract[parentSet.size()]);
+        final EditNodeAbstract[] parents = unionNodes(parentSet, null);
 
         return new CommandResult(
                 this,
-                CommandAction.UNDO,
+                action,
                 parents, // affectedNodes
                 null, // addedNodes
                 removed,//removedNodes
@@ -377,6 +342,69 @@ public abstract class AbstractEditCommand implements EditCommand {
         }
 
         return CommandAvailability.allowed("editor.command.delete.allowed");
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "[type=" + type + ", description='" + description + "']";
+    }
+
+    /**
+     *
+     * @param children1
+     * @param children2orNull
+     * @return
+     */
+    public final EditNodeAbstract[] unionNodes(Iterable<EditNodeAbstract> children1, Iterable<EditNodeAbstract> children2orNull) {
+        Set<EditNodeAbstract> union = new java.util.HashSet<>();
+        for (EditNodeAbstract node : children1) {
+            if (node != null) {
+                removeChildrenOf(union, node);
+                if (!hasParentIn(union, node)) {
+                    union.add(node);
+                }
+            }
+        }
+        if (children2orNull != null) {
+            for (EditNodeAbstract node : children2orNull) {
+                removeChildrenOf(union, node);
+                if (!hasParentIn(union, node)) {
+                    union.add(node);
+                }
+            }
+        }
+        return union.toArray(new EditNodeAbstract[union.size()]);
+    }
+
+    /**
+     *
+     * @param children1
+     * @param children2orNull
+     * @return
+     */
+    public final EditNodeAbstract[] unionParentNodes(Iterable<EditNodeAbstract> children1, Iterable<EditNodeAbstract> children2orNull) {
+        Set<EditNodeAbstract> union = new java.util.HashSet<>();
+        for (EditNodeAbstract node : children1) {
+            EditNodeAbstract parent = node.getParent();
+            if (parent != null) {
+                removeChildrenOf(union, parent);
+                if (!hasParentIn(union, parent)) {
+                    union.add(parent);
+                }
+            }
+        }
+        if (children2orNull != null) {
+            for (EditNodeAbstract node : children2orNull) {
+                EditNodeAbstract parent = node.getParent();
+                if (parent != null) {
+                    removeChildrenOf(union, parent);
+                    if (!hasParentIn(union, parent)) {
+                        union.add(parent);
+                    }
+                }
+            }
+        }
+        return union.toArray(new EditNodeAbstract[union.size()]);
     }
 
     /**

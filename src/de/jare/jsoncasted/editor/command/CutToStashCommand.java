@@ -21,13 +21,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Command that cuts node(s) from the tree and stores them in a stash.
- * When executed, the node(s) are removed from their parent(s) and copied to the
+ * Command that cuts node(s) from the tree and stores them in a stash. When
+ * executed, the node(s) are removed from their parent(s) and copied to the
  * clipboard stash. When undone, the node(s) are restored from the stash.
  *
  * <p>
  * For multi-selection, descendant nodes are ignored if one of their ancestors
- * is already part of the cut set. This prevents duplicate restoration on undo.</p>
+ * is already part of the cut set. This prevents duplicate restoration on
+ * undo.</p>
  *
  * <p>
  * The command uses MovementEntry[] for storing node positions and snapshots,
@@ -225,23 +226,8 @@ public class CutToStashCommand extends AbstractEditCommand {
         clipboardManager.cutToStash(stashName, tree, nodeIds);
 
         // Perform the delete operation
-        CommandResult result = doDelete(tree, entries);
+        return doDelete(tree, entries, CommandAction.EXECUTE);
 
-        // Update the affected nodes to include the stash content
-        if (result != null) {
-            return new CommandResult(
-                    this,
-                    result.getAction(),
-                    result.getAffectedNodes(),
-                    result.getAddedNodes(),
-                    result.getRemovedNodes(),
-                    result.getUpdatedNodes(),
-                    result.getFailedNodes(),
-                    UPDATE_ACTIONS
-            );
-        }
-
-        return null;
     }
 
     @Override
@@ -253,22 +239,7 @@ public class CutToStashCommand extends AbstractEditCommand {
         }
 
         // Perform the add operation (undo of delete is add)
-        CommandResult result = doAdd(tree, entries);
-
-        if (result != null) {
-            return new CommandResult(
-                    this,
-                    result.getAction(),
-                    result.getAffectedNodes(),
-                    result.getAddedNodes(),
-                    result.getRemovedNodes(),
-                    result.getUpdatedNodes(),
-                    result.getFailedNodes(),
-                    UPDATE_ACTIONS
-            );
-        }
-
-        return null;
+        return doAdd(tree, entries, CommandAction.UNDO);
     }
 
     /**

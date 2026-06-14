@@ -13,7 +13,10 @@ import de.jare.jsoncasted.editor.command.EditCommandEntry.MovementEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Command that pastes nodes from a clipboard stash into the tree.
@@ -34,7 +37,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
     private final ClipboardManager clipboardManager;
     private final String stashName;
     private final MovementEntry[] entries;
-    private long[] pastedNodeIds;
+    private SimpleEntry[] pastedEntries;
 
     /**
      * Creates a command to paste from a stash to a parent node at a specific
@@ -66,7 +69,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
 
         this.clipboardManager = clipboardManager;
         this.stashName = stashName;
-        this.pastedNodeIds = new long[0];
+        this.pastedEntries = new SimpleEntry[0];
 
         // Create entries for all nodes in the stash
         ClipboardStash stash = clipboardManager.getStash(stashName);
@@ -169,7 +172,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
         this.clipboardManager = clipboardManager;
         this.stashName = stashName;
         this.entries = copyAndValidate(entries);
-        this.pastedNodeIds = new long[0];
+        this.pastedEntries = new SimpleEntry[0];
 
         if (this.entries.length == 1) {
             setDescription("Paste from stash '" + stashName + "'");
@@ -244,42 +247,31 @@ public class PasteFromStashCommand extends AbstractEditCommand {
         }
 
         // Perform the add operation
-        CommandResult result = doAdd(tree, entries);
+        CommandResult result = doAdd(tree, entries, CommandAction.EXECUTE);
 
         // Capture the IDs of the pasted nodes
         if (result != null) {
             EditNodeAbstract[] addedNodes = result.getAddedNodes();
-            this.pastedNodeIds = new long[addedNodes.length];
+            this.pastedEntries = new SimpleEntry[addedNodes.length];
             for (int i = 0; i < addedNodes.length; i++) {
-                this.pastedNodeIds[i] = addedNodes[i].getEditId();
+                this.pastedEntries[i] = new SimpleEntry(addedNodes[i]);
             }
-
-            return new CommandResult(
-                    this,
-                    result.getAction(),
-                    result.getAffectedNodes(),
-                    result.getAddedNodes(),
-                    result.getRemovedNodes(),
-                    result.getUpdatedNodes(),
-                    result.getFailedNodes(),
-                    UPDATE_ACTIONS
-            );
         }
 
-        return null;
+        return result;
     }
 
     @Override
     public CommandResult doUndo(EditTree tree) {
-        if (pastedNodeIds.length == 0) {
+        if (pastedEntries.length == 0) {
             return null;
         }
 
         // Create delete entries for all pasted nodes
-        MovementEntry[] deleteEntries = new MovementEntry[pastedNodeIds.length];
-        for (int i = 0; i < pastedNodeIds.length; i++) {
-            long nodeId = pastedNodeIds[i];
-            EditNodeAbstract node = tree.findNodeById(nodeId);
+        List<MovementEntry> deleteEntries = new ArrayList<>(pastedEntries.length);
+        for (int i = 0; i < pastedEntries.length; i++) {
+            SimpleEntry pastedEntry = pastedEntries[i];
+            EditNodeAbstract node = tree.findNodeByIdAndRange(pastedEntry);
             if (node == null) {
                 // Node might have been removed by other means
                 continue;
@@ -288,11 +280,11 @@ public class PasteFromStashCommand extends AbstractEditCommand {
             EditNodeAbstract parent = node.getParent();
             int index = parent != null ? parent.getChildIndex(node) : -1;
 
-            deleteEntries[i] = new MovementEntry(
+            deleteEntries.add(new MovementEntry(
                     node,
                     parent,
                     index
-            );
+            ));
         }
 
         // Filter out null entries
@@ -316,22 +308,9 @@ public class PasteFromStashCommand extends AbstractEditCommand {
         }
 
         // Perform the delete operation
-        CommandResult result = doDelete(tree, validEntries);
+        CommandResult result = doDelete(tree, validEntries, CommandAction.UNDO);
 
-        if (result != null) {
-            return new CommandResult(
-                    this,
-                    result.getAction(),
-                    result.getAffectedNodes(),
-                    result.getAddedNodes(),
-                    result.getRemovedNodes(),
-                    result.getUpdatedNodes(),
-                    result.getFailedNodes(),
-                    UPDATE_ACTIONS
-            );
-        }
-
-        return null;
+        return result;
     }
 
     /**
@@ -359,16 +338,6 @@ public class PasteFromStashCommand extends AbstractEditCommand {
      */
     public ClipboardManager getClipboardManager() {
         return clipboardManager;
-    }
-
-    /**
-     * Returns the IDs of the pasted nodes. This is only available after
-     * execute() has been called.
-     *
-     * @return a copy of the pasted node IDs array
-     */
-    public long[] getPastedNodeIds() {
-        return pastedNodeIds.clone();
     }
 
     @Override

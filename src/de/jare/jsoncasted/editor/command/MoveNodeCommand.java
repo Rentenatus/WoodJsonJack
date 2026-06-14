@@ -556,7 +556,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * @param moveBubbles the array of move bubbles to process
      * @return an array of unique parent nodes involved in the move bubbles
      */
-    private EditNodeAbstract[] unionParentNodes(MoveBubble[] moveBubbles) {
+    private EditNodeAbstract[] unionParentNodes(  MoveBubble[] moveBubbles) {
         Set<EditNodeAbstract> union = new java.util.HashSet<>();
         for (MoveBubble moveBubble : moveBubbles) {
             if (moveBubble.oldParent != null) {

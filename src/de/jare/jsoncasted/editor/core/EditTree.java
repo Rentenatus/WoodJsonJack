@@ -83,7 +83,7 @@ public class EditTree {
      * @return the node in the tree that matches the criteria specified by the
      * abstract entry, or null if no such node is found
      */
-    public EditNodeAbstract findNodeByIdAndRange(AbstractEntry entry) {
+    public EditNodeAbstract findNodeByIdAndRange(SimpleEntry entry) {
         return findNodeByIdAndRange(entry.nodeId, entry.leftRange, entry.timesRange, root, true);
     }
 
@@ -299,58 +299,45 @@ public class EditTree {
     /**
      * Adds a new node to the tree under the specified parent node.
      *
-     * @param parentId the ID of the parent node under which the new node should
-     * be added
-     * @param newNode the new node to be added to the tree
+     * @param parentNode the parent node under which the new node should be
+     * added
+     * @param template the template of new node to be added to the tree
+     * @param regenerateEditId
      * @return true if the node was added successfully, false otherwise
      */
-    public boolean addNode(long parentId, EditNodeAbstract newNode) {
-        return addNode(parentId, newNode, -1);
+    public EditNodeAbstract addNode(EditNodeAbstract parentNode, EditNodeAbstract template, boolean regenerateEditId) {
+        return addNode(parentNode, template, -1, regenerateEditId);
     }
 
     /**
      * Adds a new node to the tree under the specified parent node at a given
-     * index. This method takes the ID of the parent node, the new node to be
-     * added, and the index at which the new node should be inserted as
-     * parameters. It first checks if the new node is null and throws an
-     * IllegalArgumentException if it is. Then, it finds the parent node in the
-     * tree using the provided parent ID. If the parent node is not found, it
-     * throws an IllegalStateException. Finally, it adds the new node as a child
-     * of the parent node at the specified index, or appends it to the end of
-     * the children list if the index is negative.
+     * index.
      *
-     * It dont using interval labeling, so it is not as efficient as addChild,
-     * but it can be used as a fallback if the left range and times range are
-     * not yet known or if the initial search fails to find a node. This method
-     * is useful for cases where the node ID is the only available information
-     * for locating the parent node in the tree.
-     *
-     * @param parentId the ID of the parent node under which the new node should
-     * be added
-     * @param newNode the new node to be added to the tree
+     * @param parentNode the parent node under which the new node should be
+     * added
+     * @param template the template of new node to be added to the tree
      * @param index the index at which the new node should be inserted under the
      * parent node, or -1 to append to the end of the children list
-     * @return true if the node was added successfully, false otherwise
+     * @param regenerateEditId
+     * @return newNode if the node was added successfully
      */
-    public boolean addNode(long parentId, EditNodeAbstract newNode, int index) {
-        if (newNode == null) {
+    public EditNodeAbstract addNode(EditNodeAbstract parentNode, EditNodeAbstract template, int index, boolean regenerateEditId) {
+        if (template == null) {
             throw new IllegalArgumentException("New node cannot be null");
         }
-
-        EditNodeAbstract parent = findNodeById(parentId);
-        if (parent == null) {
-            throw new IllegalStateException("Parent node with ID " + parentId + " not found.");
+        if (parentNode == null) {
+            throw new IllegalStateException("Parent node cannot be null");
         }
-
-        checkCycles(newNode, parent);
+        checkMembership(parentNode);
+        checkCycles(template, parentNode);
+        EditNodeAbstract newNode = template.deepCopy(regenerateEditId);
 
         if (index >= 0) {
-            parent.addChild(newNode, index, weightMonitor);
+            parentNode.addChild(newNode, index, weightMonitor);
         } else {
-            parent.addChild(newNode, weightMonitor);
+            parentNode.addChild(newNode, weightMonitor);
         }
-
-        return true;
+        return newNode;
     }
 
     /**
@@ -402,7 +389,7 @@ public class EditTree {
         if (parentNode == null) {
             throw new IllegalArgumentException("Parent node cannot be null.");
         }
-        checkParentMembership(parentNode);
+        checkMembership(parentNode);
     }
 
     /**
@@ -426,7 +413,7 @@ public class EditTree {
         if (newNode == null || parentNode == null) {
             throw new IllegalArgumentException("New and parent nodes cannot be null.");
         }
-        checkParentMembership(parentNode);
+        checkMembership(parentNode);
         checkCycles(newNode, parentNode);
         if (!newNode.canBeChildOf(parentNode)) {
             throw new IllegalArgumentException("This new node cannot become a child of the specified parent.");
@@ -440,7 +427,7 @@ public class EditTree {
      * @throws IllegalArgumentException if the parent node is not part of the
      * tree
      */
-    public void checkParentMembership(EditNode node) throws IllegalArgumentException {
+    public void checkMembership(EditNode node) throws IllegalArgumentException {
         if (!isNodeOfThisTree(node)) {
             throw new IllegalArgumentException("The node must be a node from the tree");
         }
@@ -521,31 +508,8 @@ public class EditTree {
         if (parentNode == null) {
             return false;
         }
-        checkParentMembership(parentNode);
+        checkMembership(parentNode);
         return parentNode.removeChild(child);
-    }
-
-    /**
-     * Adds multiple nodes to the tree efficiently. Nodes are added in the order
-     * they appear in the array.
-     *
-     * @param parentIds the parent IDs for each node
-     * @param newNodes the nodes to add
-     * @param indices the indices for each node (-1 for append)
-     * @return true if all nodes were added successfully
-     */
-    public boolean addNodes(long[] parentIds, EditNodeAbstract[] newNodes, int[] indices) {
-        if (newNodes == null || parentIds == null || indices == null) {
-            throw new IllegalArgumentException("Arguments cannot be null");
-        }
-        if (newNodes.length != parentIds.length || newNodes.length != indices.length) {
-            throw new IllegalArgumentException("Arrays must have the same length");
-        }
-
-        for (int i = 0; i < newNodes.length; i++) {
-            addNode(parentIds[i], newNodes[i], indices[i]);
-        }
-        return true;
     }
 
     /**
@@ -584,7 +548,7 @@ public class EditTree {
      *
      * @param entries of the nodes to remove
      */
-    public void removeNodes(AbstractEntry[] entries) {
+    public void removeNodes(SimpleEntry[] entries) {
         // Remove in reverse order to maintain correct indices
         for (int i = entries.length - 1; i >= 0; i--) {
             removeNode(entries[i].nodeId, entries[i].leftRange, entries[i].timesRange);
@@ -670,7 +634,7 @@ public class EditTree {
      * @param node the node to perform range relabeling on
      */
     public void rangeRelabeling(EditNodeAbstract node) {
-        checkParentMembership(node);
+        checkMembership(node);
         node.rangeRelabeling(weightMonitor);
     }
 

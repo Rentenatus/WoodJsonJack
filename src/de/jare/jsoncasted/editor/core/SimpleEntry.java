@@ -8,7 +8,7 @@ package de.jare.jsoncasted.editor.core;
  *
  * @author Janusch Rentenatus
  */
-public class AbstractEntry {
+public class SimpleEntry {
 
     /**
      * The ID of the affected node, or {@code -1} if not yet known.
@@ -39,9 +39,15 @@ public class AbstractEntry {
      * @param timesRange the timesRange of the affected node, or
      * {@code Long.MIN_VALUE} if not yet known
      */
-    public AbstractEntry(long nodeId, long leftRange, long timesRange) {
+    public SimpleEntry(long nodeId, long leftRange, long timesRange) {
         this.nodeId = nodeId;
         this.leftRange = leftRange;
         this.timesRange = timesRange;
+    }
+
+    public SimpleEntry(EditNode node) {
+        this.nodeId = node.getEditId();
+        this.leftRange = node.getLeftRange();
+        this.timesRange = node.getTimesRange();
     }
 }

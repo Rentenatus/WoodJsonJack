@@ -6,7 +6,7 @@
  */
 package de.jare.jsoncasted.editor.command;
 
-import de.jare.jsoncasted.editor.core.AbstractEntry;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
@@ -31,7 +31,7 @@ public final class EditCommandEntry {
      * command type, {@code snapshot} may contain a subtree copy used for
      * undo/redo reconstruction.</p>
      */
-    public static final class MovementEntry extends AbstractEntry {
+    public static final class MovementEntry extends SimpleEntry {
 
         /**
          * The ID of the parent node.
@@ -131,7 +131,7 @@ public final class EditCommandEntry {
      * <p>
      * This entry is used for commands such as rename and set-value.</p>
      */
-    public static final class ContentEntry extends AbstractEntry {
+    public static final class ContentEntry extends SimpleEntry {
 
         /**
          * The previous value.
