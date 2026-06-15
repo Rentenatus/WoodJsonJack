@@ -332,7 +332,7 @@ public class EditTree {
         checkCycles(template, parentNode);
         EditNodeAbstract newNode = template.deepCopy(regenerateEditId);
 
-        if (index >= 0) {
+        if (index >= 0 && index <= parentNode.getChildCount()) {
             parentNode.addChild(newNode, index, weightMonitor);
         } else {
             parentNode.addChild(newNode, weightMonitor);

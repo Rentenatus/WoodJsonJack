@@ -50,9 +50,9 @@ public class EditNodeAbstractNGTest {
         // Create root node using reflection for private constructor
         long editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
         Constructor<EditNodeObject> nodeConstructor = EditNodeObject.class.getDeclaredConstructor(
-                long.class, long.class, long.class, long.class, String.class, String.class);
+                long.class, long.class, long.class, long.class, String.class);
         nodeConstructor.setAccessible(true);
-        EditNodeObject root = nodeConstructor.newInstance(editId, leftRange, rightRange, Long.MIN_VALUE, "rootValue", "rootObject");
+        EditNodeObject root = nodeConstructor.newInstance(editId, leftRange, rightRange, Long.MIN_VALUE, "rootObject");
 
         // Create tree with the root using reflection for package-private constructor
         Constructor<EditTree> treeConstructor = EditTree.class.getDeclaredConstructor(EditNodeAbstract.class);

@@ -227,14 +227,6 @@ public abstract class AbstractEditCommand implements EditCommand {
                         Integer.toString(i));
             }
 
-            if (entry.index < -1 || entry.index > parent.getChildCount()) {
-                return CommandAvailability.disallowed(
-                        "editor.command.add.indexInvalid",
-                        Integer.toString(entry.index),
-                        Integer.toString(parent.getChildCount()),
-                        Integer.toString(i));
-            }
-
             EditNode child = entry.snapshot;
             if (child == null) {
                 return CommandAvailability.disallowed(
