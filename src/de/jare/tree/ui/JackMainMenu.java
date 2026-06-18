@@ -29,7 +29,10 @@ public class JackMainMenu extends JMenuBar {
     private final JMenuItem pasteUnderneathItem;
     private final JMenuItem deleteNodeItem;
     private final JMenuItem cutItem;
+    private final JMenuItem addNodeItem;
+    private final JMenuItem renameNodeItem;
     private Object lastSelectedNode;
+    private TreeFocusComponent lastSelectedEditor;
 
     public JackMainMenu(WoodWindow mainFrame, JackMasterControl master) {
         this.woodWindow = mainFrame;
@@ -74,9 +77,9 @@ public class JackMainMenu extends JMenuBar {
         JMenu editMenu = new JMenu("Edit");
         editMenu.setMnemonic(KeyEvent.VK_E);
 
-        JMenuItem addNodeItem = new JMenuItem("Node hinzufügen");
+        addNodeItem = new JMenuItem("Node hinzufügen");
         deleteNodeItem = new JMenuItem("Node löschen");
-        JMenuItem renameNodeItem = new JMenuItem("Node umbenennen");
+        renameNodeItem = new JMenuItem("Node umbenennen");
 
         addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
         deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
@@ -116,17 +119,14 @@ public class JackMainMenu extends JMenuBar {
             @Override
             public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
                 lastSelectedNode = node;
-                boolean enableCutDelete = !rootSelected && node instanceof DefaultMutableTreeNode;
-                deleteNodeItem.setEnabled(enableCutDelete);
-                cutItem.setEnabled(enableCutDelete);
-
-                updatePasteEnabled();
+                lastSelectedEditor = (trigger instanceof TreeFocusComponent) ? (TreeFocusComponent) trigger : null;
+                updateMenuEnabledState(rootSelected, node instanceof DefaultMutableTreeNode);
             }
 
             @Override
             public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
-                // hier könntest du bei Editorwechsel ggf. alles disablen,
-                // wenn kein aktiver JSON-Editor offen ist
+                lastSelectedEditor = editor;
+                updateMenuEnabledState(false, true);
             }
         });
 
@@ -135,7 +135,27 @@ public class JackMainMenu extends JMenuBar {
 
     }
 
+    private void updateMenuEnabledState(boolean rootSelected, boolean nodeExists) {
+        boolean isReadonly = lastSelectedEditor == null || lastSelectedEditor.isReadonly();
+        boolean enableCutDelete = !isReadonly && !rootSelected && nodeExists;
+        boolean enableAddRename = !isReadonly && nodeExists;
+
+        deleteNodeItem.setEnabled(enableCutDelete);
+        cutItem.setEnabled(enableCutDelete);
+        addNodeItem.setEnabled(enableAddRename);
+        renameNodeItem.setEnabled(enableAddRename);
+
+        updatePasteEnabled();
+    }
+
     private void updatePasteEnabled() {
+        boolean isReadonly = lastSelectedEditor != null && lastSelectedEditor.isReadonly();
+        if (isReadonly) {
+            pasteItem.setEnabled(false);
+            pasteUnderneathItem.setEnabled(false);
+            return;
+        }
+
         boolean canPaste = false;
         boolean canPasteUnderneath = false;
         if (lastSelectedNode instanceof DefaultMutableTreeNode dmtn) {

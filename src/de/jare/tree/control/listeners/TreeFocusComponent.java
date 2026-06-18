@@ -22,4 +22,8 @@ public interface TreeFocusComponent {
 
     public JackMasterControl getJackMaster();
 
+    default boolean isReadonly() {
+        return false;
+    }
+
 }

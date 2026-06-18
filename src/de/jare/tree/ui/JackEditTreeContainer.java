@@ -37,6 +37,7 @@ public class JackEditTreeContainer extends JPanel {
         this.leftTree = new JackEditTree(master, leftRootName, propNames);
         this.rightTree = new JackEditTree(master, rightRootName, propNames);
         this.rightTree.setResourceInfo("Keine abhängige Ressourcen.");
+        this.rightTree.setReadonly(true);
         
         this.leftTree.getLinkCheckBox().addActionListener(
                 e -> toggleLinkView(this.leftTree.getLinkCheckBox().isSelected())
@@ -128,5 +129,24 @@ public class JackEditTreeContainer extends JPanel {
      */
     public void setRightResourceInfo(String text) {
         rightTree.setResourceInfo(text);
+    }
+
+    /**
+     * Setzt den Readonly-Modus für beide Bäume.
+     *
+     * @param readonly Wenn true, sind beide Bäume schreibgeschützt.
+     */
+    public void setReadonly(boolean readonly) {
+        leftTree.setReadonly(readonly);
+        rightTree.setReadonly(true);
+    }
+
+    /**
+     * Gibt zurück, ob die Bäume im Readonly-Modus sind.
+     *
+     * @return true, wenn die Bäume schreibgeschützt sind.
+     */
+    public boolean isReadonly() {
+        return leftTree.isReadonly();
     }
 }

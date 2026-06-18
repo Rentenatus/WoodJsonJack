@@ -33,6 +33,7 @@ class JackTreeNodeTransferHandler extends TransferHandler {
 
     private final DataFlavor nodesFlavor;
     private final JackUndoManager undoMan;
+    private boolean readonly = false;
 
     JackTreeNodeTransferHandler(JackUndoManager undoMan) {
         this.undoMan = undoMan;
@@ -47,7 +48,18 @@ class JackTreeNodeTransferHandler extends TransferHandler {
 
     @Override
     public int getSourceActions(JComponent c) {
+        if (readonly) {
+            return NONE;
+        }
         return MOVE;
+    }
+
+    public void setReadonly(boolean readonly) {
+        this.readonly = readonly;
+    }
+
+    public boolean isReadonly() {
+        return readonly;
     }
 
     @Override
@@ -75,6 +87,9 @@ class JackTreeNodeTransferHandler extends TransferHandler {
 
     @Override
     public boolean canImport(TransferSupport support) {
+        if (readonly) {
+            return false;
+        }
         if (!support.isDrop() || !support.isDataFlavorSupported(nodesFlavor)) {
             return false;
         }

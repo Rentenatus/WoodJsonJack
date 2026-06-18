@@ -52,6 +52,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     private final FocusListenerImpl focusListener;
     private final UndoRedoListenerImpl undoRedoListener;
 
+    private boolean readonly = false;
+    private JackTreeNodeTransferHandler transferHandler;
+
     public JackEditTree(String rootName, String... propNames) {
         this(null, rootName, propNames);
     }
@@ -103,7 +106,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         jtree.setDragEnabled(true);
         jtree.setDropMode(DropMode.ON_OR_INSERT);
         if (undoMan != null) {
-            jtree.setTransferHandler(new JackTreeNodeTransferHandler(undoMan));
+            JackTreeNodeTransferHandler transferHandler = new JackTreeNodeTransferHandler(undoMan);
+            jtree.setTransferHandler(transferHandler);
+            this.transferHandler = transferHandler;
         }
         jtree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
 
@@ -411,6 +416,20 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         resourceLabel.setText(text);
     }
 
+    public boolean isReadonly() {
+        return readonly;
+    }
+
+    public void setReadonly(boolean readonly) {
+        this.readonly = readonly;
+        if (transferHandler != null) {
+            transferHandler.setReadonly(readonly);
+        }
+        if (jtree.getCellEditor() instanceof JsonJackTreeCellEditor cellEditor) {
+            cellEditor.setReadonly(readonly);
+        }
+    }
+
     private TreePath findPath(DefaultMutableTreeNode root, DefaultMutableTreeNode target) {
         if (root == target) {
             return new TreePath(root.getPath());
@@ -493,6 +512,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     private void addNode() {
+        if (readonly) {
+            return;
+        }
         TreePath path = jtree.getSelectionPath();
         if (path == null) {
             return;
@@ -512,6 +534,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     private void deleteNode() {
+        if (readonly) {
+            return;
+        }
         TreePath[] paths = jtree.getSelectionPaths();
         if (paths == null || paths.length == 0) {
             return;
@@ -546,6 +571,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     private void renameNode() {
+        if (readonly) {
+            return;
+        }
         TreePath path = jtree.getSelectionPath();
         if (path != null) {
             jtree.startEditingAtPath(path);
@@ -553,6 +581,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     private void copySelection(boolean cut) {
+        if (readonly && cut) {
+            return;
+        }
         TreePath[] paths = jtree.getSelectionPaths();
         if (paths == null || paths.length == 0 || master == null) {
             return;
@@ -644,6 +675,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     private void pasteClipboard() {
+        if (readonly) {
+            return;
+        }
         if (master == null) {
             return;
         }
@@ -688,6 +722,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     private void pasteClipboardUnderneath() {
+        if (readonly) {
+            return;
+        }
         if (master == null) {
             return;
         }

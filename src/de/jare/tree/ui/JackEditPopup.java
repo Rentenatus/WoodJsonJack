@@ -29,14 +29,17 @@ public class JackEditPopup extends JPopupMenu {
     private final JMenuItem pasteUnderneathItem;
     private final JMenuItem deleteNodeItem;
     private final JMenuItem cutItem;
+    private final JMenuItem addNodeItem;
+    private final JMenuItem renameNodeItem;
     private final JackMasterControl master;
     private Object lastSelectedNode;
+    private TreeFocusComponent lastSelectedEditor;
 
     public JackEditPopup(JackMasterControl master) {
         this.master = master;
-        JMenuItem addNodeItem = new JMenuItem("Node hinzufügen");
+        addNodeItem = new JMenuItem("Node hinzufügen");
         deleteNodeItem = new JMenuItem("Node löschen");
-        JMenuItem renameNodeItem = new JMenuItem("Node umbenennen");
+        renameNodeItem = new JMenuItem("Node umbenennen");
 
         addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
         deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
@@ -66,16 +69,14 @@ public class JackEditPopup extends JPopupMenu {
             @Override
             public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
                 lastSelectedNode = node;
-                boolean enableCutDelete = !rootSelected && node != null;
-                deleteNodeItem.setEnabled(enableCutDelete);
-                cutItem.setEnabled(enableCutDelete);
-
-                updatePasteEnabled();
+                lastSelectedEditor = (trigger instanceof TreeFocusComponent) ? (TreeFocusComponent) trigger : null;
+                updateMenuEnabledState(rootSelected, node != null);
             }
 
             @Override
             public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
-                // optional: Menü bei Editorwechsel anpassen
+                lastSelectedEditor = editor;
+                updateMenuEnabledState(false, true);
             }
         });
 
@@ -83,7 +84,27 @@ public class JackEditPopup extends JPopupMenu {
                 stashName -> updatePasteEnabled());
     }
 
+    private void updateMenuEnabledState(boolean rootSelected, boolean nodeExists) {
+        boolean isReadonly = lastSelectedEditor == null || lastSelectedEditor.isReadonly();
+        boolean enableCutDelete = !isReadonly && !rootSelected && nodeExists;
+        boolean enableAddRename = !isReadonly && nodeExists;
+
+        deleteNodeItem.setEnabled(enableCutDelete);
+        cutItem.setEnabled(enableCutDelete);
+        addNodeItem.setEnabled(enableAddRename);
+        renameNodeItem.setEnabled(enableAddRename);
+
+        updatePasteEnabled();
+    }
+
     private void updatePasteEnabled() {
+        boolean isReadonly = lastSelectedEditor != null && lastSelectedEditor.isReadonly();
+        if (isReadonly) {
+            pasteItem.setEnabled(false);
+            pasteUnderneathItem.setEnabled(false);
+            return;
+        }
+
         boolean canPaste = false;
         boolean canPasteUnderneath = false;
         if (lastSelectedNode instanceof DefaultMutableTreeNode dmtn) {

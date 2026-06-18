@@ -7,7 +7,6 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.command.RenameNodeCommand;
-import de.jare.jsoncasted.editor.command.SetValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.settings.WoodSettings;
@@ -28,6 +27,7 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
     private final JTextField textField = new JTextField();
     private EditNode currentData;
     private final JackUndoManager undoMan;
+    private boolean readonly = false;
 
     public JsonJackTreeCellEditor(JackUndoManager undoMan) {
         // Optional: Grundspaltenzahl, falls Metrics noch nicht da sind
@@ -79,6 +79,7 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
         }
         updateFieldSize(text);
 
+        textField.setEditable(!readonly);
         return textField;
     }
 
@@ -112,6 +113,9 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
     }
 
     protected void updateEditedObject() {
+        if (readonly) {
+            return;
+        }
         if (currentData == null || currentData.getName() != null && currentData.getName().equals(textField.getText())) {
             return;
         }
@@ -119,4 +123,11 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
         undoMan.executeCommand(command);
     }
 
+    public void setReadonly(boolean readonly) {
+        this.readonly = readonly;
+    }
+
+    public boolean isReadonly() {
+        return readonly;
+    }
 }
