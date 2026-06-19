@@ -12,6 +12,7 @@ package de.jare.jsoncasted.editor.core;
 public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     private String objektInfo;
+    private String objektId;
 
     public EditNodeObject(String objektInfo) {
         super();
@@ -52,6 +53,14 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     public void setObjektInfo(String objektInfo) {
         this.objektInfo = objektInfo;
+    }
+
+    public String getObjektId() {
+        return objektId;
+    }
+
+    public void setObjektId(String objektId) {
+        this.objektId = objektId;
     }
 
     @Override

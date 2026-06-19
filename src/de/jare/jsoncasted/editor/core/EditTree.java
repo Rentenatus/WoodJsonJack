@@ -14,6 +14,8 @@ public class EditTree {
 
     private final EditNodeAbstract root;
     private final EditTimes weightMonitor = new EditTimes();
+    private EditProviderBox expectedBox;
+    private EditLinkingSet linkingSet;
 
     /**
      * Creates a new EditTree with a root node containing the specified text.
@@ -624,6 +626,42 @@ public class EditTree {
     @Override
     public String toString() {
         return "EditTree[root=" + root + ", nodes=" + getNodeCount() + "]";
+    }
+
+    /**
+     * Returns the expected EditProviderBox for this tree.
+     *
+     * @return the expected provider box, or {@code null} if not set.
+     */
+    public EditProviderBox getExpectedBox() {
+        return expectedBox;
+    }
+
+    /**
+     * Sets the expected EditProviderBox for this tree.
+     *
+     * @param expectedBox the expected provider box to set.
+     */
+    public void setExpectedBox(EditProviderBox expectedBox) {
+        this.expectedBox = expectedBox;
+    }
+
+    /**
+     * Returns the linking set for cross-tree reference resolution.
+     *
+     * @return the linking set, or {@code null} if not set.
+     */
+    public EditLinkingSet getLinkingSet() {
+        return linkingSet;
+    }
+
+    /**
+     * Sets the linking set for this tree.
+     *
+     * @param linkingSet the linking set to set.
+     */
+    public void setLinkingSet(EditLinkingSet linkingSet) {
+        this.linkingSet = linkingSet;
     }
 
     /**

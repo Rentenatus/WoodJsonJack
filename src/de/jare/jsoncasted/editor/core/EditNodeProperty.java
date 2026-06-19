@@ -6,6 +6,8 @@
  */
 package de.jare.jsoncasted.editor.core;
 
+import de.jare.jsoncasted.lang.JsonNodeType;
+
 /**
  * Represents a JSON property node in the tree structure.
  */
@@ -13,16 +15,16 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
 
     private String propName;
     private String primValue;
-    private String type;
+    private JsonNodeType type;
 
     public EditNodeProperty(String propName) {
         super();
         this.propName = propName;
         this.primValue = null;
-        this.type = "";
+        this.type = JsonNodeType.NULL;
     }
 
-    private EditNodeProperty(long editId, long leftRange, long rightRange, long timesRange, String propName, String type, String primValue) {
+    private EditNodeProperty(long editId, long leftRange, long rightRange, long timesRange, String propName, JsonNodeType type, String primValue) {
         super(editId, leftRange, rightRange, timesRange);
         this.propName = propName;
         this.primValue = primValue;
@@ -61,11 +63,11 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
         this.primValue = value;
     }
 
-    public String getType() {
+    public JsonNodeType getType() {
         return type;
     }
 
-    public void setType(String type) {
+    public void setType(JsonNodeType type) {
         this.type = type;
     }
 
