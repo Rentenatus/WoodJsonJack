@@ -6,6 +6,7 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.tree.control.JackMasterControl;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
@@ -19,7 +20,6 @@ import de.jare.tree.control.listeners.TreeFocusListener;
 import java.awt.event.KeyEvent;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
-import de.jare.jsoncasted.editor.core.EditNode;
 
 public class JackMainMenu extends JMenuBar {
 

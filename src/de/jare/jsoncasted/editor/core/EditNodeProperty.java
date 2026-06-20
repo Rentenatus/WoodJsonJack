@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0 which
  * accompanies this distribution, and is available at
@@ -7,6 +7,9 @@
 package de.jare.jsoncasted.editor.core;
 
 import de.jare.jsoncasted.lang.JsonNodeType;
+import de.jare.jsoncasted.model.item.JsonField;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Represents a JSON property node in the tree structure.
@@ -16,6 +19,7 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
     private String propName;
     private String primValue;
     private JsonNodeType type;
+    private JsonField jsonField;
 
     public EditNodeProperty(String propName) {
         super();
@@ -69,6 +73,14 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
 
     public void setType(JsonNodeType type) {
         this.type = type;
+    }
+
+    public JsonField getJsonField() {
+        return jsonField;
+    }
+
+    public void setJsonField(JsonField jsonField) {
+        this.jsonField = jsonField;
     }
 
     @Override
@@ -149,5 +161,34 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
     @Override
     public String getTypeKey() {
         return "fore.property";
+    }
+
+    @Override
+    public Map<String, Object> getAttributes() {
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("name", getName());
+        attributes.put("primValue", getValue());
+        attributes.put("type", getType());
+        attributes.put("jsonField", getJsonField());
+        return attributes;
+    }
+
+    @Override
+    public void setAttributes(Map<String, Object> props) {
+        if (props == null) {
+            return;
+        }
+        if (props.containsKey("name")) {
+            setName((String) props.get("name"));
+        }
+        if (props.containsKey("primValue")) {
+            setValue((String) props.get("primValue"));
+        }
+        if (props.containsKey("type")) {
+            setType((JsonNodeType) props.get("type"));
+        }
+        if (props.containsKey("jsonField")) {
+            setJsonField((JsonField) props.get("jsonField"));
+        }
     }
 }

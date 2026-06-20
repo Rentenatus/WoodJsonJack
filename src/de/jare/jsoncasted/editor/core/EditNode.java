@@ -7,6 +7,7 @@
 package de.jare.jsoncasted.editor.core;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents a node in the editable JSON tree structure. Based on
@@ -102,5 +103,22 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
     int getChildIndex(EditNode child);
 
     public String getTypeKey();
+
+    /**
+     * Returns the attributes of this node as a map.
+     *
+     * @return the attributes map, or null if not supported
+     */
+    default Map<String, Object> getAttributes() {
+        return null;
+    }
+
+    /**
+     * Sets the attributes of this node from a map.
+     *
+     * @param props the attributes map to set
+     */
+    default void setAttributes(Map<String, Object> props) {
+    }
 
 }

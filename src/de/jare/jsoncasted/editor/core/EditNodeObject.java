@@ -6,6 +6,10 @@
  */
 package de.jare.jsoncasted.editor.core;
 
+import de.jare.jsoncasted.model.JsonType;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Represents a JSON object node in the tree structure.
  */
@@ -13,6 +17,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     private String objektInfo;
     private String objektId;
+    private JsonType jsonType;
 
     public EditNodeObject(String objektInfo) {
         super();
@@ -61,6 +66,14 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     public void setObjektId(String objektId) {
         this.objektId = objektId;
+    }
+
+    public JsonType getJsonType() {
+        return jsonType;
+    }
+
+    public void setJsonType(JsonType jsonType) {
+        this.jsonType = jsonType;
     }
 
     @Override
@@ -138,4 +151,26 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     public String getTypeKey() {
         return "fore.object";
     }
+
+    @Override
+    public Map<String, Object> getAttributes() {
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("name", getName());
+        attributes.put("objektId", getObjektId());
+        return attributes;
+    }
+
+    @Override
+    public void setAttributes(Map<String, Object> props) {
+        if (props == null) {
+            return;
+        }
+        if (props.containsKey("name")) {
+            setName((String) props.get("name"));
+        }
+        if (props.containsKey("objektId")) {
+            setObjektId((String) props.get("objektId"));
+        }
+    }
+
 }

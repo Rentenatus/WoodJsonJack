@@ -8,13 +8,13 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.jsoncasted.editor.clipboard.ClipboardStash;
-import de.jare.jsoncasted.editor.command.CopyToStashCommand;
-import de.jare.jsoncasted.editor.command.CutToStashCommand;
-import de.jare.jsoncasted.editor.command.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.AddNodeCommand;
 import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.CopyToStashCommand;
+import de.jare.jsoncasted.editor.command.CutToStashCommand;
 import de.jare.jsoncasted.editor.command.DeleteNodeCommand;
 import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.command.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.UpdateAction;
 import static de.jare.jsoncasted.editor.command.UpdateAction.REBUILD_AFFECTED;
 import static de.jare.jsoncasted.editor.command.UpdateAction.SELECT_ADDED;
