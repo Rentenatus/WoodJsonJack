@@ -65,6 +65,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         return editId;
     }
 
+    @Override
     public String getEditStatus() {
         return editStatus;
     }
@@ -73,6 +74,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.editStatus = editStatus;
     }
 
+    @Override
     public String getEditMessage() {
         return editMessage;
     }
@@ -315,13 +317,13 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     private void rangeRelabelingFor(int totalWeight) {
-        System.out.println(totalWeight + "  &&&&&&&&&&&&&&&&  " + getClass().getSimpleName()
-                + "[editId=" + getEditId()
-                + ", leftRange=" + getLeftRange()
-                + ", rightRange=" + getRightRange()
-                + ", name=" + getName()
-                + ", value=" + getValue()
-                + ", type=" + getTypeKey() + "]");
+//        System.out.println(totalWeight + "  &&&&&&&&&&&&&&&&  " + getClass().getSimpleName()
+//                + "[editId=" + getEditId()
+//                + ", leftRange=" + getLeftRange()
+//                + ", rightRange=" + getRightRange()
+//                + ", name=" + getName()
+//                + ", value=" + getValue()
+//                + ", type=" + getTypeKey() + "]");
         int size;
         EditNodeAbstract[] sortetArr;
         synchronized (sortedChildren) {

@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.core.SimpleEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import java.util.Map;
 
 /**
  * Utility container for immutable command entry types used by edit commands.
@@ -182,6 +183,69 @@ public final class EditCommandEntry {
                     node.getTimesRange(),
                     oldValue,
                     newValue
+            );
+        }
+    }
+
+    /**
+     * Immutable entry describing an attribute change of a node.
+     *
+     * <p>
+     * This entry is used for set-attribute commands. It stores the old and new
+     * values for the modified attributes only.</p>
+     */
+    public static final class AttributeEntry extends SimpleEntry {
+
+        /**
+         * The previous attribute values (only for keys that were modified).
+         */
+        public final Map<String, Object> oldAttributes;
+
+        /**
+         * The new attribute values to set.
+         */
+        public final Map<String, Object> newAttributes;
+
+        /**
+         * Creates an attribute entry.
+         *
+         * @param nodeId the affected node ID
+         * @param oldAttributes the previous attribute values (only modified keys)
+         * @param newAttributes the new attribute values
+         */
+        public AttributeEntry(long nodeId, Map<String, Object> oldAttributes, Map<String, Object> newAttributes) {
+            this(nodeId, -1, Long.MIN_VALUE, oldAttributes, newAttributes);
+        }
+
+        /**
+         * Creates an attribute entry.
+         *
+         * @param nodeId the affected node ID
+         * @param leftRange value of fast indexing in tree
+         * @param timesRange times to fast indexing in tree if possible
+         * @param oldAttributes the previous attribute values (only modified keys)
+         * @param newAttributes the new attribute values
+         */
+        public AttributeEntry(long nodeId, long leftRange, long timesRange,
+                Map<String, Object> oldAttributes, Map<String, Object> newAttributes) {
+            super(nodeId, leftRange, timesRange);
+            this.oldAttributes = oldAttributes;
+            this.newAttributes = newAttributes;
+        }
+
+        /**
+         * Creates an attribute entry.
+         *
+         * @param node the affected node
+         * @param oldAttributes the previous attribute values (only modified keys)
+         * @param newAttributes the new attribute values
+         */
+        public AttributeEntry(EditNode node, Map<String, Object> oldAttributes, Map<String, Object> newAttributes) {
+            this(node.getEditId(),
+                    node.getLeftRange(),
+                    node.getTimesRange(),
+                    oldAttributes,
+                    newAttributes
             );
         }
     }

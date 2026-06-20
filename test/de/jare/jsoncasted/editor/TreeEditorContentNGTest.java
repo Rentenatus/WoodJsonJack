@@ -11,7 +11,10 @@ import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.command.MoveNodeCommand;
 import de.jare.jsoncasted.editor.command.RenameNodeCommand;
+import de.jare.jsoncasted.editor.command.SetAttributeCommand;
 import de.jare.jsoncasted.editor.command.SetValueCommand;
+import java.util.HashMap;
+import java.util.Map;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
@@ -376,6 +379,165 @@ public class TreeEditorContentNGTest implements ATestTools {
         printSubtree(editor, "source after redo rename/setValue", sourceParent);
         printSubtree(editor, "target after redo rename/setValue", targetParent);
         printEditorState(editor, "final editor state");
+
+        printTestFooter();
+    }
+
+    /**
+     * Test: Set attributes for a single node using SetAttributeCommand.
+     */
+    @Test
+    public void testSetAttributeSingleNode() {
+        printTestHeader("testSetAttributeSingleNode");
+
+        TreeEditor editor = new TreeEditor();
+        EditNode root = editor.getTree().getRoot();
+
+        EditNodeProperty node = new EditNodeProperty("attrNode");
+        editor.execute(new AddNodeCommand(root, node));
+        EditNode treeNode = root.getChildAt(0);
+
+        editor.clearHistory();
+        printEditorState(editor, "before setAttribute");
+
+        Map<String, Object> newAttributes = new HashMap<>();
+        newAttributes.put("name", "newName");
+        newAttributes.put("editStatus", "warning");
+        newAttributes.put("editMessage", "Test message");
+
+        CommandResult setAttrResult = editor.execute(new SetAttributeCommand(treeNode, newAttributes));
+        printCommandResult("setAttrResult", setAttrResult);
+
+        assertEquals(treeNode.getName(), "newName");
+        assertEquals(treeNode.getEditStatus(), "warning");
+        assertEquals(treeNode.getEditMessage(), "Test message");
+
+        printSubtree(editor, "tree after setAttribute", root);
+
+        CommandResult undoResult = editor.undo();
+        printCommandResult("undoResult", undoResult);
+
+        assertEquals(treeNode.getName(), "attrNode");
+        assertEquals(treeNode.getEditStatus(), null);
+        assertEquals(treeNode.getEditMessage(), null);
+
+        CommandResult redoResult = editor.redo();
+        printCommandResult("redoResult", redoResult);
+
+        assertEquals(treeNode.getName(), "newName");
+        assertEquals(treeNode.getEditStatus(), "warning");
+        assertEquals(treeNode.getEditMessage(), "Test message");
+
+        printTestFooter();
+    }
+
+    /**
+     * Test: Set attributes for multiple nodes and combine with other commands.
+     */
+    @Test
+    public void testSetAttributeCombinedWithRename() {
+        printTestHeader("testSetAttributeCombinedWithRename");
+
+        TreeEditor editor = new TreeEditor();
+        EditNode root = editor.getTree().getRoot();
+
+        EditNodeProperty node1 = new EditNodeProperty("node1");
+        EditNodeProperty node2 = new EditNodeProperty("node2");
+        EditNodeProperty node3 = new EditNodeProperty("node3");
+
+        editor.execute(new AddNodeCommand(root, node1));
+        editor.execute(new AddNodeCommand(root, node2));
+        editor.execute(new AddNodeCommand(root, node3));
+
+        EditNode treeNode1 = root.getChildAt(0);
+        EditNode treeNode2 = root.getChildAt(1);
+        EditNode treeNode3 = root.getChildAt(2);
+
+        editor.clearHistory();
+        printEditorState(editor, "before rename and setAttribute");
+
+        // Rename nodes
+        CommandResult renameResult = editor.execute(new RenameNodeCommand(
+                new EditNode[]{treeNode1, treeNode2, treeNode3},
+                new String[]{"renamed1", "renamed2", "renamed3"}
+        ));
+        printCommandResult("renameResult", renameResult);
+
+        // Set attributes on the renamed nodes
+        Map<String, Object> attrs1 = new HashMap<>();
+        attrs1.put("editStatus", "okay");
+        attrs1.put("editMessage", "All good");
+
+        Map<String, Object> attrs2 = new HashMap<>();
+        attrs2.put("editStatus", "warning");
+        attrs2.put("editMessage", "Needs attention");
+
+        Map<String, Object> attrs3 = new HashMap<>();
+        attrs3.put("editStatus", "error");
+        attrs3.put("editMessage", "Critical issue");
+
+        CommandResult setAttrResult = editor.execute(new SetAttributeCommand(
+                new EditNode[]{treeNode1, treeNode2, treeNode3},
+                new Map[]{attrs1, attrs2, attrs3}
+        ));
+        printCommandResult("setAttrResult", setAttrResult);
+
+        assertEquals(treeNode1.getName(), "renamed1");
+        assertEquals(treeNode2.getName(), "renamed2");
+        assertEquals(treeNode3.getName(), "renamed3");
+
+        assertEquals(treeNode1.getEditStatus(), "okay");
+        assertEquals(treeNode1.getEditMessage(), "All good");
+
+        assertEquals(treeNode2.getEditStatus(), "warning");
+        assertEquals(treeNode2.getEditMessage(), "Needs attention");
+
+        assertEquals(treeNode3.getEditStatus(), "error");
+        assertEquals(treeNode3.getEditMessage(), "Critical issue");
+
+        printSubtree(editor, "tree after rename + setAttribute", root);
+
+        // Undo setAttribute
+        CommandResult undoSetAttr = editor.undo();
+        printCommandResult("undoSetAttr", undoSetAttr);
+
+        // Attributes should be back to defaults (null), but names should remain
+        assertEquals(treeNode1.getName(), "renamed1");
+        assertEquals(treeNode2.getName(), "renamed2");
+        assertEquals(treeNode3.getName(), "renamed3");
+
+        assertEquals(treeNode1.getEditStatus(), null);
+        assertEquals(treeNode1.getEditMessage(), null);
+        assertEquals(treeNode2.getEditStatus(), null);
+        assertEquals(treeNode2.getEditMessage(), null);
+        assertEquals(treeNode3.getEditStatus(), null);
+        assertEquals(treeNode3.getEditMessage(), null);
+
+        // Undo rename
+        CommandResult undoRename = editor.undo();
+        printCommandResult("undoRename", undoRename);
+
+        assertEquals(treeNode1.getName(), "node1");
+        assertEquals(treeNode2.getName(), "node2");
+        assertEquals(treeNode3.getName(), "node3");
+
+        // Redo both
+        CommandResult redoRename = editor.redo();
+        printCommandResult("redoRename", redoRename);
+
+        CommandResult redoSetAttr = editor.redo();
+        printCommandResult("redoSetAttr", redoSetAttr);
+
+        assertEquals(treeNode1.getName(), "renamed1");
+        assertEquals(treeNode2.getName(), "renamed2");
+        assertEquals(treeNode3.getName(), "renamed3");
+
+        assertEquals(treeNode1.getEditStatus(), "okay");
+        assertEquals(treeNode1.getEditMessage(), "All good");
+        assertEquals(treeNode2.getEditStatus(), "warning");
+        assertEquals(treeNode2.getEditMessage(), "Needs attention");
+        assertEquals(treeNode3.getEditStatus(), "error");
+        assertEquals(treeNode3.getEditMessage(), "Critical issue");
 
         printTestFooter();
     }
