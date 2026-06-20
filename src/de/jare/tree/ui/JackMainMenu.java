@@ -117,7 +117,7 @@ public class JackMainMenu extends JMenuBar {
 
         master.addSelectionListener(7, new TreeFocusListener() {
             @Override
-            public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+            public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
                 lastSelectedNode = node;
                 lastSelectedEditor = (trigger instanceof TreeFocusComponent) ? (TreeFocusComponent) trigger : null;
                 updateMenuEnabledState(rootSelected, node instanceof DefaultMutableTreeNode);

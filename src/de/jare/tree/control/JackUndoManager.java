@@ -32,11 +32,6 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
     private final Orator<UndoRedoListener> undoRedoOrator = new Orator<>();
 
     @Override
-    public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
-        // NoOp
-    }
-
-    @Override
     public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
         setActiveModel(editor != null ? editor.getModel() : null);
     }

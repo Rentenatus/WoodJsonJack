@@ -138,12 +138,6 @@ public class JackUpperToolbar extends JPanel implements ContentListener, TreeFoc
     }
 
     @Override
-    public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
-        updateButtons();
-        updateToolTips();
-    }
-
-    @Override
     public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
         updateButtons();
         updateToolTips();

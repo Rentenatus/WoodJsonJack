@@ -12,6 +12,7 @@ import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
+import javax.swing.tree.DefaultMutableTreeNode;
 
 public class JackMasterControl {
 
@@ -105,7 +106,7 @@ public class JackMasterControl {
         this.activeEditor = editor;
     }
 
-    public void fireSelection(Object node, Object trigger, boolean rootSelected) {
+    public void fireSelection(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
         selectionOrator.say(l -> l.onNodeSelected(node, trigger, rootSelected));
     }
 

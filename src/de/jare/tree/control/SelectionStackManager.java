@@ -31,7 +31,7 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
     private boolean ignoreSelectionChanges = false;
 
     @Override
-    public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+    public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
         if (ignoreSelectionChanges || activeManager == null) {
             return;
         }

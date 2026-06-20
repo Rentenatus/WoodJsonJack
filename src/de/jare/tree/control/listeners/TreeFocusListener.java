@@ -6,9 +6,13 @@
  */
 package de.jare.tree.control.listeners;
 
+import javax.swing.tree.DefaultMutableTreeNode;
+
 public interface TreeFocusListener {
 
-    void onNodeSelected(Object node, Object trigger, boolean rootSelected);
+    default void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
+        // NoOp by default
+    }
 
     void onEditorSelected(TreeFocusComponent editor, Object trigger);
 }

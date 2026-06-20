@@ -146,19 +146,16 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     private class TreeFocusListenerImpl implements TreeFocusListener {
 
         @Override
-        public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+        public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
             // Nur reagieren, wenn dieser Editor aktuell aktiv ist
             if (master != null && master.getActiveEditor() != JackEditTree.this) {
                 return;
             }
 
-            if (!(node instanceof DefaultMutableTreeNode dmtn)) {
-                return;
-            }
             DefaultTreeModel model = (DefaultTreeModel) jtree.getModel();
             DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
 
-            TreePath path = findPath(root, dmtn);
+            TreePath path = findPath(root, node);
             if (path != null) {
                 jtree.scrollPathToVisible(path);
                 if (trigger == JackEditTree.this) {
@@ -174,7 +171,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                 return;
             }
             TreePath path = jtree.getSelectionPath();
-            master.fireSelection(path == null ? null : path.getLastPathComponent(), JackEditTree.this, false);
+            final Object lastComponent = path == null ? null : path.getLastPathComponent();
+            master.fireSelection((DefaultMutableTreeNode) lastComponent, JackEditTree.this, false);
         }
     }
 

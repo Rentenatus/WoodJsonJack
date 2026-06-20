@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.tree.DefaultMutableTreeNode;
 
 public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFocusListener {
 
@@ -178,7 +179,7 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     }
 
     @Override
-    public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+    public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
         updateProperties(node);
     }
 
@@ -190,8 +191,14 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         setJsonModelDescriptor(editor.getModel().getJsonModelDescriptor());
     }
 
-    private void updateProperties(Object node) {        
-        if (node == null) {
+    private void updateProperties(Object node) {
+        // Extrahiere das userObject aus DefaultMutableTreeNode
+        Object actualNode = node;
+        if (node instanceof DefaultMutableTreeNode treeNode) {
+            actualNode = treeNode.getUserObject();
+        }
+
+        if (actualNode == null) {
             rows.clear();
             fireTableDataChanged();
             return;
@@ -199,7 +206,7 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
 
         List<PropertyRow> newRows = new ArrayList<>();
 
-        if (node instanceof EditNode editNode) {
+        if (actualNode instanceof EditNode editNode) {
             Map<String, Object> attributes = editNode.getAttributes();
             if (attributes != null) {
                 for (Map.Entry<String, Object> entry : attributes.entrySet()) {
@@ -211,7 +218,7 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
             }
         } else {
             // Fallback für nicht-EditNode Objekte
-            newRows.add(new PropertyRow("toString", node.toString(), "String"));
+            newRows.add(new PropertyRow("toString", actualNode.toString(), "String"));
         }
 
         rows = newRows;

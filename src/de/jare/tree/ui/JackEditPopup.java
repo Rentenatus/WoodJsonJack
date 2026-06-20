@@ -67,7 +67,7 @@ public class JackEditPopup extends JPopupMenu {
 
         master.addSelectionListener(8, new TreeFocusListener() {
             @Override
-            public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+            public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
                 lastSelectedNode = node;
                 lastSelectedEditor = (trigger instanceof TreeFocusComponent) ? (TreeFocusComponent) trigger : null;
                 updateMenuEnabledState(rootSelected, node != null);

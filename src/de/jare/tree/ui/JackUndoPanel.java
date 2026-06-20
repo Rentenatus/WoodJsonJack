@@ -52,7 +52,7 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
 
         master.addUndoRedoListener(this);
         master.addSelectionListener(9, this);
-        
+
         // Set initial model from active manager
         updateModelFromActiveManager();
     }
@@ -110,11 +110,6 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
             undoModel.fireTableDataChanged();
             selectCurrent();
         });
-    }
-
-    @Override
-    public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
-        // NoOp
     }
 
     @Override

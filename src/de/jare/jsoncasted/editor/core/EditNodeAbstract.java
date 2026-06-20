@@ -84,9 +84,9 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     public Map<String, Object> putEditAttributes(Map<String, Object> attributes) {
-        attributes.put("editId", getEditId());
-        attributes.put("editStatus", getEditStatus());
-        attributes.put("editMessage", getEditMessage());
+        attributes.put("|editId", getEditId());
+        attributes.put("|editStatus", getEditStatus());
+        attributes.put("|editMessage", getEditMessage());
         return attributes;
     }
 
