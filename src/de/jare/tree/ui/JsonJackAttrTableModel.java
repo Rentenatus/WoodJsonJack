@@ -17,6 +17,7 @@ import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import javax.swing.table.AbstractTableModel;
@@ -215,6 +216,8 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
                     String type = value == null ? "null" : value.getClass().getSimpleName();
                     newRows.add(new PropertyRow(name, value, type));
                 }
+                // Sortiere Attribute alphabetisch nach Namen
+                newRows.sort(Comparator.comparing(PropertyRow::name));
             }
         } else {
             // Fallback für nicht-EditNode Objekte
