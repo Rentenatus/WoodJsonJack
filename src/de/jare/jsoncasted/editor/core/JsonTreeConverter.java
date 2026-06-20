@@ -93,7 +93,7 @@ public final class JsonTreeConverter {
             if (objectValues != null) {
                 for (Map.Entry<String, JsonNode> entry : objectValues.entrySet()) {
                     EditNodeProperty prop = new EditNodeProperty(entry.getKey());
-                    EditNodeAbstract valueNode = convertJsonNodeToEditNode(entry.getValue(), null, weightMonitor);
+                    EditNodeAbstract valueNode = convertJsonNodeToEditNode(entry.getValue(), entry.getKey(), weightMonitor);
                     editNode.addChild(prop, weightMonitor);
                     prop.addChild(valueNode, weightMonitor);
                 }
