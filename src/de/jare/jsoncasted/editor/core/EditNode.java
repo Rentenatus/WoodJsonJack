@@ -14,6 +14,11 @@ import java.util.Map;
  * JsonTreeNodeData with tree structure methods added.
  */
 public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditNodeProperty {
+    
+    public final static String EDIT_STATELESS="stateless";
+    public final static String EDIT_OKAY="okay";
+    public final static String EDIT_WARNING="warning";
+    public final static String EDIT_ERROR="error";
 
     long getEditId();
 

@@ -7,7 +7,7 @@
 package de.jare.jsoncasted.editor.core;
 
 import de.jare.jsoncasted.lang.JsonNodeType;
-import de.jare.jsoncasted.model.item.JsonField;
+import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,7 +19,7 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
     private String propName;
     private String primValue;
     private JsonNodeType type;
-    private JsonField jsonField;
+    private JsonFieldDescriptor jsonField;
 
     public EditNodeProperty(String propName) {
         super();
@@ -75,11 +75,11 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
         this.type = type;
     }
 
-    public JsonField getJsonField() {
+    public JsonFieldDescriptor getJsonField() {
         return jsonField;
     }
 
-    public void setJsonField(JsonField jsonField) {
+    public void setJsonField(JsonFieldDescriptor jsonField) {
         this.jsonField = jsonField;
     }
 
@@ -170,7 +170,7 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
         attributes.put("primValue", getValue());
         attributes.put("type", getType());
         attributes.put("jsonField", getJsonField());
-        return attributes;
+        return putEditAttributes(attributes);
     }
 
     @Override
@@ -188,7 +188,7 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
             setType((JsonNodeType) props.get("type"));
         }
         if (props.containsKey("jsonField")) {
-            setJsonField((JsonField) props.get("jsonField"));
+            setJsonField((JsonFieldDescriptor) props.get("jsonField"));
         }
     }
 }

@@ -8,7 +8,9 @@ package de.jare.jsoncasted.editor.core;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents a JSON object node in the tree structure. Based on JsonObjectData
@@ -28,6 +30,8 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     private final List<EditNodeAbstract> children = new ArrayList<>();
     private final List<EditNodeAbstract> sortedChildren = new ArrayList<>();
     private int cachedWeight;
+    private String editStatus;
+    private String editMessage;
 
     public EditNodeAbstract() {
         this.editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
@@ -35,6 +39,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.rightRange = RIGHT;
         this.timesRange = ONSET;
         this.cachedWeight = 1;
+        this.editStatus = EDIT_STATELESS;
     }
 
     public EditNodeAbstract(long editId) {
@@ -43,6 +48,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.rightRange = RIGHT;
         this.timesRange = ONSET;
         this.cachedWeight = 1;
+        this.editStatus = EDIT_STATELESS;
     }
 
     EditNodeAbstract(long editId, long leftRange, long rightRange, long timesRange) {
@@ -51,11 +57,35 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
         this.rightRange = rightRange;
         this.timesRange = timesRange;
         this.cachedWeight = 1;
+        this.editStatus = EDIT_STATELESS;
     }
 
     @Override
     public long getEditId() {
         return editId;
+    }
+
+    public String getEditStatus() {
+        return editStatus;
+    }
+
+    public void setEditStatus(String editStatus) {
+        this.editStatus = editStatus;
+    }
+
+    public String getEditMessage() {
+        return editMessage;
+    }
+
+    public void setEditMessage(String editMessage) {
+        this.editMessage = editMessage;
+    }
+
+    public Map<String, Object> putEditAttributes(Map<String, Object> attributes) {
+        attributes.put("editId", getEditId());
+        attributes.put("editStatus", getEditStatus());
+        attributes.put("editMessage", getEditMessage());
+        return attributes;
     }
 
     @Override

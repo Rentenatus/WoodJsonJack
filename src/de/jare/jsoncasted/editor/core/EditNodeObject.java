@@ -6,7 +6,7 @@
  */
 package de.jare.jsoncasted.editor.core;
 
-import de.jare.jsoncasted.model.JsonType;
+import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,7 +17,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     private String objektInfo;
     private String objektId;
-    private JsonType jsonType;
+    private JsonTypeDescriptor jsonType;
 
     public EditNodeObject(String objektInfo) {
         super();
@@ -68,11 +68,11 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         this.objektId = objektId;
     }
 
-    public JsonType getJsonType() {
+    public JsonTypeDescriptor getJsonType() {
         return jsonType;
     }
 
-    public void setJsonType(JsonType jsonType) {
+    public void setJsonType(JsonTypeDescriptor jsonType) {
         this.jsonType = jsonType;
     }
 
@@ -158,7 +158,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         attributes.put("name", getName());
         attributes.put("objektId", getObjektId());
         attributes.put("jsonType", getJsonType());
-        return attributes;
+        return putEditAttributes(attributes);
     }
 
     @Override
@@ -173,7 +173,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
             setObjektId((String) props.get("objektId"));
         }
         if (props.containsKey("jsonType")) {
-            setJsonType((JsonType) props.get("jsonType"));
+            setJsonType((JsonTypeDescriptor) props.get("jsonType"));
         }
     }
 
