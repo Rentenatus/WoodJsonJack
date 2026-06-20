@@ -13,7 +13,6 @@ import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
-import de.jare.tree.control.model.JackTreeModel;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import java.util.ArrayList;
@@ -22,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import javax.swing.table.AbstractTableModel;
 
-public class PropertyTableModel extends AbstractTableModel implements TreeFocusListener {
+public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFocusListener {
 
     private final String[] columnNames = {"Name", "Value", "Typ"};
     private List<PropertyRow> rows = new ArrayList<>();
@@ -181,55 +180,6 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
     @Override
     public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
         updateProperties(node);
-
-        // Try to extract JsonModelDescriptor from the node
-        if (node instanceof EditNode) {
-            JsonModelDescriptor descriptor = extractModelDescriptor((EditNode) node);
-            if (descriptor != null) {
-                setJsonModelDescriptor(descriptor);
-            }
-        }
-    }
-
-    /**
-     * Extracts the JsonModelDescriptor from an EditNode by traversing up to the
-     * tree root.
-     */
-    private JsonModelDescriptor extractModelDescriptor(EditNode node) {
-        if (node == null) {
-            return null;
-        }
-
-        // Check if the node itself has a descriptor
-        if (node instanceof EditNodeObject editNodeObject) {
-            EditTree tree = findEditTree(editNodeObject);
-            if (tree != null) {
-                return tree.getJsonModelDescriptor();
-            }
-        } else if (node instanceof EditNodeProperty editNodeProperty) {
-            EditTree tree = findEditTree(editNodeProperty);
-            if (tree != null) {
-                return tree.getJsonModelDescriptor();
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Finds the EditTree that contains the given node by traversing up the
-     * parent hierarchy.
-     */
-    private EditTree findEditTree(EditNode node) {
-        if (node == null) {
-            return null;
-        }
-
-        // The EditTree is not directly accessible from EditNode, 
-        // so we need another way to get it.
-        // For now, return null - the descriptor should be set externally
-        // if the UI has access to both the tree and this model.
-        return null;
     }
 
     @Override
@@ -240,7 +190,7 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
         setJsonModelDescriptor(editor.getModel().getJsonModelDescriptor());
     }
 
-    private void updateProperties(Object node) {
+    private void updateProperties(Object node) {        
         if (node == null) {
             rows.clear();
             fireTableDataChanged();

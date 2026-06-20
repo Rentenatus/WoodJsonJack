@@ -90,7 +90,6 @@ public class WoodWindow extends JFrame {
             };
         });
         // initial
-        jackmaster.addSelectionListener(propertyModel);
         jackmaster.setActiveEditor(editorTree1.getLeftTree(), this);
         
         JackEditPopup jackPopup = new JackEditPopup(jackmaster);
@@ -103,7 +102,7 @@ public class WoodWindow extends JFrame {
 
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
-        bottomTabs.addTab("Properties", createPropertiesPanel());
+        bottomTabs.addTab("Attributes", createAttributesPanel());
         bottomTabs.addTab("Jack Undo", createJackUndoPanel());
         bottomTabs.addTab("KI Assistant", createKIAssistant());
         bottomTabs.addTab("Jack Clipboard", createJackClipboardPanel());
@@ -132,17 +131,18 @@ public class WoodWindow extends JFrame {
         setVisible(true);
     }
     
-    private JTable propertyTable;
-    private PropertyTableModel propertyModel;
+    private JTable attributesTable;
+    private JsonJackAttrTableModel attributesModel;
     
-    private JPanel createPropertiesPanel() {
-        propertyModel = new PropertyTableModel();
-        propertyTable = new JTable(propertyModel);
-        propertyTable.setFillsViewportHeight(true);
-        propertyTable.getTableHeader().setVisible(false); // keine ?berschrift anzeigen
+    private JPanel createAttributesPanel() {
+        attributesModel = new JsonJackAttrTableModel();
+        jackmaster.addSelectionListener(attributesModel);
+        attributesTable = new JTable(attributesModel);
+        attributesTable.setFillsViewportHeight(true);
+        attributesTable.getTableHeader().setVisible(false); // keine ?berschrift anzeigen
 
         JPanel borderedPanel = new JPanel(new BorderLayout());
-        borderedPanel.add(new JScrollPane(propertyTable), BorderLayout.CENTER);
+        borderedPanel.add(new JScrollPane(attributesTable), BorderLayout.CENTER);
         return borderedPanel;
     }
     
