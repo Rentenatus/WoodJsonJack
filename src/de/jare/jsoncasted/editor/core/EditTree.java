@@ -42,6 +42,7 @@ public class EditTree {
      */
     EditTree(EditNodeAbstract root) {
         this.root = root;
+        rangeRelabeling(root);
     }
 
     /**

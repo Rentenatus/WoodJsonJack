@@ -84,6 +84,8 @@ public final class JsonTreeConverter {
      */
     private static EditNodeAbstract convertJsonNodeToEditNode(JsonNode jsonNode, String propertyName, EditTimes weightMonitor) {
         JsonNodeType type = jsonNode.getType();
+        
+        System.out.println("1 +++++++++++++++   "+jsonNode);
 
         if (type == JsonNodeType.OBJECT) {
             EditNodeObject editNode = new EditNodeObject(propertyName != null ? propertyName : "");

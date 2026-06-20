@@ -6,9 +6,9 @@
  */
 package de.jare.jsoncasted.editor.core;
 
+import de.jare.jsoncasted.tools.SimpleStringSplitter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,7 +16,7 @@ import java.util.Map;
  * Represents a JSON object node in the tree structure. Based on JsonObjectData
  * with tree structure support added.
  */
-public abstract non-sealed class EditNodeAbstract implements EditNode {
+public abstract non-sealed class EditNodeAbstract implements EditNode, SimpleStringSplitter {
 
     public final static long LEFT = 0; // range = RIGHT - LEFT  my be a Long too.
     public final static long RIGHT = Long.MAX_VALUE - 1;
@@ -84,9 +84,10 @@ public abstract non-sealed class EditNodeAbstract implements EditNode {
     }
 
     public Map<String, Object> putEditAttributes(Map<String, Object> attributes) {
-        attributes.put("|editId", getEditId());
-        attributes.put("|editStatus", getEditStatus());
-        attributes.put("|editMessage", getEditMessage());
+        attributes.put("|edit id", getEditId());
+        attributes.put("|edit status", getEditStatus());
+        attributes.put("|edit message", getEditMessage());
+        attributes.put("|child count", children.size());
         return attributes;
     }
 

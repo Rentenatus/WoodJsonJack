@@ -166,6 +166,7 @@ public class JackTreeModel extends DefaultTreeModel {
 
     public static DefaultMutableTreeNode buildSubtree(EditNode editNode) {
         DefaultMutableTreeNode swingNode = new DefaultMutableTreeNode(editNode);
+       System.out.println("2 +++++++++++++++   "+editNode);
 
         int childCount = getChildCountSafe(editNode);
         for (int i = 0; i < childCount; i++) {

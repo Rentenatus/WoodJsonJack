@@ -6,6 +6,7 @@
  */
 package de.jare.jsoncasted.editor.core;
 
+import de.jare.jsoncasted.model.builder.JsonStringBuilder;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import java.util.HashMap;
 import java.util.Map;
@@ -79,7 +80,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     @Override
     public String toString() {
         String value = getValue();
-        return value == null ? objektInfo : value + " : " + rightString();
+        return maskEscapes(value == null ? String.valueOf(objektInfo) : value + " : " + rightString());
     }
 
     @Override

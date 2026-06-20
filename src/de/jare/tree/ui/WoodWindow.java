@@ -85,18 +85,10 @@ public class WoodWindow extends JFrame {
         // Tab-Wechsel steuert aktiven Editor
         centerTabs.addChangeListener(e -> {
             int idx = centerTabs.getSelectedIndex();
-            switch (idx) {
-                case 0:
-                    JackEditTree editor = editorTree1.getLeftTree();
-                    jackmaster.setActiveEditor(editor, this);
-                    break;
-                case 1:
-                    JackEditTree editor2 = editorTree2.getLeftTree();
-                    jackmaster.setActiveEditor(editor2, this);
-                    break;
-                default:
-                    break;
-            };
+            if (idx >= 0 && idx < editorTrees.size()) {
+                JackEditTreeContainer container = editorTrees.get(idx);
+                jackmaster.setActiveEditor(container.getLeftTree(), this);
+            }
         });
         // initial
         jackmaster.setActiveEditor(editorTree1.getLeftTree(), this);
@@ -195,6 +187,12 @@ public class WoodWindow extends JFrame {
                 file.getName(),
                 file.getName()
         );
+        // Setze das geladene EditTree im linken Baum
+        JackTreeModel model = new JackTreeModel(tree);
+        newContainer.getLeftTree().getTree().setModel(model);
+        // newContainer.getLeftTree().getModel().rebuildFromDomain();
+        
+        
         addEditorTab(file, newContainer);
     }
 
@@ -207,25 +205,14 @@ public class WoodWindow extends JFrame {
     private void addEditorTab(File file, JackEditTreeContainer treeContainer) {
         editorTrees.add(treeContainer);
         String tabTitle = file != null ? file.getName() : "New Editor";
-        centerTabs.addTab(tabTitle, new JScrollPane(treeContainer));
-        centerTabs.setSelectedComponent(treeContainer);
+        JScrollPane scrollPane = new JScrollPane(treeContainer);
+        centerTabs.addTab(tabTitle, scrollPane);
+        centerTabs.setSelectedComponent(scrollPane);
 
         // Add popup to the new tree
         JackEditPopup jackPopup = new JackEditPopup(jackmaster);
         JackEditPopup.installOn(treeContainer.getLeftTree().getTree(), jackPopup);
         JackEditPopup.installOn(treeContainer.getRightTree().getTree(), jackPopup);
-
-        // Set as active editor when tab is selected
-        centerTabs.addChangeListener(e -> {
-            int idx = centerTabs.getSelectedIndex();
-            if (idx >= 0 && centerTabs.getComponentAt(idx) instanceof JScrollPane scrollPane) {
-                Object comp = scrollPane.getViewport().getView();
-                if (comp instanceof JackEditTreeContainer container) {
-                    JackEditTree editor = container.getLeftTree();
-                    jackmaster.setActiveEditor(editor, this);
-                }
-            }
-        });
 
         // Set initial active editor
         jackmaster.setActiveEditor(treeContainer.getLeftTree(), this);

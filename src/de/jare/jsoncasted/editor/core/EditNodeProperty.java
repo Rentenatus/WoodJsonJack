@@ -85,7 +85,7 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
 
     @Override
     public String toString() {
-        return propName + rightString();
+        return maskEscapes(propName + rightString());
     }
 
     @Override
