@@ -6,12 +6,17 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.model.JackTreeModel;
 import de.jare.tree.settings.SettingsService;
 import de.jare.tree.settings.WoodSettings;
 import de.jare.tree.settings.theme.ThemeSuite;
 import de.jare.tree.ui.settings.PreferencesDialog;
 import java.awt.*;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
 
 public class WoodWindow extends JFrame {
@@ -23,6 +28,7 @@ public class WoodWindow extends JFrame {
     private final SettingsService settingsService;
     private final WoodSettings settings;
     private final ThemeSuite themeSuite;
+    private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
     private PreferencesDialog preferencesDialog;
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
@@ -55,6 +61,9 @@ public class WoodWindow extends JFrame {
 
         editorTree1 = new JackEditTreeContainer(jackmaster, "Root1", "Scene1", "Character1", "Scene2", "Character2", "Scene3", "Character3");
         editorTree2 = new JackEditTreeContainer(jackmaster, "Root2", "Scene4", "Character4", "Scene5", "Character6", "Scene7");
+
+        editorTrees.add(editorTree1);
+        editorTrees.add(editorTree2);
 
         centerTabs.addTab("Tree Editor 1", new JScrollPane(editorTree1));
         centerTabs.addTab("Tree Editor 2", new JScrollPane(editorTree2));
@@ -173,4 +182,53 @@ public class WoodWindow extends JFrame {
         preferencesDialog.setVisible(true);
         preferencesDialog.toFront();
     }
+
+    /**
+     * Adds a new editor tab with the loaded JSON content.
+     *
+     * @param file the JSON file that was loaded
+     * @param tree the Tree with the loaded content
+     */
+    public void addEditorTab(File file, EditTree tree) {
+        JackEditTreeContainer newContainer = new JackEditTreeContainer(
+                jackmaster,
+                file.getName(),
+                file.getName()
+        );
+        addEditorTab(file, newContainer);
+    }
+
+    /**
+     * Adds a new editor tab with the loaded JSON content.
+     *
+     * @param file the JSON file that was loaded
+     * @param treeContainer the JackEditTreeContainer with the loaded content
+     */
+    private void addEditorTab(File file, JackEditTreeContainer treeContainer) {
+        editorTrees.add(treeContainer);
+        String tabTitle = file != null ? file.getName() : "New Editor";
+        centerTabs.addTab(tabTitle, new JScrollPane(treeContainer));
+        centerTabs.setSelectedComponent(treeContainer);
+
+        // Add popup to the new tree
+        JackEditPopup jackPopup = new JackEditPopup(jackmaster);
+        JackEditPopup.installOn(treeContainer.getLeftTree().getTree(), jackPopup);
+        JackEditPopup.installOn(treeContainer.getRightTree().getTree(), jackPopup);
+
+        // Set as active editor when tab is selected
+        centerTabs.addChangeListener(e -> {
+            int idx = centerTabs.getSelectedIndex();
+            if (idx >= 0 && centerTabs.getComponentAt(idx) instanceof JScrollPane scrollPane) {
+                Object comp = scrollPane.getViewport().getView();
+                if (comp instanceof JackEditTreeContainer container) {
+                    JackEditTree editor = container.getLeftTree();
+                    jackmaster.setActiveEditor(editor, this);
+                }
+            }
+        });
+
+        // Set initial active editor
+        jackmaster.setActiveEditor(treeContainer.getLeftTree(), this);
+    }
+
 }

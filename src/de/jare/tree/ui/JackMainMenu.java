@@ -7,7 +7,12 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.JsonTreeConverter;
+import de.jare.jsoncasted.parserwriter.JsonParseException;
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
@@ -15,10 +20,14 @@ import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE_UNDERNEATH;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
-import de.jare.tree.control.listeners.TreeFocusComponent;
-import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.model.JackTreeModel;
+import de.jare.tree.ui.JackEditTree;
+import de.jare.tree.ui.JackEditTreeContainer;
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.IOException;
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 public class JackMainMenu extends JMenuBar {
@@ -49,6 +58,7 @@ public class JackMainMenu extends JMenuBar {
         JMenuItem exitItem = new JMenuItem("Beenden");
 
         exitItem.addActionListener(e -> woodWindow.dispose());
+        openItem.addActionListener(e -> openJsonFile());
 
         projectMenu.add(newItem);
         projectMenu.add(openItem);
@@ -178,6 +188,46 @@ public class JackMainMenu extends JMenuBar {
 
     private void openPreferences() {
         woodWindow.openPreferences();
+    }
+
+    private void openJsonFile() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new FileNameExtensionFilter("JSON Files", "json"));
+        fileChooser.setDialogTitle("JSON-Datei öffnen");
+
+        int result = fileChooser.showOpenDialog(woodWindow);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            loadJsonFile(selectedFile);
+        }
+    }
+
+    private void loadJsonFile(File file) {
+        try {
+            EditTree tree = JsonTreeConverter.fromJsonFile(file);
+            if (tree != null) {
+                // Erstelle neue JackEditTreeContainer-Instanz mit dem geladenen Baum
+                // Der Baumname basiert auf dem Dateinamen
+                String rootName = file.getName();
+                int dotIndex = rootName.lastIndexOf('.');
+                if (dotIndex > 0) {
+                    rootName = rootName.substring(0, dotIndex);
+                }
+
+                // Erstelle Container mit dem Root-Knoten aus dem geladenen Baum
+                EditNode rootNode = tree.getRoot();
+                String rootLabel = rootNode != null ? rootNode.getName() : rootName;
+
+                woodWindow.addEditorTab(file, tree);
+                
+               
+            }
+        } catch (IOException | JsonParseException e) {
+            JOptionPane.showMessageDialog(woodWindow,
+                    "Fehler beim Öffnen der Datei: " + e.getMessage(),
+                    "Fehler",
+                    JOptionPane.ERROR_MESSAGE);
+        }
     }
 
 }
