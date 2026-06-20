@@ -157,6 +157,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("name", getName());
         attributes.put("objektId", getObjektId());
+        attributes.put("jsonType", getJsonType());
         return attributes;
     }
 
@@ -170,6 +171,9 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         }
         if (props.containsKey("objektId")) {
             setObjektId((String) props.get("objektId"));
+        }
+        if (props.containsKey("jsonType")) {
+            setJsonType((JsonType) props.get("jsonType"));
         }
     }
 

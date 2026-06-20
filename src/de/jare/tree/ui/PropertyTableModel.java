@@ -7,9 +7,16 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import javax.swing.table.AbstractTableModel;
@@ -18,6 +25,7 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
 
     private final String[] columnNames = {"Name", "Value", "Typ"};
     private List<PropertyRow> rows = new ArrayList<>();
+    private JsonModelDescriptor jsonModelDescriptor;
 
     @Override
     public int getRowCount() {
@@ -33,10 +41,14 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
     public Object getValueAt(int rowIndex, int columnIndex) {
         PropertyRow row = rows.get(rowIndex);
         return switch (columnIndex) {
-            case 0 -> row.name();
-            case 1 -> row.value();
-            case 2 -> row.type();
-            default -> null;
+            case 0 ->
+                row.name();
+            case 1 ->
+                row.value();
+            case 2 ->
+                row.type();
+            default ->
+                null;
         };
     }
 
@@ -56,6 +68,86 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
         return columnIndex == 1 && rowIndex < rows.size();
     }
 
+    /**
+     * Checks if the cell at the given row and column should be rendered as a
+     * combo box.
+     *
+     * @param rowIndex the row index
+     * @param columnIndex the column index
+     * @return true if this cell should be a combo box
+     */
+    public boolean isComboBoxCell(int rowIndex, int columnIndex) {
+        if (columnIndex != 1 || rowIndex >= rows.size()) {
+            return false;
+        }
+        String attributeName = rows.get(rowIndex).name();
+        return isComboBoxAttribute(attributeName);
+    }
+
+    /**
+     * Returns the available values for a combo box cell.
+     *
+     * @param rowIndex the row index
+     * @return array of available values, or empty array if not a combo box
+     * attribute
+     */
+    public Object[] getComboBoxValues(int rowIndex) {
+        if (rowIndex >= rows.size()) {
+            return new Object[0];
+        }
+        String attributeName = rows.get(rowIndex).name();
+        return getComboBoxValuesForAttribute(attributeName);
+    }
+
+    /**
+     * Checks if the given attribute name should be rendered as a combo box.
+     *
+     * @param attributeName the attribute name
+     * @return true if this attribute should be a combo box
+     */
+    private boolean isComboBoxAttribute(String attributeName) {
+        return "jsonType".equals(attributeName) || "jsonField".equals(attributeName);
+    }
+
+    /**
+     * Returns the available values for a combo box attribute.
+     *
+     * @param attributeName the attribute name
+     * @return array of available values
+     */
+    private Object[] getComboBoxValuesForAttribute(String attributeName) {
+        if (jsonModelDescriptor == null) {
+            return new Object[0];
+        }
+
+        if ("jsonType".equals(attributeName)) {
+            // Return all type names from the descriptor
+            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.values();
+            List<Object> typeNames = new ArrayList<>();
+            for (JsonTypeDescriptor typeDesc : types) {
+                typeNames.add(typeDesc.getTypeName());
+            }
+            return typeNames.toArray();
+        } else if ("jsonField".equals(attributeName)) {
+            // Return all field names from all types in the descriptor
+            List<Object> fieldNames = new ArrayList<>();
+            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.values();
+            for (JsonTypeDescriptor typeDesc : types) {
+                if (typeDesc != null) {
+                    List<JsonFieldDescriptor> fields = typeDesc.getFields();
+                    if (fields != null) {
+                        for (JsonFieldDescriptor field : fields) {
+                            fieldNames.add(field.getFieldName());
+                        }
+                    }
+                }
+            }
+            return fieldNames.toArray();
+        }
+
+        return new Object[0];
+    }
+
     @Override
     public String getColumnName(int column) {
         return columnNames[column];
@@ -66,9 +158,77 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
         return String.class;
     }
 
+    /**
+     * Sets the JsonModelDescriptor for this model. This is used to populate
+     * combo box values for attributes like jsonType and jsonField.
+     *
+     * @param descriptor the model descriptor to set
+     */
+    public void setJsonModelDescriptor(JsonModelDescriptor descriptor) {
+        this.jsonModelDescriptor = descriptor;
+    }
+
+    /**
+     * Returns the JsonModelDescriptor for this model.
+     *
+     * @return the model descriptor, or null if not set
+     */
+    public JsonModelDescriptor getJsonModelDescriptor() {
+        return jsonModelDescriptor;
+    }
+
     @Override
     public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
         updateProperties(node);
+
+        // Try to extract JsonModelDescriptor from the node
+        if (node instanceof EditNode) {
+            JsonModelDescriptor descriptor = extractModelDescriptor((EditNode) node);
+            if (descriptor != null) {
+                setJsonModelDescriptor(descriptor);
+            }
+        }
+    }
+
+    /**
+     * Extracts the JsonModelDescriptor from an EditNode by traversing up to the
+     * tree root.
+     */
+    private JsonModelDescriptor extractModelDescriptor(EditNode node) {
+        if (node == null) {
+            return null;
+        }
+
+        // Check if the node itself has a descriptor
+        if (node instanceof EditNodeObject editNodeObject) {
+            EditTree tree = findEditTree(editNodeObject);
+            if (tree != null) {
+                return tree.getJsonModelDescriptor();
+            }
+        } else if (node instanceof EditNodeProperty editNodeProperty) {
+            EditTree tree = findEditTree(editNodeProperty);
+            if (tree != null) {
+                return tree.getJsonModelDescriptor();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Finds the EditTree that contains the given node by traversing up the
+     * parent hierarchy.
+     */
+    private EditTree findEditTree(EditNode node) {
+        if (node == null) {
+            return null;
+        }
+
+        // The EditTree is not directly accessible from EditNode, 
+        // so we need another way to get it.
+        // For now, return null - the descriptor should be set externally
+        // if the UI has access to both the tree and this model.
+        return null;
     }
 
     @Override
@@ -84,7 +244,7 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
         }
 
         List<PropertyRow> newRows = new ArrayList<>();
-        
+
         if (node instanceof EditNode editNode) {
             Map<String, Object> attributes = editNode.getAttributes();
             if (attributes != null) {
@@ -99,7 +259,7 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
             // Fallback für nicht-EditNode Objekte
             newRows.add(new PropertyRow("toString", node.toString(), "String"));
         }
-        
+
         rows = newRows;
         fireTableDataChanged();
     }
@@ -113,6 +273,7 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
      * Record für eine Eigenschaftszeile
      */
     public record PropertyRow(String name, Object value, String type) {
+
     }
 
 }

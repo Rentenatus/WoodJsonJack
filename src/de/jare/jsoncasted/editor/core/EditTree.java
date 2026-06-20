@@ -6,6 +6,8 @@
  */
 package de.jare.jsoncasted.editor.core;
 
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+
 /**
  * Represents the editable tree structure for JSON data. Maintains a hierarchy
  * of EditNode instances and provides fast lookup by ID.
@@ -16,6 +18,7 @@ public class EditTree {
     private final EditTimes weightMonitor = new EditTimes();
     private EditProviderBox expectedBox;
     private EditLinkingSet linkingSet;
+    private JsonModelDescriptor jsonModelDescriptor;
 
     /**
      * Creates a new EditTree with a root node containing the specified text.
@@ -662,6 +665,24 @@ public class EditTree {
      */
     public void setLinkingSet(EditLinkingSet linkingSet) {
         this.linkingSet = linkingSet;
+    }
+
+    /**
+     * Returns the JsonModelDescriptor for this tree.
+     *
+     * @return the model descriptor, or {@code null} if not set.
+     */
+    public JsonModelDescriptor getJsonModelDescriptor() {
+        return jsonModelDescriptor;
+    }
+
+    /**
+     * Sets the JsonModelDescriptor for this tree.
+     *
+     * @param jsonModelDescriptor the model descriptor to set.
+     */
+    public void setJsonModelDescriptor(JsonModelDescriptor jsonModelDescriptor) {
+        this.jsonModelDescriptor = jsonModelDescriptor;
     }
 
     /**
