@@ -13,6 +13,7 @@ import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
+import de.jare.tree.control.model.JackTreeModel;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import java.util.ArrayList;
@@ -233,7 +234,10 @@ public class PropertyTableModel extends AbstractTableModel implements TreeFocusL
 
     @Override
     public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
-        // NoOp
+        if (editor == null) {
+            return;
+        }
+        setJsonModelDescriptor(editor.getModel().getJsonModelDescriptor());
     }
 
     private void updateProperties(Object node) {

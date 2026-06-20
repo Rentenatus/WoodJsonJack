@@ -30,6 +30,18 @@ public class JackTreeModel extends DefaultTreeModel {
         return editTree;
     }
 
+    /**
+     * Returns the JsonModelDescriptor from the underlying EditTree.
+     *
+     * @return the model descriptor, or {@code null} if not set
+     */
+    public de.jare.jsoncasted.model.descriptor.JsonModelDescriptor getJsonModelDescriptor() {
+        if (editTree == null) {
+            return null;
+        }
+        return editTree.getJsonModelDescriptor();
+    }
+
     public DefaultMutableTreeNode findNodeByIdAndRange(long id, long left, long times) {
         return findNodeByIdAndRange(id, left, times, (DefaultMutableTreeNode) getRoot(), true);
     }
