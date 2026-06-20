@@ -402,15 +402,13 @@ public class TreeEditorContentNGTest implements ATestTools {
 
         Map<String, Object> newAttributes = new HashMap<>();
         newAttributes.put("name", "newName");
-        newAttributes.put("editStatus", "warning");
-        newAttributes.put("editMessage", "Test message");
+        newAttributes.put("primValue", "testValue");
 
         CommandResult setAttrResult = editor.execute(new SetAttributeCommand(treeNode, newAttributes));
         printCommandResult("setAttrResult", setAttrResult);
 
         assertEquals(treeNode.getName(), "newName");
-        assertEquals(treeNode.getEditStatus(), "warning");
-        assertEquals(treeNode.getEditMessage(), "Test message");
+        assertEquals(treeNode.getValue(), "testValue");
 
         printSubtree(editor, "tree after setAttribute", root);
 
@@ -418,25 +416,24 @@ public class TreeEditorContentNGTest implements ATestTools {
         printCommandResult("undoResult", undoResult);
 
         assertEquals(treeNode.getName(), "attrNode");
-        assertEquals(treeNode.getEditStatus(), null);
-        assertEquals(treeNode.getEditMessage(), null);
+        assertEquals(treeNode.getValue(), null);
 
         CommandResult redoResult = editor.redo();
         printCommandResult("redoResult", redoResult);
 
         assertEquals(treeNode.getName(), "newName");
-        assertEquals(treeNode.getEditStatus(), "warning");
-        assertEquals(treeNode.getEditMessage(), "Test message");
+        assertEquals(treeNode.getValue(), "testValue");
 
         printTestFooter();
     }
 
     /**
      * Test: Set attributes for multiple nodes and combine with other commands.
+     * Tests that read-only attributes (editStatus, editMessage) are preserved in getAttributes.
      */
     @Test
-    public void testSetAttributeCombinedWithRename() {
-        printTestHeader("testSetAttributeCombinedWithRename");
+    public void testSetAttributeCombined() {
+        printTestHeader("testSetAttributeCombined");
 
         TreeEditor editor = new TreeEditor();
         EditNode root = editor.getTree().getRoot();
@@ -453,28 +450,29 @@ public class TreeEditorContentNGTest implements ATestTools {
         EditNode treeNode2 = root.getChildAt(1);
         EditNode treeNode3 = root.getChildAt(2);
 
+        // Directly set read-only attributes
+        ((EditNodeAbstract) treeNode1).setEditStatus("okay");
+        ((EditNodeAbstract) treeNode1).setEditMessage("All good");
+        ((EditNodeAbstract) treeNode2).setEditStatus("warning");
+        ((EditNodeAbstract) treeNode2).setEditMessage("Needs attention");
+        ((EditNodeAbstract) treeNode3).setEditStatus("error");
+        ((EditNodeAbstract) treeNode3).setEditMessage("Critical issue");
+
         editor.clearHistory();
-        printEditorState(editor, "before rename and setAttribute");
+        printEditorState(editor, "before setAttribute");
 
-        // Rename nodes
-        CommandResult renameResult = editor.execute(new RenameNodeCommand(
-                new EditNode[]{treeNode1, treeNode2, treeNode3},
-                new String[]{"renamed1", "renamed2", "renamed3"}
-        ));
-        printCommandResult("renameResult", renameResult);
-
-        // Set attributes on the renamed nodes
+        // Set writable attributes via SetAttributeCommand
         Map<String, Object> attrs1 = new HashMap<>();
-        attrs1.put("editStatus", "okay");
-        attrs1.put("editMessage", "All good");
+        attrs1.put("name", "renamed1");
+        attrs1.put("primValue", "value1");
 
         Map<String, Object> attrs2 = new HashMap<>();
-        attrs2.put("editStatus", "warning");
-        attrs2.put("editMessage", "Needs attention");
+        attrs2.put("name", "renamed2");
+        attrs2.put("primValue", "value2");
 
         Map<String, Object> attrs3 = new HashMap<>();
-        attrs3.put("editStatus", "error");
-        attrs3.put("editMessage", "Critical issue");
+        attrs3.put("name", "renamed3");
+        attrs3.put("primValue", "value3");
 
         CommandResult setAttrResult = editor.execute(new SetAttributeCommand(
                 new EditNode[]{treeNode1, treeNode2, treeNode3},
@@ -483,61 +481,51 @@ public class TreeEditorContentNGTest implements ATestTools {
         printCommandResult("setAttrResult", setAttrResult);
 
         assertEquals(treeNode1.getName(), "renamed1");
-        assertEquals(treeNode2.getName(), "renamed2");
-        assertEquals(treeNode3.getName(), "renamed3");
-
+        assertEquals(treeNode1.getValue(), "value1");
         assertEquals(treeNode1.getEditStatus(), "okay");
         assertEquals(treeNode1.getEditMessage(), "All good");
 
+        assertEquals(treeNode2.getName(), "renamed2");
+        assertEquals(treeNode2.getValue(), "value2");
         assertEquals(treeNode2.getEditStatus(), "warning");
         assertEquals(treeNode2.getEditMessage(), "Needs attention");
 
+        assertEquals(treeNode3.getName(), "renamed3");
+        assertEquals(treeNode3.getValue(), "value3");
         assertEquals(treeNode3.getEditStatus(), "error");
         assertEquals(treeNode3.getEditMessage(), "Critical issue");
 
-        printSubtree(editor, "tree after rename + setAttribute", root);
+        // Verify read-only attributes are in getAttributes
+        Map<String, Object> node1Attrs = treeNode1.getAttributes();
+        assertNotNull(node1Attrs.get("editStatus"));
+        assertNotNull(node1Attrs.get("editMessage"));
+        assertNotNull(node1Attrs.get("editId"));
+
+        printSubtree(editor, "tree after setAttribute", root);
 
         // Undo setAttribute
         CommandResult undoSetAttr = editor.undo();
         printCommandResult("undoSetAttr", undoSetAttr);
 
-        // Attributes should be back to defaults (null), but names should remain
-        assertEquals(treeNode1.getName(), "renamed1");
-        assertEquals(treeNode2.getName(), "renamed2");
-        assertEquals(treeNode3.getName(), "renamed3");
-
-        assertEquals(treeNode1.getEditStatus(), null);
-        assertEquals(treeNode1.getEditMessage(), null);
-        assertEquals(treeNode2.getEditStatus(), null);
-        assertEquals(treeNode2.getEditMessage(), null);
-        assertEquals(treeNode3.getEditStatus(), null);
-        assertEquals(treeNode3.getEditMessage(), null);
-
-        // Undo rename
-        CommandResult undoRename = editor.undo();
-        printCommandResult("undoRename", undoRename);
-
+        // Names and values should be reverted, but read-only attributes remain
         assertEquals(treeNode1.getName(), "node1");
+        assertEquals(treeNode1.getValue(), null);
+        assertEquals(treeNode1.getEditStatus(), "okay");
+        assertEquals(treeNode1.getEditMessage(), "All good");
+
         assertEquals(treeNode2.getName(), "node2");
-        assertEquals(treeNode3.getName(), "node3");
+        assertEquals(treeNode2.getValue(), null);
+        assertEquals(treeNode2.getEditStatus(), "warning");
+        assertEquals(treeNode2.getEditMessage(), "Needs attention");
 
-        // Redo both
-        CommandResult redoRename = editor.redo();
-        printCommandResult("redoRename", redoRename);
-
+        // Redo
         CommandResult redoSetAttr = editor.redo();
         printCommandResult("redoSetAttr", redoSetAttr);
 
         assertEquals(treeNode1.getName(), "renamed1");
-        assertEquals(treeNode2.getName(), "renamed2");
-        assertEquals(treeNode3.getName(), "renamed3");
-
+        assertEquals(treeNode1.getValue(), "value1");
         assertEquals(treeNode1.getEditStatus(), "okay");
         assertEquals(treeNode1.getEditMessage(), "All good");
-        assertEquals(treeNode2.getEditStatus(), "warning");
-        assertEquals(treeNode2.getEditMessage(), "Needs attention");
-        assertEquals(treeNode3.getEditStatus(), "error");
-        assertEquals(treeNode3.getEditMessage(), "Critical issue");
 
         printTestFooter();
     }

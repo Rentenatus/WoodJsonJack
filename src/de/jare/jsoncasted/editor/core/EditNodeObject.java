@@ -163,7 +163,6 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     @Override
     public void setAttributes(Map<String, Object> props) {
-        super.setAttributes(props);
         if (props == null) {
             return;
         }
