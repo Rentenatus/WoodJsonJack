@@ -10,6 +10,7 @@ import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.lang.JsonNode;
 import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.lang.JsonResource;
+import de.jare.jsoncasted.lang.JsonTerms;
 import de.jare.jsoncasted.parserwriter.JsonParseException;
 import de.jare.jsoncasted.parserservice.JsonParserService;
 import java.io.File;
@@ -92,6 +93,9 @@ public final class JsonTreeConverter {
             Map<String, JsonNode> objectValues = jsonNode.asObjectValues();
             if (objectValues != null) {
                 for (Map.Entry<String, JsonNode> entry : objectValues.entrySet()) {
+                    if (JsonTerms.TERM_WOOD_PROVIDERS.equals(entry.getKey())) {
+                        continue;
+                    }
                     EditNodeProperty prop = new EditNodeProperty(entry.getKey());
                     EditNodeAbstract valueNode = convertJsonNodeToEditNode(entry.getValue(), entry.getKey(), weightMonitor);
                     editNode.addChild(prop, weightMonitor);
@@ -110,7 +114,7 @@ public final class JsonTreeConverter {
             }
             return editNode;
         } else {
-            EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : "");
+            EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : "null");
             String value = convertJsonValueToString(jsonNode);
             editNode.setValue(value);
             // Only primitive nodes have a type
