@@ -17,8 +17,6 @@ import java.util.Map;
  */
 public final class EditNodePropertyArr extends EditNodeProperty implements EditNode {
 
-    public static final String FOREARRAY = "fore.array";
-
     /**
      * Creates a new array property with the given name. The type is
      * automatically set to ARRAY.

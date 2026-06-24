@@ -17,6 +17,7 @@ import java.util.Map;
 public non-sealed class EditNodeProperty extends EditNodeAbstract implements EditNode {
 
     public static final String FOREPROPERTY = "fore.property";
+    public static final String FOREARRAY = "fore.array";
 
     private String propName;
     private String primValue;
@@ -162,7 +163,7 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
 
     @Override
     public String getTypeKey() {
-        return FOREPROPERTY;
+        return type == JsonNodeType.ARRAY ? FOREARRAY : FOREPROPERTY;
     }
 
     @Override
