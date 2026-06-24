@@ -23,10 +23,9 @@ public final class EditNodePropertyArr extends EditNodeProperty implements EditN
      * Creates a new array property with the given name. The type is
      * automatically set to ARRAY.
      *
-     * @param propName the name of the array property
      */
-    public EditNodePropertyArr(String propName) {
-        super(propName);
+    public EditNodePropertyArr() {
+        super("array");
         setType(JsonNodeType.ARRAY);
     }
 
@@ -70,7 +69,7 @@ public final class EditNodePropertyArr extends EditNodeProperty implements EditN
     // ========== Factory methods ==========
     @Override
     public EditNodePropertyArr createNeighbor(String aName) {
-        return new EditNodePropertyArr(aName);
+        return new EditNodePropertyArr();
     }
 
     // ========== Deep Copy ==========

@@ -379,11 +379,21 @@ public abstract non-sealed class EditNodeAbstract implements EditNode, SimpleStr
     abstract void sayOnRemoved(EditNode parent);
 
     // ========== Factory methods ==========
-    abstract EditNodeAbstract addNewChild(String aName, final EditTimes weightMonitor);
+    public EditNodeAbstract addNewChild(String aName, final EditTimes weightMonitor) {
+        EditNodeAbstract child = createChild(aName);
+        addChild(child, weightMonitor);
+        return child;
+    }
 
-    abstract EditNodeAbstract addNewChild(String aName, int index, final EditTimes weightMonitor);
+    EditNodeAbstract addNewChild(String aName, int index, final EditTimes weightMonitor) {
+        EditNodeAbstract child = createChild(aName);
+        addChild(child, index, weightMonitor);
+        return child;
+    }
 
     public abstract EditNodeAbstract createChild(String aName);
+
+    public abstract EditNodeAbstract createArrChild(String aName);
 
     public abstract EditNodeAbstract createNeighbor(String aName);
 

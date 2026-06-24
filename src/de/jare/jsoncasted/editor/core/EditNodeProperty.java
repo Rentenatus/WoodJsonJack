@@ -24,10 +24,14 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
     private JsonFieldDescriptor jsonField;
 
     public EditNodeProperty(String propName) {
+        this(propName, JsonNodeType.NULL);
+    }
+
+    public EditNodeProperty(String propName, JsonNodeType type) {
         super();
         this.propName = propName;
         this.primValue = null;
-        this.type = JsonNodeType.NULL;
+        this.type = type;
     }
 
     EditNodeProperty(long editId, long leftRange, long rightRange, long timesRange, String propName, JsonNodeType type, String primValue) {
@@ -98,22 +102,13 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
 
     // ========== Factory methods ==========
     @Override
-    public EditNodeAbstract addNewChild(String aName, final EditTimes weightMonitor) {
-        EditNodeObject child = createChild(aName);
-        addChild(child, weightMonitor);
-        return child;
-    }
-
-    @Override
-    EditNodeAbstract addNewChild(String aName, int index, final EditTimes weightMonitor) {
-        EditNodeObject child = createChild(aName);
-        addChild(child, index, weightMonitor);
-        return child;
-    }
-
-    @Override
     public EditNodeObject createChild(String aName) {
         return new EditNodeObject(aName);
+    }
+
+    @Override
+    public EditNodePropertyArr createArrChild(String aName) {
+        return new EditNodePropertyArr();
     }
 
     @Override

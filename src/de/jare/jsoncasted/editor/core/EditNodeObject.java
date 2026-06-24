@@ -6,6 +6,7 @@
  */
 package de.jare.jsoncasted.editor.core;
 
+import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import java.util.HashMap;
 import java.util.Map;
@@ -91,22 +92,13 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     // ========== Factory methods ==========
     @Override
-    public EditNodeAbstract addNewChild(String aName, final EditTimes weightMonitor) {
-        EditNodeProperty child = createChild(aName);
-        addChild(child, weightMonitor);
-        return child;
-    }
-
-    @Override
-    EditNodeAbstract addNewChild(String aName, int index, final EditTimes weightMonitor) {
-        EditNodeProperty child = createChild(aName);
-        addChild(child, index, weightMonitor);
-        return child;
-    }
-
-    @Override
     public EditNodeProperty createChild(String aName) {
         return new EditNodeProperty(aName);
+    }
+
+    @Override
+    public EditNodeProperty createArrChild(String aName) {
+        return new EditNodeProperty(aName, JsonNodeType.ARRAY);
     }
 
     @Override
