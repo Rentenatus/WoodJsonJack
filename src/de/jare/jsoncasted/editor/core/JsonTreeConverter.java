@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Converter utility for creating EditTree structures from JSON files and strings.
- * Uses JsonParserService from jsoncasted.parserservice package.
+ * Converter utility for creating EditTree structures from JSON files and
+ * strings. Uses JsonParserService from jsoncasted.parserservice package.
  */
 public final class JsonTreeConverter {
 
@@ -37,90 +37,112 @@ public final class JsonTreeConverter {
      * @throws JsonParseException if JSON parsing fails
      */
     public static EditTree fromJsonFile(File file) throws IOException, JsonParseException {
+        String rootName = file.getName();
+        int dotIndex = rootName.lastIndexOf('.');
+        if (dotIndex > 0) {
+            rootName = rootName.substring(0, dotIndex);
+        }
         JsonResource resource = JsonParserService.parse(file, JsonDebugLevel.SIMPLE);
         if (resource == null) {
             throw new IOException("Failed to parse file: " + file.getAbsolutePath());
         }
-        EditNodeAbstract root = importFromJsonNode(resource.getRoot());
-        return new EditTree(root);
+        return convertRessourceToEditTree(resource, rootName);
     }
 
     /**
      * Creates an EditTree from a JSON string.
      *
      * @param jsonString the JSON string to parse
+     * @param rootName
      * @return a new EditTree containing the JSON content
      * @throws IOException if parsing fails
      * @throws JsonParseException if JSON parsing fails
      */
-    public static EditTree fromJsonString(String jsonString) throws IOException, JsonParseException {
+    public static EditTree fromJsonString(String jsonString, String rootName) throws IOException, JsonParseException {
         JsonResource resource = JsonParserService.parse(jsonString, JsonDebugLevel.SIMPLE);
         if (resource == null) {
             throw new IOException("Failed to parse JSON string");
         }
-        EditNodeAbstract root = importFromJsonNode(resource.getRoot());
-        return new EditTree(root);
+        return convertRessourceToEditTree(resource, rootName);
+    }
+
+    public static EditTree convertRessourceToEditTree(JsonResource resource, String rootName) {
+        EditTimes weightMonitor = new EditTimes();
+        EditNodeAbstract root = importFromJsonNode(resource.getRoot(), rootName, weightMonitor);
+        return new EditTree(root, weightMonitor);
     }
 
     /**
      * Imports a JSON node into an EditNode structure.
      *
-     * @param node the JSON node to import
+     * @param jsonNode the JSON node to import
+     * @param rootName
+     * @param weightMonitor
      * @return the root EditNode
      */
-    public static EditNodeAbstract importFromJsonNode(JsonNode node) {
-        if (node == null) {
+    public static EditNodeAbstract importFromJsonNode(JsonNode jsonNode, String rootName, EditTimes weightMonitor) {
+        if (jsonNode == null) {
             throw new IllegalArgumentException("Node cannot be null");
         }
-        return convertJsonNodeToEditNode(node, null, new EditTimes());
+        EditNodeObject rootNode = new EditNodeObject(rootName);
+        convertJsonNodeToEditNode(rootNode, jsonNode, weightMonitor);
+        return rootNode;
     }
 
-    /**
-     * Recursively converts a JSON node into the corresponding editable node model.
-     *
-     * @param jsonNode the source JSON node
-     * @param propertyName the property name for object members, or null for root/array values
-     * @param weightMonitor the weight monitor for tree construction
-     * @return the converted editable node
-     */
-    private static EditNodeAbstract convertJsonNodeToEditNode(JsonNode jsonNode, String propertyName, EditTimes weightMonitor) {
-        JsonNodeType type = jsonNode.getType();
-        
-        System.out.println("1 +++++++++++++++   "+jsonNode);
-
-        if (type == JsonNodeType.OBJECT) {
-            EditNodeObject editNode = new EditNodeObject(propertyName != null ? propertyName : "");
-            Map<String, JsonNode> objectValues = jsonNode.asObjectValues();
-            if (objectValues != null) {
-                for (Map.Entry<String, JsonNode> entry : objectValues.entrySet()) {
-                    if (JsonTerms.TERM_WOOD_PROVIDERS.equals(entry.getKey())) {
-                        continue;
-                    }
-                    EditNodeProperty prop = new EditNodeProperty(entry.getKey());
-                    EditNodeAbstract valueNode = convertJsonNodeToEditNode(entry.getValue(), entry.getKey(), weightMonitor);
-                    editNode.addChild(prop, weightMonitor);
-                    prop.addChild(valueNode, weightMonitor);
+    private static void convertJsonNodeToEditNode(EditNodeObject rootNode, JsonNode jsonNode, EditTimes weightMonitor) {
+        Map<String, JsonNode> objectValues = jsonNode.asObjectValues();
+        if (objectValues != null) {
+            for (Map.Entry<String, JsonNode> entry : objectValues.entrySet()) {
+                if (JsonTerms.TERM_WOOD_PROVIDERS.equals(entry.getKey())) {
+                    continue;
                 }
+                buildEditProperty(rootNode, entry, weightMonitor);
             }
-            return editNode;
-        } else if (type == JsonNodeType.ARRAY) {
-            EditNodeObject editNode = new EditNodeObject(propertyName != null ? propertyName : "__array__");
+        }
+    }
+
+    private static void buildEditProperty(EditNodeObject parent, Map.Entry<String, JsonNode> entry,
+            EditTimes weightMonitor) {
+        String propertyName = entry.getKey();
+        EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : "mm");
+        parent.addChild(editNode, weightMonitor);
+        JsonNode jsonNode = entry.getValue();
+        JsonNodeType type = jsonNode.getType();
+
+        if (type == JsonNodeType.ARRAY) {
             List<JsonNode> arrayValues = jsonNode.asArray();
             if (arrayValues != null) {
                 for (JsonNode value : arrayValues) {
-                    EditNodeAbstract child = convertJsonNodeToEditNode(value, null, weightMonitor);
-                    editNode.addChild(child, weightMonitor);
+                    buildEditObject(editNode, value, weightMonitor);
                 }
             }
-            return editNode;
+        } else if (type == JsonNodeType.OBJECT) {
+            buildEditObject(editNode, jsonNode, weightMonitor);
         } else {
-            EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : "null");
-            String value = convertJsonValueToString(jsonNode);
-            editNode.setValue(value);
-            // Only primitive nodes have a type
-            editNode.setType(type);
-            return editNode;
+            editNode.setValue(convertJsonValueToString(jsonNode));
         }
+        editNode.setType(type);
+    }
+
+    /**
+     * Converts a JSON object node to an EditNodeObject with property children.
+     * Objects can only contain properties.
+     *
+     * @param jsonNode the JSON object node
+     * @param propertyName the property name, or null for root
+     * @param weightMonitor the weight monitor for tree construction
+     * @return the EditNodeObject with property children
+     */
+    private static void buildEditObject(EditNodeProperty parent, JsonNode jsonNode,
+            EditTimes weightMonitor) {
+        System.out.println("1 +++++++++++++++   " + jsonNode);
+        JsonNodeType type = jsonNode.getType();
+        if (type == JsonNodeType.OBJECT) {
+
+        }
+        EditNodeObject valueNode = new EditNodeObject("Node");
+        convertJsonNodeToEditNode(valueNode, jsonNode, weightMonitor);
+        parent.addChild(valueNode, weightMonitor);
     }
 
     /**
@@ -136,10 +158,14 @@ public final class JsonTreeConverter {
         JsonNodeType type = jsonNode.getType();
         if (type == JsonNodeType.STRING) {
             return jsonNode.asText();
-        } else if (type == JsonNodeType.NUMBER || type == JsonNodeType.LONG) {
+        } else if (type == JsonNodeType.LONG) {
             return String.valueOf(jsonNode.asLong());
+        } else if (type == JsonNodeType.NUMBER) {
+            return String.valueOf(jsonNode.asNumber());
         } else if (type == JsonNodeType.BOOLEAN) {
             return String.valueOf(jsonNode.asBoolean());
+        } else if (type == JsonNodeType.NULL) {
+            return null;
         }
         return jsonNode.asText();
     }

@@ -11,8 +11,6 @@ import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.JsonTreeConverter;
 import de.jare.jsoncasted.parserwriter.JsonParseException;
 import de.jare.tree.control.JackMasterControl;
-import de.jare.tree.control.listeners.TreeFocusComponent;
-import de.jare.tree.control.listeners.TreeFocusListener;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
@@ -20,9 +18,8 @@ import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE_UNDERNEATH;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
-import de.jare.tree.control.model.JackTreeModel;
-import de.jare.tree.ui.JackEditTree;
-import de.jare.tree.ui.JackEditTreeContainer;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
 import java.awt.event.KeyEvent;
 import java.io.File;
 import java.io.IOException;
@@ -208,16 +205,10 @@ public class JackMainMenu extends JMenuBar {
             if (tree == null) {
                 return;
             }
-            String rootName = file.getName();
-            int dotIndex = rootName.lastIndexOf('.');
-            if (dotIndex > 0) {
-                rootName = rootName.substring(0, dotIndex);
-            }
             EditNode rootNode = tree.getRoot();
             if (rootNode == null) {
                 return;
             }
-            rootNode.setName(rootName);
             woodWindow.addEditorTab(file, tree);
 
         } catch (IOException | JsonParseException e) {

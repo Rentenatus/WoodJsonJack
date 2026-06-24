@@ -15,7 +15,7 @@ import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 public class EditTree {
 
     private final EditNodeAbstract root;
-    private final EditTimes weightMonitor = new EditTimes();
+    private final EditTimes weightMonitor;
     private EditProviderBox expectedBox;
     private EditLinkingSet linkingSet;
     private JsonModelDescriptor jsonModelDescriptor;
@@ -28,7 +28,7 @@ public class EditTree {
      * @param rootText the text to be contained in the root node of the tree
      */
     public EditTree(String rootText) {
-        this(new EditNodeObject(String.valueOf(rootText)));
+        this(new EditNodeObject(String.valueOf(rootText)), new EditTimes());
     }
 
     /**
@@ -40,8 +40,9 @@ public class EditTree {
      * @param root the root node of the tree, which must not be null and will
      * serve as the base for all other nodes in the tree
      */
-    EditTree(EditNodeAbstract root) {
+    EditTree(EditNodeAbstract root, EditTimes weightMonitor) {
         this.root = root;
+        this.weightMonitor = weightMonitor;
         rangeRelabeling(root);
     }
 
