@@ -122,7 +122,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         for (String propName : propNames) {
             EditNodeAbstract childData = jackTreeModel.getEditTree().addNewChild(
                     ((EditNodeAbstract) root.getUserObject()),
-                    propName
+                    propName , false
             );
             ((EditNodeProperty) childData).setValue("Value of " + propName);
             root.add(new DefaultMutableTreeNode(childData));

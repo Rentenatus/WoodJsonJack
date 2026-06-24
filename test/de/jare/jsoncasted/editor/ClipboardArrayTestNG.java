@@ -57,11 +57,11 @@ public class ClipboardArrayTestNG implements ATestTools {
         treeB = editorB.getTree();
         rootB = treeB.getRoot();
 
-        childA1 = treeA.addNewChild(rootA, "a1");
-        childA2 = treeA.addNewChild(rootA, "a2");
-        childA3 = treeA.addNewChild(rootA, "a3");
-        treeA.addNewChild(rootA, "a4");
-        treeB.addNewChild(rootB, "b1");
+        childA1 = treeA.addNewChild(rootA, "a1", false);
+        childA2 = treeA.addNewChild(rootA, "a2", false);
+        childA3 = treeA.addNewChild(rootA, "a3", false);
+        treeA.addNewChild(rootA, "a4", false);
+        treeB.addNewChild(rootB, "b1", false);
 
     }
 

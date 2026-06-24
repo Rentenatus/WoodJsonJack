@@ -348,21 +348,22 @@ public class EditTree {
     }
 
     /**
-     * Adds a new child node to the specified parent node. This method takes the
+     * Adds a new child node to the specified parent node.This method takes the
      * parent node and the text for the new child node as parameters.
      *
      * @param parentNode the parent node under which the new child node should
      * be added
      * @param nodeText the text to be contained in the new child node
+     * @param asArray
      * @return the newly created child node that was added to the tree
      */
-    public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText) {
+    public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText, boolean asArray) {
         checkParentProps(parentNode);
-        return parentNode.addNewChild(nodeText, weightMonitor);
+        return parentNode.addNewChild(nodeText, asArray, weightMonitor);
     }
 
     /**
-     * Adds a new child node to the specified parent node at a given index. This
+     * Adds a new child node to the specified parent node at a given index.This
      * method takes the parent node, the text for the new child node, and the
      * index at which the new child node should be inserted as parameters.
      *
@@ -371,11 +372,12 @@ public class EditTree {
      * @param nodeText the text to be contained in the new child node
      * @param index the index at which the new child node should be inserted
      * under the parent node, or -1 to append to the end of the children list
+     * @param asArray
      * @return the newly created child node that was added to the tree
      */
-    public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText, int index) {
+    public EditNodeAbstract addNewChild(EditNodeAbstract parentNode, String nodeText, int index, boolean asArray) {
         checkParentProps(parentNode);
-        return parentNode.addNewChild(nodeText, index, weightMonitor);
+        return parentNode.addNewChild(nodeText, index, asArray, weightMonitor);
     }
 
     /**

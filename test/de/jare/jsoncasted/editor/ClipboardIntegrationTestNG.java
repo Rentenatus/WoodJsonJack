@@ -58,9 +58,9 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         treeB = editorB.getTree();
         rootB = treeB.getRoot();
 
-        childA1 = treeA.addNewChild(rootA, "a1");
-        childA2 = treeA.addNewChild(rootA, "a2");
-        treeB.addNewChild(rootB, "b1");
+        childA1 = treeA.addNewChild(rootA, "a1", false);
+        childA2 = treeA.addNewChild(rootA, "a2", false);
+        treeB.addNewChild(rootB, "b1", false);
     }
 
     @Test

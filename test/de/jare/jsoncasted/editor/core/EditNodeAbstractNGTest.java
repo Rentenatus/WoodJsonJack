@@ -61,7 +61,7 @@ public class EditNodeAbstractNGTest {
 
         // Add 6 children to root via tree
         for (int i = 1; i <= 6; i++) {
-            tree.addNewChild(root, "child" + i);
+            tree.addNewChild(root, "child" + i, false);
         }
 
         // Print tree

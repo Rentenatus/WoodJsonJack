@@ -65,11 +65,11 @@ public class ClipboardEditMixTestNG implements ATestTools {
         treeB = editorB.getTree();
         rootB = treeB.getRoot();
 
-        a1 = treeA.addNewChild(rootA, "a1");
-        a2 = treeA.addNewChild(rootA, "a2");
-        a3 = treeA.addNewChild(rootA, "a3");
-        b1 = treeB.addNewChild(rootB, "b1");
-        b2 = treeB.addNewChild(rootB, "b2");
+        a1 = treeA.addNewChild(rootA, "a1", false);
+        a2 = treeA.addNewChild(rootA, "a2", false);
+        a3 = treeA.addNewChild(rootA, "a3", false);
+        b1 = treeB.addNewChild(rootB, "b1", false);
+        b2 = treeB.addNewChild(rootB, "b2", false);
     }
 
     @Test
