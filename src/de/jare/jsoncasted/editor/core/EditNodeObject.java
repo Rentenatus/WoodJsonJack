@@ -6,7 +6,6 @@
  */
 package de.jare.jsoncasted.editor.core;
 
-import de.jare.jsoncasted.model.builder.JsonStringBuilder;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +14,8 @@ import java.util.Map;
  * Represents a JSON object node in the tree structure.
  */
 public final class EditNodeObject extends EditNodeAbstract implements EditNode {
+
+    public static final String FOREOBJECT = "fore.object";
 
     private String objektInfo;
     private String objektId;
@@ -150,7 +151,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     @Override
     public String getTypeKey() {
-        return "fore.object";
+        return FOREOBJECT;
     }
 
     @Override

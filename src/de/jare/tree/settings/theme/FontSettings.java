@@ -54,11 +54,13 @@ public class FontSettings implements AScheme {
         fontMap.put(LIGHT_FORE_WARNING, font);
         fontMap.put(LIGHT_FORE_ERROR, font);
         fontMap.put(LIGHT_FORE_PROPERTY, font);
+        fontMap.put(LIGHT_FORE_ARRAY, font);
         fontMap.put(LIGHT_FORE_OBJECT, font);
         fontMap.put(DARK_FORE_OKAY, font);
         fontMap.put(DARK_FORE_WARNING, font);
         fontMap.put(DARK_FORE_ERROR, font);
-        fontMap.put(DARK_FOREP_ROPERTY, font);
+        fontMap.put(DARK_FORE_PROPERTY, font);
+        fontMap.put(DARK_FORE_ARRAY, font);
         fontMap.put(DARK_FORE_OBJECT, font);
     }
 

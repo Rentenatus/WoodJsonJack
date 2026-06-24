@@ -13,7 +13,7 @@ import java.util.Map;
  * Represents a node in the editable JSON tree structure. Based on
  * JsonTreeNodeData with tree structure methods added.
  */
-public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditNodeProperty {
+public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditNodeProperty, EditNodePropertyArr {
 
     public final static String EDIT_STATELESS = "stateless";
     public final static String EDIT_OKAY = "okay";
@@ -49,6 +49,10 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
     }
 
     default boolean canBeParentOfPropertyData() {
+        return false;
+    }
+
+    default boolean canBeParentOfPropertyArrData() {
         return false;
     }
 

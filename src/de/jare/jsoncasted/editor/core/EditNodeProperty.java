@@ -14,7 +14,9 @@ import java.util.Map;
 /**
  * Represents a JSON property node in the tree structure.
  */
-public final class EditNodeProperty extends EditNodeAbstract implements EditNode {
+public non-sealed class EditNodeProperty extends EditNodeAbstract implements EditNode {
+
+    public static final String FOREPROPERTY = "fore.property";
 
     private String propName;
     private String primValue;
@@ -28,7 +30,7 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
         this.type = JsonNodeType.NULL;
     }
 
-    private EditNodeProperty(long editId, long leftRange, long rightRange, long timesRange, String propName, JsonNodeType type, String primValue) {
+    EditNodeProperty(long editId, long leftRange, long rightRange, long timesRange, String propName, JsonNodeType type, String primValue) {
         super(editId, leftRange, rightRange, timesRange);
         this.propName = propName;
         this.primValue = primValue;
@@ -159,8 +161,13 @@ public final class EditNodeProperty extends EditNodeAbstract implements EditNode
     }
 
     @Override
+    public boolean canBeParentOfPropertyArrData() {
+        return true;
+    }
+
+    @Override
     public String getTypeKey() {
-        return "fore.property";
+        return FOREPROPERTY;
     }
 
     @Override

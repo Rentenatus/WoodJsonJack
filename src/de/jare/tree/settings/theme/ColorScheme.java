@@ -55,11 +55,13 @@ public class ColorScheme implements AScheme {
         colorMap.put(LIGHT_FORE_WARNING, new Color(127, 127, 0));
         colorMap.put(LIGHT_FORE_ERROR, new Color(195, 0, 0));
         colorMap.put(LIGHT_FORE_PROPERTY, new Color(0, 0, 195));
+        colorMap.put(LIGHT_FORE_ARRAY, new Color(0, 195, 63));
         colorMap.put(LIGHT_FORE_OBJECT, new Color(31, 31, 31));
         colorMap.put(DARK_FORE_OKAY, new Color(142, 255, 142));
         colorMap.put(DARK_FORE_WARNING, new Color(255, 255, 128));
         colorMap.put(DARK_FORE_ERROR, new Color(255, 142, 142));
-        colorMap.put(DARK_FOREP_ROPERTY, new Color(142, 142, 255));
+        colorMap.put(DARK_FORE_PROPERTY, new Color(142, 142, 255));
+        colorMap.put(DARK_FORE_ARRAY, new Color(142, 255, 196));
         colorMap.put(DARK_FORE_OBJECT, new Color(251, 251, 251));
     }
 
