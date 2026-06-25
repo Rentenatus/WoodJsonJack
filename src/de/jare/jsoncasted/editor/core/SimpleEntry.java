@@ -1,10 +1,15 @@
 /*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0 which
+ * accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
  */
 package de.jare.jsoncasted.editor.core;
 
 /**
+ * Immutable entry class that stores node identification information for tree
+ * operations. Contains the node ID, left range, and times range used for node
+ * lookup and reference.
  *
  * @author Janusch Rentenatus
  */

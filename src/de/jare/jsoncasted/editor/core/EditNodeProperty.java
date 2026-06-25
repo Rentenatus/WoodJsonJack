@@ -12,11 +12,22 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Represents a JSON property node in the tree structure.
+ * Represents a JSON property node in the editable tree structure. Contains
+ * property-specific information such as property name, primitive value, type,
+ * and field descriptor.
+ *
+ * @author Janusch Rentenatus
  */
 public non-sealed class EditNodeProperty extends EditNodeAbstract implements EditNode {
 
+    /**
+     * Type key constant for property nodes.
+     */
     public static final String FOREPROPERTY = "fore.property";
+
+    /**
+     * Type key constant for array property nodes.
+     */
     public static final String FOREARRAY = "fore.array";
 
     private String propName;
@@ -24,10 +35,21 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
     private JsonNodeType type;
     private JsonFieldDescriptor jsonField;
 
+    /**
+     * Creates a new EditNodeProperty with the specified name and NULL type.
+     *
+     * @param propName the property name
+     */
     public EditNodeProperty(String propName) {
         this(propName, JsonNodeType.NULL);
     }
 
+    /**
+     * Creates a new EditNodeProperty with the specified name and type.
+     *
+     * @param propName the property name
+     * @param type the JSON node type
+     */
     public EditNodeProperty(String propName, JsonNodeType type) {
         super();
         this.propName = propName;
@@ -35,6 +57,18 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
         this.type = type;
     }
 
+    /**
+     * Creates a new EditNodeProperty with the specified ID, range values, and
+     * properties.
+     *
+     * @param editId the edit identifier
+     * @param leftRange the left range value
+     * @param rightRange the right range value
+     * @param timesRange the times range value
+     * @param propName the property name
+     * @param type the JSON node type
+     * @param primValue the primitive value
+     */
     EditNodeProperty(long editId, long leftRange, long rightRange, long timesRange, String propName, JsonNodeType type, String primValue) {
         super(editId, leftRange, rightRange, timesRange);
         this.propName = propName;
@@ -48,16 +82,32 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
         return propName;
     }
 
+    /**
+     * Sets the name of this property node.
+     *
+     * @param name the new name to set
+     */
     @Override
     public void setName(String name) {
         this.propName = name;
     }
 
     // ========== JsonTreeNodeData methods ==========
+    /**
+     * Returns the property name.
+     *
+     * @return the property name
+     */
     public String getPropName() {
         return propName;
     }
 
+    /**
+     * Sets the property name, sanitizing it by replacing '=' with space,
+     * trimming whitespace, and replacing spaces with underscores.
+     *
+     * @param propName the property name to set
+     */
     public void setPropName(String propName) {
         this.propName = propName.replace('=', ' ')
                 .trim()
@@ -74,22 +124,43 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
         this.primValue = value;
     }
 
+    /**
+     * Returns the JSON node type of this property.
+     *
+     * @return the JsonNodeType
+     */
     public JsonNodeType getType() {
         return type;
     }
 
+    /**
+     * Sets the JSON node type of this property.
+     *
+     * @param type the JsonNodeType to set
+     */
     public void setType(JsonNodeType type) {
         this.type = type;
     }
 
+    /**
+     * Returns the JSON field descriptor for this property.
+     *
+     * @return the JsonFieldDescriptor
+     */
     public JsonFieldDescriptor getJsonField() {
         return jsonField;
     }
 
+    /**
+     * Sets the JSON field descriptor for this property.
+     *
+     * @param jsonField the JsonFieldDescriptor to set
+     */
     public void setJsonField(JsonFieldDescriptor jsonField) {
         this.jsonField = jsonField;
     }
 
+    // ========== Factory methods ==========
     @Override
     public String toString() {
         return maskEscapes(propName + rightString());

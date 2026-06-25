@@ -15,15 +15,19 @@ import java.util.Objects;
 /**
  * Manages object identities and links within an EditTree for cross-referencing.
  *
- * <p>An EditLinkingSet tracks:</p>
+ * <p>
+ * An EditLinkingSet tracks:</p>
  * <ul>
- *   <li>Object IDs and their corresponding EditNodeObject nodes</li>
- *   <li>Link references and their target EditNodeObject nodes</li>
+ * <li>Object IDs and their corresponding EditNodeObject nodes</li>
+ * <li>Link references and their target EditNodeObject nodes</li>
  * </ul>
  *
- * <p>This is used to resolve cross-references within the EditTree system.
- * Only EditNodeObject instances from the current tree are held, no properties.
- * Each EditNodeObject has an ID.</p>
+ * <p>
+ * This is used to resolve cross-references within the EditTree system. Only
+ * EditNodeObject instances from the current tree are held, no properties. Each
+ * EditNodeObject has an ID.</p>
+ *
+ * @author Janusch Rentenatus
  */
 public final class EditLinkingSet {
 
@@ -61,7 +65,8 @@ public final class EditLinkingSet {
     }
 
     /**
-     * Returns the map of object IDs to their corresponding EditNodeObject nodes.
+     * Returns the map of object IDs to their corresponding EditNodeObject
+     * nodes.
      *
      * @return the object ID map (may be modified).
      */
@@ -72,14 +77,16 @@ public final class EditLinkingSet {
     /**
      * Sets the object ID map.
      *
-     * @param objectIdMap the map to set, or {@code null} to create an empty map.
+     * @param objectIdMap the map to set, or {@code null} to create an empty
+     * map.
      */
     public void setObjectIdMap(Map<String, EditNodeObject> objectIdMap) {
         this.objectIdMap = objectIdMap != null ? new LinkedHashMap<>(objectIdMap) : new LinkedHashMap<>();
     }
 
     /**
-     * Returns the map of link references to their corresponding EditNodeObject nodes.
+     * Returns the map of link references to their corresponding EditNodeObject
+     * nodes.
      *
      * @return the link map (may be modified).
      */
@@ -249,7 +256,7 @@ public final class EditLinkingSet {
 
     @Override
     public String toString() {
-        return "EditLinkingSet{" 
+        return "EditLinkingSet{"
                 + "providerName='" + providerName + '\''
                 + ", objectIdMapSize=" + (objectIdMap != null ? objectIdMap.size() : 0)
                 + ", linkMapSize=" + (linkMap != null ? linkMap.size() : 0)

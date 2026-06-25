@@ -9,8 +9,10 @@ package de.jare.jsoncasted.editor.core;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Thread-safe generator for unique node identifiers.
- * Based on de.jare.tree.data.IdGenerator.
+ * Thread-safe generator for unique node identifiers. Based on
+ * de.jare.tree.data.IdGenerator.
+ *
+ * @author Janusch Rentenatus
  */
 public class IdGenerator {
 

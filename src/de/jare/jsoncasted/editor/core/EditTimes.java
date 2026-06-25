@@ -9,6 +9,9 @@ package de.jare.jsoncasted.editor.core;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
+ * Monitors and generates timestamps for EditTree operations.
+ * Provides unique time values for tracking tree construction and modification events.
+ * Uses atomic counters for thread-safe timestamp generation.
  *
  * @author Janusch Rentenatus
  */

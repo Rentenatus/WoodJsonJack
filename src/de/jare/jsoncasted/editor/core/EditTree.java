@@ -11,6 +11,8 @@ import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 /**
  * Represents the editable tree structure for JSON data. Maintains a hierarchy
  * of EditNode instances and provides fast lookup by ID.
+ *
+ * @author Janusch Rentenatus
  */
 public class EditTree {
 

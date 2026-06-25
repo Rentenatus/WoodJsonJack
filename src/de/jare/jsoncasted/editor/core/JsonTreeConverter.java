@@ -19,8 +19,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Converter utility for creating EditTree structures from JSON files and
- * strings. Uses JsonParserService from jsoncasted.parserservice package.
+ * Utility class for converting between JSON data structures and EditTree
+ * representations. Provides methods to create EditTree structures from JSON
+ * files, strings, and JsonResource objects. Uses JsonParserService from the
+ * jsoncasted.parserservice package for parsing operations.
+ *
+ * @author Janusch Rentenatus
  */
 public final class JsonTreeConverter {
 
@@ -53,7 +57,7 @@ public final class JsonTreeConverter {
      * Creates an EditTree from a JSON string.
      *
      * @param jsonString the JSON string to parse
-     * @param rootName
+     * @param rootName the name to use for the root node of the EditTree
      * @return a new EditTree containing the JSON content
      * @throws IOException if parsing fails
      * @throws JsonParseException if JSON parsing fails
@@ -66,7 +70,15 @@ public final class JsonTreeConverter {
         return convertRessourceToEditTree(resource, rootName);
     }
 
-    public static EditTree convertRessourceToEditTree(JsonResource resource, String rootName) {
+    /**
+     * Converts a JsonResource to an EditTree structure.
+     *
+     * @param resource the JsonResource containing the parsed JSON data
+     * @param rootName the name to use for the root node of the EditTree
+     * @return a new EditTree containing the JSON content from the resource
+     * @throws JsonParseException if JSON parsing fails during conversion
+     */
+    public static EditTree convertRessourceToEditTree(JsonResource resource, String rootName) throws JsonParseException {
         EditTimes weightMonitor = new EditTimes();
         EditNodeAbstract root = importFromJsonNode(resource.getRoot(), rootName, weightMonitor);
         return new EditTree(root, weightMonitor);
@@ -76,11 +88,13 @@ public final class JsonTreeConverter {
      * Imports a JSON node into an EditNode structure.
      *
      * @param jsonNode the JSON node to import
-     * @param rootName
-     * @param weightMonitor
-     * @return the root EditNode
+     * @param rootName the name to use for the root node
+     * @param weightMonitor the EditTimes monitor for tracking tree construction
+     * metrics
+     * @return the root EditNode containing the imported JSON structure
+     * @throws JsonParseException if JSON parsing fails during import
      */
-    public static EditNodeAbstract importFromJsonNode(JsonNode jsonNode, String rootName, EditTimes weightMonitor) {
+    public static EditNodeAbstract importFromJsonNode(JsonNode jsonNode, String rootName, EditTimes weightMonitor) throws JsonParseException {
         if (jsonNode == null) {
             throw new IllegalArgumentException("Node cannot be null");
         }
@@ -89,7 +103,19 @@ public final class JsonTreeConverter {
         return rootNode;
     }
 
-    private static void convertJsonNodeToEditNode(EditNodeObject rootNode, JsonNode jsonNode, EditTimes weightMonitor) {
+    /**
+     * Converts a JSON node to an EditNode structure and adds it as children to
+     * the root node. Handles object values by creating EditProperty nodes for
+     * each entry.
+     *
+     * @param rootNode the root EditNodeObject to which child nodes will be
+     * added
+     * @param jsonNode the JSON node to convert
+     * @param weightMonitor the EditTimes monitor for tracking tree construction
+     * metrics
+     * @throws JsonParseException if JSON parsing fails during conversion
+     */
+    private static void convertJsonNodeToEditNode(EditNodeObject rootNode, JsonNode jsonNode, EditTimes weightMonitor) throws JsonParseException {
         Map<String, JsonNode> objectValues = jsonNode.asObjectValues();
         if (objectValues != null) {
             for (Map.Entry<String, JsonNode> entry : objectValues.entrySet()) {
@@ -101,8 +127,22 @@ public final class JsonTreeConverter {
         }
     }
 
+    /**
+     * Builds an EditProperty node from a JSON object entry and adds it to the
+     * parent node. Handles different JSON node types (array, object, primitive
+     * values).
+     *
+     * @param parent the parent EditNodeObject to which the property will be
+     * added
+     * @param entry the map entry containing the property name and JSON node
+     * value
+     * @param weightMonitor the EditTimes monitor for tracking tree construction
+     * metrics
+     * @throws JsonParseException if JSON parsing fails during property
+     * construction
+     */
     private static void buildEditProperty(EditNodeObject parent, Map.Entry<String, JsonNode> entry,
-            EditTimes weightMonitor) {
+            EditTimes weightMonitor) throws JsonParseException {
         String propertyName = entry.getKey();
         EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : ".");
         parent.addChild(editNode, weightMonitor);
@@ -126,16 +166,18 @@ public final class JsonTreeConverter {
     }
 
     /**
-     * Converts a JSON object node to an EditNodeObject with property children.
-     * Objects can only contain properties.
+     * Builds an EditNode structure from a JSON node and adds it as a child to
+     * the parent property node. Handles different JSON node types (object,
+     * array, primitive values) appropriately.
      *
-     * @param jsonNode the JSON object node
-     * @param propertyName the property name, or null for root
-     * @param weightMonitor the weight monitor for tree construction
-     * @return the EditNodeObject with property children
+     * @param parent the parent EditNodeProperty to which the node will be added
+     * @param jsonNode the JSON node to convert to an EditNode
+     * @param weightMonitor the EditTimes monitor for tracking tree construction
+     * metrics
+     * @throws JsonParseException if JSON parsing fails during construction
      */
     private static void buildEditObject(EditNodeProperty parent, JsonNode jsonNode,
-            EditTimes weightMonitor) {
+            EditTimes weightMonitor) throws JsonParseException {
         System.out.println("1 +++++++++++++++   " + jsonNode);
         JsonNodeType type = jsonNode.getType();
 
@@ -156,7 +198,7 @@ public final class JsonTreeConverter {
             }
             return;
         }
-        EditNodeObject nodePrimitiv = new EditNodeObject(jsonNode.asText());
+        EditNodeObject nodePrimitiv = new EditNodeObject(jsonNode.toText());
         parent.addChild(nodePrimitiv, weightMonitor);
     }
 

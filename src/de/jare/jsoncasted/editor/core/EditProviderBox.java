@@ -13,11 +13,15 @@ import java.util.Objects;
 /**
  * Container for a collection of resolved and edited EditTree resources.
  *
- * <p>This class manages multiple {@link EditTree} instances that represent
+ * <p>
+ * This class manages multiple {@link EditTree} instances that represent
  * resolved/edited resources. It provides lookup and merging capabilities for
- * linking editors and allowing immediate use of changes (e.g., new links) in dependent instances.</p>
+ * linking editors and allowing immediate use of changes (e.g., new links) in
+ * dependent instances.</p>
  *
  * @see EditTree
+ *
+ * @author Janusch Rentenatus
  */
 public final class EditProviderBox {
 
@@ -51,8 +55,8 @@ public final class EditProviderBox {
      */
     public EditTree findByRootText(String rootText) {
         for (EditTree provider : providers) {
-            if (provider.getRoot() != null && 
-                provider.getRoot().toString().equals(rootText)) {
+            if (provider.getRoot() != null
+                    && provider.getRoot().toString().equals(rootText)) {
                 return provider;
             }
         }
@@ -60,10 +64,12 @@ public final class EditProviderBox {
     }
 
     /**
-     * Checks if this box contains a provider with the specified root node text content.
+     * Checks if this box contains a provider with the specified root node text
+     * content.
      *
      * @param rootText the root node text content to check.
-     * @return {@code true} if a matching provider exists, {@code false} otherwise.
+     * @return {@code true} if a matching provider exists, {@code false}
+     * otherwise.
      */
     public boolean containsRootText(String rootText) {
         return findByRootText(rootText) != null;
@@ -90,8 +96,9 @@ public final class EditProviderBox {
     /**
      * Merges another provider box into this one.
      *
-     * <p>Providers from the other box are added only if their root node text
-     * is not already present in this box.</p>
+     * <p>
+     * Providers from the other box are added only if their root node text is
+     * not already present in this box.</p>
      *
      * @param box the other provider box to merge (ignored if null or empty).
      */
@@ -100,8 +107,8 @@ public final class EditProviderBox {
             return;
         }
         for (EditTree provider : box.providers) {
-            if (provider.getRoot() != null && 
-                !containsRootText(provider.getRoot().toString())) {
+            if (provider.getRoot() != null
+                    && !containsRootText(provider.getRoot().toString())) {
                 providers.add(provider);
             }
         }
@@ -109,8 +116,8 @@ public final class EditProviderBox {
 
     @Override
     public String toString() {
-        return "EditProviderBox{" 
-                + "providers=" + providers 
+        return "EditProviderBox{"
+                + "providers=" + providers
                 + '}';
     }
 }

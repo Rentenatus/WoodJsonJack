@@ -12,10 +12,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Represents a JSON object node in the tree structure.
+ * Represents a JSON object node in the editable tree structure. Contains
+ * object-specific properties such as object ID, info, and type descriptor.
+ *
+ * @author Janusch Rentenatus
  */
 public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
+    /**
+     * Type key constant for object nodes.
+     */
     public static final String FOREOBJECT = "fore.object";
 
     private String objektValue;
@@ -23,18 +29,38 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     private String objektId;
     private JsonTypeDescriptor jsonType;
 
+    /**
+     * Creates a new EditNodeObject with the specified value.
+     *
+     * @param objektValue the value/name for this object node
+     */
     public EditNodeObject(String objektValue) {
         super();
         this.objektValue = objektValue;
         this.objektInfo = "";
     }
 
+    /**
+     * Creates a new EditNodeObject with the specified value and info.
+     *
+     * @param objektValue the value/name for this object node
+     * @param objektInfo the info string for this object node
+     */
     public EditNodeObject(String objektValue, String objektInfo) {
         super();
         this.objektValue = objektValue;
         this.objektInfo = objektInfo;
     }
 
+    /**
+     * Creates a new EditNodeObject with the specified ID and range values.
+     *
+     * @param editId the edit identifier
+     * @param leftRange the left range value
+     * @param rightRange the right range value
+     * @param timesRange the times range value
+     * @param objektInfo the info string for this object node
+     */
     private EditNodeObject(long editId, long leftRange, long rightRange, long timesRange, String objektInfo) {
         super(editId, leftRange, rightRange, timesRange);
         this.objektValue = objektInfo;
@@ -46,15 +72,20 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         return objektValue;
     }
 
+    /**
+     * Sets the name of this object node.
+     *
+     * @param name the new name to set
+     */
     @Override
     public void setName(String name) {
         this.objektValue = name;
     }
 
     /**
-     * Returns the value of this node
+     * Returns the value of this node.
      *
-     * @return default objektInfo
+     * @return the objektValue
      */
     @Override
     public String getValue() {
@@ -62,26 +93,56 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     }
 
     // ========== JsonTreeNodeData methods ==========
+    /**
+     * Returns the info string for this object node.
+     *
+     * @return the objektInfo
+     */
     public String getObjektInfo() {
         return objektInfo;
     }
 
+    /**
+     * Sets the info string for this object node.
+     *
+     * @param objektInfo the info string to set
+     */
     public void setObjektInfo(String objektInfo) {
         this.objektInfo = objektInfo;
     }
 
+    /**
+     * Returns the object ID for this node.
+     *
+     * @return the objektId
+     */
     public String getObjektId() {
         return objektId;
     }
 
+    /**
+     * Sets the object ID for this node.
+     *
+     * @param objektId the object ID to set
+     */
     public void setObjektId(String objektId) {
         this.objektId = objektId;
     }
 
+    /**
+     * Returns the JSON type descriptor for this node.
+     *
+     * @return the jsonType descriptor
+     */
     public JsonTypeDescriptor getJsonType() {
         return jsonType;
     }
 
+    /**
+     * Sets the JSON type descriptor for this node.
+     *
+     * @param jsonType the JSON type descriptor to set
+     */
     public void setJsonType(JsonTypeDescriptor jsonType) {
         this.jsonType = jsonType;
     }
