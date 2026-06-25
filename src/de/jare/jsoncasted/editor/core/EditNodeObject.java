@@ -18,29 +18,37 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
 
     public static final String FOREOBJECT = "fore.object";
 
+    private String objektValue;
     private String objektInfo;
     private String objektId;
     private JsonTypeDescriptor jsonType;
 
-    public EditNodeObject(String objektInfo) {
+    public EditNodeObject(String objektValue) {
         super();
+        this.objektValue = objektValue;
+        this.objektInfo = "";
+    }
+
+    public EditNodeObject(String objektValue, String objektInfo) {
+        super();
+        this.objektValue = objektValue;
         this.objektInfo = objektInfo;
     }
 
     private EditNodeObject(long editId, long leftRange, long rightRange, long timesRange, String objektInfo) {
         super(editId, leftRange, rightRange, timesRange);
-        this.objektInfo = objektInfo;
+        this.objektValue = objektInfo;
     }
 
     // ========== Name / Label ==========
     @Override
     public String getName() {
-        return objektInfo;
+        return objektValue;
     }
 
     @Override
     public void setName(String name) {
-        this.objektInfo = name;
+        this.objektValue = name;
     }
 
     /**
@@ -48,10 +56,9 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
      *
      * @return default objektInfo
      */
+    @Override
     public String getValue() {
-
-        // todo: Spaeter muss der Value aus den Properties hier hin!!! 
-        return objektInfo;
+        return objektValue;
     }
 
     // ========== JsonTreeNodeData methods ==========
@@ -82,7 +89,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     @Override
     public String toString() {
         String value = getValue();
-        return maskEscapes(value == null ? String.valueOf(objektInfo) : value + " : " + rightString());
+        return maskEscapes(value == null ? "" : value + " : " + rightString());
     }
 
     @Override
@@ -112,7 +119,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         EditNodeObject copy = new EditNodeObject(
                 regenerateEditId ? IdGenerator.EDIT_ID_GENERATOR.nextId() : getEditId(),
                 getLeftRange(), getRightRange(), getTimesRange(),
-                objektInfo);
+                objektValue);
 
         for (EditNodeAbstract child : getAbstractChildren()) {
             final EditNodeAbstract deepCopy = child.deepCopy(regenerateEditId);
@@ -149,7 +156,8 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     @Override
     public Map<String, Object> getAttributes() {
         Map<String, Object> attributes = new HashMap<>();
-        attributes.put("name", getName());
+        attributes.put("value", getValue());
+        attributes.put("infotype", getObjektInfo());
         attributes.put("objektId", getObjektId());
         attributes.put("jsonType", getJsonType());
         return putEditAttributes(attributes);
@@ -162,6 +170,15 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         }
         if (props.containsKey("name")) {
             setName((String) props.get("name"));
+        }
+        if (props.containsKey("value")) {
+            setValue((String) props.get("value"));
+        }
+        if (props.containsKey("infotype")) {
+            setObjektInfo((String) props.get("infotype"));
+        }
+        if (props.containsKey("info")) {
+            setObjektInfo((String) props.get("info"));
         }
         if (props.containsKey("objektId")) {
             setObjektId((String) props.get("objektId"));

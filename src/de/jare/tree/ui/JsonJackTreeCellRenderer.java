@@ -49,11 +49,11 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
             editLabel.setText(data.getName());
             String foreKey = "light." + data.getTypeKey();
             editLabel.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
-            infoLabel.setText(data.rightString());
+            infoLabel.setText(data.rightString() + " ");
         } else {
             editLabel.setText(String.valueOf(value));
             editLabel.setForeground(tree.getForeground());
-            infoLabel.setText("");
+            infoLabel.setText(" ");
         }
 
         // Selektion/Focus nach JTree-Defaults nachbilden

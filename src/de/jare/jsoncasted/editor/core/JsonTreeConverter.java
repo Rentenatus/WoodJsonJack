@@ -104,11 +104,11 @@ public final class JsonTreeConverter {
     private static void buildEditProperty(EditNodeObject parent, Map.Entry<String, JsonNode> entry,
             EditTimes weightMonitor) {
         String propertyName = entry.getKey();
-        EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : "mm");
+        EditNodeProperty editNode = new EditNodeProperty(propertyName != null ? propertyName : ".");
         parent.addChild(editNode, weightMonitor);
         JsonNode jsonNode = entry.getValue();
         JsonNodeType type = jsonNode.getType();
-
+        editNode.setType(type);
         if (type == JsonNodeType.ARRAY) {
             List<JsonNode> arrayValues = jsonNode.asArray();
             if (arrayValues != null) {
@@ -116,12 +116,13 @@ public final class JsonTreeConverter {
                     buildEditObject(editNode, value, weightMonitor);
                 }
             }
-        } else if (type == JsonNodeType.OBJECT) {
-            buildEditObject(editNode, jsonNode, weightMonitor);
-        } else {
-            editNode.setValue(convertJsonValueToString(jsonNode));
+            return;
         }
-        editNode.setType(type);
+        if (type == JsonNodeType.OBJECT) {
+            buildEditObject(editNode, jsonNode, weightMonitor);
+            return;
+        }
+        editNode.setValue(convertJsonValueToString(jsonNode));
     }
 
     /**
@@ -137,12 +138,26 @@ public final class JsonTreeConverter {
             EditTimes weightMonitor) {
         System.out.println("1 +++++++++++++++   " + jsonNode);
         JsonNodeType type = jsonNode.getType();
-        if (type == JsonNodeType.OBJECT) {
 
+        if (type == JsonNodeType.OBJECT) {
+            EditNodeObject ndoeObject = new EditNodeObject("{}", "Object");
+            convertJsonNodeToEditNode(ndoeObject, jsonNode, weightMonitor);
+            parent.addChild(ndoeObject, weightMonitor);
+            return;
         }
-        EditNodeObject valueNode = new EditNodeObject("Node");
-        convertJsonNodeToEditNode(valueNode, jsonNode, weightMonitor);
-        parent.addChild(valueNode, weightMonitor);
+        if (type == JsonNodeType.ARRAY) {
+            EditNodePropertyArr nodeArray = new EditNodePropertyArr();
+            parent.addChild(nodeArray, weightMonitor);
+            List<JsonNode> arrayValues = jsonNode.asArray();
+            if (arrayValues != null) {
+                for (JsonNode value : arrayValues) {
+                    buildEditObject(nodeArray, value, weightMonitor);
+                }
+            }
+            return;
+        }
+        EditNodeObject nodePrimitiv = new EditNodeObject(jsonNode.asText());
+        parent.addChild(nodePrimitiv, weightMonitor);
     }
 
     /**
@@ -158,13 +173,17 @@ public final class JsonTreeConverter {
         JsonNodeType type = jsonNode.getType();
         if (type == JsonNodeType.STRING) {
             return jsonNode.asText();
-        } else if (type == JsonNodeType.LONG) {
+        }
+        if (type == JsonNodeType.LONG) {
             return String.valueOf(jsonNode.asLong());
-        } else if (type == JsonNodeType.NUMBER) {
+        }
+        if (type == JsonNodeType.NUMBER) {
             return String.valueOf(jsonNode.asNumber());
-        } else if (type == JsonNodeType.BOOLEAN) {
+        }
+        if (type == JsonNodeType.BOOLEAN) {
             return String.valueOf(jsonNode.asBoolean());
-        } else if (type == JsonNodeType.NULL) {
+        }
+        if (type == JsonNodeType.NULL) {
             return null;
         }
         return jsonNode.asText();
