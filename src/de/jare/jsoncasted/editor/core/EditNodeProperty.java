@@ -168,8 +168,38 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
 
     @Override
     public String rightString() {
+        if (type == JsonNodeType.ARRAY) {
+            return previewChildren();
+        }
         String value = getValue();
         return value == null ? " =" : " = '" + value + "'";
+    }
+
+    public String previewChildren() {
+        StringBuilder sb = new StringBuilder();
+        int index = 0;
+        for (EditNode child : getChildren()) {
+            if (child == null) {
+                return "";
+            }
+            String value = String.valueOf(child.getValue());
+            if (!sb.isEmpty()) {
+                sb.append(", ");
+            }
+            if (value.length() > 48) {
+                sb.append(value.substring(0, 43)).append("(...)");
+            } else {
+                sb.append(value);
+            }
+            index++;
+            if (index > 7 || sb.length() > 128) {
+                break;
+            }
+        }
+        if (index < getChildCount()) {
+            sb.append(", ...");
+        }
+        return " \u00B7" + getChildCount() + ":  [" + (sb.append(']'));
     }
 
     // ========== Factory methods ==========
@@ -265,4 +295,5 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
             setJsonField((JsonFieldDescriptor) props.get("jsonField"));
         }
     }
+
 }

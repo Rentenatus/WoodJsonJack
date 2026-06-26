@@ -29,7 +29,7 @@ import java.util.Map;
 public final class JsonTreeConverter {
 
     private JsonTreeConverter() {
-        // Utility class
+        throw new IllegalStateException("Utility class");
     }
 
     /**
@@ -182,7 +182,7 @@ public final class JsonTreeConverter {
         JsonNodeType type = jsonNode.getType();
 
         if (type == JsonNodeType.OBJECT) {
-            EditNodeObject ndoeObject = new EditNodeObject("{}", "Object");
+            EditNodeObject ndoeObject = new EditNodeObject("Object", "{...}");
             convertJsonNodeToEditNode(ndoeObject, jsonNode, weightMonitor);
             parent.addChild(ndoeObject, weightMonitor);
             return;

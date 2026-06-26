@@ -122,12 +122,17 @@ public final class EditNodePropertyArr extends EditNodeProperty implements EditN
     }
 
     @Override
+    public String getValue() {
+        return "array";
+    }
+
+    @Override
     public String toString() {
         return maskEscapes(getName() + rightString());
     }
 
     @Override
     public String rightString() {
-        return "[]";
+        return previewChildren();
     }
 }
