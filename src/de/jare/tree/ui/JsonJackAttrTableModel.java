@@ -10,6 +10,7 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.JackAttribut;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
@@ -208,13 +209,12 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         List<PropertyRow> newRows = new ArrayList<>();
 
         if (actualNode instanceof EditNode editNode) {
-            Map<String, Object> attributes = editNode.getAttributes();
+            Map<String, JackAttribut> attributes = editNode.getAttributes();
             if (attributes != null) {
-                for (Map.Entry<String, Object> entry : attributes.entrySet()) {
+                for (Map.Entry<String, JackAttribut> entry : attributes.entrySet()) {
                     String name = entry.getKey();
-                    Object value = entry.getValue();
-                    String type = value == null ? "null" : value.getClass().getSimpleName();
-                    newRows.add(new PropertyRow(name, value, type));
+                    JackAttribut jackAttribut = entry.getValue();
+                    newRows.add(new PropertyRow(name, jackAttribut.getValue(), jackAttribut.getType()));
                 }
                 // Sortiere Attribute alphabetisch nach Namen
                 newRows.sort(Comparator.comparing(PropertyRow::name));
@@ -230,6 +230,27 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
 
     public void setProperties(List<PropertyRow> newRows) {
         this.rows = new ArrayList<>(newRows);
+        fireTableDataChanged();
+    }
+
+    /**
+     * Sets the properties from a map of JackAttribut objects.
+     *
+     * @param attributes the map of JackAttribut objects
+     */
+    public void setPropertiesFromJackAttribut(Map<String, JackAttribut> attributes) {
+        if (attributes == null) {
+            rows.clear();
+            fireTableDataChanged();
+            return;
+        }
+        List<PropertyRow> newRows = new ArrayList<>();
+        for (Map.Entry<String, JackAttribut> entry : attributes.entrySet()) {
+            JackAttribut attr = entry.getValue();
+            newRows.add(new PropertyRow(entry.getKey(), attr.getValue(), attr.getType()));
+        }
+        newRows.sort(Comparator.comparing(PropertyRow::name));
+        this.rows = newRows;
         fireTableDataChanged();
     }
 

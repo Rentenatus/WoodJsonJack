@@ -8,6 +8,7 @@ package de.jare.jsoncasted.editor.core;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Represents a node in the editable JSON tree structure. Extends
@@ -267,20 +268,56 @@ public sealed interface EditNode permits EditNodeAbstract, EditNodeObject, EditN
     public String getTypeKey();
 
     /**
-     * Returns the attributes of this node as a map.
+     * Returns the attributes of this node as a map of JackAttribut objects.
+     * This ensures type information is always available.
      *
      * @return the attributes map, or null if not supported
      */
-    default Map<String, Object> getAttributes() {
+    default Map<String, JackAttribut> getAttributes() {
         return null;
     }
 
     /**
-     * Sets the attributes of this node from a map.
+     * Sets the attributes of this node from a map of JackAttribut objects.
      *
      * @param props the attributes map to set
      */
-    default void setAttributes(Map<String, Object> props) {
+    default void setAttributes(Map<String, JackAttribut> props) {
+    }
+
+    /**
+     * Legacy method for compatibility with old code that uses Map<String, Object>.
+     * Converts the attributes to the old format.
+     *
+     * @return the attributes map in the old format, or null if not supported
+     */
+    default Map<String, Object> getAttributesLegacy() {
+        Map<String, JackAttribut> newAttrs = getAttributes();
+        if (newAttrs == null) {
+            return null;
+        }
+        Map<String, Object> legacyAttrs = new HashMap<>();
+        for (Map.Entry<String, JackAttribut> entry : newAttrs.entrySet()) {
+            legacyAttrs.put(entry.getKey(), entry.getValue().getValue());
+        }
+        return legacyAttrs;
+    }
+
+    /**
+     * Legacy method for compatibility with old code that uses Map<String, Object>.
+     *
+     * @param props the attributes map in the old format to set
+     */
+    default void setAttributesLegacy(Map<String, Object> props) {
+        if (props == null) {
+            setAttributes(null);
+            return;
+        }
+        Map<String, JackAttribut> newAttrs = new HashMap<>();
+        for (Map.Entry<String, Object> entry : props.entrySet()) {
+            newAttrs.put(entry.getKey(), new JackAttribut(entry.getKey(), entry.getValue()));
+        }
+        setAttributes(newAttrs);
     }
 
 }

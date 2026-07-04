@@ -215,37 +215,43 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
     }
 
     @Override
-    public Map<String, Object> getAttributes() {
-        Map<String, Object> attributes = new HashMap<>();
-        attributes.put("value", getValue());
-        attributes.put("infotype", getObjektInfo());
-        attributes.put("objektId", getObjektId());
-        attributes.put("jsonType", getJsonType());
-        return putEditAttributes(attributes);
+    public Map<String, JackAttribut> getAttributes() {
+        Map<String, JackAttribut> attributes = new HashMap<>();
+        attributes.put("value", new JackAttribut("value", getValue()));
+        attributes.put("infotype", new JackAttribut("infotype", getObjektInfo()));
+        attributes.put("objektId", new JackAttribut("objektId", getObjektId()));
+        attributes.put("jsonType", new JackAttribut("jsonType", getJsonType()));
+        return putEditAttributesJack(attributes);
     }
 
     @Override
-    public void setAttributes(Map<String, Object> props) {
+    public void setAttributes(Map<String, JackAttribut> props) {
         if (props == null) {
             return;
         }
-        if (props.containsKey("name")) {
-            setName((String) props.get("name"));
+        JackAttribut nameAttr = props.get("name");
+        if (nameAttr != null) {
+            setName((String) nameAttr.getValue());
         }
-        if (props.containsKey("value")) {
-            setValue((String) props.get("value"));
+        JackAttribut valueAttr = props.get("value");
+        if (valueAttr != null) {
+            setValue((String) valueAttr.getValue());
         }
-        if (props.containsKey("infotype")) {
-            setObjektInfo((String) props.get("infotype"));
+        JackAttribut infoAttr = props.get("infotype");
+        if (infoAttr != null) {
+            setObjektInfo((String) infoAttr.getValue());
         }
-        if (props.containsKey("info")) {
-            setObjektInfo((String) props.get("info"));
+        JackAttribut info2Attr = props.get("info");
+        if (info2Attr != null) {
+            setObjektInfo((String) info2Attr.getValue());
         }
-        if (props.containsKey("objektId")) {
-            setObjektId((String) props.get("objektId"));
+        JackAttribut idAttr = props.get("objektId");
+        if (idAttr != null) {
+            setObjektId((String) idAttr.getValue());
         }
-        if (props.containsKey("jsonType")) {
-            setJsonType((JsonTypeDescriptor) props.get("jsonType"));
+        JackAttribut typeAttr = props.get("jsonType");
+        if (typeAttr != null) {
+            setJsonType((JsonTypeDescriptor) typeAttr.getValue());
         }
     }
 

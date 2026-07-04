@@ -95,29 +95,32 @@ public final class EditNodePropertyArr extends EditNodeProperty implements EditN
 
     // ========== Attributes ==========
     @Override
-    public Map<String, Object> getAttributes() {
-        Map<String, Object> attributes = new HashMap<>();
-        attributes.put("name", getName());
-        attributes.put("primValue", getValue());
-        attributes.put("type", getType());
-        attributes.put("jsonField", getJsonField());
-        return putEditAttributes(attributes);
+    public Map<String, JackAttribut> getAttributes() {
+        Map<String, JackAttribut> attributes = new HashMap<>();
+        attributes.put("name", new JackAttribut("name", getName()));
+        attributes.put("primValue", new JackAttribut("primValue", getValue()));
+        attributes.put("type", new JackAttribut("type", getType()));
+        attributes.put("jsonField", new JackAttribut("jsonField", getJsonField()));
+        return putEditAttributesJack(attributes);
     }
 
     @Override
-    public void setAttributes(Map<String, Object> props) {
+    public void setAttributes(Map<String, JackAttribut> props) {
         if (props == null) {
             return;
         }
-        if (props.containsKey("name")) {
-            setName((String) props.get("name"));
+        JackAttribut nameAttr = props.get("name");
+        if (nameAttr != null) {
+            setName((String) nameAttr.getValue());
         }
-        if (props.containsKey("primValue")) {
-            setValue((String) props.get("primValue"));
+        JackAttribut valueAttr = props.get("primValue");
+        if (valueAttr != null) {
+            setValue((String) valueAttr.getValue());
         }
         // Type is always ARRAY, so we ignore type from props
-        if (props.containsKey("jsonField")) {
-            setJsonField((JsonFieldDescriptor) props.get("jsonField"));
+        JackAttribut fieldAttr = props.get("jsonField");
+        if (fieldAttr != null) {
+            setJsonField((JsonFieldDescriptor) fieldAttr.getValue());
         }
     }
 

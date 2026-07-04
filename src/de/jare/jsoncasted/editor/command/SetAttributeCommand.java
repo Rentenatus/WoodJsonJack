@@ -11,6 +11,7 @@ import de.jare.jsoncasted.editor.command.EditCommandEntry.AttributeEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.JackAttribut;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,7 +41,7 @@ public class SetAttributeCommand extends AbstractEditCommand {
         }
 
         // Get current attributes and extract only the keys that are being modified
-        Map<String, Object> currentAttributes = node.getAttributes();
+        Map<String, Object> currentAttributes = node.getAttributesLegacy();
         Map<String, Object> oldAttributes = new HashMap<>();
         for (String key : newAttributes.keySet()) {
             if (currentAttributes.containsKey(key)) {
@@ -85,7 +86,7 @@ public class SetAttributeCommand extends AbstractEditCommand {
             }
 
             // Get current attributes and extract only the keys that are being modified
-            Map<String, Object> currentAttributes = node.getAttributes();
+            Map<String, Object> currentAttributes = node.getAttributesLegacy();
             Map<String, Object> oldAttributes = new HashMap<>();
             for (String key : attrs.keySet()) {
                 if (currentAttributes.containsKey(key)) {
@@ -159,7 +160,7 @@ public class SetAttributeCommand extends AbstractEditCommand {
             }
 
             // Set the new attributes
-            node.setAttributes(entry.newAttributes);
+            node.setAttributesLegacy(entry.newAttributes);
             updated[i] = node;
         }
 
@@ -189,7 +190,7 @@ public class SetAttributeCommand extends AbstractEditCommand {
             }
 
             // Restore the old attributes (only the ones that were modified)
-            node.setAttributes(entry.oldAttributes);
+            node.setAttributesLegacy(entry.oldAttributes);
             updated[i] = node;
         }
 
