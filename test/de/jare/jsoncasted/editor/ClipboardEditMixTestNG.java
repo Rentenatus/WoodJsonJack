@@ -155,7 +155,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
         softly.assertEquals(rootB.getChildCount(), 4,
                 "Redo paste should restore two pasted nodes");
 
-        EditNodeAbstract[] redos = pasteExecuteResult.getRemovedNodes();
+        EditNodeAbstract[] redos = pasteRedoResult.getAddedNodes();
         softly.assertEquals(redos.length, 2,
                 "Redo should again produce two pasted node IDs");
         softly.assertNotNull(treeB.findNodeByIdAndRange(redos[0]),
@@ -254,7 +254,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
         softly.assertEquals(rootB.getChildCount(), 4,
                 "Redo paste should restore both cut nodes into tree B");
 
-        EditNodeAbstract[] redos = pasteExecuteResult.getRemovedNodes();
+        EditNodeAbstract[] redos = pasteRedoResult.getAddedNodes();
         softly.assertNotNull(treeB.findNodeByIdAndRange(redos[0]),
                 "Redo pasted cut node 1 must exist");
         softly.assertNotNull(treeB.findNodeByIdAndRange(redos[1]),

@@ -299,7 +299,7 @@ public abstract class AbstractEditCommand implements EditCommand {
 
         for (int i = 0; i < entries.length; i++) {
             EditCommandEntry.MovementEntry entry = entries[i];
-            long nodeId = entry.nodeId;
+            long nodeId = entry.nodeId >= 0 ? entry.nodeId : entry.snapshot.getEditId();
 
             EditNode node = tree.findNodeByIdAndRange(nodeId, entry.leftRange, entry.timesRange);
             if (node == null) {
