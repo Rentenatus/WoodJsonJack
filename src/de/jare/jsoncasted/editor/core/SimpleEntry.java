@@ -18,18 +18,18 @@ public class SimpleEntry {
     /**
      * The ID of the affected node, or {@code -1} if not yet known.
      */
-    public final long nodeId;
+    public long nodeId;
 
     /**
      * The leftRange of the affected node, or {@code -1} if not yet known.
      */
-    public final long leftRange;
+    public long leftRange;
 
     /**
      * The timesRange of the affected node, or {@code Long.MIN_VALUE} if not yet
      * known.
      */
-    public final long timesRange;
+    public long timesRange;
 
     /**
      * Creates a new abstract entry with the specified node ID, leftRange, and

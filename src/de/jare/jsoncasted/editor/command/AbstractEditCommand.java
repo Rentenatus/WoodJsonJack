@@ -190,6 +190,9 @@ public abstract class AbstractEditCommand implements EditCommand {
             if (newNode != null) {
                 parentSet.add(parent);
                 added[i] = newNode;
+                entry.nodeId = newNode.getEditId();
+                entry.leftRange = newNode.getLeftRange();
+                entry.timesRange = newNode.getTimesRange();
             } else {
                 failedtSet.add(newNode);
             }

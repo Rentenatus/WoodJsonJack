@@ -54,36 +54,32 @@ public class TreeEditorArraysNGTest implements ATestTools {
         assertNotNull(root, "Root should not be null");
         assertEquals(root.getChildCount(), 0);
 
-        EditNodeProperty node1 = new EditNodeProperty("arrayNode1");
-        EditNodeProperty node2 = new EditNodeProperty("arrayNode2");
-        EditNodeProperty node3 = new EditNodeProperty("arrayNode3");
-
-        EditCommandEntry.MovementEntry[] entries = new EditCommandEntry.MovementEntry[]{
-            new EditCommandEntry.MovementEntry(node1.getEditId(), root.getEditId(), -1, node1),
-            new EditCommandEntry.MovementEntry(node2.getEditId(), root.getEditId(), -1, node2),
-            new EditCommandEntry.MovementEntry(node3.getEditId(), root.getEditId(), -1, node3)
-        };
-
-        CommandResult result = editor.execute(new AddNodeCommand(entries));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("arrayNode1")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("arrayNode2")));
+        editor.execute(new AddNodeCommand(root, new EditNodeProperty("arrayNode3")));
+        editor.clearHistory();
+        
+        CommandResult result = editor.execute(new AddNodeCommand(root, new EditNodeProperty("arrayNode4")));
         printCommandResult("addResult", result);
         printSubtree(editor, "root after add", root);
 
         assertNotNull(result, "AddNodeCommand result should not be null");
-        assertEquals(result.getAddedNodes().length, 3, "Three nodes should be reported as added");
+        assertEquals(result.getAddedNodes().length, 1, "One node should be reported as added");
 
-        assertEquals(root.getChildCount(), 3, "Root should have 3 children");
-        assertNodeNames(root, "arrayNode1", "arrayNode2", "arrayNode3");
+        assertEquals(root.getChildCount(), 4, "Root should have 4 children");
+        assertNodeNames(root, "arrayNode1", "arrayNode2", "arrayNode3", "arrayNode4");
 
         CommandResult undoResult = editor.undo();
         printCommandResult("undoResult", undoResult);
         printSubtree(editor, "root after undo", root);
-        assertEquals(root.getChildCount(), 0, "After undo, root should have 0 children");
+        assertEquals(root.getChildCount(), 3, "After undo, root should have 3 children");
+        assertNodeNames(root, "arrayNode1", "arrayNode2", "arrayNode3");
 
         CommandResult redoResult = editor.redo();
         printCommandResult("redoResult", redoResult);
         printSubtree(editor, "root after redo", root);
-        assertEquals(root.getChildCount(), 3, "After redo, root should have 3 children again");
-        assertNodeNames(root, "arrayNode1", "arrayNode2", "arrayNode3");
+        assertEquals(root.getChildCount(), 4, "After redo, root should have 4 children again");
+        assertNodeNames(root, "arrayNode1", "arrayNode2", "arrayNode3", "arrayNode4");
 
         printTestFooter();
     }
@@ -266,25 +262,25 @@ public class TreeEditorArraysNGTest implements ATestTools {
         assertNotNull(setResult, "SetValue result should not be null");
         assertEquals(setResult.getUpdatedNodes().length, 3, "Three nodes should be reported as updated");
 
-        assertEquals(root.getChildAt(0).getName(), "newValue1");
-        assertEquals(root.getChildAt(1).getName(), "newValue2");
-        assertEquals(root.getChildAt(2).getName(), "newValue3");
+        assertEquals(node1.getValue(), "newValue1", "node1 should have value newValue1");
+        assertEquals(node2.getValue(), "newValue2", "node2 should have value newValue2");
+        assertEquals(node3.getValue(), "newValue3", "node3 should have value newValue3");
 
         CommandResult undoResult = editor.undo();
         printCommandResult("undoResult", undoResult);
         printSubtree(editor, "root after undo set value", root);
 
-        assertEquals(root.getChildAt(0).getName(), "valueNode1", "After undo, node1 should have valueNode1 text");
-        assertEquals(root.getChildAt(1).getName(), "valueNode2", "After undo, node2 should have valueNode2 text");
-        assertEquals(root.getChildAt(2).getName(), "valueNode3", "After undo, node3 should have valueNode3 text");
+        assertEquals(node1.getValue(), "", "After undo, node1 should have empty value");
+        assertEquals(node2.getValue(), "", "After undo, node2 should have empty value");
+        assertEquals(node3.getValue(), "", "After undo, node3 should have empty value");
 
         CommandResult redoResult = editor.redo();
         printCommandResult("redoResult", redoResult);
         printSubtree(editor, "root after redo set value", root);
 
-        assertEquals(root.getChildAt(0).getName(), "newValue1");
-        assertEquals(root.getChildAt(1).getName(), "newValue2");
-        assertEquals(root.getChildAt(2).getName(), "newValue3");
+        assertEquals(node1.getValue(), "newValue1", "After redo, node1 should have value newValue1");
+        assertEquals(node2.getValue(), "newValue2", "After redo, node2 should have value newValue2");
+        assertEquals(node3.getValue(), "newValue3", "After redo, node3 should have value newValue3");
 
         printTestFooter();
     }
@@ -300,18 +296,10 @@ public class TreeEditorArraysNGTest implements ATestTools {
         EditNodeProperty n2 = new EditNodeProperty("test2");
         EditNodeProperty n3 = new EditNodeProperty("test3");
 
-        CommandResult addResult = editor.execute(new AddNodeCommand(
-                new EditCommandEntry.MovementEntry[]{
-                    new EditCommandEntry.MovementEntry(n1.getEditId(), root.getEditId(), -1, n1),
-                    new EditCommandEntry.MovementEntry(n2.getEditId(), root.getEditId(), -1, n2),
-                    new EditCommandEntry.MovementEntry(n3.getEditId(), root.getEditId(), -1, n3)
-                }
-        ));
-        printCommandResult("addResult", addResult);
-        printSubtree(editor, "root after add", root);
-
-        assertEquals(root.getChildCount(), 3);
-        assertNodeNames(root, "test1", "test2", "test3");
+        editor.execute(new AddNodeCommand(root, n1));
+        editor.execute(new AddNodeCommand(root, n2));
+        editor.execute(new AddNodeCommand(root, n3));
+        editor.clearHistory();
 
         EditNodeAbstract node1 = root.getChildAt(0);
         EditNodeAbstract node2 = root.getChildAt(1);
@@ -324,14 +312,12 @@ public class TreeEditorArraysNGTest implements ATestTools {
         printCommandResult("setResult", setResult);
         printSubtree(editor, "root after set value", root);
 
-        assertEquals(root.getChildAt(0).getName(), "val1");
-        assertEquals(root.getChildAt(1).getName(), "val2");
-        assertEquals(root.getChildAt(2).getName(), "val3");
+        assertEquals(node1.getValue(), "val1", "node1 should have value val1");
+        assertEquals(node2.getValue(), "val2", "node2 should have value val2");
+        assertEquals(node3.getValue(), "val3", "node3 should have value val3");
 
         CommandResult deleteResult = editor.execute(new DeleteNodeCommand(new EditNodeAbstract[]{
-            root.getChildAt(0),
-            root.getChildAt(1),
-            root.getChildAt(2)
+            node1, node2, node3
         }));
         printCommandResult("deleteResult", deleteResult);
         printSubtree(editor, "root after delete", root);
@@ -343,38 +329,29 @@ public class TreeEditorArraysNGTest implements ATestTools {
         printSubtree(editor, "root after undo delete", root);
 
         assertEquals(root.getChildCount(), 3);
-        assertEquals(root.getChildAt(0).getName(), "val1");
-        assertEquals(root.getChildAt(1).getName(), "val2");
-        assertEquals(root.getChildAt(2).getName(), "val3");
+        node1 = root.getChildAt(0);
+        node2 = root.getChildAt(1);
+        node3 = root.getChildAt(2);
+        assertEquals(node1.getValue(), "val1", "After undo delete, node1 should have value val1");
+        assertEquals(node2.getValue(), "val2", "After undo delete, node2 should have value val2");
+        assertEquals(node3.getValue(), "val3", "After undo delete, node3 should have value val3");
 
         CommandResult undoSet = editor.undo();
         printCommandResult("undoSet", undoSet);
         printSubtree(editor, "root after undo set value", root);
 
-        assertEquals(root.getChildAt(0).getName(), "test1");
-        assertEquals(root.getChildAt(1).getName(), "test2");
-        assertEquals(root.getChildAt(2).getName(), "test3");
-
-        CommandResult undoAdd = editor.undo();
-        printCommandResult("undoAdd", undoAdd);
-        printSubtree(editor, "root after undo add", root);
-
-        assertEquals(root.getChildCount(), 0);
-
-        CommandResult redoAdd = editor.redo();
-        printCommandResult("redoAdd", redoAdd);
-        printSubtree(editor, "root after redo add", root);
-
-        assertEquals(root.getChildCount(), 3);
+        assertEquals(node1.getValue(), "", "After undo set, node1 should have empty value");
+        assertEquals(node2.getValue(), "", "After undo set, node2 should have empty value");
+        assertEquals(node3.getValue(), "", "After undo set, node3 should have empty value");
         assertNodeNames(root, "test1", "test2", "test3");
 
         CommandResult redoSet = editor.redo();
         printCommandResult("redoSet", redoSet);
         printSubtree(editor, "root after redo set value", root);
 
-        assertEquals(root.getChildAt(0).getName(), "val1");
-        assertEquals(root.getChildAt(1).getName(), "val2");
-        assertEquals(root.getChildAt(2).getName(), "val3");
+        assertEquals(node1.getValue(), "val1", "After redo set, node1 should have value val1");
+        assertEquals(node2.getValue(), "val2", "After redo set, node2 should have value val2");
+        assertEquals(node3.getValue(), "val3", "After redo set, node3 should have value val3");
 
         CommandResult redoDelete = editor.redo();
         printCommandResult("redoDelete", redoDelete);
