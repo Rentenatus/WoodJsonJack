@@ -191,8 +191,7 @@ public class WoodWindow extends JFrame {
         JackTreeModel model = new JackTreeModel(tree);
         newContainer.getLeftTree().getTree().setModel(model);
         // newContainer.getLeftTree().getModel().rebuildFromDomain();
-        
-        
+
         addEditorTab(file, newContainer);
     }
 

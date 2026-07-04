@@ -7,6 +7,7 @@
 package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
+import de.jare.jsoncasted.editor.events.EventBus;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
@@ -33,6 +34,7 @@ public class JackMasterControl {
         this.clipboardManager = new ClipboardManager();
         addSelectionListener(6, this.undoMan);
         addSelectionListener(8, this.selectionStack);
+        this.undoMan.addUndoRedoListener(9, this.selectionStack);
     }
 
     // Registrierung

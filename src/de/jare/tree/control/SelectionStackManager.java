@@ -6,15 +6,23 @@
  */
 package de.jare.tree.control;
 
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.command.UpdateAction;
+import static de.jare.jsoncasted.editor.command.UpdateAction.SELECT_ADDED;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 import de.jare.ndimcol.primlong.SortedSeasonSetLong;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.listeners.UndoRedoListener;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
-import de.jare.jsoncasted.editor.core.EditNode;
 
 /**
  * Globaler Selektions-Stack-Manager.
@@ -24,7 +32,7 @@ import de.jare.jsoncasted.editor.core.EditNode;
  * - Stellt Selektionen über Backward/Forward wieder her.
  * </p>
  */
-public class SelectionStackManager implements TreeFocusListener, WoodUtils {
+public class SelectionStackManager implements TreeFocusListener, UndoRedoListener, WoodUtils {
 
     private final List<SelectionStackManagerModel> managers = new ArrayList<>();
     private SelectionStackManagerModel activeManager;
@@ -250,6 +258,37 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
             return List.of();
         }
         return activeManager.getForwardLabels(max);
+    }
+
+    @Override
+    public void onExecute(TreeModel model, CommandResult result) {
+        if (activeManager == null) {
+            return;
+        }
+        TreeFocusComponent tree = activeManager.getTree();
+        if (tree == null) {
+            return;
+        }
+
+        for (UpdateAction update : result.getUpdateActions()) {
+            if (SELECT_ADDED.equals(update)) {
+                EditNodeAbstract[] added = result.getAddedNodes();
+                SimpleEntry[] templates = result.getTemplateEntries();
+                for (int i = 0; i < added.length; i++) {
+                    activeManager.addSynonym(templates[i].nodeId, added[i].getEditId());
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onUndo(TreeModel model, CommandResult historyEvent) {
+        //NoOp;
+    }
+
+    @Override
+    public void onSkipped(TreeModel model, EditCommand command) {
+        //NoOp;
     }
 
 }
