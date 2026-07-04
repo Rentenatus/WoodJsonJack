@@ -228,6 +228,7 @@ public class CopyToStashCommand extends AbstractEditCommand {
                 this,
                 CommandAction.EXECUTE,
                 copiedNodes,
+                null, // templateEntries
                 copiedNodes,
                 null,
                 null,
@@ -248,6 +249,7 @@ public class CopyToStashCommand extends AbstractEditCommand {
                 this,
                 CommandAction.UNDO,
                 originalStashContent,
+                null, // templateEntries
                 null,
                 originalStashContent,
                 null,

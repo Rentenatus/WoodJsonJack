@@ -10,6 +10,7 @@ import java.util.Objects;
 
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 
 /**
  * Immutable result object returned by command execution, undo, and redo
@@ -26,6 +27,7 @@ public final class CommandResult {
     private final EditCommand trigger;
     private final CommandAction action;
     private final EditNodeAbstract[] affectedNodes;
+    private final SimpleEntry[] templateEntries;
     private final EditNodeAbstract[] addedNodes;
     private final EditNodeAbstract[] removedNodes;
     private final EditNodeAbstract[] updatedNodes;
@@ -38,6 +40,7 @@ public final class CommandResult {
      * @param trigger the command that produced this result
      * @param action the action that was performed
      * @param affectedNodes all nodes affected by the operation
+     * @param templateEntries entries that were used as templates by the operation
      * @param addedNodes nodes that were added by the operation
      * @param removedNodes nodes that were removed by the operation
      * @param updatedNodes nodes that were updated by the operation
@@ -47,12 +50,13 @@ public final class CommandResult {
      * {@code null}
      */
     public CommandResult(
-            EditCommand trigger, CommandAction action, EditNodeAbstract[] affectedNodes, EditNodeAbstract[] addedNodes,
+            EditCommand trigger, CommandAction action, EditNodeAbstract[] affectedNodes, SimpleEntry[] templateEntries, EditNodeAbstract[] addedNodes,
             EditNodeAbstract[] removedNodes, EditNodeAbstract[] updatedNodes, EditNodeAbstract[] failedNodes,
             UpdateAction[] updateActions) {
         this.trigger = Objects.requireNonNull(trigger, "trigger");
         this.action = Objects.requireNonNull(action, "action");
         this.affectedNodes = affectedNodes != null ? affectedNodes.clone() : new EditNodeAbstract[0];
+        this.templateEntries = templateEntries != null ? templateEntries.clone() : new SimpleEntry[0];
         this.addedNodes = addedNodes != null ? addedNodes.clone() : new EditNodeAbstract[0];
         this.removedNodes = removedNodes != null ? removedNodes.clone() : new EditNodeAbstract[0];
         this.updatedNodes = updatedNodes != null ? updatedNodes.clone() : new EditNodeAbstract[0];
@@ -85,6 +89,15 @@ public final class CommandResult {
      */
     public EditNodeAbstract[] getAffectedNodes() {
         return affectedNodes.clone();
+    }
+
+    /**
+     * Returns the entries used as templates by the operation.
+     *
+     * @return a defensive copy of the template entries
+     */
+    public SimpleEntry[] getTemplateEntries() {
+        return templateEntries.clone();
     }
 
     /**
@@ -143,6 +156,7 @@ public final class CommandResult {
                 + "action=" + action
                 + ", trigger=" + formatTrigger(trigger)
                 + ", affectedNodes=" + formatNodes(affectedNodes)
+                + ", templateEntries=" + java.util.Arrays.toString(templateEntries)
                 + ", addedNodes=" + formatNodes(addedNodes)
                 + ", removedNodes=" + formatNodes(removedNodes)
                 + ", updatedNodes=" + formatNodes(updatedNodes)

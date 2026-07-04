@@ -143,6 +143,7 @@ public class SetValueCommand extends AbstractEditCommand {
                 this,
                 CommandAction.EXECUTE,
                 updated,
+                null, // templateEntries
                 null,
                 null,
                 updated, null,
@@ -172,6 +173,7 @@ public class SetValueCommand extends AbstractEditCommand {
                 this,
                 CommandAction.UNDO,
                 updated,
+                null, // templateEntries
                 null,
                 null,
                 updated, null,

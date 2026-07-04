@@ -100,6 +100,7 @@ public class HistoryEvent implements EditEvent {
         if (result != null) {
             sb.append(", action=").append(result.getAction());
             sb.append(", affectedNodes=").append(result.getAffectedNodes().length);
+            sb.append(", templateEntries=").append(result.getTemplateEntries().length);
             sb.append(", addedNodes=").append(result.getAddedNodes().length);
             sb.append(", removedNodes=").append(result.getRemovedNodes().length);
             sb.append(", updatedNodes=").append(result.getUpdatedNodes().length);
@@ -161,6 +162,7 @@ public class HistoryEvent implements EditEvent {
                 + ", command=" + (command != null ? command.getClass().getSimpleName() : "null")
                 + ", resultAction=" + (result != null ? result.getAction() : "null")
                 + ", affectedNodes=" + (result != null ? result.getAffectedNodes().length : 0)
+                + ", templateEntries=" + (result != null ? result.getTemplateEntries().length : 0)
                 + ", undoSize=" + undoSize
                 + ", redoSize=" + redoSize + "]";
     }

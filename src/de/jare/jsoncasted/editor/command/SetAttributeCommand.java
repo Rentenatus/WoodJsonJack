@@ -173,6 +173,7 @@ public class SetAttributeCommand extends AbstractEditCommand {
                 this,
                 CommandAction.EXECUTE,
                 updated,
+                null, // templateEntries
                 null,
                 null,
                 updated,
@@ -203,6 +204,7 @@ public class SetAttributeCommand extends AbstractEditCommand {
                 this,
                 CommandAction.UNDO,
                 updated,
+                null, // templateEntries
                 null,
                 null,
                 updated,

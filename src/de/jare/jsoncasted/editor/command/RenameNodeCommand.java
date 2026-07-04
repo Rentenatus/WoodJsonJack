@@ -158,6 +158,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
                 this,
                 CommandAction.EXECUTE,
                 updated,
+                null, // templateEntries
                 null,
                 null,
                 updated, null,
@@ -186,6 +187,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
                 this,
                 CommandAction.UNDO,
                 updated,
+                null, // templateEntries
                 null,
                 null,
                 updated, null,

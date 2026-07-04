@@ -390,6 +390,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
                 this,
                 CommandAction.EXECUTE,
                 unionParentNodes(successfullyRemoved),
+                newEntries, // templateEntries
                 null,
                 null,
                 moved,
@@ -419,6 +420,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
                 this,
                 CommandAction.UNDO,
                 unionParentNodes(successfullyRemoved),
+                oldEntries, // templateEntries
                 null,
                 null,
                 moved,

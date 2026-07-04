@@ -290,6 +290,7 @@ public class HistoryManager {
                 result.getTrigger(),
                 action,
                 result.getAffectedNodes(),
+                result.getTemplateEntries(),
                 result.getAddedNodes(),
                 result.getRemovedNodes(),
                 result.getUpdatedNodes(), null,

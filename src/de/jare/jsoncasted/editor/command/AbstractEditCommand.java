@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -150,7 +151,7 @@ public abstract class AbstractEditCommand implements EditCommand {
             lastAction = CommandAction.SKIPPED;
             lastUpdatedCount = 0;
             lastFailedCount = 0;
-            return new CommandResult(this, CommandAction.SKIPPED, null, null, null, null, null, NO_UPDATE_ACTIONS);
+            return new CommandResult(this, CommandAction.SKIPPED, null, null, null, null, null, null, NO_UPDATE_ACTIONS);
         }
         CommandResult result = doUndo(tree);
         if (result != null) {
@@ -181,12 +182,14 @@ public abstract class AbstractEditCommand implements EditCommand {
         EditNodeAbstract[] added = new EditNodeAbstract[entries.length];
         Set<EditNodeAbstract> parentSet = new HashSet<>();
         Set<EditNodeAbstract> failedtSet = new HashSet<>();
+        SimpleEntry[] templates = new SimpleEntry[entries.length];
 
         for (int i = 0; i < entries.length; i++) {
             EditCommandEntry.MovementEntry entry = entries[i];
             EditNodeAbstract parent = tree.findNodeByIdAndRange(entry.parentEditId, entry.leftRange, entry.timesRange);
             EditNodeAbstract newNode = tree.addNode(parent, entry.snapshot, entry.index, regenerateEditId);
 
+            templates[i] = new SimpleEntry(entry.nodeId, entry.leftRange, entry.timesRange);
             if (newNode != null) {
                 parentSet.add(parent);
                 added[i] = newNode;
@@ -204,6 +207,7 @@ public abstract class AbstractEditCommand implements EditCommand {
                 this,
                 action,
                 parents, // affectedNodes
+                templates, // templateEntries
                 added, // addedNodes
                 null, //removedNodes
                 parents, // updatedNodes
@@ -259,10 +263,13 @@ public abstract class AbstractEditCommand implements EditCommand {
         EditNodeAbstract[] removed = new EditNodeAbstract[entries.length];
         Set<EditNodeAbstract> parentSet = new HashSet<>();
         Set<EditNodeAbstract> failedtSet = new HashSet<>();
+        SimpleEntry[] templates = new SimpleEntry[entries.length];
 
         // rueckwaerts, um Indizes stabil zu halten
         for (int i = entries.length - 1; i >= 0; i--) {
             EditCommandEntry.MovementEntry entry = entries[i];
+
+            templates[i] = new SimpleEntry(entry.nodeId, entry.leftRange, entry.timesRange);
 
             // bevorzugt nodeId nutzen; fallback auf snapshot-Id, falls nodeId == -1
             long id = entry.nodeId >= 0 ? entry.nodeId : entry.snapshot.getEditId();
@@ -285,6 +292,7 @@ public abstract class AbstractEditCommand implements EditCommand {
                 this,
                 action,
                 parents, // affectedNodes
+                templates, // templateEntries
                 null, // addedNodes
                 removed,//removedNodes
                 parents, // updatedNodes
