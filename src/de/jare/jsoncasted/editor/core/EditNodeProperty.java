@@ -274,7 +274,7 @@ public non-sealed class EditNodeProperty extends EditNodeAbstract implements Edi
         attributes.put("primValue", new JackAttribut("primValue", getValue()));
         attributes.put("type", new JackAttribut("type", getType()));
         attributes.put("jsonField", new JackAttribut("jsonField", getJsonField()));
-        return putEditAttributesJack(attributes);
+        return putEditAttributes(attributes);
     }
 
     @Override

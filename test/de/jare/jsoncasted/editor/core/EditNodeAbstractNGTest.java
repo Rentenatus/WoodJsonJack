@@ -1,11 +1,14 @@
 package de.jare.jsoncasted.editor.core;
 
 import java.lang.reflect.Constructor;
+import java.util.Map;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 /**
  *
@@ -55,9 +58,11 @@ public class EditNodeAbstractNGTest {
         EditNodeObject root = nodeConstructor.newInstance(editId, leftRange, rightRange, Long.MIN_VALUE, "rootObject");
 
         // Create tree with the root using reflection for package-private constructor
-        Constructor<EditTree> treeConstructor = EditTree.class.getDeclaredConstructor(EditNodeAbstract.class);
+        // EditTree has a package-private constructor: EditTree(EditNodeAbstract root, EditTimes weightMonitor)
+        Constructor<EditTree> treeConstructor = EditTree.class.getDeclaredConstructor(
+                EditNodeAbstract.class, EditTimes.class);
         treeConstructor.setAccessible(true);
-        EditTree tree = treeConstructor.newInstance(root);
+        EditTree tree = treeConstructor.newInstance(root, new EditTimes());
 
         // Add 6 children to root via tree
         for (int i = 1; i <= 6; i++) {
@@ -85,6 +90,27 @@ public class EditNodeAbstractNGTest {
         // Print everything again
         System.out.println("\n--- " + testName + " - Tree after range relabeling ---");
         printTree(root, "");
+    }
+
+    /**
+     * Test that getAttributes returns JackAttribut map correctly.
+     */
+    @Test
+    public void testGetAttributes() throws Exception {
+        long editId = IdGenerator.EDIT_ID_GENERATOR.nextId();
+        Constructor<EditNodeObject> nodeConstructor = EditNodeObject.class.getDeclaredConstructor(
+                long.class, long.class, long.class, long.class, String.class);
+        nodeConstructor.setAccessible(true);
+        EditNodeObject root = nodeConstructor.newInstance(editId, 10L, 19L, Long.MIN_VALUE, "rootObject");
+
+        Map<String, JackAttribut> attrs = root.getAttributes();
+        assertNotNull(attrs, "getAttributes should return non-null map");
+        
+        JackAttribut editIdAttr = attrs.get("|edit id");
+        assertNotNull(editIdAttr, "editId attribute should be present");
+        assertEquals(editIdAttr.getValue(), editId, "editId value should match");
+        
+        System.out.println("getAttributes test passed: " + attrs.size() + " attributes found");
     }
 
     private void printTree(EditNode node, String indent) {

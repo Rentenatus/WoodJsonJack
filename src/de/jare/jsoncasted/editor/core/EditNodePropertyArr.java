@@ -101,7 +101,7 @@ public final class EditNodePropertyArr extends EditNodeProperty implements EditN
         attributes.put("primValue", new JackAttribut("primValue", getValue()));
         attributes.put("type", new JackAttribut("type", getType()));
         attributes.put("jsonField", new JackAttribut("jsonField", getJsonField()));
-        return putEditAttributesJack(attributes);
+        return putEditAttributes(attributes);
     }
 
     @Override

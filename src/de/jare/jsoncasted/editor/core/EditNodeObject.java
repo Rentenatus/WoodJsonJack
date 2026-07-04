@@ -221,7 +221,7 @@ public final class EditNodeObject extends EditNodeAbstract implements EditNode {
         attributes.put("infotype", new JackAttribut("infotype", getObjektInfo()));
         attributes.put("objektId", new JackAttribut("objektId", getObjektId()));
         attributes.put("jsonType", new JackAttribut("jsonType", getJsonType()));
-        return putEditAttributesJack(attributes);
+        return putEditAttributes(attributes);
     }
 
     @Override

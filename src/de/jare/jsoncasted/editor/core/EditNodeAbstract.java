@@ -129,19 +129,7 @@ public abstract non-sealed class EditNodeAbstract implements EditNode, SimpleStr
         this.editMessage = editMessage;
     }
 
-    /**
-     * Adds edit-related attributes to the provided map.
-     *
-     * @param attributes the map to add attributes to
-     * @return the modified attributes map
-     */
-    public Map<String, Object> putEditAttributes(Map<String, Object> attributes) {
-        attributes.put("|edit id", getEditId());
-        attributes.put("|edit status", getEditStatus());
-        attributes.put("|edit message", getEditMessage());
-        attributes.put("|child count", children.size());
-        return attributes;
-    }
+    
 
     /**
      * Adds edit-related attributes to the provided map of JackAttribut objects.
@@ -149,11 +137,11 @@ public abstract non-sealed class EditNodeAbstract implements EditNode, SimpleStr
      * @param attributes the map to add attributes to
      * @return the modified attributes map
      */
-    public Map<String, JackAttribut> putEditAttributesJack(Map<String, JackAttribut> attributes) {
-        attributes.put("|edit id", new JackAttribut("|edit id", getEditId()));
-        attributes.put("|edit status", new JackAttribut("|edit status", getEditStatus()));
-        attributes.put("|edit message", new JackAttribut("|edit message", getEditMessage()));
-        attributes.put("|child count", new JackAttribut("|child count", children.size()));
+    public Map<String, JackAttribut> putEditAttributes(Map<String, JackAttribut> attributes) {
+        attributes.put("|edit id", new JackAttribut("edit id", getEditId()));
+        attributes.put("|edit status", new JackAttribut("edit status", getEditStatus()));
+        attributes.put("|edit message", new JackAttribut("edit message", getEditMessage()));
+        attributes.put("|child count", new JackAttribut("child count", children.size()));
         return attributes;
     }
 

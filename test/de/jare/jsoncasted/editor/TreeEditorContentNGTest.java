@@ -13,12 +13,13 @@ import de.jare.jsoncasted.editor.command.MoveNodeCommand;
 import de.jare.jsoncasted.editor.command.RenameNodeCommand;
 import de.jare.jsoncasted.editor.command.SetAttributeCommand;
 import de.jare.jsoncasted.editor.command.SetValueCommand;
-import java.util.HashMap;
-import java.util.Map;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.JackAttribut;
+import java.util.HashMap;
+import java.util.Map;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -496,10 +497,10 @@ public class TreeEditorContentNGTest implements ATestTools {
         assertEquals(treeNode3.getEditMessage(), "Critical issue");
 
         // Verify read-only attributes are in getAttributes
-        Map<String, Object> node1Attrs = treeNode1.getAttributes();
-        assertNotNull(node1Attrs.get("editStatus"));
-        assertNotNull(node1Attrs.get("editMessage"));
-        assertNotNull(node1Attrs.get("editId"));
+        Map<String, JackAttribut> node1Attrs = treeNode1.getAttributes();
+        assertNotNull(node1Attrs.get("|edit status"));
+        assertNotNull(node1Attrs.get("|edit message"));
+        assertNotNull(node1Attrs.get("|edit id"));
 
         printSubtree(editor, "tree after setAttribute", root);
 

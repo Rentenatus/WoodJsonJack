@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.core.SimpleEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.JackAttribut;
 import java.util.Map;
 
 /**
@@ -199,12 +200,12 @@ public final class EditCommandEntry {
         /**
          * The previous attribute values (only for keys that were modified).
          */
-        public final Map<String, Object> oldAttributes;
+        public final Map<String, JackAttribut> oldAttributes;
 
         /**
          * The new attribute values to set.
          */
-        public final Map<String, Object> newAttributes;
+        public final Map<String, JackAttribut> newAttributes;
 
         /**
          * Creates an attribute entry.
@@ -213,7 +214,7 @@ public final class EditCommandEntry {
          * @param oldAttributes the previous attribute values (only modified keys)
          * @param newAttributes the new attribute values
          */
-        public AttributeEntry(long nodeId, Map<String, Object> oldAttributes, Map<String, Object> newAttributes) {
+        public AttributeEntry(long nodeId, Map<String, JackAttribut> oldAttributes, Map<String, JackAttribut> newAttributes) {
             this(nodeId, -1, Long.MIN_VALUE, oldAttributes, newAttributes);
         }
 
@@ -227,7 +228,7 @@ public final class EditCommandEntry {
          * @param newAttributes the new attribute values
          */
         public AttributeEntry(long nodeId, long leftRange, long timesRange,
-                Map<String, Object> oldAttributes, Map<String, Object> newAttributes) {
+                Map<String, JackAttribut> oldAttributes, Map<String, JackAttribut> newAttributes) {
             super(nodeId, leftRange, timesRange);
             this.oldAttributes = oldAttributes;
             this.newAttributes = newAttributes;
@@ -240,7 +241,7 @@ public final class EditCommandEntry {
          * @param oldAttributes the previous attribute values (only modified keys)
          * @param newAttributes the new attribute values
          */
-        public AttributeEntry(EditNode node, Map<String, Object> oldAttributes, Map<String, Object> newAttributes) {
+        public AttributeEntry(EditNode node, Map<String, JackAttribut> oldAttributes, Map<String, JackAttribut> newAttributes) {
             this(node.getEditId(),
                     node.getLeftRange(),
                     node.getTimesRange(),

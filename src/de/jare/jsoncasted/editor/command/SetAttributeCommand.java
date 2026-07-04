@@ -41,16 +41,19 @@ public class SetAttributeCommand extends AbstractEditCommand {
         }
 
         // Get current attributes and extract only the keys that are being modified
-        Map<String, Object> currentAttributes = node.getAttributesLegacy();
-        Map<String, Object> oldAttributes = new HashMap<>();
+        Map<String, JackAttribut> currentAttributes = node.getAttributes();
+        Map<String, JackAttribut> oldAttributes = new HashMap<>();
+        Map<String, JackAttribut> newAttributesConverted = convertToJackAttributMap(newAttributes);
+        
         for (String key : newAttributes.keySet()) {
-            if (currentAttributes.containsKey(key)) {
-                oldAttributes.put(key, currentAttributes.get(key));
+            JackAttribut attr = currentAttributes != null ? currentAttributes.get(key) : null;
+            if (attr != null) {
+                oldAttributes.put(key, attr);
             }
         }
 
         this.entries = new AttributeEntry[]{
-            new AttributeEntry(node, oldAttributes, newAttributes)
+            new AttributeEntry(node, oldAttributes, newAttributesConverted)
         };
         setDescription("Set attributes for node " + node.getEditId());
     }
@@ -86,15 +89,17 @@ public class SetAttributeCommand extends AbstractEditCommand {
             }
 
             // Get current attributes and extract only the keys that are being modified
-            Map<String, Object> currentAttributes = node.getAttributesLegacy();
-            Map<String, Object> oldAttributes = new HashMap<>();
+            Map<String, JackAttribut> currentAttributes = node.getAttributes();
+            Map<String, JackAttribut> oldAttributes = new HashMap<>();
+            Map<String, JackAttribut> attrsConverted = convertToJackAttributMap(attrs);
             for (String key : attrs.keySet()) {
-                if (currentAttributes.containsKey(key)) {
-                    oldAttributes.put(key, currentAttributes.get(key));
+                JackAttribut attr = currentAttributes != null ? currentAttributes.get(key) : null;
+                if (attr != null) {
+                    oldAttributes.put(key, attr);
                 }
             }
 
-            this.entries[i] = new AttributeEntry(node, oldAttributes, attrs);
+            this.entries[i] = new AttributeEntry(node, oldAttributes, attrsConverted);
         }
 
         if (nodes.length == 1) {
@@ -160,7 +165,7 @@ public class SetAttributeCommand extends AbstractEditCommand {
             }
 
             // Set the new attributes
-            node.setAttributesLegacy(entry.newAttributes);
+            node.setAttributes(entry.newAttributes);
             updated[i] = node;
         }
 
@@ -190,7 +195,7 @@ public class SetAttributeCommand extends AbstractEditCommand {
             }
 
             // Restore the old attributes (only the ones that were modified)
-            node.setAttributesLegacy(entry.oldAttributes);
+            node.setAttributes(entry.oldAttributes);
             updated[i] = node;
         }
 
@@ -233,8 +238,8 @@ public class SetAttributeCommand extends AbstractEditCommand {
      *
      * @return array of old attribute maps
      */
-    public Map<String, Object>[] getOldAttributes() {
-        Map<String, Object>[] attrs = new Map[entries.length];
+    public Map<String, JackAttribut>[] getOldAttributes() {
+        Map<String, JackAttribut>[] attrs = new Map[entries.length];
         for (int i = 0; i < entries.length; i++) {
             attrs[i] = entries[i].oldAttributes;
         }
@@ -246,8 +251,8 @@ public class SetAttributeCommand extends AbstractEditCommand {
      *
      * @return array of new attribute maps
      */
-    public Map<String, Object>[] getNewAttributes() {
-        Map<String, Object>[] attrs = new Map[entries.length];
+    public Map<String, JackAttribut>[] getNewAttributes() {
+        Map<String, JackAttribut>[] attrs = new Map[entries.length];
         for (int i = 0; i < entries.length; i++) {
             attrs[i] = entries[i].newAttributes;
         }
@@ -273,10 +278,27 @@ public class SetAttributeCommand extends AbstractEditCommand {
                     entry.nodeId,
                     entry.leftRange,
                     entry.timesRange,
-                    entry.oldAttributes,
-                    entry.newAttributes
+                    new HashMap<>(entry.oldAttributes),
+                    new HashMap<>(entry.newAttributes)
             );
         }
         return copy;
+    }
+
+    /**
+     * Converts a legacy attribute map to a JackAttribut map.
+     *
+     * @param legacyAttributes the legacy attribute map
+     * @return the converted JackAttribut map, or null if input is null
+     */
+    private static Map<String, JackAttribut> convertToJackAttributMap(Map<String, Object> legacyAttributes) {
+        if (legacyAttributes == null) {
+            return null;
+        }
+        Map<String, JackAttribut> result = new HashMap<>();
+        for (Map.Entry<String, Object> entry : legacyAttributes.entrySet()) {
+            result.put(entry.getKey(), new JackAttribut(entry.getKey(), entry.getValue()));
+        }
+        return result;
     }
 }
