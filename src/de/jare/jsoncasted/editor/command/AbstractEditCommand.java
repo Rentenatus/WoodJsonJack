@@ -9,7 +9,6 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 

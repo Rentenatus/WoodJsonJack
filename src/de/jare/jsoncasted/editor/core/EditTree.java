@@ -338,7 +338,9 @@ public class EditTree {
             throw new IllegalStateException("Parent node cannot be null");
         }
         checkMembership(parentNode);
-        checkCycles(template, parentNode);
+        if (!regenerateEditId) {
+            checkCycles(template, parentNode);
+        }
         EditNodeAbstract newNode = template.deepCopy(regenerateEditId);
 
         if (index >= 0 && index <= parentNode.getChildCount()) {
