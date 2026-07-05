@@ -120,11 +120,11 @@ public abstract class AbstractEditCommand implements EditCommand {
     }
 
     @Override
-    public final CommandResult execute(EditTree tree) {
+    public final CommandResult execute(EditTree tree, boolean redoAction) {
         if (tree == null) {
             throw new IllegalArgumentException("Tree cannot be null");
         }
-        CommandResult result = doExecute(tree);
+        CommandResult result = doExecute(tree, redoAction);
         if (result != null) {
             lastAction = result.getAction();
             lastUpdatedCount = result.getUpdatedNodes().length;
@@ -134,13 +134,14 @@ public abstract class AbstractEditCommand implements EditCommand {
     }
 
     /**
-     * Executes the command on the given tree. Subclasses must implement this
+     * Executes the command on the given tree.Subclasses must implement this
      * method.
      *
      * @param tree the tree to modify
+     * @param redoAction true, if this execute is calling by redo action.
      * @return the result describing the changes caused by this execution
      */
-    protected abstract CommandResult doExecute(EditTree tree);
+    protected abstract CommandResult doExecute(EditTree tree, boolean redoAction);
 
     @Override
     public final CommandResult undo(EditTree tree) {
@@ -191,11 +192,14 @@ public abstract class AbstractEditCommand implements EditCommand {
 
             templates[i] = new SimpleEntry(entry.nodeId, entry.leftRange, entry.timesRange);
             if (newNode != null) {
-                parentSet.add(parent);
                 added[i] = newNode;
-                entry.nodeId = newNode.getEditId();
-                entry.leftRange = newNode.getLeftRange();
-                entry.timesRange = newNode.getTimesRange();
+                if (entry.nodeId != newNode.getEditId()) {
+                    entry.nodeId = newNode.getEditId();
+                    entry.leftRange = newNode.getLeftRange();
+                    entry.timesRange = newNode.getTimesRange();
+                    entry.snapshot = newNode.deepCopy(false);
+                }
+                parentSet.add(parent);
             } else {
                 failedtSet.add(newNode);
             }

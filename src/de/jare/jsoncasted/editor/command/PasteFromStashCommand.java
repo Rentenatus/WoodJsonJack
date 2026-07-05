@@ -238,7 +238,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
     }
 
     @Override
-    protected CommandResult doExecute(EditTree tree) {
+    protected CommandResult doExecute(EditTree tree, boolean redoAction) {
         CommandAvailability availability = check(tree);
         if (!availability.isAllowed()) {
             throw new IllegalStateException(availability.toString());
@@ -250,7 +250,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
         }
 
         // Perform the add operation
-        CommandResult result = doAdd(tree, entries, !stash.isFreshlyCut(), CommandAction.EXECUTE);
+        CommandResult result = doAdd(tree, entries, !stash.isFreshlyCut() && !redoAction, CommandAction.EXECUTE);
 
         // Capture the IDs of the pasted nodes
         if (result != null) {

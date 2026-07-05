@@ -85,7 +85,7 @@ public class ClipboardArrayTestNG implements ATestTools {
                 ClipboardManager.CLIPBOARD_STASH_NAME,
                 copied
         );
-        CommandResult copyExecuteResult = copyCmd.execute(treeA);
+        CommandResult copyExecuteResult = copyCmd.execute(treeA, false);
         printCommandResult("COPY[3] execute", copyExecuteResult);
         printEditorState(editorA, "After COPY[3] on editorA");
 
@@ -95,7 +95,7 @@ public class ClipboardArrayTestNG implements ATestTools {
                 rootB,
                 -1
         );
-        CommandResult pasteExecuteResult = pasteCmd.execute(treeB);
+        CommandResult pasteExecuteResult = pasteCmd.execute(treeB, false);
         printCommandResult("PASTE[3] execute", pasteExecuteResult);
         printEditorState(editorB, "After PASTE[3] on editorB");
         printSubtree(editorB, "Subtree B/root after paste[3]", rootB);
@@ -120,7 +120,7 @@ public class ClipboardArrayTestNG implements ATestTools {
         assertEquals(rootB.getChildCount(), 1,
                 "Undo should remove all three pasted nodes again");
 
-        CommandResult pasteRedoResult = pasteCmd.execute(treeB);
+        CommandResult pasteRedoResult = pasteCmd.execute(treeB, false);
         printCommandResult("PASTE[3] redo", pasteRedoResult);
         printEditorState(editorB, "After redo PASTE[3] on editorB");
         printSubtree(editorB, "Subtree B/root after redo paste[3]", rootB);
@@ -151,7 +151,7 @@ public class ClipboardArrayTestNG implements ATestTools {
                 ClipboardManager.CLIPBOARD_STASH_NAME,
                 cut
         );
-        CommandResult cutExecuteResult = cutCmd.execute(treeA);
+        CommandResult cutExecuteResult = cutCmd.execute(treeA, false);
         printCommandResult("CUT[3] execute", cutExecuteResult);
         printEditorState(editorA, "After CUT[3] on editorA");
         printSubtree(editorA, "Subtree A/root after cut[3]", rootA);
@@ -173,7 +173,7 @@ public class ClipboardArrayTestNG implements ATestTools {
         assertNotNull(treeA.findNodeById(childA2.getEditId()), "a2 must be restored");
         assertNotNull(treeA.findNodeById(childA3.getEditId()), "a3 must be restored");
 
-        CommandResult cutRedoResult = cutCmd.execute(treeA);
+        CommandResult cutRedoResult = cutCmd.execute(treeA, false);
         printCommandResult("CUT[3] redo", cutRedoResult);
         printEditorState(editorA, "After redo CUT[3] on editorA");
         printSubtree(editorA, "Subtree A/root after redo cut[3]", rootA);
@@ -187,7 +187,7 @@ public class ClipboardArrayTestNG implements ATestTools {
                 rootB,
                 -1
         );
-        CommandResult pasteExecuteResult = pasteCmd.execute(treeB);
+        CommandResult pasteExecuteResult = pasteCmd.execute(treeB, false);
         printCommandResult("PASTE(cut)[3] execute", pasteExecuteResult);
         printEditorState(editorB, "After PASTE(cut)[3] on editorB");
         printSubtree(editorB, "Subtree B/root after paste(cut)[3]", rootB);
@@ -212,7 +212,7 @@ public class ClipboardArrayTestNG implements ATestTools {
         assertEquals(rootB.getChildCount(), 1,
                 "Undo should remove all three pasted cut nodes from tree B");
 
-        CommandResult pasteRedoResult = pasteCmd.execute(treeB);
+        CommandResult pasteRedoResult = pasteCmd.execute(treeB, false);
         printCommandResult("PASTE(cut)[3] redo", pasteRedoResult);
         printEditorState(editorB, "After redo PASTE(cut)[3] on editorB");
         printSubtree(editorB, "Subtree B/root after redo paste(cut)[3]", rootB);

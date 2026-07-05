@@ -212,7 +212,7 @@ public class CutToStashCommand extends AbstractEditCommand {
     }
 
     @Override
-    protected CommandResult doExecute(EditTree tree) {
+    protected CommandResult doExecute(EditTree tree, boolean redoAction) {
         CommandAvailability availability = check(tree);
         if (!availability.isAllowed()) {
             throw new IllegalStateException(availability.toString());

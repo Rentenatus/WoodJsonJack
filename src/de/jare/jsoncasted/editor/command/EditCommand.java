@@ -30,7 +30,7 @@ public interface EditCommand {
      * @param tree the tree to modify
      * @return the result describing the changes caused by this execution
      */
-    CommandResult execute(EditTree tree);
+    CommandResult execute(EditTree tree, boolean on);
 
     /**
      * Mark this command as skipped.

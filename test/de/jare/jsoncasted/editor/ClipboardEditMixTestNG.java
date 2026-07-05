@@ -90,7 +90,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
                 ClipboardManager.CLIPBOARD_STASH_NAME,
                 copyIds
         );
-        CommandResult copyExecuteResult = copyCmd.execute(treeA);
+        CommandResult copyExecuteResult = copyCmd.execute(treeA, false);
         printCommandResult("COPY[2] execute", copyExecuteResult);
 
         PasteFromStashCommand pasteCmd = new PasteFromStashCommand(
@@ -99,7 +99,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
                 rootB,
                 -1
         );
-        CommandResult pasteExecuteResult = pasteCmd.execute(treeB);
+        CommandResult pasteExecuteResult = pasteCmd.execute(treeB, false);
         printCommandResult("PASTE(copy)[2] execute", pasteExecuteResult);
         printEditorState(editorB, "After PASTE(copy)[2]");
         printSubtree(editorB, "Subtree B/root after paste(copy)[2]", rootB);
@@ -120,7 +120,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
         // Zwischenänderungen: Move + Value/Text change
         // ------------------------------------------------------------
         MoveNodeCommand moveCmd = new MoveNodeCommand(pasted2, 0);
-        CommandResult moveExecuteResult = moveCmd.execute(treeB);
+        CommandResult moveExecuteResult = moveCmd.execute(treeB, false);
         printCommandResult("MOVE pasted2 -> index 0 execute", moveExecuteResult);
         printEditorState(editorB, "After MOVE on editorB");
         printSubtree(editorB, "Subtree B/root after move", rootB);
@@ -147,7 +147,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
         // ------------------------------------------------------------
         // Redo paste nach dazwischenhängenden Änderungen
         // ------------------------------------------------------------
-        CommandResult pasteRedoResult = pasteCmd.execute(treeB);
+        CommandResult pasteRedoResult = pasteCmd.execute(treeB, false);
         printCommandResult("PASTE(copy)[2] redo", pasteRedoResult);
         printEditorState(editorB, "After redo PASTE(copy)[2]");
         printSubtree(editorB, "Subtree B/root after redo paste(copy)[2]", rootB);
@@ -184,7 +184,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
                 ClipboardManager.CLIPBOARD_STASH_NAME,
                 cutI
         );
-        CommandResult cutExecute = cutCmd.execute(treeA);
+        CommandResult cutExecute = cutCmd.execute(treeA, false);
         printCommandResult("CUT[2] execute", cutExecute);
         printEditorState(editorA, "After CUT[2] on editorA");
         printSubtree(editorA, "Subtree A/root after cut[2]", rootA);
@@ -200,7 +200,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
                 rootB,
                 -1
         );
-        CommandResult pasteExecuteResult = pasteCmd.execute(treeB);
+        CommandResult pasteExecuteResult = pasteCmd.execute(treeB, false);
         printCommandResult("PASTE(cut)[2] execute", pasteExecuteResult);
         printEditorState(editorB, "After PASTE(cut)[2] on editorB");
         printSubtree(editorB, "Subtree B/root after paste(cut)[2]", rootB);
@@ -219,7 +219,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
         // Zwischenänderungen: Move + Value/Text change
         // ------------------------------------------------------------
         MoveNodeCommand moveCmd = new MoveNodeCommand(pasted1, 0);
-        CommandResult moveExecuteResult = moveCmd.execute(treeB);
+        CommandResult moveExecuteResult = moveCmd.execute(treeB, false);
         printCommandResult("MOVE pasted1 -> index 0 execute", moveExecuteResult);
         printEditorState(editorB, "After MOVE in cut scenario");
         printSubtree(editorB, "Subtree B/root after move in cut scenario", rootB);
@@ -246,7 +246,7 @@ public class ClipboardEditMixTestNG implements ATestTools {
         // ------------------------------------------------------------
         // Redo paste
         // ------------------------------------------------------------
-        CommandResult pasteRedoResult = pasteCmd.execute(treeB);
+        CommandResult pasteRedoResult = pasteCmd.execute(treeB, false);
         printCommandResult("PASTE(cut)[2] redo", pasteRedoResult);
         printEditorState(editorB, "After redo PASTE(cut)[2]");
         printSubtree(editorB, "Subtree B/root after redo paste(cut)[2]", rootB);

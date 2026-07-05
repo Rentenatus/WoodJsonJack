@@ -378,10 +378,11 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * Executes the move operation.
      *
      * @param tree the target tree
+     * @param redoAction true, if this execute is calling by redo action.
      * @return the command result
      */
     @Override
-    protected CommandResult doExecute(EditTree tree) {
+    protected CommandResult doExecute(EditTree tree, boolean redoAction) {
         MoveBubble[] successfullyRemoved = removeAll(tree, oldEntries, newEntries);
         EditNodeAbstract[] moved = addAll(tree, newEntries, successfullyRemoved);
         EditNodeAbstract[] failed = failed(tree, oldEntries, successfullyRemoved);

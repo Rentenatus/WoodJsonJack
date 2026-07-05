@@ -196,6 +196,9 @@ public class SelectionStackManagerModel {
     }
 
     void addSynonym(long oldNodeId, long newNodeId) {
+        if (oldNodeId == newNodeId || newNodeId < 0) {
+            return;
+        }
         for (int i = 0; i < stack.size(); i++) {
             SelectionStackEntry entry = stack.pollFirst();
             if (entry.getEditIds().contains(oldNodeId)) {

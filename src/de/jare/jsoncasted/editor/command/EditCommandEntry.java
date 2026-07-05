@@ -59,7 +59,7 @@ public final class EditCommandEntry {
         /**
          * Optional snapshot of the affected subtree.
          */
-        public final EditNodeAbstract snapshot;
+        public EditNodeAbstract snapshot;
 
         /**
          * Creates a movement entry without a node ID.
@@ -211,7 +211,8 @@ public final class EditCommandEntry {
          * Creates an attribute entry.
          *
          * @param nodeId the affected node ID
-         * @param oldAttributes the previous attribute values (only modified keys)
+         * @param oldAttributes the previous attribute values (only modified
+         * keys)
          * @param newAttributes the new attribute values
          */
         public AttributeEntry(long nodeId, Map<String, JackAttribut> oldAttributes, Map<String, JackAttribut> newAttributes) {
@@ -224,7 +225,8 @@ public final class EditCommandEntry {
          * @param nodeId the affected node ID
          * @param leftRange value of fast indexing in tree
          * @param timesRange times to fast indexing in tree if possible
-         * @param oldAttributes the previous attribute values (only modified keys)
+         * @param oldAttributes the previous attribute values (only modified
+         * keys)
          * @param newAttributes the new attribute values
          */
         public AttributeEntry(long nodeId, long leftRange, long timesRange,
@@ -238,7 +240,8 @@ public final class EditCommandEntry {
          * Creates an attribute entry.
          *
          * @param node the affected node
-         * @param oldAttributes the previous attribute values (only modified keys)
+         * @param oldAttributes the previous attribute values (only modified
+         * keys)
          * @param newAttributes the new attribute values
          */
         public AttributeEntry(EditNode node, Map<String, JackAttribut> oldAttributes, Map<String, JackAttribut> newAttributes) {

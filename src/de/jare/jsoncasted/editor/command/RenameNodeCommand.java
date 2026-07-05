@@ -139,7 +139,7 @@ public class RenameNodeCommand extends AbstractEditCommand {
     }
 
     @Override
-    protected CommandResult doExecute(EditTree tree) {
+    protected CommandResult doExecute(EditTree tree, boolean redoAction) {
         EditNodeAbstract[] updated = new EditNodeAbstract[entries.length];
 
         for (int i = 0; i < entries.length; i++) {

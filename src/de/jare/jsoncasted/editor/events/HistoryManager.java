@@ -64,7 +64,7 @@ public class HistoryManager {
             return null;
         }
 
-        CommandResult result = command.execute(tree);
+        CommandResult result = command.execute(tree, false);
 
         undoStack.push(command);
         redoStack.clear();
@@ -113,7 +113,7 @@ public class HistoryManager {
         }
 
         EditCommand command = redoStack.pop();
-        CommandResult executeResult = command.execute(tree);
+        CommandResult executeResult = command.execute(tree, true);
         CommandResult redoResult = asAction(executeResult, CommandAction.REDO);
         undoStack.push(command);
 

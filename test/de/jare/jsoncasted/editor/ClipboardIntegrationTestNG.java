@@ -82,7 +82,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
                 ClipboardManager.CLIPBOARD_STASH_NAME,
                 new EditNodeAbstract[]{childA1}
         );
-        CommandResult copyResult = copyCmd.execute(treeA);
+        CommandResult copyResult = copyCmd.execute(treeA, false);
         ClipboardStash stash = clipboard.getStash(ClipboardManager.CLIPBOARD_STASH_NAME);
         System.out.println("stash = " + stash);
         System.out.println("stash nodeCount = " + stash.getNodeCount());
@@ -96,7 +96,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
                 rootB,
                 -1
         );
-        CommandResult pasteCopyExecuteResult = pasteCopyCmd.execute(treeB);
+        CommandResult pasteCopyExecuteResult = pasteCopyCmd.execute(treeB, false);
         printCommandResult("PASTE(copy) execute", pasteCopyExecuteResult);
         printEditorState(editorB, "After PASTE(copy) on editorB");
         printSubtree(editorB, "Subtree B/root after paste(copy)", rootB);
@@ -114,7 +114,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         assertEquals(rootB.getChildCount(), 1,
                 "Undo of paste(copy) should remove copied node");
 
-        CommandResult pasteCopyRedoResult = pasteCopyCmd.execute(treeB);
+        CommandResult pasteCopyRedoResult = pasteCopyCmd.execute(treeB, false);
         printCommandResult("PASTE(copy) redo", pasteCopyRedoResult);
         printEditorState(editorB, "After redo PASTE(copy) on editorB");
         assertEquals(rootB.getChildCount(), 2,
@@ -128,7 +128,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
                 ClipboardManager.CLIPBOARD_STASH_NAME,
                 new EditNodeAbstract[]{childA2}
         );
-        CommandResult cutExecuteResult = cutCmd.execute(treeA);
+        CommandResult cutExecuteResult = cutCmd.execute(treeA, false);
         printCommandResult("CUT execute", cutExecuteResult);
         printEditorState(editorA, "After CUT on editorA");
         printSubtree(editorA, "Subtree A/root after cut", rootA);
@@ -148,7 +148,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         assertNotNull(treeA.findNodeById(a2Id),
                 "Undo of cut should restore node in tree A");
 
-        CommandResult cutRedoResult = cutCmd.execute(treeA);
+        CommandResult cutRedoResult = cutCmd.execute(treeA, false);
         printCommandResult("CUT redo", cutRedoResult);
         printEditorState(editorA, "After redo CUT on editorA");
         printSubtree(editorA, "Subtree A/root after redo cut", rootA);
@@ -167,7 +167,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
                 rootB,
                 -1
         );
-        CommandResult pasteCutExecuteResult = pasteCutCmd.execute(treeB);
+        CommandResult pasteCutExecuteResult = pasteCutCmd.execute(treeB, false);
         printCommandResult("PASTE(cut) execute", pasteCutExecuteResult);
         printEditorState(editorB, "After PASTE(cut) on editorB");
         printSubtree(editorB, "Subtree B/root after paste(cut)", rootB);
@@ -183,7 +183,7 @@ public class ClipboardIntegrationTestNG implements ATestTools {
         assertEquals(rootB.getChildCount(), 2,
                 "Undo of paste(cut) should remove the inserted node");
 
-        CommandResult pasteCutRedoResult = pasteCutCmd.execute(treeB);
+        CommandResult pasteCutRedoResult = pasteCutCmd.execute(treeB, false);
         printCommandResult("PASTE(cut) redo", pasteCutRedoResult);
         printEditorState(editorB, "After redo PASTE(cut) on editorB");
         printSubtree(editorB, "Subtree B/root after redo paste(cut)", rootB);
