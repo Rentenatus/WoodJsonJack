@@ -11,6 +11,7 @@ import de.jare.jsoncasted.editor.command.EditCommandEntry.ContentEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 import java.util.Arrays;
 
 /**
@@ -130,8 +131,8 @@ public class SetValueCommand extends AbstractEditCommand {
             ContentEntry entry = entries[i];
             EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
-                throw new IllegalStateException(
-                        "Cannot set value: node with id " + entry.nodeId + " not found");
+                return disallowed("editor.command.setValue.nodeMissing",
+                        new SimpleEntry[]{new SimpleEntry(entry.nodeId, entry.leftRange, entry.timesRange)});
             }
 
             String newValue = entry.newValue;
@@ -160,8 +161,8 @@ public class SetValueCommand extends AbstractEditCommand {
             ContentEntry entry = entries[i];
             EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
-                throw new IllegalStateException(
-                        "Cannot undo set value: node with id " + entry.nodeId + " not found");
+                return disallowed("editor.command.setValue.nodeMissing",
+                        new SimpleEntry[]{new SimpleEntry(entry.nodeId, entry.leftRange, entry.timesRange)});
             }
 
             String oldValue = entry.oldValue;

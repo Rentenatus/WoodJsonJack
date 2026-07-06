@@ -23,7 +23,7 @@ public class JackUndoTableModel extends AbstractTableModel {
         }
     }
 
-    private static final String[] COLS = {"Status", "Updated", "Failed", "Action", "Description"};
+    private static final String[] COLS = {"Status", "Updated", "Failed", "Last Message", "Action", "Description"};
 
     @Override
     public int getColumnCount() {
@@ -59,7 +59,7 @@ public class JackUndoTableModel extends AbstractTableModel {
         if (rowIndex == redoCount) {
             // Trenner-Zeile
             return switch (columnIndex) {
-                case 0, 1, 2, 3, 4 ->
+                case 0, 1, 2, 3, 4, 5 ->
                     "<---";
                 default ->
                     "";
@@ -79,27 +79,41 @@ public class JackUndoTableModel extends AbstractTableModel {
         }
 
         if (cmd instanceof de.jare.jsoncasted.editor.command.AbstractEditCommand) {
-            de.jare.jsoncasted.editor.command.AbstractEditCommand absCmd = 
-                (de.jare.jsoncasted.editor.command.AbstractEditCommand) cmd;
+            de.jare.jsoncasted.editor.command.AbstractEditCommand absCmd
+                    = (de.jare.jsoncasted.editor.command.AbstractEditCommand) cmd;
             CommandAction action = absCmd.getLastAction();
             int updated = absCmd.getLastUpdatedCount();
             int failed = absCmd.getLastFailedCount();
-            
+
             return switch (columnIndex) {
-                case 0 -> action != null ? action.toString() : "";
-                case 1 -> String.valueOf(updated);
-                case 2 -> String.valueOf(failed);
-                case 3 -> cmd.getTypeText();
-                case 4 -> cmd.getDescription();
-                default -> "";
+                case 0 ->
+                    action != null ? action.toString() : "";
+                case 1 ->
+                    String.valueOf(updated);
+                case 2 ->
+                    String.valueOf(failed);
+                case 3 ->
+                    cmd.getLastMessage() != null ? cmd.getLastMessage() : "";
+                case 4 ->
+                    cmd.getTypeText();
+                case 5 ->
+                    cmd.getDescription();
+                default ->
+                    "";
             };
         }
-        
+
         return switch (columnIndex) {
-            case 0, 1, 2 -> "";
-            case 3 -> cmd.getTypeText();
-            case 4 -> cmd.getDescription();
-            default -> "";
+            case 0, 1, 2 ->
+                "";
+            case 3 ->
+                cmd.getLastMessage() != null ? cmd.getLastMessage() : "";
+            case 4 ->
+                cmd.getTypeText();
+            case 5 ->
+                cmd.getDescription();
+            default ->
+                "";
         };
     }
 

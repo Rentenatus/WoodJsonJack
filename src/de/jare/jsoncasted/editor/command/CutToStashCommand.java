@@ -215,7 +215,7 @@ public class CutToStashCommand extends AbstractEditCommand {
     protected CommandResult doExecute(EditTree tree, boolean redoAction) {
         CommandAvailability availability = check(tree);
         if (!availability.isAllowed()) {
-            throw new IllegalStateException(availability.toString());
+            return disallowed(availability.getMessageKey(), entries);
         }
 
         // Store nodes in stash via ClipboardManager

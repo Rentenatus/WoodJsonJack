@@ -12,6 +12,7 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.JackAttribut;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,7 +45,7 @@ public class SetAttributeCommand extends AbstractEditCommand {
         Map<String, JackAttribut> currentAttributes = node.getAttributes();
         Map<String, JackAttribut> oldAttributes = new HashMap<>();
         Map<String, JackAttribut> newAttributesConverted = convertToJackAttributMap(newAttributes);
-        
+
         for (String key : newAttributes.keySet()) {
             JackAttribut attr = currentAttributes != null ? currentAttributes.get(key) : null;
             if (attr != null) {
@@ -160,8 +161,8 @@ public class SetAttributeCommand extends AbstractEditCommand {
             AttributeEntry entry = entries[i];
             EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
-                throw new IllegalStateException(
-                        "Cannot set attributes: node with id " + entry.nodeId + " not found");
+                return disallowed("editor.command.setAttribute.nodeMissing",
+                        new SimpleEntry[]{new SimpleEntry(entry.nodeId, entry.leftRange, entry.timesRange)});
             }
 
             // Set the new attributes
@@ -191,8 +192,8 @@ public class SetAttributeCommand extends AbstractEditCommand {
             AttributeEntry entry = entries[i];
             EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
-                throw new IllegalStateException(
-                        "Cannot undo set attributes: node with id " + entry.nodeId + " not found");
+                return disallowed("editor.command.setAttribute.nodeMissing",
+                        new SimpleEntry[]{new SimpleEntry(entry.nodeId, entry.leftRange, entry.timesRange)});
             }
 
             // Restore the old attributes (only the ones that were modified)

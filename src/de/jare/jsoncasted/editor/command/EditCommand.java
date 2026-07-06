@@ -53,6 +53,15 @@ public interface EditCommand {
     String getDescription();
 
     /**
+     * Returns the last message associated with this command, if the command has
+     * been failed or has warnings.
+     *
+     * @return message after last execution (first action or redo) or undo, or
+     * null if no message is set
+     */
+    String getLastMessage();
+
+    /**
      * Returns the command type.
      *
      * @return the command type

@@ -11,6 +11,7 @@ import de.jare.jsoncasted.editor.command.EditCommandEntry.ContentEntry;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 import java.util.Arrays;
 
 /**
@@ -146,8 +147,8 @@ public class RenameNodeCommand extends AbstractEditCommand {
             ContentEntry entry = entries[i];
             EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
-                throw new IllegalStateException(
-                        "Cannot rename node: node with id " + entry.nodeId + " not found");
+                return disallowed("editor.command.rename.nodeMissing",
+                        new SimpleEntry[]{new SimpleEntry(entry.nodeId, entry.leftRange, entry.timesRange)});
             }
 
             node.setName(entry.newValue);
@@ -175,8 +176,8 @@ public class RenameNodeCommand extends AbstractEditCommand {
             ContentEntry entry = entries[i];
             EditNodeAbstract node = tree.findNodeByIdAndRange(entry);
             if (node == null) {
-                throw new IllegalStateException(
-                        "Cannot undo rename: node with id " + entry.nodeId + " not found");
+                return disallowed("editor.command.rename.nodeMissing",
+                        new SimpleEntry[]{new SimpleEntry(entry.nodeId, entry.leftRange, entry.timesRange)});
             }
 
             node.setName(entry.oldValue);

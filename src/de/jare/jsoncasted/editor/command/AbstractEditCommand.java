@@ -10,6 +10,7 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.SimpleEntry;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -35,6 +36,7 @@ public abstract class AbstractEditCommand implements EditCommand {
     private CommandAction lastAction;
     private int lastUpdatedCount;
     private int lastFailedCount;
+    private String lastMessage;
 
     /**
      * Creates a new abstract edit command with the specified type.
@@ -45,6 +47,7 @@ public abstract class AbstractEditCommand implements EditCommand {
         this.type = type;
         this.description = "";
         this.skipped = false;
+        this.lastMessage = null;
     }
 
     /**
@@ -57,6 +60,7 @@ public abstract class AbstractEditCommand implements EditCommand {
     protected AbstractEditCommand(CommandType type, String description) {
         this.type = type;
         this.description = description;
+        this.lastMessage = null;
     }
 
     @Override
@@ -106,6 +110,20 @@ public abstract class AbstractEditCommand implements EditCommand {
     }
 
     @Override
+    public String getLastMessage() {
+        return lastMessage;
+    }
+
+    /**
+     * Sets the last message associated with this command.
+     *
+     * @param lastMessage
+     */
+    public void setLastMessage(String lastMessage) {
+        this.lastMessage = lastMessage;
+    }
+
+    @Override
     public void skipped() {
         skipped = true;
         lastAction = CommandAction.SKIPPED;
@@ -119,6 +137,14 @@ public abstract class AbstractEditCommand implements EditCommand {
         return ret;
     }
 
+    public CommandResult disallowed(String messageKey, SimpleEntry[] entries) {
+        CommandResult ret = new CommandResult(this, CommandAction.DISALLOWED, null,
+                Arrays.copyOf(entries, entries.length),
+                null, null, null, null, null);
+        ret.setMessageKey(messageKey);
+        return ret;
+    }
+
     @Override
     public final CommandResult execute(EditTree tree, boolean redoAction) {
         if (tree == null) {
@@ -129,6 +155,11 @@ public abstract class AbstractEditCommand implements EditCommand {
             lastAction = result.getAction();
             lastUpdatedCount = result.getUpdatedNodes().length;
             lastFailedCount = result.getFailedNodes().length;
+            lastMessage = null;
+            if (CommandAction.DISALLOWED.equals(result.getAction())) {
+                lastFailedCount = result.getTemplateEntries().length;
+                lastMessage = result.getMessageKey();
+            }
         }
         return result;
     }
@@ -174,7 +205,7 @@ public abstract class AbstractEditCommand implements EditCommand {
     protected CommandResult doAdd(EditTree tree, final EditCommandEntry.MovementEntry[] entries, boolean regenerateEditId, CommandAction action) {
         CommandAvailability checkResult = checkAdd(tree, entries);
         if (checkResult.isDisallowed()) {
-            throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());
+            return disallowed(checkResult.getMessageKey(), entries);
         }
         if (checkResult.isUseless()) {
             return null;
@@ -259,7 +290,7 @@ public abstract class AbstractEditCommand implements EditCommand {
     protected CommandResult doDelete(EditTree tree, final EditCommandEntry.MovementEntry[] entries, CommandAction action) {
         CommandAvailability checkResult = checkDelete(tree, entries);
         if (checkResult.isDisallowed()) {
-            throw new IllegalArgumentException("Action disallowed: " + checkResult.getMessageKey());
+            return disallowed(checkResult.getMessageKey(), entries);
         }
         if (checkResult.isUseless()) {
             return null;

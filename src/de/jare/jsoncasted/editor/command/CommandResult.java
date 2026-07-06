@@ -6,11 +6,10 @@
  */
 package de.jare.jsoncasted.editor.command;
 
-import java.util.Objects;
-
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.SimpleEntry;
+import java.util.Objects;
 
 /**
  * Immutable result object returned by command execution, undo, and redo
@@ -33,6 +32,7 @@ public final class CommandResult {
     private final EditNodeAbstract[] updatedNodes;
     private final EditNodeAbstract[] failedNodes;
     private final UpdateAction[] updateActions;
+    private String messageKey = null;
 
     /**
      * Creates a new command result.
@@ -40,7 +40,8 @@ public final class CommandResult {
      * @param trigger the command that produced this result
      * @param action the action that was performed
      * @param affectedNodes all nodes affected by the operation
-     * @param templateEntries entries that were used as templates by the operation
+     * @param templateEntries entries that were used as templates by the
+     * operation
      * @param addedNodes nodes that were added by the operation
      * @param removedNodes nodes that were removed by the operation
      * @param updatedNodes nodes that were updated by the operation
@@ -145,6 +146,14 @@ public final class CommandResult {
         return updateActions.clone();
     }
 
+    public String getMessageKey() {
+        return messageKey;
+    }
+
+    public void setMessageKey(String messageKey) {
+        this.messageKey = messageKey;
+    }
+
     /**
      * Returns a compact debug representation of this result.
      *
@@ -161,7 +170,8 @@ public final class CommandResult {
                 + ", removedNodes=" + formatNodes(removedNodes)
                 + ", updatedNodes=" + formatNodes(updatedNodes)
                 + ", updateActions=" + (updateActions.length > 0 ? java.util.Arrays.toString(updateActions) : "[]")
-                + '}';
+                + ", message='" + messageKey
+                + "'}";
     }
 
     /**

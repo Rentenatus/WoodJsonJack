@@ -241,15 +241,12 @@ public class PasteFromStashCommand extends AbstractEditCommand {
     protected CommandResult doExecute(EditTree tree, boolean redoAction) {
         CommandAvailability availability = check(tree);
         if (!availability.isAllowed()) {
-            
-            CommandAction.DISALLOWED
-                    
-            throw new IllegalStateException(availability.toString());
+            return disallowed(availability.getMessageKey(), entries);
         }
 
         ClipboardStash stash = clipboardManager.getStash(stashName);
         if (stash == null) {
-            return null;
+            return disallowed(availability.getMessageKey(), entries);
         }
 
         // Perform the add operation
@@ -272,7 +269,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
     @Override
     public CommandResult doUndo(EditTree tree) {
         if (pastedEntries.length == 0) {
-            return null;
+            return disallowed("editor.command.paste.nodeMissing", entries);
         }
 
         // Create delete entries for all pasted nodes
@@ -304,7 +301,7 @@ public class PasteFromStashCommand extends AbstractEditCommand {
         }
 
         if (validCount == 0) {
-            return null;
+            return disallowed("editor.command.paste.noValid", entries);
         }
 
         MovementEntry[] validEntries = new MovementEntry[validCount];
