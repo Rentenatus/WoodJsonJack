@@ -26,5 +26,9 @@ public enum CommandAction {
     /**
      * The command was skipped after being undone.
      */
-    SKIPPED
+    SKIPPED,
+    /**
+     * The command was skipped due to errors.
+     */
+    DISALLOWED
 }

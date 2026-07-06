@@ -141,7 +141,7 @@ public class SetValueCommand extends AbstractEditCommand {
 
         return new CommandResult(
                 this,
-                CommandAction.EXECUTE,
+                redoAction ? CommandAction.REDO : CommandAction.EXECUTE,
                 updated,
                 null, // templateEntries
                 null,

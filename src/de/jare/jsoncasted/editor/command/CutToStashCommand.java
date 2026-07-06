@@ -222,7 +222,7 @@ public class CutToStashCommand extends AbstractEditCommand {
         clipboardManager.cutToStash(stashName, tree, entries);
 
         // Perform the delete operation
-        return doDelete(tree, entries, CommandAction.EXECUTE);
+        return doDelete(tree, entries, redoAction ? CommandAction.REDO : CommandAction.EXECUTE);
 
     }
 

@@ -389,7 +389,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
 
         return new CommandResult(
                 this,
-                CommandAction.EXECUTE,
+                redoAction ? CommandAction.REDO : CommandAction.EXECUTE,
                 unionParentNodes(successfullyRemoved),
                 newEntries, // templateEntries
                 null,

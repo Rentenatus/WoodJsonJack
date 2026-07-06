@@ -113,7 +113,7 @@ public class DeleteNodeCommand extends AbstractEditCommand {
 
     @Override
     protected CommandResult doExecute(EditTree tree, boolean redoAction) {
-        return doDelete(tree, entries, CommandAction.EXECUTE);
+        return doDelete(tree, entries, redoAction ? CommandAction.REDO : CommandAction.EXECUTE);
     }
 
     @Override
