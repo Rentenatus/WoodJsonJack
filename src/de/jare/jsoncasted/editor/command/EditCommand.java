@@ -28,9 +28,10 @@ public interface EditCommand {
      * Executes this command on the given tree.
      *
      * @param tree the tree to modify
+     * @param redoAction
      * @return the result describing the changes caused by this execution
      */
-    CommandResult execute(EditTree tree, boolean on);
+    CommandResult execute(EditTree tree, boolean redoAction);
 
     /**
      * Mark this command as skipped.

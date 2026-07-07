@@ -9,6 +9,7 @@ package de.jare.jsoncasted.editor.command;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.SimpleEntry;
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -31,7 +32,7 @@ public final class CommandResult {
     private final EditNodeAbstract[] removedNodes;
     private final EditNodeAbstract[] updatedNodes;
     private final EditNodeAbstract[] failedNodes;
-    private final UpdateAction[] updateActions;
+    private JackUpdateAction[] updateActions;
     private String messageKey = null;
 
     /**
@@ -53,7 +54,7 @@ public final class CommandResult {
     public CommandResult(
             EditCommand trigger, CommandAction action, EditNodeAbstract[] affectedNodes, SimpleEntry[] templateEntries, EditNodeAbstract[] addedNodes,
             EditNodeAbstract[] removedNodes, EditNodeAbstract[] updatedNodes, EditNodeAbstract[] failedNodes,
-            UpdateAction[] updateActions) {
+            JackUpdateAction[] updateActions) {
         this.trigger = Objects.requireNonNull(trigger, "trigger");
         this.action = Objects.requireNonNull(action, "action");
         this.affectedNodes = affectedNodes != null ? affectedNodes.clone() : new EditNodeAbstract[0];
@@ -62,7 +63,7 @@ public final class CommandResult {
         this.removedNodes = removedNodes != null ? removedNodes.clone() : new EditNodeAbstract[0];
         this.updatedNodes = updatedNodes != null ? updatedNodes.clone() : new EditNodeAbstract[0];
         this.failedNodes = failedNodes != null ? failedNodes.clone() : new EditNodeAbstract[0];
-        this.updateActions = updateActions != null ? updateActions : new UpdateAction[0];
+        this.updateActions = updateActions != null ? updateActions : new JackUpdateAction[0];
     }
 
     /**
@@ -142,7 +143,7 @@ public final class CommandResult {
      *
      * @return a defensive copy of the update actions
      */
-    public UpdateAction[] getUpdateActions() {
+    public JackUpdateAction[] getUpdateActions() {
         return updateActions.clone();
     }
 
@@ -229,4 +230,12 @@ public final class CommandResult {
                 + ", parentId=" + parentId
                 + '}';
     }
+
+    CommandResult addActions(JackUpdateAction[] actions) {
+        int oldLen = updateActions.length;
+        updateActions = Arrays.copyOf(updateActions, oldLen + actions.length);
+        System.arraycopy(actions, 0, updateActions, oldLen, actions.length);
+        return this;
+    }
+
 }

@@ -25,9 +25,10 @@ import java.util.Set;
  */
 public abstract class AbstractEditCommand implements EditCommand {
 
-    public static final UpdateAction[] NO_UPDATE_ACTIONS = new UpdateAction[0];
-    private static final UpdateAction[] ON_ADD_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_ADDED};
-    private static final UpdateAction[] ON_REMOVE_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_UPDATED};
+    public static final JackUpdateAction[] NO_UPDATE_ACTIONS = new JackUpdateAction[0];
+    public static final JackUpdateAction[] ON_ADD_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_AFFECTED, JackUpdateAction.SELECT_ADDED};
+    public static final JackUpdateAction[] ON_REMOVE_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_AFFECTED, JackUpdateAction.SELECT_UPDATED};
+    public static final JackUpdateAction[] ON_CLIPBOARD_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_CLIPBOARD};
 
     private final CommandType type;
     private String description;

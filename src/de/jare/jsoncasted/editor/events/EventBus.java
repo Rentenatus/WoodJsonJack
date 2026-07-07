@@ -80,9 +80,9 @@ public class EventBus {
 
         HistoryEvent.ChangeType changeType = event.getChangeType();
         if (HistoryEvent.ChangeType.HIST_CLEARED == changeType) {
-            historyOrator.say(l -> l.onClear(event));
+            historyOrator.say((level, l) -> l.onClear(event));
         } else {
-            historyOrator.say(l -> l.onAction(event));
+            historyOrator.say((level, l) -> l.onAction(event));
         }
 
     }

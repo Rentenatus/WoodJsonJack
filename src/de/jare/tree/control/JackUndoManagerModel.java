@@ -8,7 +8,6 @@ package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
-import de.jare.jsoncasted.editor.events.EventBus;
 import de.jare.jsoncasted.editor.events.HistoryListener;
 import de.jare.jsoncasted.editor.events.HistoryManager;
 import de.jare.jsoncasted.tools.SimpleStringSplitter;
@@ -25,12 +24,10 @@ public class JackUndoManagerModel implements SimpleStringSplitter {
 
     private final WeakReference< JackTreeModel> weakTreeModel;
     private final HistoryManager historyManager;
-    private final EventBus eventBus;
 
     public JackUndoManagerModel(JackTreeModel treeModel) {
         this.weakTreeModel = new WeakReference<>(treeModel);
-        eventBus = new EventBus();
-        historyManager = new HistoryManager(treeModel.getEditTree(), eventBus);
+        historyManager = new HistoryManager(treeModel.getEditTree());
     }
 
     public JackTreeModel getTreeModel() {
@@ -44,11 +41,8 @@ public class JackUndoManagerModel implements SimpleStringSplitter {
      * @param listener the consumer to be called when an event is fired
      * @throws IllegalArgumentException if eventType or listener is null
      */
-    public <T> void addListener(HistoryListener listener) {
-        if (eventBus == null) {
-            throw new NullPointerException("EventBus not set.");
-        }
-        eventBus.addListener(listener);
+    public void addListener(HistoryListener listener) {
+        historyManager.addListener(listener);
     }
 
     /**
@@ -57,11 +51,8 @@ public class JackUndoManagerModel implements SimpleStringSplitter {
      * @param listener the consumer to remove
      * @return true if the listener was removed
      */
-    public <T> boolean removeListener(HistoryListener listener) {
-        if (eventBus == null) {
-            return false;
-        }
-        return eventBus.removeListener(listener);
+    public boolean removeListener(HistoryListener listener) {
+        return historyManager.removeListener(listener);
     }
 
     /**

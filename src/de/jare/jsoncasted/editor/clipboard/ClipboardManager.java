@@ -100,7 +100,7 @@ public class ClipboardManager {
      * stashes
      */
     private void fireClipboardChanged(String stashName) {
-        clipboardOrator.say(listener -> listener.onClipboardChanged(stashName));
+        clipboardOrator.say((level, listener) -> listener.onClipboardChanged(stashName));
     }
 
     /**

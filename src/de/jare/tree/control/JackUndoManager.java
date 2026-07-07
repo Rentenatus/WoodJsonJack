@@ -77,7 +77,7 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
             }
             CommandResult result = activeManager.executeCommand(command);
             if (result != null) {
-                undoRedoOrator.say(l -> l.onAddCommand(activeManager.getTreeModel(), command));
+                undoRedoOrator.say((level, l) -> l.onAddCommand(level, activeManager.getTreeModel(), command));
                 return result;
             }
         }
@@ -91,7 +91,7 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
         if (activeManager != null) {
             CommandResult cmdResult = activeManager.undo();
             if (cmdResult != null) {
-                undoRedoOrator.say(l -> l.onUndo(activeManager.getTreeModel(), cmdResult));
+                undoRedoOrator.say((level, l) -> l.onUndo(level, activeManager.getTreeModel(), cmdResult));
             }
         }
     }
@@ -103,7 +103,7 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
         if (activeManager != null) {
             CommandResult cmdResult = activeManager.redo();
             if (cmdResult != null) {
-                undoRedoOrator.say(l -> l.onExecute(activeManager.getTreeModel(), cmdResult));
+                undoRedoOrator.say((level, l) -> l.onExecute(level, activeManager.getTreeModel(), cmdResult));
             }
         }
     }
@@ -112,7 +112,7 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
         if (activeManager != null) {
             EditCommand cmd = activeManager.skip_redo();
             if (cmd != null) {
-                undoRedoOrator.say(l -> l.onSkipped(activeManager.getTreeModel(), cmd));
+                undoRedoOrator.say((level, l) -> l.onSkipped(level, activeManager.getTreeModel(), cmd));
             }
         }
     }
@@ -131,7 +131,7 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
     public void clearActive() {
         if (activeManager != null) {
             activeManager.clear();
-            undoRedoOrator.say(l -> l.onClear(activeManager.getTreeModel()));
+            undoRedoOrator.say((level, l) -> l.onClear(level, activeManager.getTreeModel()));
         }
     }
 
@@ -166,19 +166,19 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
         HistoryEvent.ChangeType changeType = historyEvent.getChangeType();
         switch (changeType) {
             case ChangeType.CMD_EXECUTED:
-                undoRedoOrator.say(l -> l.onExecute(model, historyEvent.getResult()));
+                undoRedoOrator.say((level, l) -> l.onExecute(level, model, historyEvent.getResult()));
                 break;
             case ChangeType.CMD_UNDONE:
-                undoRedoOrator.say(l -> l.onUndo(model, historyEvent.getResult()));
+                undoRedoOrator.say((level, l) -> l.onUndo(level, model, historyEvent.getResult()));
                 break;
             case ChangeType.CMD_REDONE:
-                undoRedoOrator.say(l -> l.onRedo(model, historyEvent.getResult()));
+                undoRedoOrator.say((level, l) -> l.onRedo(level, model, historyEvent.getResult()));
                 break;
             case ChangeType.HIST_CLEARED:
-                undoRedoOrator.say(l -> l.onClear(model));
+                undoRedoOrator.say((level, l) -> l.onClear(level, model));
                 break;
             case ChangeType.CMD_SKIPPED:
-                undoRedoOrator.say(l -> l.onSkipped(model, historyEvent.getCommand()));
+                undoRedoOrator.say((level, l) -> l.onSkipped(level, model, historyEvent.getCommand()));
                 break;
             default:
                 break;

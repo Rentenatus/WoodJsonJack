@@ -53,7 +53,7 @@ public class TreeEditor {
      */
     public TreeEditor(String rootText, EventBus eventBus) {
         this.tree = new EditTree(rootText);
-        this.historyManager = new HistoryManager(tree, eventBus != null ? eventBus : new EventBus());
+        this.historyManager = new HistoryManager(tree);
     }
 
     // -------------------------------------------------------------------------

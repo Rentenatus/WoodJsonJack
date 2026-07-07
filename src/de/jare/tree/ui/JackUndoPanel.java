@@ -70,7 +70,7 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     }
 
     @Override
-    public void onExecute(TreeModel model, CommandResult result) {
+    public void onExecute(Integer level, TreeModel model, CommandResult result) {
         SwingUtilities.invokeLater(() -> {
             updateModelFromActiveManager();
             undoModel.fireTableDataChanged();
@@ -79,7 +79,7 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     }
 
     @Override
-    public void onUndo(TreeModel model, CommandResult result) {
+    public void onUndo(Integer level, TreeModel model, CommandResult result) {
         SwingUtilities.invokeLater(() -> {
             updateModelFromActiveManager();
             undoModel.fireTableDataChanged();
@@ -88,7 +88,7 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
     }
 
     @Override
-    public void onSkipped(TreeModel model, EditCommand command) {
+    public void onSkipped(Integer level, TreeModel model, EditCommand command) {
         SwingUtilities.invokeLater(() -> {
             updateModelFromActiveManager();
             undoModel.fireTableDataChanged();

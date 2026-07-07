@@ -261,7 +261,7 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
     }
 
     @Override
-    public void onExecute(TreeModel model, CommandResult result) {
+    public void onExecute(Integer level, TreeModel model, CommandResult result) {
         if (activeManager == null) {
             return;
         }
@@ -282,12 +282,12 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
     }
 
     @Override
-    public void onUndo(TreeModel model, CommandResult historyEvent) {
+    public void onUndo(Integer level, TreeModel model, CommandResult historyEvent) {
         //NoOp;
     }
 
     @Override
-    public void onSkipped(TreeModel model, EditCommand command) {
+    public void onSkipped(Integer level, TreeModel model, EditCommand command) {
         //NoOp;
     }
 

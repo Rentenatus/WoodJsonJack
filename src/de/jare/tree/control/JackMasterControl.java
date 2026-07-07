@@ -96,12 +96,12 @@ public class JackMasterControl {
 
         // Fokus-Events verteilen
         if (previous != null) {
-            focusOrator.say(l -> l.onFocusLost());
+            focusOrator.say((level, l) -> l.onFocusLost());
         }
         if (editor != null) {
-            focusOrator.say(l -> l.onFocusGained());
+            focusOrator.say((level, l) -> l.onFocusGained());
         }
-        selectionOrator.say(l -> l.onEditorSelected(editor, trigger));
+        selectionOrator.say((level, l) -> l.onEditorSelected(editor, trigger));
     }
 
     void setActiveEditorSilent(TreeFocusComponent editor) {
@@ -109,11 +109,11 @@ public class JackMasterControl {
     }
 
     public void fireSelection(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
-        selectionOrator.say(l -> l.onNodeSelected(node, trigger, rootSelected));
+        selectionOrator.say((level, l) -> l.onNodeSelected(node, trigger, rootSelected));
     }
 
     public void fireContentCommand(String commandId, Object trigger) {
-        contentOrator.say(l -> l.onCommand(commandId, trigger));
+        contentOrator.say((level, l) -> l.onCommand(commandId, trigger));
     }
 
     public Object getActiveEditor() {

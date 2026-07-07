@@ -6,7 +6,6 @@
  */
 package de.jare.jsoncasted.editor.events;
 
-import de.jare.jsoncasted.editor.command.CommandAction;
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.core.EditTree;
@@ -14,6 +13,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Manages the undo and redo history for the editor. Keeps track of executed
@@ -35,21 +35,38 @@ public class HistoryManager {
      * @param tree the edit tree this manager operates on
      */
     public HistoryManager(EditTree tree) {
-        this(tree, null);
-    }
-
-    /**
-     * Creates a new HistoryManager with an event bus.
-     *
-     * @param tree the edit tree this manager operates on
-     * @param eventBus the event bus for firing history events
-     */
-    public HistoryManager(EditTree tree, EventBus eventBus) {
         if (tree == null) {
             throw new IllegalArgumentException("Tree cannot be null");
         }
         this.tree = tree;
-        this.eventBus = eventBus;
+        this.eventBus = new EventBus();
+    }
+
+    /**
+     * Adds a listener for a specific event type. The listener will be notified
+     * whenever an event of the specified type is fired.
+     *
+     * @param listener the consumer to be called when an event is fired
+     * @throws IllegalArgumentException if eventType or listener is null
+     */
+    public void addListener(HistoryListener listener) {
+        if (eventBus == null) {
+            throw new NullPointerException("EventBus not set.");
+        }
+        eventBus.addListener(listener);
+    }
+
+    /**
+     * Removes a listener for a specific event type.
+     *
+     * @param listener the consumer to remove
+     * @return true if the listener was removed
+     */
+    public boolean removeListener(HistoryListener listener) {
+        if (eventBus == null) {
+            return false;
+        }
+        return eventBus.removeListener(listener);
     }
 
     /**
@@ -113,8 +130,7 @@ public class HistoryManager {
         }
 
         EditCommand command = redoStack.pop();
-        CommandResult executeResult = command.execute(tree, true);
-        CommandResult redoResult = asAction(executeResult, CommandAction.REDO);
+        CommandResult redoResult = command.execute(tree, true);
         undoStack.push(command);
 
         fireHistoryEvent(HistoryEvent.ChangeType.CMD_REDONE,
@@ -232,6 +248,8 @@ public class HistoryManager {
 
     /**
      * Returns an iterable over the undo stack commands.
+     *
+     * @return
      */
     public Iterable<EditCommand> getUndoCommands() {
         return () -> undoStack.iterator();
@@ -239,6 +257,8 @@ public class HistoryManager {
 
     /**
      * Returns an iterable over the redo stack commands.
+     *
+     * @return
      */
     public Iterable<EditCommand> getRedoCommands() {
         return () -> redoStack.iterator();
@@ -276,26 +296,6 @@ public class HistoryManager {
                     redoStack.size()
             ));
         }
-    }
-
-    private CommandResult asAction(CommandResult result, CommandAction action) {
-        if (result == null) {
-            return null;
-        }
-        if (result.getAction() == action) {
-            return result;
-        }
-
-        return new CommandResult(
-                result.getTrigger(),
-                action,
-                result.getAffectedNodes(),
-                result.getTemplateEntries(),
-                result.getAddedNodes(),
-                result.getRemovedNodes(),
-                result.getUpdatedNodes(), null,
-                result.getUpdateActions()
-        );
     }
 
     @Override

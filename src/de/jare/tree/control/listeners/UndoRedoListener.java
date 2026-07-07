@@ -12,21 +12,21 @@ import javax.swing.tree.TreeModel;
 
 public interface UndoRedoListener {
 
-    void onExecute(TreeModel model, CommandResult historyEvent);
+    void onExecute(Integer level, TreeModel model, CommandResult historyEvent);
 
-    void onUndo(TreeModel model, CommandResult historyEvent);
+    void onUndo(Integer level, TreeModel model, CommandResult historyEvent);
 
-    default void onRedo(TreeModel model, CommandResult historyEvent) {
-        onExecute(model, historyEvent);
+    default void onRedo(Integer level, TreeModel model, CommandResult historyEvent) {
+        onExecute(level, model, historyEvent);
     }
 
-    void onSkipped(TreeModel model, EditCommand command);
+    void onSkipped(Integer level, TreeModel model, EditCommand command);
 
-    default void onAddCommand(TreeModel model, EditCommand command) {
+    default void onAddCommand(Integer level, TreeModel model, EditCommand command) {
         // NoOp
     }
 
-    default void onClear(TreeModel model) {
+    default void onClear(Integer level, TreeModel model) {
         // NoOp
     }
 

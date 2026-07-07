@@ -144,27 +144,27 @@ public class JackUpperToolbar extends JPanel implements ContentListener, TreeFoc
     }
 
     @Override
-    public void onUndo(TreeModel model, CommandResult historyEvent) {
+    public void onUndo(Integer level, TreeModel model, CommandResult historyEvent) {
         updateButtons();
     }
 
     @Override
-    public void onExecute(TreeModel model, CommandResult historyEvent) {
+    public void onExecute(Integer level, TreeModel model, CommandResult historyEvent) {
         updateButtons();
     }
 
     @Override
-    public void onSkipped(TreeModel model, EditCommand command) {
+    public void onSkipped(Integer level, TreeModel model, EditCommand command) {
         updateButtons();
     }
 
     @Override
-    public void onAddCommand(TreeModel model, EditCommand command) {
+    public void onAddCommand(Integer level, TreeModel model, EditCommand command) {
         SwingUtilities.invokeLater(this::updateButtons);
     }
 
     @Override
-    public void onClear(TreeModel model) {
+    public void onClear(Integer level, TreeModel model) {
         SwingUtilities.invokeLater(this::updateButtons);
     }
 

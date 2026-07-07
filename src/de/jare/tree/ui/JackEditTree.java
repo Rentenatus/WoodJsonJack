@@ -122,7 +122,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         for (String propName : propNames) {
             EditNodeAbstract childData = jackTreeModel.getEditTree().addNewChild(
                     ((EditNodeAbstract) root.getUserObject()),
-                    propName , false
+                    propName, false
             );
             ((EditNodeProperty) childData).setValue("Value of " + propName);
             root.add(new DefaultMutableTreeNode(childData));
@@ -228,18 +228,18 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     private class UndoRedoListenerImpl implements UndoRedoListener {
 
         @Override
-        public void onUndo(TreeModel model, CommandResult cmdResult) {
+        public void onUndo(Integer level, TreeModel model, CommandResult cmdResult) {
 
             doRefreshIfModel(model, cmdResult);
         }
 
         @Override
-        public void onExecute(TreeModel model, CommandResult cmdResult) {
+        public void onExecute(Integer level, TreeModel model, CommandResult cmdResult) {
             doRefreshIfModel(model, cmdResult);
         }
 
         @Override
-        public void onSkipped(TreeModel model, EditCommand command) {
+        public void onSkipped(Integer level, TreeModel model, EditCommand command) {
             // NoOp here
         }
 
