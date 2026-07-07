@@ -36,7 +36,7 @@ import java.util.Map;
  */
 public class CutToStashCommand extends AbstractEditCommand {
 
-    private static final UpdateAction[] UPDATE_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_UPDATED};
+    private static final JackUpdateAction[] UPDATE_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_AFFECTED, JackUpdateAction.SELECT_UPDATED};
 
     private final ClipboardManager clipboardManager;
     private final String stashName;
@@ -222,7 +222,8 @@ public class CutToStashCommand extends AbstractEditCommand {
         clipboardManager.cutToStash(stashName, tree, entries);
 
         // Perform the delete operation
-        return doDelete(tree, entries, redoAction ? CommandAction.REDO : CommandAction.EXECUTE);
+        return doDelete(tree, entries, redoAction ? CommandAction.REDO : CommandAction.EXECUTE)
+                .addActions(ON_CLIPBOARD_ACTIONS);
 
     }
 
@@ -235,7 +236,8 @@ public class CutToStashCommand extends AbstractEditCommand {
         }
 
         // Perform the add operation (undo of delete is add)
-        return doAdd(tree, entries, false, CommandAction.UNDO);
+        return doAdd(tree, entries, false, CommandAction.UNDO)
+                .addActions(ON_CLIPBOARD_ACTIONS);
     }
 
     /**

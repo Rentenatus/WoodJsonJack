@@ -15,10 +15,10 @@ import de.jare.jsoncasted.editor.command.CutToStashCommand;
 import de.jare.jsoncasted.editor.command.DeleteNodeCommand;
 import de.jare.jsoncasted.editor.command.EditCommand;
 import de.jare.jsoncasted.editor.command.PasteFromStashCommand;
-import de.jare.jsoncasted.editor.command.UpdateAction;
-import static de.jare.jsoncasted.editor.command.UpdateAction.REBUILD_AFFECTED;
-import static de.jare.jsoncasted.editor.command.UpdateAction.SELECT_ADDED;
-import static de.jare.jsoncasted.editor.command.UpdateAction.SELECT_UPDATED;
+import de.jare.jsoncasted.editor.command.JackUpdateAction;
+import static de.jare.jsoncasted.editor.command.JackUpdateAction.REBUILD_AFFECTED;
+import static de.jare.jsoncasted.editor.command.JackUpdateAction.SELECT_ADDED;
+import static de.jare.jsoncasted.editor.command.JackUpdateAction.SELECT_UPDATED;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
@@ -254,7 +254,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         private void applyUndoRedoResult(CommandResult result) {
             boolean fallbackReload = false;
 
-            for (UpdateAction update : result.getUpdateActions()) {
+            for (JackUpdateAction update : result.getUpdateActions()) {
                 switch (update) {
                     case REBUILD_AFFECTED -> {
                         fallbackReload = handleRebuildAffected(result);

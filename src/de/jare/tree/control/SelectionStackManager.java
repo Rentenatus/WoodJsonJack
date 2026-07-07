@@ -8,8 +8,8 @@ package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
-import de.jare.jsoncasted.editor.command.UpdateAction;
-import static de.jare.jsoncasted.editor.command.UpdateAction.SELECT_ADDED;
+import de.jare.jsoncasted.editor.command.JackUpdateAction;
+import static de.jare.jsoncasted.editor.command.JackUpdateAction.SELECT_ADDED;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.SimpleEntry;
@@ -270,7 +270,7 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
             return;
         }
 
-        for (UpdateAction update : result.getUpdateActions()) {
+        for (JackUpdateAction update : result.getUpdateActions()) {
             if (SELECT_ADDED.equals(update)) {
                 EditNodeAbstract[] added = result.getAddedNodes();
                 SimpleEntry[] templates = result.getTemplateEntries();

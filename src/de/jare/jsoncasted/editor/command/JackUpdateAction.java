@@ -10,8 +10,9 @@ package de.jare.jsoncasted.editor.command;
  *
  * @author Janusch Rentenatus
  */
-public enum UpdateAction {
+public enum JackUpdateAction {
     REBUILD_AFFECTED,
     SELECT_ADDED,
-    SELECT_UPDATED
+    SELECT_UPDATED, 
+    REBUILD_CLIPBOARD
 }

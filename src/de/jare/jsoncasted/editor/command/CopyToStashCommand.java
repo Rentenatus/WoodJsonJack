@@ -233,7 +233,7 @@ public class CopyToStashCommand extends AbstractEditCommand {
                 null,
                 null,
                 null,
-                NO_UPDATE_ACTIONS
+                ON_CLIPBOARD_ACTIONS
         );
     }
 
@@ -254,7 +254,7 @@ public class CopyToStashCommand extends AbstractEditCommand {
                 originalStashContent,
                 null,
                 null,
-                NO_UPDATE_ACTIONS
+                ON_CLIPBOARD_ACTIONS
         );
     }
 

@@ -33,7 +33,7 @@ import java.util.Set;
  */
 public class MoveNodeCommand extends AbstractEditCommand {
 
-    private static final UpdateAction[] UPDATE_ACTIONS = new UpdateAction[]{UpdateAction.REBUILD_AFFECTED, UpdateAction.SELECT_UPDATED};
+    private static final JackUpdateAction[] UPDATE_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_AFFECTED, JackUpdateAction.SELECT_UPDATED};
 
     private final MovementEntry[] oldEntries;
     private final MovementEntry[] newEntries;
