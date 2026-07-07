@@ -28,6 +28,8 @@ import java.util.Map;
  * For multi-selection, descendant nodes are ignored if one of their ancestors
  * is already part of the delete set. This prevents duplicate restoration on
  * undo.
+ *
+ * @author Jansuch Rentenatus
  */
 public class DeleteNodeCommand extends AbstractEditCommand {
 

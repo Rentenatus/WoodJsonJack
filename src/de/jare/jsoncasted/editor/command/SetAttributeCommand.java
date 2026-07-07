@@ -21,6 +21,8 @@ import java.util.Map;
  * Command that sets attributes of node(s) in the tree. When executed, the
  * node(s) attributes are updated. When undone, the previous attribute values
  * are restored.
+ *
+ * @author Jansuch Rentenatus
  */
 public class SetAttributeCommand extends AbstractEditCommand {
 

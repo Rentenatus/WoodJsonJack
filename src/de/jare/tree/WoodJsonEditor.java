@@ -10,6 +10,10 @@ import com.formdev.flatlaf.FlatLightLaf;
 import de.jare.tree.ui.WoodWindow;
 import javax.swing.*;
 
+/**
+ *
+ * @author Jansuch Rentenatus
+ */
 public class WoodJsonEditor {
 
     public static void main(String[] args) {

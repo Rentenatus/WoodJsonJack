@@ -12,6 +12,8 @@ import de.jare.tree.control.Orator;
  * Thread-safe event bus for distributing events to registered listeners. This
  * is a type-safe event dispatching mechanism that replaces the Orator class.
  *
+ *
+ * @author Jansuch Rentenatus
  */
 public class EventBus {
 

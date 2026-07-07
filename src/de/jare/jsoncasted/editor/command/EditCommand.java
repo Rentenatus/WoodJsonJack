@@ -13,6 +13,8 @@ import de.jare.jsoncasted.editor.core.EditTree;
  *
  * Implementations are expected to modify the provided {@link EditTree} and
  * return a {@link CommandResult} describing the affected nodes.
+ *
+ * @author Jansuch Rentenatus
  */
 public interface EditCommand {
 

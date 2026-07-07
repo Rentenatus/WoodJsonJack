@@ -18,6 +18,8 @@ import java.util.Map;
  * <p>
  * Each nested entry class stores the data required to execute and undo a
  * specific kind of command operation.</p>
+ *
+ * @author Jansuch Rentenatus
  */
 public final class EditCommandEntry {
 

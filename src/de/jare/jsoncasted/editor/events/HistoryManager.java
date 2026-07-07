@@ -13,11 +13,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Manages the undo and redo history for the editor. Keeps track of executed
  * commands and allows undoing and redoing changes.
+ *
+ * @author Jansuch Rentenatus
  */
 public class HistoryManager {
 

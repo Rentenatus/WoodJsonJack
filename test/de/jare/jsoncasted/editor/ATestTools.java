@@ -19,12 +19,12 @@ public interface ATestTools {
         System.out.println(label + ": " + result);
     }
 
-    default void printEditorState(TreeEditor editor, String label) {
+    default void printEditorState(TreeEditorModel editor, String label) {
         System.out.println("~~>" + label + ": " + editor.toDebugString());
         System.out.println(editor.toHistoryString());
     }
 
-    default void printSubtree(TreeEditor editor, String label, EditNode node) {
+    default void printSubtree(TreeEditorModel editor, String label, EditNode node) {
         System.out.println(label + ":");
         System.out.println(editor.toTreeString(node));
     }

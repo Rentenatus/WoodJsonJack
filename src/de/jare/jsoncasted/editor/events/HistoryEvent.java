@@ -13,6 +13,8 @@ import java.util.Objects;
 /**
  * Event fired when the history state changes (command executed, undone, redone,
  * skipped, cleared).
+ *
+ * @author Jansuch Rentenatus
  */
 public class HistoryEvent implements EditEvent {
 

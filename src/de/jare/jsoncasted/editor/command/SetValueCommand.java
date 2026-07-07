@@ -17,6 +17,8 @@ import java.util.Arrays;
 /**
  * Command that sets the value of node(s) in the tree. When executed, the
  * node(s) values are updated. When undone, the previous values are restored.
+ *
+ * @author Jansuch Rentenatus
  */
 public class SetValueCommand extends AbstractEditCommand {
 

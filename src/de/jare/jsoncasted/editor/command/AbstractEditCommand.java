@@ -22,6 +22,8 @@ import java.util.Set;
  * All edit commands must extend this class and implement the
  * {@link EditCommand} interface methods {@code execute()} and
  * {@code undo()}.</p>
+ *
+ * @author Jansuch Rentenatus
  */
 public abstract class AbstractEditCommand implements EditCommand {
 
@@ -29,6 +31,7 @@ public abstract class AbstractEditCommand implements EditCommand {
     public static final JackUpdateAction[] ON_ADD_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_AFFECTED, JackUpdateAction.SELECT_ADDED};
     public static final JackUpdateAction[] ON_REMOVE_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_AFFECTED, JackUpdateAction.SELECT_UPDATED};
     public static final JackUpdateAction[] ON_CLIPBOARD_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_CLIPBOARD};
+    public static final JackUpdateAction[] UPDATE_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_AFFECTED, JackUpdateAction.SELECT_UPDATED};
 
     private final CommandType type;
     private String description;

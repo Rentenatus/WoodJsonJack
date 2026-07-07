@@ -6,6 +6,10 @@
  */
 package de.jare.tree.settings;
 
+/**
+ *
+ * @author Jansuch Rentenatus
+ */
 public class UserPreferences {
 
     private String uiLanguage;      // "de", "en"

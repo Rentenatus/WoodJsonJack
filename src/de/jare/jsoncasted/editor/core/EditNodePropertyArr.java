@@ -14,6 +14,8 @@ import java.util.Map;
 /**
  * Represents a JSON array property node in the tree structure. This is a
  * specialized property that is always of type ARRAY.
+ *
+ * @author Jansuch Rentenatus
  */
 public final class EditNodePropertyArr extends EditNodeProperty implements EditNode {
 

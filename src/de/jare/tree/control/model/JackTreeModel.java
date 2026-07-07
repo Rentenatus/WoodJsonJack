@@ -13,6 +13,10 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeNode;
 
+/**
+ *
+ * @author Jansuch Rentenatus
+ */
 public class JackTreeModel extends DefaultTreeModel {
 
     private final EditTree editTree;

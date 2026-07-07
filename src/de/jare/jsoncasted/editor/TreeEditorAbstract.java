@@ -7,7 +7,12 @@ package de.jare.jsoncasted.editor;
 
 import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.events.HistoryListener;
 import de.jare.jsoncasted.editor.events.HistoryManager;
+import de.jare.jsoncasted.tools.SimpleStringSplitter;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Abstract base class for tree editors that provides common command execution,
@@ -25,10 +30,11 @@ import de.jare.jsoncasted.editor.events.HistoryManager;
  * initialization state). This allows uniform handling of null/absent model
  * scenarios across all editor variants.
  * </p>
+ * 
+ * @author Jansuch Rentenatus
  *
- * @param <T> the type of the tree model used by this editor
  */
-public abstract class TreeEditorAbstract<T> {
+public abstract class TreeEditorAbstract implements SimpleStringSplitter {
 
     /**
      * The history manager used for undo/redo operations.
@@ -36,51 +42,57 @@ public abstract class TreeEditorAbstract<T> {
     protected final HistoryManager historyManager;
 
     /**
-     * The tree model managed by this editor.
-     */
-    protected final T treeModel;
-
-    /**
      * Creates a new abstract tree editor with the given tree model and history
      * manager.
      *
-     * @param treeModel the tree model to use; may be {@code null} for
-     * weak-reference-based implementations
      * @param historyManager the history manager to use; must not be
      * {@code null}
      * @throws IllegalArgumentException if historyManager is {@code null}
      */
-    protected TreeEditorAbstract(T treeModel, HistoryManager historyManager) {
+    protected TreeEditorAbstract(HistoryManager historyManager) {
         if (historyManager == null) {
             throw new IllegalArgumentException("HistoryManager must not be null");
         }
-        this.treeModel = treeModel;
         this.historyManager = historyManager;
     }
 
     /**
-     * Returns whether the tree model is currently missing/unavailable.
+     * Adds a listener for a specific event type. The listener will be notified
+     * whenever an event of the specified type is fired.
      *
-     * <p>
-     * The default implementation checks if {@link #treeModel} is {@code null}.
-     * Subclasses that use weak references or other indirect storage mechanisms
-     * should override this method accordingly.
-     * </p>
-     *
-     * @return {@code true} if the tree model is missing; {@code false}
-     * otherwise
+     * @param listener the consumer to be called when an event is fired
+     * @throws IllegalArgumentException if eventType or listener is null
      */
-    protected boolean missTreeModel() {
-        return treeModel == null;
+    public void addListener(HistoryListener listener) {
+        historyManager.addListener(listener);
     }
 
     /**
-     * Returns the underlying tree model object.
+     * Removes a listener for a specific event type.
      *
-     * @return the tree model, or {@code null} if unavailable
+     * @param listener the consumer to remove
+     * @return true if the listener was removed
      */
-    protected T getTreeModel() {
-        return treeModel;
+    public boolean removeListener(HistoryListener listener) {
+        return historyManager.removeListener(listener);
+    }
+
+    /**
+     * Sets the maximum number of commands kept in the undo history. Older
+     * entries are discarded when the limit is exceeded.
+     *
+     * @param limit positive maximum size of the undo stack
+     */
+    public void setLimit(int limit) {
+        historyManager.setLimit(limit);
+    }
+
+    public boolean hasTreeModel() {
+        return true;
+    }
+
+    public boolean missTreeModel() {
+        return false;
     }
 
     // -------------------------------------------------------------------------
@@ -93,11 +105,44 @@ public abstract class TreeEditorAbstract<T> {
      * @return the command result, or {@code null} if the tree model is missing
      * or nothing was executed
      */
-    public CommandResult execute(EditCommand command) {
-        if (missTreeModel()) {
+    public CommandResult executeCommand(EditCommand command) {
+        if (command == null || missTreeModel()) {
             return null;
         }
         return historyManager.execute(command);
+    }
+
+    /**
+     * Returns the configured maximum number of undoable commands.
+     *
+     * @return current limit
+     */
+    public int getLimit() {
+        return historyManager.getLimit();
+    }
+
+    public int size() {
+        return undoSize() + redoSize();
+    }
+
+    public int undoSize() {
+        return historyManager.undoSize();
+    }
+
+    public int redoSize() {
+        return historyManager.redoSize();
+    }
+
+    public int getTotalSize() {
+        return historyManager.getTotalSize();
+    }
+
+    public EditCommand getRedo(int index) {
+        return historyManager.getRedo(index);
+    }
+
+    public EditCommand getUndo(int index) {
+        return historyManager.getUndo(index);
     }
 
     /**
@@ -173,18 +218,21 @@ public abstract class TreeEditorAbstract<T> {
         historyManager.clear();
     }
 
-    // -------------------------------------------------------------------------
-    // Convenience methods for tree model checks
-    // -------------------------------------------------------------------------
-    /**
-     * Returns whether the tree model is currently available. This is the
-     * inverse of {@link #missTreeModel()}.
-     *
-     * @return {@code true} if the tree model is available; {@code false}
-     * otherwise
-     */
-    public boolean hasTreeModel() {
-        return !missTreeModel();
+    public List<String> getUndoLabels(int max) {
+        return maskLabels(historyManager.getUndoLabels(max));
+    }
+
+    public List<String> getRedoLabels(int max) {
+        return maskLabels(historyManager.getRedoLabels(max));
+    }
+
+    public List<String> maskLabels(List<String[]> labels) {
+        List<String> ret = new ArrayList<>(labels.size());
+        for (String[] label : labels) {
+            // Hier muss noch die Maskierung von CommandTypeText rein.
+            ret.add(simpleConcat(label, ""));
+        }
+        return ret;
     }
 
     /**
@@ -195,4 +243,85 @@ public abstract class TreeEditorAbstract<T> {
     public HistoryManager getHistoryManager() {
         return historyManager;
     }
+
+    /**
+     * Returns a readable representation of the undo and redo stacks.
+     *
+     * @return the formatted history output
+     */
+    public String toHistoryString() {
+        if (historyManager == null) {
+            return "<no history>";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("Undo[").append(historyManager.getUndoSize()).append("]:\n");
+        for (EditCommand cmd : historyManager.getUndoCommands()) {
+            sb.append("  - ").append(formatCommand(cmd)).append('\n');
+        }
+
+        sb.append("Redo[").append(historyManager.getRedoSize()).append("]:\n");
+        for (EditCommand cmd : historyManager.getRedoCommands()) {
+            sb.append("  - ").append(formatCommand(cmd)).append('\n');
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Formats a command for history output.
+     *
+     * @param cmd the command to format
+     * @return the formatted command string
+     */
+    public String formatCommand(EditCommand cmd) {
+        if (cmd == null) {
+            return "null";
+        }
+        return cmd.getClass().getSimpleName() + "[" + cmd.toString() + "]";
+    }
+
+    /**
+     * Formats a single node for debug output.
+     *
+     * @param node the node to format
+     * @return the formatted node header
+     */
+    public String formatNodeHeader(EditNode node) {
+        EditNode parent = node.getParent();
+        long parentId = parent != null ? parent.getEditId() : -1;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(node.getClass().getSimpleName())
+                .append(" {name =").append(node.getName())
+                .append(" {id=").append(node.getEditId())
+                .append(", parentId=").append(parentId);
+
+        try {
+            String text = node.getName();
+            if (text != null) {
+                sb.append(", text='").append(text).append('\'');
+            }
+        } catch (Exception ignore) {
+            // Some node types might not support getEditText()
+        }
+
+        sb.append('}');
+        return sb.toString();
+    }
+
+    /**
+     * Returns the index of the given node within its parent.
+     *
+     * @param node the node to inspect
+     * @return the child index, or {@code -1} if the node has no parent
+     */
+    public int getIndexInParent(EditNode node) {
+        if (node == null || node.getParent() == null) {
+            return -1;
+        }
+        return node.getParent().getChildIndex(node);
+    }
+
 }

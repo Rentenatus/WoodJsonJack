@@ -18,6 +18,8 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
  * rename, value change, move, ...) and know how to execute and undo that
  * change.
  * </p>
+ *
+ * @author Jansuch Rentenatus
  */
 public interface WoodUtils {
 

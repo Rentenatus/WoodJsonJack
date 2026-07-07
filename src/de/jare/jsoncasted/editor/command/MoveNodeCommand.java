@@ -30,10 +30,10 @@ import java.util.Set;
  * Single-node moves support index adjustment when reordering inside the same
  * parent. Multi-node moves use the stored target indices as absolute positions
  * and therefore do not apply same-parent correction logic.</p>
+ *
+ * @author Jansuch Rentenatus
  */
 public class MoveNodeCommand extends AbstractEditCommand {
-
-    private static final JackUpdateAction[] UPDATE_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_AFFECTED, JackUpdateAction.SELECT_UPDATED};
 
     private final MovementEntry[] oldEntries;
     private final MovementEntry[] newEntries;
@@ -559,7 +559,7 @@ public class MoveNodeCommand extends AbstractEditCommand {
      * @param moveBubbles the array of move bubbles to process
      * @return an array of unique parent nodes involved in the move bubbles
      */
-    private EditNodeAbstract[] unionParentNodes(  MoveBubble[] moveBubbles) {
+    private EditNodeAbstract[] unionParentNodes(MoveBubble[] moveBubbles) {
         Set<EditNodeAbstract> union = new java.util.HashSet<>();
         for (MoveBubble moveBubble : moveBubbles) {
             if (moveBubble.oldParent != null) {

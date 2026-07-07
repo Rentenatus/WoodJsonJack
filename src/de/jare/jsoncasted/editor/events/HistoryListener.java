@@ -6,11 +6,14 @@
  */
 package de.jare.jsoncasted.editor.events;
 
+/**
+ *
+ * @author Jansuch Rentenatus
+ */
 public interface HistoryListener {
 
     public void onClear(HistoryEvent event);
 
     public void onAction(HistoryEvent event);
 
-    
 }

@@ -9,7 +9,6 @@ package de.jare.jsoncasted.editor.core;
 import de.jare.jsoncasted.tools.SimpleStringSplitter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -128,8 +127,6 @@ public abstract non-sealed class EditNodeAbstract implements EditNode, SimpleStr
     public void setEditMessage(String editMessage) {
         this.editMessage = editMessage;
     }
-
-    
 
     /**
      * Adds edit-related attributes to the provided map of JackAttribut objects.

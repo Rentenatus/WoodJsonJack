@@ -21,6 +21,8 @@ import java.util.Objects;
  * the node sets affected by the operation. Depending on the command type, nodes
  * may appear in one or more semantic groups such as added, removed, or updated
  * nodes.</p>
+ *
+ * @author Jansuch Rentenatus
  */
 public final class CommandResult {
 

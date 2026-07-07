@@ -17,6 +17,8 @@ import java.util.Arrays;
 /**
  * Command that renames node(s) in the tree. When executed, the node(s) names
  * are updated. When undone, the previous names are restored.
+ *
+ * @author Jansuch Rentenatus
  */
 public class RenameNodeCommand extends AbstractEditCommand {
 

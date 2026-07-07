@@ -10,6 +10,8 @@ package de.jare.jsoncasted.editor.events;
  * Base interface for all events in the editor event system. Events are used to
  * notify listeners about changes in the tree structure, selection, commands,
  * and other editor state.
+ *
+ * @author Jansuch Rentenatus
  */
 public interface EditEvent {
 

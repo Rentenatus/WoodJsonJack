@@ -24,6 +24,8 @@ import javax.swing.tree.TreeModel;
  * Global undo/redo dispatcher that keeps one {@link UndoManagerModel} per
  * {@link TreeModel} and delegates execute/undo/redo to the manager of the
  * currently active model.
+ *
+ * @author Jansuch Rentenatus
  */
 public class JackUndoManager implements TreeFocusListener, HistoryListener {
 
@@ -110,7 +112,7 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
 
     public void skip_redo() {
         if (activeManager != null) {
-            EditCommand cmd = activeManager.skip_redo();
+            EditCommand cmd = activeManager.skipRedo();
             if (cmd != null) {
                 undoRedoOrator.say((level, l) -> l.onSkipped(level, activeManager.getTreeModel(), cmd));
             }
@@ -130,7 +132,7 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
      */
     public void clearActive() {
         if (activeManager != null) {
-            activeManager.clear();
+            activeManager.clearHistory();
             undoRedoOrator.say((level, l) -> l.onClear(level, activeManager.getTreeModel()));
         }
     }
@@ -140,7 +142,7 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
      */
     public void clearAll() {
         for (JackUndoManagerModel m : managers) {
-            m.clear();
+            m.clearHistory();
         }
         managers.clear();
         activeManager = null;

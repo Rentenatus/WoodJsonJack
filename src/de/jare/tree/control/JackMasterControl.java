@@ -7,7 +7,6 @@
 package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
-import de.jare.jsoncasted.editor.events.EventBus;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;

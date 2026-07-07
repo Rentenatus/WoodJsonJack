@@ -54,16 +54,16 @@ public class TreeEditorContentNGTest implements ATestTools {
     public void testRenameThreeNodes() {
         printTestHeader("testRenameThreeNodes");
 
-        TreeEditor editor = new TreeEditor();
+        TreeEditorModel editor = new TreeEditorModel();
         EditNode root = editor.getTree().getRoot();
 
         EditNodeProperty node1 = new EditNodeProperty("oldName1");
         EditNodeProperty node2 = new EditNodeProperty("oldName2");
         EditNodeProperty node3 = new EditNodeProperty("oldName3");
 
-        editor.execute(new AddNodeCommand(root, node1));
-        editor.execute(new AddNodeCommand(root, node2));
-        editor.execute(new AddNodeCommand(root, node3));
+        editor.executeCommand(new AddNodeCommand(root, node1));
+        editor.executeCommand(new AddNodeCommand(root, node2));
+        editor.executeCommand(new AddNodeCommand(root, node3));
 
         EditNode treeNode1 = root.getChildAt(0);
         EditNode treeNode2 = root.getChildAt(1);
@@ -72,7 +72,7 @@ public class TreeEditorContentNGTest implements ATestTools {
         editor.clearHistory();
         printEditorState(editor, "before rename");
 
-        CommandResult renameResult = editor.execute(new RenameNodeCommand(
+        CommandResult renameResult = editor.executeCommand(new RenameNodeCommand(
                 new EditNode[]{treeNode1, treeNode2, treeNode3},
                 new String[]{"newName1", "newName2", "newName3"}
         ));
@@ -109,16 +109,16 @@ public class TreeEditorContentNGTest implements ATestTools {
     public void testSetValueThreeNodes() {
         printTestHeader("testSetValueThreeNodes");
 
-        TreeEditor editor = new TreeEditor();
+        TreeEditorModel editor = new TreeEditorModel();
         EditNode root = editor.getTree().getRoot();
 
         EditNodeProperty node1 = new EditNodeProperty("valueNode1");
         EditNodeProperty node2 = new EditNodeProperty("valueNode2");
         EditNodeProperty node3 = new EditNodeProperty("valueNode3");
 
-        editor.execute(new AddNodeCommand(root, node1));
-        editor.execute(new AddNodeCommand(root, node2));
-        editor.execute(new AddNodeCommand(root, node3));
+        editor.executeCommand(new AddNodeCommand(root, node1));
+        editor.executeCommand(new AddNodeCommand(root, node2));
+        editor.executeCommand(new AddNodeCommand(root, node3));
 
         EditNode treeNode1 = root.getChildAt(0);
         EditNode treeNode2 = root.getChildAt(1);
@@ -127,7 +127,7 @@ public class TreeEditorContentNGTest implements ATestTools {
         editor.clearHistory();
         printEditorState(editor, "before setValue");
 
-        CommandResult setValueResult = editor.execute(new SetValueCommand(
+        CommandResult setValueResult = editor.executeCommand(new SetValueCommand(
                 new EditNode[]{treeNode1, treeNode2, treeNode3},
                 new String[]{"value1", "value2", "value3"}
         ));
@@ -164,16 +164,16 @@ public class TreeEditorContentNGTest implements ATestTools {
     public void testRenameAndSetValueCombined() {
         printTestHeader("testRenameAndSetValueCombined");
 
-        TreeEditor editor = new TreeEditor();
+        TreeEditorModel editor = new TreeEditorModel();
         EditNode root = editor.getTree().getRoot();
 
         EditNodeProperty node1 = new EditNodeProperty("node1");
         EditNodeProperty node2 = new EditNodeProperty("node2");
         EditNodeProperty node3 = new EditNodeProperty("node3");
 
-        editor.execute(new AddNodeCommand(root, node1));
-        editor.execute(new AddNodeCommand(root, node2));
-        editor.execute(new AddNodeCommand(root, node3));
+        editor.executeCommand(new AddNodeCommand(root, node1));
+        editor.executeCommand(new AddNodeCommand(root, node2));
+        editor.executeCommand(new AddNodeCommand(root, node3));
 
         EditNode treeNode1 = root.getChildAt(0);
         EditNode treeNode2 = root.getChildAt(1);
@@ -182,13 +182,13 @@ public class TreeEditorContentNGTest implements ATestTools {
         editor.clearHistory();
         printEditorState(editor, "before combined content commands");
 
-        CommandResult renameResult = editor.execute(new RenameNodeCommand(
+        CommandResult renameResult = editor.executeCommand(new RenameNodeCommand(
                 new EditNode[]{treeNode1, treeNode2, treeNode3},
                 new String[]{"renamed1", "renamed2", "renamed3"}
         ));
         printCommandResult("renameResult", renameResult);
 
-        CommandResult setValueResult = editor.execute(new SetValueCommand(
+        CommandResult setValueResult = editor.executeCommand(new SetValueCommand(
                 new EditNode[]{treeNode1, treeNode2, treeNode3},
                 new String[]{"text1", "text2", "text3"}
         ));
@@ -248,23 +248,23 @@ public class TreeEditorContentNGTest implements ATestTools {
     public void testSkipRedoMoveThenRedoContentCommands() {
         printTestHeader("testSkipRedoMoveThenRedoContentCommands");
 
-        TreeEditor editor = new TreeEditor();
+        TreeEditorModel editor = new TreeEditorModel();
         EditNodeAbstract root = editor.getTree().getRoot();
 
-        editor.execute(new AddNodeCommand(root, new EditNodeProperty("sourceProp")));
+        editor.executeCommand(new AddNodeCommand(root, new EditNodeProperty("sourceProp")));
         EditNodeAbstract sourceProp = root.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(sourceProp, new EditNodeObject("source")));
+        editor.executeCommand(new AddNodeCommand(sourceProp, new EditNodeObject("source")));
         EditNodeAbstract sourceParent = sourceProp.getChildAt(0);
 
-        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("node1")));
-        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("node2")));
-        editor.execute(new AddNodeCommand(sourceParent, new EditNodeProperty("node3")));
+        editor.executeCommand(new AddNodeCommand(sourceParent, new EditNodeProperty("node1")));
+        editor.executeCommand(new AddNodeCommand(sourceParent, new EditNodeProperty("node2")));
+        editor.executeCommand(new AddNodeCommand(sourceParent, new EditNodeProperty("node3")));
 
-        editor.execute(new AddNodeCommand(root, new EditNodeProperty("targetProp")));
+        editor.executeCommand(new AddNodeCommand(root, new EditNodeProperty("targetProp")));
         EditNodeAbstract targetProp = root.getChildAt(1);
 
-        editor.execute(new AddNodeCommand(targetProp, new EditNodeObject("target")));
+        editor.executeCommand(new AddNodeCommand(targetProp, new EditNodeObject("target")));
         EditNodeAbstract targetParent = targetProp.getChildAt(0);
 
         EditNodeAbstract node1 = sourceParent.getChildAt(0);
@@ -276,7 +276,7 @@ public class TreeEditorContentNGTest implements ATestTools {
         printSubtree(editor, "source before move/rename/setValue", sourceParent);
         printSubtree(editor, "target before move/rename/setValue", targetParent);
 
-        CommandResult moveCmd = editor.execute(new MoveNodeCommand(
+        CommandResult moveCmd = editor.executeCommand(new MoveNodeCommand(
                 new EditNodeAbstract[]{node1, node2, node3},
                 targetParent,
                 0
@@ -291,14 +291,14 @@ public class TreeEditorContentNGTest implements ATestTools {
         node2 = targetParent.getChildAt(1);
         node3 = targetParent.getChildAt(2);
 
-        CommandResult renameCmd = editor.execute(new RenameNodeCommand(
+        CommandResult renameCmd = editor.executeCommand(new RenameNodeCommand(
                 new EditNode[]{node1, node2, node3},
                 new String[]{"renamed1", "renamed2", "renamed3"}
         ));
         assertNotNull(renameCmd);
         printCommandResult("renameResult", renameCmd);
 
-        CommandResult setValueCmd = editor.execute(new SetValueCommand(
+        CommandResult setValueCmd = editor.executeCommand(new SetValueCommand(
                 new EditNode[]{node1, node2, node3},
                 new String[]{"value1", "value2", "value3"}
         ));
@@ -391,11 +391,11 @@ public class TreeEditorContentNGTest implements ATestTools {
     public void testSetAttributeSingleNode() {
         printTestHeader("testSetAttributeSingleNode");
 
-        TreeEditor editor = new TreeEditor();
+        TreeEditorModel editor = new TreeEditorModel();
         EditNode root = editor.getTree().getRoot();
 
         EditNodeProperty node = new EditNodeProperty("attrNode");
-        editor.execute(new AddNodeCommand(root, node));
+        editor.executeCommand(new AddNodeCommand(root, node));
         EditNode treeNode = root.getChildAt(0);
 
         editor.clearHistory();
@@ -405,7 +405,7 @@ public class TreeEditorContentNGTest implements ATestTools {
         newAttributes.put("name", "newName");
         newAttributes.put("primValue", "testValue");
 
-        CommandResult setAttrResult = editor.execute(new SetAttributeCommand(treeNode, newAttributes));
+        CommandResult setAttrResult = editor.executeCommand(new SetAttributeCommand(treeNode, newAttributes));
         printCommandResult("setAttrResult", setAttrResult);
 
         assertEquals(treeNode.getName(), "newName");
@@ -436,16 +436,16 @@ public class TreeEditorContentNGTest implements ATestTools {
     public void testSetAttributeCombined() {
         printTestHeader("testSetAttributeCombined");
 
-        TreeEditor editor = new TreeEditor();
+        TreeEditorModel editor = new TreeEditorModel();
         EditNode root = editor.getTree().getRoot();
 
         EditNodeProperty node1 = new EditNodeProperty("node1");
         EditNodeProperty node2 = new EditNodeProperty("node2");
         EditNodeProperty node3 = new EditNodeProperty("node3");
 
-        editor.execute(new AddNodeCommand(root, node1));
-        editor.execute(new AddNodeCommand(root, node2));
-        editor.execute(new AddNodeCommand(root, node3));
+        editor.executeCommand(new AddNodeCommand(root, node1));
+        editor.executeCommand(new AddNodeCommand(root, node2));
+        editor.executeCommand(new AddNodeCommand(root, node3));
 
         EditNode treeNode1 = root.getChildAt(0);
         EditNode treeNode2 = root.getChildAt(1);
@@ -475,7 +475,7 @@ public class TreeEditorContentNGTest implements ATestTools {
         attrs3.put("name", "renamed3");
         attrs3.put("primValue", "value3");
 
-        CommandResult setAttrResult = editor.execute(new SetAttributeCommand(
+        CommandResult setAttrResult = editor.executeCommand(new SetAttributeCommand(
                 new EditNode[]{treeNode1, treeNode2, treeNode3},
                 new Map[]{attrs1, attrs2, attrs3}
         ));

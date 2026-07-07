@@ -10,6 +10,8 @@ import java.util.List;
 
 /**
  * Ereignis für Selektions‑Stack‑Änderungen.
+ *
+ * @author Jansuch Rentenatus
  */
 public class SelectionStackEntry {
 

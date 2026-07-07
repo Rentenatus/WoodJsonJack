@@ -21,6 +21,8 @@ import javax.swing.tree.TreeModel;
  * Hält nur die Stack-Daten (Entries, Position), keinerlei Listener oder
  * UI-Logik. Der Dispatcher/Listener ist SelectionStackManager.
  * </p>
+ *
+ * @author Jansuch Rentenatus
  */
 public class SelectionStackManagerModel {
 

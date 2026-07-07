@@ -41,8 +41,8 @@ public class ClipboardEditMixTestNG implements ATestTools {
     private EditTree treeA;
     private EditTree treeB;
 
-    private TreeEditor editorA;
-    private TreeEditor editorB;
+    private TreeEditorModel editorA;
+    private TreeEditorModel editorB;
 
     private EditNodeAbstract rootA;
     private EditNodeAbstract rootB;
@@ -57,8 +57,8 @@ public class ClipboardEditMixTestNG implements ATestTools {
     @BeforeMethod
     public void setUp() {
         clipboard = new ClipboardManager();
-        editorA = new TreeEditor();
-        editorB = new TreeEditor();
+        editorA = new TreeEditorModel();
+        editorB = new TreeEditorModel();
 
         treeA = editorA.getTree();
         rootA = treeA.getRoot();

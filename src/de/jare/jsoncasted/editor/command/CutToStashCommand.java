@@ -33,10 +33,10 @@ import java.util.Map;
  * <p>
  * The command uses MovementEntry[] for storing node positions and snapshots,
  * similar to DeleteNodeCommand but with clipboard stash integration.</p>
+ *
+ * @author Jansuch Rentenatus
  */
 public class CutToStashCommand extends AbstractEditCommand {
-
-    private static final JackUpdateAction[] UPDATE_ACTIONS = new JackUpdateAction[]{JackUpdateAction.REBUILD_AFFECTED, JackUpdateAction.SELECT_UPDATED};
 
     private final ClipboardManager clipboardManager;
     private final String stashName;

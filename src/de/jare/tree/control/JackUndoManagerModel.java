@@ -6,179 +6,38 @@
  */
 package de.jare.tree.control;
 
-import de.jare.jsoncasted.editor.command.CommandResult;
-import de.jare.jsoncasted.editor.command.EditCommand;
-import de.jare.jsoncasted.editor.events.HistoryListener;
+import de.jare.jsoncasted.editor.TreeEditorAbstract;
 import de.jare.jsoncasted.editor.events.HistoryManager;
-import de.jare.jsoncasted.tools.SimpleStringSplitter;
 import de.jare.tree.control.model.JackTreeModel;
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Simple undo/redo manager for the tree editor.
  *
+ *
+ * @author Jansuch Rentenatus
  */
-public class JackUndoManagerModel implements SimpleStringSplitter {
+public class JackUndoManagerModel extends TreeEditorAbstract {
 
-    private final WeakReference< JackTreeModel> weakTreeModel;
-    private final HistoryManager historyManager;
+    private final WeakReference<JackTreeModel> weakTreeModel;
 
     public JackUndoManagerModel(JackTreeModel treeModel) {
+        super(new HistoryManager(treeModel.getEditTree()));
         this.weakTreeModel = new WeakReference<>(treeModel);
-        historyManager = new HistoryManager(treeModel.getEditTree());
+    }
+
+    @Override
+    public boolean hasTreeModel() {
+        return weakTreeModel.get() != null;
+    }
+
+    @Override
+    public boolean missTreeModel() {
+        return weakTreeModel.get() == null;
     }
 
     public JackTreeModel getTreeModel() {
         return weakTreeModel.get();
-    }
-
-    /**
-     * Adds a listener for a specific event type. The listener will be notified
-     * whenever an event of the specified type is fired.
-     *
-     * @param listener the consumer to be called when an event is fired
-     * @throws IllegalArgumentException if eventType or listener is null
-     */
-    public void addListener(HistoryListener listener) {
-        historyManager.addListener(listener);
-    }
-
-    /**
-     * Removes a listener for a specific event type.
-     *
-     * @param listener the consumer to remove
-     * @return true if the listener was removed
-     */
-    public boolean removeListener(HistoryListener listener) {
-        return historyManager.removeListener(listener);
-    }
-
-    /**
-     * Add the given command and pushes it onto the undo stack.The redo stack is
-     * cleared.
-     *
-     * @param command command to execute; must not be {@code null}
-     * @return
-     */
-    public CommandResult executeCommand(EditCommand command) {
-        if (command == null || getTreeModel() == null) {
-            return null;
-        }
-        return historyManager.execute(command);
-    }
-
-    /**
-     * Performs an undo operation if possible.
-     *
-     * @return
-     */
-    public CommandResult undo() {
-        JackTreeModel lokalModel = getTreeModel();
-        if (lokalModel == null) {
-            return null;
-        }
-        return historyManager.undo();
-
-    }
-
-    /**
-     * Performs a redo operation if possible.
-     *
-     * @return
-     */
-    public CommandResult redo() {
-        JackTreeModel lokalModel = getTreeModel();
-        if (lokalModel == null) {
-            return null;
-        }
-        return historyManager.redo();
-    }
-
-    /**
-     * Performs a redo operation if possible.
-     *
-     * @return
-     */
-    public EditCommand skip_redo() {
-        JackTreeModel lokalModel = getTreeModel();
-        if (lokalModel == null) {
-            return null;
-        }
-        return historyManager.skipRedo();
-    }
-
-    /**
-     * Sets the maximum number of commands kept in the undo history. Older
-     * entries are discarded when the limit is exceeded.
-     *
-     * @param limit positive maximum size of the undo stack
-     */
-    public void setLimit(int limit) {
-        historyManager.setLimit(limit);
-    }
-
-    /**
-     * Returns the configured maximum number of undoable commands.
-     *
-     * @return current limit
-     */
-    public int getLimit() {
-        return historyManager.getLimit();
-    }
-
-    public int size() {
-        return undoSize() + redoSize();
-    }
-
-    public int undoSize() {
-        return historyManager.undoSize();
-    }
-
-    public int redoSize() {
-        return historyManager.redoSize();
-    }
-
-    public int getTotalSize() {
-        return historyManager.getTotalSize();
-    }
-
-    public EditCommand getRedo(int index) {
-        return historyManager.getRedo(index);
-    }
-
-    public EditCommand getUndo(int index) {
-        return historyManager.getUndo(index);
-    }
-
-    boolean canUndo() {
-        return historyManager.canUndo();
-    }
-
-    boolean canRedo() {
-        return historyManager.canRedo();
-    }
-
-    void clear() {
-        historyManager.clear();
-    }
-
-    public List<String> getUndoLabels(int max) {
-        return maskLabels(historyManager.getUndoLabels(max));
-    }
-
-    public List<String> getRedoLabels(int max) {
-        return maskLabels(historyManager.getRedoLabels(max));
-    }
-
-    public List<String> maskLabels(List<String[]> labels) {
-        List<String> ret = new ArrayList<>(labels.size());
-        for (String[] label : labels) {
-            // Hier muss noch die Maskierung von CommandTypeText rein.
-            ret.add(simpleConcat(label, ""));
-        }
-        return ret;
     }
 
     boolean containsHistory(HistoryManager source) {

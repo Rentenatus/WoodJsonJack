@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0 which
+ * accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ */
 package de.jare.jsoncasted.editor.command;
 
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
@@ -6,6 +12,10 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 
+/*
+ *
+ * @author Jansuch Rentenatus
+ */
 public abstract class AbstractToStashCommand extends AbstractEditCommand {
 
     protected final ClipboardManager clipboardManager;

@@ -36,6 +36,8 @@ import java.util.Map;
  * <p>
  * The command uses MovementEntry[] for storing node snapshots, similar to
  * AddNodeCommand but without actually adding nodes to the tree.</p>
+ *
+ * @author Jansuch Rentenatus
  */
 public class CopyToStashCommand extends AbstractEditCommand {
 

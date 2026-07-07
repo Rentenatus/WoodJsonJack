@@ -9,6 +9,10 @@ package de.jare.jsoncasted.editor.command;
 import java.util.Arrays;
 import java.util.Objects;
 
+/**
+ *
+ * @author Jansuch Rentenatus
+ */
 public final class CommandAvailability {
 
     public enum Status {

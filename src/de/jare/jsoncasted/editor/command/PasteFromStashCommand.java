@@ -29,6 +29,8 @@ import java.util.List;
  * <p>
  * The command uses MovementEntry[] for storing the target positions, similar to
  * AddNodeCommand but with stash as the source of the nodes.</p>
+ *
+ * @author Jansuch Rentenatus
  */
 public class PasteFromStashCommand extends AbstractEditCommand {
 

@@ -9,6 +9,8 @@ package de.jare.jsoncasted.editor.command;
 /**
  * Enumeration of possible command actions. Represents the type of operation
  * that can be performed on a command.
+ *
+ * @author Jansuch Rentenatus
  */
 public enum CommandAction {
     /**

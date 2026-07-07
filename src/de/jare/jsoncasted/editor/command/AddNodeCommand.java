@@ -17,6 +17,8 @@ import java.util.Arrays;
  * Command that adds node(s) to the tree. When executed, the node(s) are
  * inserted at their specified parent and index. When undone, the node(s) are
  * removed from the tree.
+ *
+ * @author Jansuch Rentenatus
  */
 public class AddNodeCommand extends AbstractEditCommand {
 

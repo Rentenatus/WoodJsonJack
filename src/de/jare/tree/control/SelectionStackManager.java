@@ -31,6 +31,8 @@ import javax.swing.tree.TreePath;
  * Reagiert auf TreeFocusListener-Events (aktiver Editor, selektierter Knoten).
  * - Stellt Selektionen über Backward/Forward wieder her.
  * </p>
+ *
+ * @author Jansuch Rentenatus
  */
 public class SelectionStackManager implements TreeFocusListener, UndoRedoListener, WoodUtils {
 
