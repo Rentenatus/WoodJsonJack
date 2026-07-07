@@ -1,0 +1,237 @@
+/* <copyright>
+ * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ * </copyright>
+ */
+package de.jare.tree.control;
+
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.events.HistoryEvent;
+import de.jare.jsoncasted.editor.events.HistoryEvent.ChangeType;
+import de.jare.jsoncasted.editor.events.HistoryListener;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.listeners.UndoRedoListener;
+import de.jare.tree.control.model.JackTreeModel;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import javax.swing.tree.TreeModel;
+
+/**
+ * Global undo/redo dispatcher that keeps one {@link UndoManagerModel} per
+ * {@link TreeModel} and delegates execute/undo/redo to the manager of the
+ * currently active model.
+ *
+ * @author Jansuch Rentenatus
+ */
+public class JackUndoManager implements TreeFocusListener, HistoryListener {
+
+    private final List<JackUndoManagerModel> managers = new ArrayList<>();
+    private JackUndoManagerModel activeManager;
+    private final Orator<UndoRedoListener> undoRedoOrator = new Orator<>();
+
+    @Override
+    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
+        setActiveModel(editor != null ? editor.getModel() : null);
+    }
+
+    public void addUndoRedoListener(int level, UndoRedoListener l) {
+        undoRedoOrator.addListener(level, l);
+    }
+
+    public void removeUndoRedoListener(UndoRedoListener l) {
+        undoRedoOrator.removeListener(l);
+    }
+
+    /**
+     * Sets the currently active model. All subsequent execute/undo/redo calls
+     * will operate on the manager associated with this model.
+     *
+     * @param model active tree model, may be {@code null}
+     */
+    public void setActiveModel(JackTreeModel model) {
+        if (model == null) {
+            this.activeManager = null;
+        } else {
+            this.activeManager = getManager(model);
+        }
+    }
+
+    public JackUndoManagerModel getActiveManager() {
+        return activeManager;
+    }
+
+    /**
+     * Adds the given command on the active model.
+     *
+     * @param command
+     * @return
+     */
+    public CommandResult executeCommand(EditCommand command) {
+        if (activeManager != null) {
+            if (activeManager.getTreeModel() == null) {
+                managers.remove(activeManager);
+                activeManager = null;
+                return null;
+            }
+            CommandResult result = activeManager.executeCommand(command);
+            if (result != null) {
+                undoRedoOrator.say((level, l) -> l.onAddCommand(level, activeManager.getTreeModel(), command));
+                return result;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Performs undo on the active model.
+     */
+    public void undo() {
+        if (activeManager != null) {
+            CommandResult cmdResult = activeManager.undo();
+            if (cmdResult != null) {
+                undoRedoOrator.say((level, l) -> l.onUndo(level, activeManager.getTreeModel(), cmdResult));
+            }
+        }
+    }
+
+    /**
+     * Performs redo on the active model.
+     */
+    public void redo() {
+        if (activeManager != null) {
+            CommandResult cmdResult = activeManager.redo();
+            if (cmdResult != null) {
+                undoRedoOrator.say((level, l) -> l.onExecute(level, activeManager.getTreeModel(), cmdResult));
+            }
+        }
+    }
+
+    public void skip_redo() {
+        if (activeManager != null) {
+            EditCommand cmd = activeManager.skipRedo();
+            if (cmd != null) {
+                undoRedoOrator.say((level, l) -> l.onSkipped(level, activeManager.getTreeModel(), cmd));
+            }
+        }
+    }
+
+    public boolean canUndo() {
+        return activeManager != null && activeManager.canUndo();
+    }
+
+    public boolean canRedo() {
+        return activeManager != null && activeManager.canRedo();
+    }
+
+    /**
+     * Clears history of the active model only.
+     */
+    public void clearActive() {
+        if (activeManager != null) {
+            activeManager.clearHistory();
+            undoRedoOrator.say((level, l) -> l.onClear(level, activeManager.getTreeModel()));
+        }
+    }
+
+    /**
+     * Clears history for all models.
+     */
+    public void clearAll() {
+        for (JackUndoManagerModel m : managers) {
+            m.clearHistory();
+        }
+        managers.clear();
+        activeManager = null;
+    }
+
+    @Override
+    public void onClear(HistoryEvent historyEvent) {
+
+    }
+
+    @Override
+    public void onAction(HistoryEvent historyEvent) {
+        JackTreeModel model = null;
+        for (JackUndoManagerModel m : managers) {
+            if (m.containsHistory(historyEvent.getSource())) {
+                model = m.getTreeModel();
+            }
+        }
+        sayUndoRedoEvent(historyEvent, model);
+    }
+
+    protected void sayUndoRedoEvent(HistoryEvent historyEvent, final TreeModel model) {
+        HistoryEvent.ChangeType changeType = historyEvent.getChangeType();
+        switch (changeType) {
+            case ChangeType.CMD_EXECUTED:
+                undoRedoOrator.say((level, l) -> l.onExecute(level, model, historyEvent.getResult()));
+                break;
+            case ChangeType.CMD_UNDONE:
+                undoRedoOrator.say((level, l) -> l.onUndo(level, model, historyEvent.getResult()));
+                break;
+            case ChangeType.CMD_REDONE:
+                undoRedoOrator.say((level, l) -> l.onRedo(level, model, historyEvent.getResult()));
+                break;
+            case ChangeType.HIST_CLEARED:
+                undoRedoOrator.say((level, l) -> l.onClear(level, model));
+                break;
+            case ChangeType.CMD_SKIPPED:
+                undoRedoOrator.say((level, l) -> l.onSkipped(level, model, historyEvent.getCommand()));
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Finds or creates an {@link UndoManagerModel} for the given TreeModel.
+     * Also removes all manager instances whose TreeModel has already been
+     * garbage collected.
+     */
+    private JackUndoManagerModel getManager(JackTreeModel model) {
+        // remove dead managers and search for existing one
+        JackUndoManagerModel found = null;
+        Iterator<JackUndoManagerModel> it = managers.iterator();
+        while (it.hasNext()) {
+            JackUndoManagerModel next = it.next();
+            JackTreeModel tm = next.getTreeModel();
+            if (tm == null) {
+                // TreeModel was GC'ed, drop this manager
+                it.remove();
+                continue;
+            }
+            if (tm == model) {
+                found = next;
+            }
+        }
+
+        if (found != null) {
+            return found;
+        }
+
+        // create new manager for this model
+        JackUndoManagerModel newManager = new JackUndoManagerModel(model);
+        managers.add(newManager);
+        newManager.addListener(this);
+        return newManager;
+    }
+
+    public List<String> getUndoLabels(int max) {
+        if (canUndo()) {
+            return activeManager.getUndoLabels(max);
+        }
+        return List.of();
+    }
+
+    public List<String> getRedoLabels(int max) {
+        if (canRedo()) {
+            return activeManager.getRedoLabels(max);
+        }
+        return List.of();
+    }
+
+}

@@ -6,20 +6,54 @@
  */
 package de.jare.tree.control.listeners;
 
-import de.jare.tree.control.MasterControl;
+import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.model.JackTreeModel;
 import javax.swing.JTree;
-import javax.swing.tree.TreeModel;
 
 /**
+ * Interface for tree editor components that can receive focus and selection events.
+ * <p>
+ * Components implementing this interface represent editable tree views that can
+ * be part of a tabbed interface or similar container. They provide access to
+ * their underlying tree model, Swing tree component, and the master controller.
+ * </p>
  *
  * @author Janusch Rentenatus
  */
 public interface TreeFocusComponent {
 
-    public JTree getTree();
+    /**
+     * Returns the Swing JTree component used for displaying the tree structure.
+     *
+     * @return the JTree instance of this component
+     */
+    JTree getTree();
 
-    public TreeModel getModel();
+    /**
+     * Returns the tree model associated with this component.
+     *
+     * @return the JackTreeModel instance
+     */
+    JackTreeModel getModel();
 
-    public MasterControl getMaster();
+    /**
+     * Returns the master controller that manages this component.
+     *
+     * @return the JackMasterControl instance, or null if not managed
+     */
+    JackMasterControl getJackMaster();
+
+    /**
+     * Indicates whether this component is in read-only mode.
+     * <p>
+     * When read-only, edit operations like adding, deleting, or renaming nodes
+     * are disabled.
+     * </p>
+     *
+     * @return true if this component is read-only, false otherwise
+     */
+    default boolean isReadonly() {
+        return false;
+    }
 
 }

@@ -8,13 +8,11 @@ package de.jare.tree.settings.theme;
 
 import java.awt.Color;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import javax.swing.UIManager;
 
-public class ColorScheme {
+public class ColorScheme implements AScheme {
 
     public static String colorToHex(Color color) {
         return String.format("#%02X%02X%02X",
@@ -22,15 +20,6 @@ public class ColorScheme {
                 color.getGreen(),
                 color.getBlue());
     }
-
-    final public static String[] COLOR_LIST = new String[]{
-        "light.fore.okay",
-        "light.fore.warning",
-        "light.fore.error",
-        "dark.fore.okay",
-        "dark.fore.warning",
-        "dark.fore.error",
-    };
 
     private final Map<String, Color> colorMap = new HashMap<>();
 
@@ -62,16 +51,18 @@ public class ColorScheme {
 
     public void resetDefault() {
         colorMap.clear();
-        colorMap.put("light.fore.okay", new Color(0, 195, 0));
-        colorMap.put("light.fore.warning", new Color(127, 127, 0));
-        colorMap.put("light.fore.error", new Color(195, 0, 0));
-        colorMap.put("light.fore.property", new Color(0, 0, 195));
-        colorMap.put("light.fore.object", new Color(31, 31, 31));
-        colorMap.put("dark.fore.okay", new Color(142, 255, 142));
-        colorMap.put("dark.fore.warning", new Color(255, 255, 128));
-        colorMap.put("dark.fore.error", new Color(255, 142, 142));
-        colorMap.put("dark.fore.property", new Color(142, 142, 255));
-        colorMap.put("dark.fore.object", new Color(251, 251, 251));
+        colorMap.put(LIGHT_FORE_OKAY, new Color(0, 195, 0));
+        colorMap.put(LIGHT_FORE_WARNING, new Color(127, 127, 0));
+        colorMap.put(LIGHT_FORE_ERROR, new Color(195, 0, 0));
+        colorMap.put(LIGHT_FORE_PROPERTY, new Color(0, 0, 195));
+        colorMap.put(LIGHT_FORE_ARRAY, new Color(0, 128, 63));
+        colorMap.put(LIGHT_FORE_OBJECT, new Color(31, 31, 31));
+        colorMap.put(DARK_FORE_OKAY, new Color(142, 255, 142));
+        colorMap.put(DARK_FORE_WARNING, new Color(255, 255, 128));
+        colorMap.put(DARK_FORE_ERROR, new Color(255, 142, 142));
+        colorMap.put(DARK_FORE_PROPERTY, new Color(142, 142, 255));
+        colorMap.put(DARK_FORE_ARRAY, new Color(142, 255, 196));
+        colorMap.put(DARK_FORE_OBJECT, new Color(251, 251, 251));
     }
 
     public ColorScheme deepCopy() {

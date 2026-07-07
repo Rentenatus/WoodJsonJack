@@ -11,6 +11,10 @@ import de.jare.tree.settings.theme.Theme;
 import de.jare.tree.settings.theme.ThemeSuite;
 import java.util.List;
 
+/**
+ *
+ * @author Jansuch Rentenatus
+ */
 public class WoodSettings {
 
     public final static WoodSettings INSTANCE = new WoodSettings();

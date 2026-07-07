@@ -9,6 +9,10 @@ package de.jare.tree.settings;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ *
+ * @author Jansuch Rentenatus
+ */
 public class AgentPreferences {
 
     private String apiKey;

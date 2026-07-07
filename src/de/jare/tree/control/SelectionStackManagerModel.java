@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0 which
+ * accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ */
 package de.jare.tree.control;
 
 import de.jare.tree.control.listeners.TreeFocusComponent;
@@ -15,6 +21,8 @@ import javax.swing.tree.TreeModel;
  * Hält nur die Stack-Daten (Entries, Position), keinerlei Listener oder
  * UI-Logik. Der Dispatcher/Listener ist SelectionStackManager.
  * </p>
+ *
+ * @author Jansuch Rentenatus
  */
 public class SelectionStackManagerModel {
 
@@ -41,8 +49,11 @@ public class SelectionStackManagerModel {
     }
 
     /**
-     * Prüft, ob dieses Model zu dem JTree mit dem gegebenen TreeModel gehört.
-     * (Identitätsvergleich des TreeModel des gespeicherten JTree.)
+     * Prüft, ob dieses Model zu dem JTree mit dem gegebenen TreeModel
+     * gehört.(Identitätsvergleich des TreeModel des gespeicherten JTree.)
+     *
+     * @param model
+     * @return
      */
     public boolean isFor(TreeModel model) {
         TreeFocusComponent tree = getTree();
@@ -50,8 +61,10 @@ public class SelectionStackManagerModel {
     }
 
     /**
-     * Neue Selektion an das Ende des Stacks anhängen. Schneidet ggf. alle
+     * Neue Selektion an das Ende des Stacks anhängen.Schneidet ggf. alle
      * "Forward"-Einträge hinter currentPos ab.
+     *
+     * @param entry
      */
     public void addSelection(SelectionStackEntry entry) {
         if (entry == null) {
@@ -127,8 +140,11 @@ public class SelectionStackManagerModel {
 
     /**
      * Liefert bis zu max Labels für die "Vergangenheit" (Backward), relativ zur
-     * aktuellen Position. Format z.B.: "1: letztes Label", "2: vorletztes
+     * aktuellen Position.Format z.B.: "1: letztes Label", "2: vorletztes
      * Label", ...
+     *
+     * @param max
+     * @return
      */
     public List<String> getBackwardLabels(int max) {
         List<String> result = new ArrayList<>();
@@ -150,8 +166,11 @@ public class SelectionStackManagerModel {
 
     /**
      * Liefert bis zu max Labels für die "Zukunft" (Forward), relativ zur
-     * aktuellen Position. Format z.B.: "1: nächstes Label", "2: übernächstes
+     * aktuellen Position.Format z.B.: "1: nächstes Label", "2: übernächstes
      * Label", ...
+     *
+     * @param max
+     * @return
      */
     public List<String> getForwardLabels(int max) {
         List<String> result = new ArrayList<>();
@@ -176,6 +195,23 @@ public class SelectionStackManagerModel {
     public void clear() {
         stack.clear();
         currentPos = -1;
+    }
+
+    void addSynonym(long oldNodeId, long newNodeId) {
+        if (oldNodeId == newNodeId || newNodeId < 0) {
+            return;
+        }
+        for (int i = 0; i < stack.size(); i++) {
+            SelectionStackEntry entry = stack.pollFirst();
+            if (entry.getEditIds().contains(oldNodeId)) {
+                java.util.List<Long> newEditIds = new java.util.ArrayList<>(entry.getEditIds());
+                if (!newEditIds.contains(newNodeId)) {
+                    newEditIds.add(newNodeId);
+                }
+                entry = new SelectionStackEntry(newEditIds, entry.getLabel());
+            }
+            stack.addLast(entry);
+        }
     }
 
 }

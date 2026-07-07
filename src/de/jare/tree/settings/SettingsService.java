@@ -20,6 +20,10 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ *
+ * @author Jansuch Rentenatus
+ */
 public class SettingsService {
 
     private final JsonConfigDefinition definition;

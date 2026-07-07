@@ -7,22 +7,13 @@
 package de.jare.tree.settings.theme;
 
 import java.awt.Font;
-import javax.swing.*;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.BiConsumer;
 import java.util.Set;
-import java.util.HashSet;
+import java.util.function.BiConsumer;
+import javax.swing.*;
 
-public class FontSettings {
-
-    final public static String[] FONT_LIST = new String[]{
-        "light.fore.okay",
-        "light.fore.warning",
-        "light.fore.error",
-        "dark.fore.okay",
-        "dark.fore.warning",
-        "dark.fore.error",};
+public class FontSettings implements AScheme {
 
     private Map<String, Font> fontMap = new HashMap<>();
     private boolean isGrouped = false;
@@ -59,16 +50,18 @@ public class FontSettings {
     public void resetDefault() {
         fontMap.clear();
         Font font = (Font) UIManager.getDefaults().get("EditorPane.font");
-        fontMap.put("light.fore.okay", font);
-        fontMap.put("light.fore.warning", font);
-        fontMap.put("light.fore.error", font);
-        fontMap.put("light.fore.property", font);
-        fontMap.put("light.fore.object", font);
-        fontMap.put("dark.fore.okay", font);
-        fontMap.put("dark.fore.warning", font);
-        fontMap.put("dark.fore.error", font);
-        fontMap.put("dark.fore.property", font);
-        fontMap.put("dark.fore.object", font);
+        fontMap.put(LIGHT_FORE_OKAY, font);
+        fontMap.put(LIGHT_FORE_WARNING, font);
+        fontMap.put(LIGHT_FORE_ERROR, font);
+        fontMap.put(LIGHT_FORE_PROPERTY, font);
+        fontMap.put(LIGHT_FORE_ARRAY, font);
+        fontMap.put(LIGHT_FORE_OBJECT, font);
+        fontMap.put(DARK_FORE_OKAY, font);
+        fontMap.put(DARK_FORE_WARNING, font);
+        fontMap.put(DARK_FORE_ERROR, font);
+        fontMap.put(DARK_FORE_PROPERTY, font);
+        fontMap.put(DARK_FORE_ARRAY, font);
+        fontMap.put(DARK_FORE_OBJECT, font);
     }
 
     // Skaliert alle Fonts um den angegebenen Faktor

@@ -1,13 +1,27 @@
+/*
+ * Copyright (c) 2025, Janusch Rentenatus. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v2.0 which
+ * accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ */
 package de.jare.tree.control;
 
+import de.jare.jsoncasted.editor.command.CommandResult;
+import de.jare.jsoncasted.editor.command.EditCommand;
+import de.jare.jsoncasted.editor.command.JackUpdateAction;
+import static de.jare.jsoncasted.editor.command.JackUpdateAction.SELECT_ADDED;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.SimpleEntry;
 import de.jare.ndimcol.primlong.SortedSeasonSetLong;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
-import de.jare.tree.data.JsonTreeNodeData;
+import de.jare.tree.control.listeners.UndoRedoListener;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
 
 /**
@@ -17,15 +31,17 @@ import javax.swing.tree.TreePath;
  * Reagiert auf TreeFocusListener-Events (aktiver Editor, selektierter Knoten).
  * - Stellt Selektionen über Backward/Forward wieder her.
  * </p>
+ *
+ * @author Jansuch Rentenatus
  */
-public class SelectionStackManager implements TreeFocusListener, WoodUtils {
+public class SelectionStackManager implements TreeFocusListener, UndoRedoListener, WoodUtils {
 
     private final List<SelectionStackManagerModel> managers = new ArrayList<>();
     private SelectionStackManagerModel activeManager;
     private boolean ignoreSelectionChanges = false;
 
     @Override
-    public void onNodeSelected(Object node, Object trigger, boolean rootSelected) {
+    public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
         if (ignoreSelectionChanges || activeManager == null) {
             return;
         }
@@ -46,7 +62,7 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
             Object last = path.getLastPathComponent();
             if (last instanceof DefaultMutableTreeNode dmtn) {
                 Object userObject = dmtn.getUserObject();
-                if (userObject instanceof JsonTreeNodeData userData) {
+                if (userObject instanceof EditNode userData) {
                     long editId = userData.getEditId();
                     newEditIds.add(editId);
                     checkIds.add(editId);
@@ -244,6 +260,37 @@ public class SelectionStackManager implements TreeFocusListener, WoodUtils {
             return List.of();
         }
         return activeManager.getForwardLabels(max);
+    }
+
+    @Override
+    public void onExecute(Integer level, TreeModel model, CommandResult result) {
+        if (activeManager == null) {
+            return;
+        }
+        TreeFocusComponent tree = activeManager.getTree();
+        if (tree == null) {
+            return;
+        }
+
+        for (JackUpdateAction update : result.getUpdateActions()) {
+            if (SELECT_ADDED.equals(update)) {
+                EditNodeAbstract[] added = result.getAddedNodes();
+                SimpleEntry[] templates = result.getTemplateEntries();
+                for (int i = 0; i < added.length; i++) {
+                    activeManager.addSynonym(templates[i].nodeId, added[i].getEditId());
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onUndo(Integer level, TreeModel model, CommandResult historyEvent) {
+        //NoOp;
+    }
+
+    @Override
+    public void onSkipped(Integer level, TreeModel model, EditCommand command) {
+        //NoOp;
     }
 
 }
