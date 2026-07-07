@@ -31,7 +31,7 @@ public class EventBus {
      * whenever an event of the specified type is fired.
      *
      * @param listener the consumer to be called when an event is fired
-     * @throws IllegalArgumentException if eventType or listener is null
+     * @throws IllegalArgumentException if listener is null
      */
     public void addListener(HistoryListener listener) {
         if (listener == null) {
@@ -41,12 +41,12 @@ public class EventBus {
     }
 
     /**
-     * Adds a listener for a specific event type.The listener will be notified
-     * whenever an event of the specified type is fired.
+     * Adds a listener for a specific event type at a specified priority level.
+     * The listener will be notified whenever an event of the specified type is fired.
      *
-     * @param level
+     * @param level the priority level of this listener (higher values are notified first)
      * @param listener the consumer to be called when an event is fired
-     * @throws IllegalArgumentException if eventType or listener is null
+     * @throws IllegalArgumentException if listener is null
      */
     public void addListener(int level, HistoryListener listener) {
         if (listener == null) {

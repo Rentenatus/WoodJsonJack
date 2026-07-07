@@ -30,7 +30,7 @@ import java.util.List;
  * initialization state). This allows uniform handling of null/absent model
  * scenarios across all editor variants.
  * </p>
- * 
+ *
  * @author Jansuch Rentenatus
  *
  */
@@ -65,6 +65,18 @@ public abstract class TreeEditorAbstract implements SimpleStringSplitter {
      */
     public void addListener(HistoryListener listener) {
         historyManager.addListener(listener);
+    }
+
+    /**
+     * Adds a listener for a specific event type.The listener will be notified
+     * whenever an event of the specified type is fired.
+     *
+     * @param level
+     * @param listener the consumer to be called when an event is fired
+     * @throws IllegalArgumentException if eventType or listener is null
+     */
+    public void addListener(int level, HistoryListener listener) {
+        historyManager.addListener(level, listener);
     }
 
     /**

@@ -48,13 +48,28 @@ public class HistoryManager {
      * whenever an event of the specified type is fired.
      *
      * @param listener the consumer to be called when an event is fired
-     * @throws IllegalArgumentException if eventType or listener is null
+     * @throws IllegalArgumentException if listener is null
      */
     public void addListener(HistoryListener listener) {
         if (eventBus == null) {
             throw new NullPointerException("EventBus not set.");
         }
         eventBus.addListener(listener);
+    }
+
+    /**
+     * Adds a listener for a specific event type at a specified priority level.
+     * The listener will be notified whenever an event of the specified type is fired.
+     *
+     * @param level the priority level of this listener (higher values are notified first)
+     * @param listener the consumer to be called when an event is fired
+     * @throws IllegalArgumentException if listener is null
+     */
+    public void addListener(int level, HistoryListener listener) {
+        if (eventBus == null) {
+            throw new NullPointerException("EventBus not set.");
+        }
+        eventBus.addListener(level, listener);
     }
 
     /**
@@ -249,8 +264,11 @@ public class HistoryManager {
 
     /**
      * Returns an iterable over the undo stack commands.
+     * <p>
+     * The commands are returned in the order they would be undone (most recent first).
+     * </p>
      *
-     * @return
+     * @return an iterable over the undo stack commands
      */
     public Iterable<EditCommand> getUndoCommands() {
         return () -> undoStack.iterator();
@@ -258,8 +276,11 @@ public class HistoryManager {
 
     /**
      * Returns an iterable over the redo stack commands.
+     * <p>
+     * The commands are returned in the order they would be redone (most recently undone first).
+     * </p>
      *
-     * @return
+     * @return an iterable over the redo stack commands
      */
     public Iterable<EditCommand> getRedoCommands() {
         return () -> redoStack.iterator();
@@ -306,14 +327,36 @@ public class HistoryManager {
                 + ", limit=" + limit + "]";
     }
 
+    /**
+     * Returns the number of commands in the undo stack.
+     * <p>
+     * This is a convenience method equivalent to {@link #getUndoSize()}.
+     * </p>
+     *
+     * @return the number of commands that can be undone
+     */
     public int undoSize() {
         return undoStack.size();
     }
 
+    /**
+     * Returns the number of commands in the redo stack.
+     * <p>
+     * This is a convenience method equivalent to {@link #getRedoSize()}.
+     * </p>
+     *
+     * @return the number of commands that can be redone
+     */
     public int redoSize() {
         return redoStack.size();
     }
 
+    /**
+     * Returns the command at the specified index in the redo stack.
+     *
+     * @param index the index of the command to retrieve (0 = most recently undone)
+     * @return the command at the specified index, or null if index is out of bounds
+     */
     public EditCommand getRedo(int index) {
         if (index < 0 || index >= redoStack.size()) {
             return null;
@@ -328,6 +371,12 @@ public class HistoryManager {
         return null;
     }
 
+    /**
+     * Returns the command at the specified index in the undo stack.
+     *
+     * @param index the index of the command to retrieve (0 = most recently executed)
+     * @return the command at the specified index, or null if index is out of bounds
+     */
     public EditCommand getUndo(int index) {
         if (index < 0 || index >= undoStack.size()) {
             return null;
@@ -342,6 +391,16 @@ public class HistoryManager {
         return null;
     }
 
+    /**
+     * Returns labels for the undo stack commands suitable for display in UI.
+     * <p>
+     * Each label array contains formatted strings describing the command's position,
+     * type, and description.
+     * </p>
+     *
+     * @param max the maximum number of labels to return
+     * @return a list of string arrays, each representing a command label
+     */
     public List<String[]> getUndoLabels(int max) {
         int count = Math.min(max, undoStack.size());
         List<String[]> result = new ArrayList<>(count);
@@ -359,6 +418,16 @@ public class HistoryManager {
         return result;
     }
 
+    /**
+     * Returns labels for the redo stack commands suitable for display in UI.
+     * <p>
+     * Each label array contains formatted strings describing the command's position,
+     * type, and description.
+     * </p>
+     *
+     * @param max the maximum number of labels to return
+     * @return a list of string arrays, each representing a command label
+     */
     public List<String[]> getRedoLabels(int max) {
         int count = Math.min(max, redoStack.size());
         List<String[]> result = new ArrayList<>(count);

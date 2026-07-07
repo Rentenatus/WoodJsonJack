@@ -7,13 +7,29 @@
 package de.jare.jsoncasted.editor.events;
 
 /**
+ * Listener interface for history change events.
+ * <p>
+ * Implementations are notified when the history state changes, such as when
+ * commands are executed, undone, redone, skipped, or when the history is cleared.
+ * This allows components to react to history changes and update their UI state.
+ * </p>
  *
- * @author Jansuch Rentenatus
+ * @author Janusch Rentenatus
  */
 public interface HistoryListener {
 
-    public void onClear(HistoryEvent event);
+    /**
+     * Called when the history is cleared.
+     *
+     * @param event the history event containing details about the clear operation
+     */
+    void onClear(HistoryEvent event);
 
-    public void onAction(HistoryEvent event);
+    /**
+     * Called when a history action occurs (command executed, undone, redone, or skipped).
+     *
+     * @param event the history event containing details about the action
+     */
+    void onAction(HistoryEvent event);
 
 }
