@@ -125,7 +125,7 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
 
         if ("jsonType".equals(attributeName)) {
             // Return all type names from the descriptor
-            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.values();
+            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.getTypes();
             List<Object> typeNames = new ArrayList<>();
             for (JsonTypeDescriptor typeDesc : types) {
                 typeNames.add(typeDesc.getTypeName());
@@ -134,7 +134,7 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         } else if ("jsonField".equals(attributeName)) {
             // Return all field names from all types in the descriptor
             List<Object> fieldNames = new ArrayList<>();
-            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.values();
+            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.getTypes();
             for (JsonTypeDescriptor typeDesc : types) {
                 if (typeDesc != null) {
                     List<JsonFieldDescriptor> fields = typeDesc.getFields();
