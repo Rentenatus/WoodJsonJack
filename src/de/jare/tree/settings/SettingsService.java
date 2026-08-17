@@ -15,7 +15,7 @@ import de.jare.jsoncasted.io.convertservice.WoodResolution;
 import de.jare.jsoncasted.item.JsonItem;
 import de.jare.jsoncasted.item.builder.JsonBuilder;
 import de.jare.jsoncasted.model.JsonBuildException;
-import de.jare.tree.settings.def.JsonConfigDefinition;
+import de.jare.tree.settings.def.JsonWoodSettingsDefinition;
 import de.jare.tree.settings.project.ProjectSettings;
 import de.jare.tree.settings.theme.ThemeSuite;
 import java.io.File;
@@ -30,10 +30,10 @@ import java.util.logging.Logger;
  */
 public class SettingsService {
 
-    private final JsonConfigDefinition definition;
+    private final JsonWoodSettingsDefinition definition;
 
     public SettingsService() {
-        this.definition = JsonConfigDefinition.getInstance();
+        this.definition = JsonWoodSettingsDefinition.getInstance();
     }
 
     private File getUserHomeDir() {
