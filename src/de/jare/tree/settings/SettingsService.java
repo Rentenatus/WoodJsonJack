@@ -6,17 +6,21 @@
  */
 package de.jare.tree.settings;
 
+import de.jare.debug.JsonDebugLevel;
+import de.jare.jsoncasted.io.JsonObjectWriter;
+import de.jare.jsoncasted.io.JsonParseException;
+import de.jare.jsoncasted.io.JsonParser;
+import de.jare.jsoncasted.io.JsonWriteException;
+import de.jare.jsoncasted.io.convertservice.WoodResolution;
 import de.jare.jsoncasted.item.JsonItem;
 import de.jare.jsoncasted.item.builder.JsonBuilder;
 import de.jare.jsoncasted.model.JsonBuildException;
-import de.jare.jsoncasted.io.JsonParseException;
-import de.jare.jsoncasted.io.JsonParser;
-import de.jare.jsoncasted.io.JsonWriter;
 import de.jare.tree.settings.def.JsonConfigDefinition;
 import de.jare.tree.settings.project.ProjectSettings;
 import de.jare.tree.settings.theme.ThemeSuite;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -59,15 +63,22 @@ public class SettingsService {
                 return resetWoodSettings(file);
             }
             try {
-                JsonItem item = JsonParser.parse(file, definition, definition.getWoodSettingsRoot());
+                WoodResolution reso = JsonParser.parse(file, definition, definition.getWoodSettingsRoot());
+                if (reso.hasExceptions()) {
+                    final List<JsonParseException> exceptions = reso.getUnmodifiableExceptions();
+                    for (Exception exception : exceptions) {
+                        Logger.getGlobal().log(Level.SEVERE, "Parsing error: ", exception);
+                    }
+                }
+                JsonItem item = reso.getAnswer();
                 return (WoodSettings) JsonBuilder.buildInstance(definition.getModel(), true, item);
             } catch (JsonParseException | JsonBuildException | NullPointerException ex) {
                 WoodSettings defaults = createDefaultWoodSettings();
                 saveWoodSettings(file, defaults);
                 return defaults;
             }
-        } catch (IOException | JsonParseException ex1) {
-            Logger.getGlobal().log(Level.SEVERE, null, ex1);
+        } catch (IOException | JsonParseException | JsonWriteException ex1) {
+            Logger.getGlobal().log(Level.SEVERE, "Error loading wood settings: ", ex1);
         }
         return createDefaultWoodSettings();
     }
@@ -80,7 +91,14 @@ public class SettingsService {
             }
 
             try {
-                JsonItem item = JsonParser.parse(file, definition, definition.getThemeSuiteRoot());
+                WoodResolution reso = JsonParser.parse(file, definition, definition.getThemeSuiteRoot());
+                if (reso.hasExceptions()) {
+                    final List<JsonParseException> exceptions = reso.getUnmodifiableExceptions();
+                    for (Exception exception : exceptions) {
+                        Logger.getGlobal().log(Level.SEVERE, "Parsing error: ", exception);
+                    }
+                }
+                JsonItem item = reso.getAnswer();
                 return (ThemeSuite) JsonBuilder.buildInstance(definition.getModel(), true, item);
             } catch (JsonParseException | JsonBuildException | NullPointerException ex) {
                 ThemeSuite defaults = createDefaultThemeSuite();
@@ -88,19 +106,26 @@ public class SettingsService {
                 return defaults;
             }
 
-        } catch (IOException | JsonParseException ex1) {
-            Logger.getGlobal().log(Level.SEVERE, null, ex1);
+        } catch (IOException | JsonParseException | JsonWriteException ex1) {
+            Logger.getGlobal().log(Level.SEVERE, "Error loading theme settings: ", ex1);
         }
         return createDefaultThemeSuite();
     }
 
-    public ProjectSettings loadProjectSettings(File file) throws IOException, JsonParseException {
+    public ProjectSettings loadProjectSettings(File file) throws IOException, JsonParseException, JsonWriteException {
         if (file == null || !file.exists()) {
             return resetProjectSettings(file);
         }
 
         try {
-            JsonItem item = JsonParser.parse(file, definition, definition.getProjectSettingsRoot());
+            WoodResolution reso = JsonParser.parse(file, definition, definition.getProjectSettingsRoot());
+            if (reso.hasExceptions()) {
+                final List<JsonParseException> exceptions = reso.getUnmodifiableExceptions();
+                for (Exception exception : exceptions) {
+                    Logger.getGlobal().log(Level.SEVERE, "Parsing error: ", exception);
+                }
+            }
+            JsonItem item = reso.getAnswer();
             return (ProjectSettings) JsonBuilder.buildInstance(definition.getModel(), true, item);
         } catch (JsonParseException | JsonBuildException | NullPointerException ex) {
             ProjectSettings defaults = createDefaultProjectSettings("New Project", file.getPath());
@@ -109,26 +134,28 @@ public class SettingsService {
         }
     }
 
-    public void saveWoodSettings(File file, WoodSettings settings) throws IOException, JsonParseException {
+    public void saveWoodSettings(File file, WoodSettings settings)
+            throws IOException, JsonParseException, JsonWriteException {
         ensureParentDirectory(file);
-        JsonWriter.write(settings, file, definition, definition.getWoodSettingsRoot());
+        JsonObjectWriter.write(settings, file, definition, definition.getWoodSettingsRoot());
     }
 
-    public void saveThemeSuite(File file, ThemeSuite suite) throws IOException, JsonParseException {
+    public void saveThemeSuite(File file, ThemeSuite suite) throws IOException, JsonParseException, JsonWriteException {
         ensureParentDirectory(file);
-        JsonWriter.write(suite, file, definition, definition.getThemeSuiteRoot());
+        JsonObjectWriter.write(suite, file, definition, definition.getThemeSuiteRoot());
     }
 
-    public void saveProjectSettings(File file, ProjectSettings settings) throws IOException, JsonParseException {
+    public void saveProjectSettings(File file, ProjectSettings settings)
+            throws IOException, JsonParseException, JsonWriteException {
         ensureParentDirectory(file);
-        JsonWriter.write(settings, file, definition, definition.getProjectSettingsRoot());
+        JsonObjectWriter.write(settings, file, definition, definition.getProjectSettingsRoot());
     }
 
     public WoodSettings resetWoodSettings(File file) throws IOException {
         WoodSettings defaults = createDefaultWoodSettings();
         try {
             saveWoodSettings(file, defaults);
-        } catch (JsonParseException ex) {
+        } catch (JsonParseException | JsonWriteException ex) {
             Logger.getGlobal().log(Level.SEVERE, null, ex);
         }
         return defaults;
@@ -138,7 +165,7 @@ public class SettingsService {
         ThemeSuite defaults = createDefaultThemeSuite();
         try {
             saveThemeSuite(file, defaults);
-        } catch (JsonParseException ex) {
+        } catch (JsonParseException | JsonWriteException ex) {
             Logger.getGlobal().log(Level.SEVERE, null, ex);
         }
         return defaults;
@@ -148,7 +175,7 @@ public class SettingsService {
         ProjectSettings defaults = createDefaultProjectSettings("New Project", file.getPath());
         try {
             saveProjectSettings(file, defaults);
-        } catch (JsonParseException ex) {
+        } catch (JsonParseException | JsonWriteException ex) {
             Logger.getGlobal().log(Level.SEVERE, null, ex);
         }
         return defaults;
