@@ -280,7 +280,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
      */
     private static class SearchResultTableModel extends AbstractTableModel {
         private List<DefaultMutableTreeNode> results = new ArrayList<>();
-        private final String[] columnNames = {"Name", "Type", "Status", "Path"};
+        private final String[] columnNames = {"Name", "Value", "Type", "Status", "Path"};
 
         public void setResults(List<DefaultMutableTreeNode> results) {
             this.results = new ArrayList<>(results);
@@ -319,11 +319,13 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
             switch (columnIndex) {
                 case 0: // Name
                     return editNode.getName();
-                case 1: // Type
+                case 1: // Value
+                    return editNode.getValue();
+                case 2: // Type
                     return editNode.getTypeKey();
-                case 2: // Status
+                case 3: // Status
                     return editNode.getEditStatus();
-                case 3: // Path (simplified for now)
+                case 4: // Path (simplified for now)
                     return buildPath(node);
                 default:
                     return null;
