@@ -8,6 +8,8 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.model.JackTreeModel;
 import de.jare.tree.settings.SettingsService;
 import de.jare.tree.settings.WoodSettings;
@@ -40,6 +42,7 @@ public class WoodWindow extends JFrame {
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
     private SearchResultPanel searchResultPanel;
+    private final TreeFocusListener treeFocusListener;
 
     public WoodWindow() {
         settingsService = new SettingsService();
@@ -98,6 +101,27 @@ public class WoodWindow extends JFrame {
                 jackmaster.setActiveEditor(container.getLeftTree(), this);
             }
         });
+        
+         treeFocusListener = new TreeFocusListener() {
+            @Override
+            public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
+                if (editor == null) {
+                    return;
+                }
+                // Find the tab containing this editor
+                for (int i = 0; i < editorTrees.size(); i++) {
+                    JackEditTreeContainer container = editorTrees.get(i);
+                    if (container.getLeftTree() == editor || container.getRightTree() == editor) {
+                        centerTabs.setSelectedIndex(i);
+                        break;
+                    }
+                }
+            }
+        };
+        
+        // Editor-Wechsel steuert Tab-Auswahl
+        jackmaster.addSelectionListener(7, treeFocusListener);
+        
         // initial
         jackmaster.setActiveEditor(editorTree1.getLeftTree(), this);
 
