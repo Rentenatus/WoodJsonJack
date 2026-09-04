@@ -29,7 +29,7 @@ public class WoodWindow extends JFrame {
     private static final String TAB_KI_ASSISTANT = "KI Assistant";
     private static final String TAB_JACK_CLIPBOARD = "Jack Clipboard";
     private static final String TAB_SEARCH_RESULT = "Search result";
-
+    
     private final JackMasterControl jackmaster;
     private final JTabbedPane centerTabs;
     private final JackEditTreeContainer editorTree1;
@@ -43,22 +43,22 @@ public class WoodWindow extends JFrame {
     private JackUndoPanel jackPanel;
     private SearchResultPanel searchResultPanel;
     private final TreeFocusListener treeFocusListener;
-
+    
     public WoodWindow() {
         settingsService = new SettingsService();
         settings = settingsService.loadWoodSettings(false);
         themeSuite = settingsService.loadThemeSuite(false);
         settings.useThemeSuite(themeSuite);
         jackmaster = new JackMasterControl();
-
+        
         setTitle("Wood Json Studio");
         setSize(1200, 800);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
-
+        
         JackMainMenu bar = new JackMainMenu(this, jackmaster);
         setJMenuBar(bar);
-
+        
         JSplitPane horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         JSplitPane verticalSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
 
@@ -69,16 +69,16 @@ public class WoodWindow extends JFrame {
 
         // Center: editor tabs + upper toolbar
         centerTabs = new JTabbedPane();
-
+        
         editorTree1 = new JackEditTreeContainer(jackmaster, "Root1", "Scene1", "Character1", "Scene2", "Character2", "Scene3", "Character3");
         editorTree2 = new JackEditTreeContainer(jackmaster, "Root2", "Scene4", "Character4", "Scene5", "Character6", "Scene7");
-
+        
         editorTrees.add(editorTree1);
         editorTrees.add(editorTree2);
-
+        
         centerTabs.addTab("Tree Editor 1", new JScrollPane(editorTree1));
         centerTabs.addTab("Tree Editor 2", new JScrollPane(editorTree2));
-
+        
         editorTree1.setReadonly(true);
 
         // Erstelle Jack Clipboard Panel
@@ -86,11 +86,11 @@ public class WoodWindow extends JFrame {
 
         // obere Toolbar ueber den Editor-Tabs
         JPanel upperToolbar = new JackUpperToolbar(jackmaster);
-
+        
         JPanel centerPanel = new JPanel(new BorderLayout());
         centerPanel.add(upperToolbar, BorderLayout.NORTH);
         centerPanel.add(centerTabs, BorderLayout.CENTER);
-
+        
         horizontalSplit.setRightComponent(centerPanel);
 
         // Tab-Wechsel steuert aktiven Editor
@@ -102,7 +102,7 @@ public class WoodWindow extends JFrame {
             }
         });
         
-         treeFocusListener = new TreeFocusListener() {
+        treeFocusListener = new TreeFocusListener() {
             @Override
             public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
                 if (editor == null) {
@@ -118,18 +118,18 @@ public class WoodWindow extends JFrame {
                 }
             }
         };
-        
+
         // Editor-Wechsel steuert Tab-Auswahl
         jackmaster.addSelectionListener(7, treeFocusListener);
-        
+
         // initial
         jackmaster.setActiveEditor(editorTree1.getLeftTree(), this);
-
+        
         JackEditPopup jackPopup = new JackEditPopup(jackmaster);
-
+        
         JackEditPopup.installOn(editorTree1.getLeftTree().getTree(), jackPopup);
         JackEditPopup.installOn(editorTree1.getRightTree().getTree(), jackPopup);
-
+        
         JackEditPopup.installOn(editorTree2.getLeftTree().getTree(), jackPopup);
         JackEditPopup.installOn(editorTree2.getRightTree().getTree(), jackPopup);
 
@@ -140,57 +140,58 @@ public class WoodWindow extends JFrame {
         bottomTabs.addTab(TAB_KI_ASSISTANT, createKIAssistant());
         bottomTabs.addTab(TAB_JACK_CLIPBOARD, createJackClipboardPanel());
         bottomTabs.addTab(TAB_SEARCH_RESULT, createSearchResultPanel());
-
-        SearchToolbar searchToolbar = new SearchToolbar(jackmaster);
         
+        SearchToolbar searchToolbar = new SearchToolbar(jackmaster);
+        searchToolbar.setCurrentEditor(editorTree1.getLeftTree());
+
         // Register search result panel as TreeFocusListener to handle node selection
         jackmaster.addSelectionListener(6, searchResultPanel);
-        
+
         // Register search listener to display results in Search result tab
         searchToolbar.addSearchListener(searchResultPanel);
-        
+
         // Register search listener to switch to Search result tab when search is performed
         searchToolbar.addSearchListener((criteria, results) -> {
             bottomTabs.setSelectedIndex(bottomTabs.indexOfTab(TAB_SEARCH_RESULT));
         });
-
+        
         JPanel bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.add(searchToolbar, BorderLayout.NORTH);
         bottomPanel.add(bottomTabs, BorderLayout.CENTER);
-
+        
         verticalSplit.setTopComponent(horizontalSplit);
         verticalSplit.setBottomComponent(bottomPanel);
-
+        
         horizontalSplit.setDividerLocation(300);
         verticalSplit.setDividerLocation(600);
-
+        
         add(verticalSplit, BorderLayout.CENTER);
 
         // Properties an Selection-Orator h?ngen
         setLocationRelativeTo(null);
         setVisible(true);
     }
-
+    
     private JTable attributesTable;
     private JsonJackAttrTableModel attributesModel;
-
+    
     private JPanel createAttributesPanel() {
         attributesModel = new JsonJackAttrTableModel();
         jackmaster.addSelectionListener(attributesModel);
         attributesTable = new JTable(attributesModel);
         attributesTable.setFillsViewportHeight(true);
         attributesTable.getTableHeader().setVisible(true);
-
+        
         JPanel borderedPanel = new JPanel(new BorderLayout());
         borderedPanel.add(new JScrollPane(attributesTable), BorderLayout.CENTER);
         return borderedPanel;
     }
-
+    
     private JPanel createJackUndoPanel() {
         jackPanel = new JackUndoPanel(jackmaster);
         return jackPanel;
     }
-
+    
     private JPanel createKIAssistant() {
         JPanel borderedPanel = new JPanel(new BorderLayout());
         JTextArea prompt = new JTextArea(5, 20);
@@ -200,21 +201,21 @@ public class WoodWindow extends JFrame {
         borderedPanel.add(askBtn, BorderLayout.SOUTH);
         return borderedPanel;
     }
-
+    
     private JPanel createJackClipboardPanel() {
         return jackClipboardPanel;
     }
-
+    
     private JPanel createSearchResultPanel() {
         searchResultPanel = new SearchResultPanel(jackmaster);
         return searchResultPanel;
     }
-
+    
     public void openPreferences() {
         if (preferencesDialog == null) {
             preferencesDialog = new PreferencesDialog(this, settings, themeSuite);
         }
-
+        
         preferencesDialog.setVisible(true);
         preferencesDialog.toFront();
     }
@@ -260,5 +261,5 @@ public class WoodWindow extends JFrame {
         // Set initial active editor
         jackmaster.setActiveEditor(treeContainer.getLeftTree(), this);
     }
-
+    
 }
