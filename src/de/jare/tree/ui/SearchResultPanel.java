@@ -43,9 +43,6 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         // Header panel with search label and navigation buttons
         JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
-        searchLabel = new JLabel("Search results: ");
-        searchLabel.setHorizontalAlignment(SwingConstants.LEFT);
-
         prevButton = new JButton("<");
         prevButton.setToolTipText("Previous search results");
         prevButton.addActionListener(e -> navigateHistory(-1));
@@ -56,9 +53,12 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         nextButton.addActionListener(e -> navigateHistory(1));
         nextButton.setEnabled(false);
 
-        headerPanel.add(searchLabel);
+        searchLabel = new JLabel("Search results: ");
+        searchLabel.setHorizontalAlignment(SwingConstants.LEFT);
+
         headerPanel.add(prevButton);
         headerPanel.add(nextButton);
+        headerPanel.add(searchLabel);
 
         // Table model and table
         tableModel = new SearchResultTableModel();
@@ -199,6 +199,37 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         tableModel.setResults(new ArrayList<>());
         tableModel.fireTableDataChanged();
         updateNavigationButtons();
+    }
+
+    @Override
+    public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
+        if (node == null || currentResults == null) {
+            return;
+        }
+
+        // Check if the selected node is from the same source as the current search results
+        TreeFocusComponent sourceComponent = currentResults.getSource();
+        if (sourceComponent == null) {
+            return;
+        }
+
+        // The trigger should be the TreeFocusComponent that contains the selected node
+        if (trigger instanceof TreeFocusComponent) {
+            TreeFocusComponent currentEditor = (TreeFocusComponent) trigger;
+            if (currentEditor != sourceComponent) {
+                return;
+            }
+        }
+
+        // Find the index of the selected node in the current results
+        List<DefaultMutableTreeNode> resultNodes = currentResults.getResults();
+        int index = resultNodes.indexOf(node);
+        
+        if (index >= 0) {
+            // Select the row in the table
+            resultsTable.setRowSelectionInterval(index, index);
+            resultsTable.scrollRectToVisible(resultsTable.getCellRect(index, 0, true));
+        }
     }
 
     @Override

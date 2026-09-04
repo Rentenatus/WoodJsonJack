@@ -21,6 +21,13 @@ import javax.swing.*;
 
 public class WoodWindow extends JFrame {
 
+    // Bottom tab constants
+    private static final String TAB_ATTRIBUTES = "Attributes";
+    private static final String TAB_JACK_UNDO = "Jack Undo";
+    private static final String TAB_KI_ASSISTANT = "KI Assistant";
+    private static final String TAB_JACK_CLIPBOARD = "Jack Clipboard";
+    private static final String TAB_SEARCH_RESULT = "Search result";
+
     private final JackMasterControl jackmaster;
     private final JTabbedPane centerTabs;
     private final JackEditTreeContainer editorTree1;
@@ -104,16 +111,24 @@ public class WoodWindow extends JFrame {
 
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
-        bottomTabs.addTab("Attributes", createAttributesPanel());
-        bottomTabs.addTab("Jack Undo", createJackUndoPanel());
-        bottomTabs.addTab("KI Assistant", createKIAssistant());
-        bottomTabs.addTab("Jack Clipboard", createJackClipboardPanel());
-        bottomTabs.addTab("Search result", createSearchResultPanel());
+        bottomTabs.addTab(TAB_ATTRIBUTES, createAttributesPanel());
+        bottomTabs.addTab(TAB_JACK_UNDO, createJackUndoPanel());
+        bottomTabs.addTab(TAB_KI_ASSISTANT, createKIAssistant());
+        bottomTabs.addTab(TAB_JACK_CLIPBOARD, createJackClipboardPanel());
+        bottomTabs.addTab(TAB_SEARCH_RESULT, createSearchResultPanel());
 
         SearchToolbar searchToolbar = new SearchToolbar(jackmaster);
         
+        // Register search result panel as TreeFocusListener to handle node selection
+        jackmaster.addSelectionListener(6, searchResultPanel);
+        
         // Register search listener to display results in Search result tab
         searchToolbar.addSearchListener(searchResultPanel);
+        
+        // Register search listener to switch to Search result tab when search is performed
+        searchToolbar.addSearchListener((criteria, results) -> {
+            bottomTabs.setSelectedIndex(bottomTabs.indexOfTab(TAB_SEARCH_RESULT));
+        });
 
         JPanel bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.add(searchToolbar, BorderLayout.NORTH);
