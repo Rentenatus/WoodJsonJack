@@ -32,6 +32,7 @@ public class WoodWindow extends JFrame {
     private PreferencesDialog preferencesDialog;
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
+    private SearchResultPanel searchResultPanel;
 
     public WoodWindow() {
         settingsService = new SettingsService();
@@ -107,16 +108,15 @@ public class WoodWindow extends JFrame {
         bottomTabs.addTab("Jack Undo", createJackUndoPanel());
         bottomTabs.addTab("KI Assistant", createKIAssistant());
         bottomTabs.addTab("Jack Clipboard", createJackClipboardPanel());
+        bottomTabs.addTab("Search result", createSearchResultPanel());
 
-        JPanel bottomToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton btnApply = new JButton("Apply");
-        JCheckBox cbAutoApply = new JCheckBox("Auto apply");
-        // TODO: ActionListener hinzuf?gen
-        bottomToolbar.add(btnApply);
-        bottomToolbar.add(cbAutoApply);
+        SearchToolbar searchToolbar = new SearchToolbar(jackmaster);
+        
+        // Register search listener to display results in Search result tab
+        searchToolbar.addSearchListener(searchResultPanel);
 
         JPanel bottomPanel = new JPanel(new BorderLayout());
-        bottomPanel.add(bottomToolbar, BorderLayout.NORTH);
+        bottomPanel.add(searchToolbar, BorderLayout.NORTH);
         bottomPanel.add(bottomTabs, BorderLayout.CENTER);
 
         verticalSplit.setTopComponent(horizontalSplit);
@@ -164,6 +164,11 @@ public class WoodWindow extends JFrame {
 
     private JPanel createJackClipboardPanel() {
         return jackClipboardPanel;
+    }
+
+    private JPanel createSearchResultPanel() {
+        searchResultPanel = new SearchResultPanel(jackmaster);
+        return searchResultPanel;
     }
 
     public void openPreferences() {
