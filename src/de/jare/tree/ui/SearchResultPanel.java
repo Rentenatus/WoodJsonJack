@@ -175,7 +175,12 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         
         // Update current results and display
         currentResults = results;
-        searchLabel.setText(results.getSearchText() + " (" + results.getResultCount() + " results)");
+        String sourceName = "";
+        TreeFocusComponent source = results.getSource();
+        if (source != null) {
+            sourceName = " [" + source.getDisplayName() + "]";
+        }
+        searchLabel.setText(results.getSearchText() + sourceName + " (" + results.getResultCount() + " results)");
         
         // Update the table
         updateTable();

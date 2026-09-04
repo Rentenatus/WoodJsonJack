@@ -418,6 +418,11 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         return readonly;
     }
 
+    @Override
+    public String getDisplayName() {
+        return resourceLabel.getText();
+    }
+
     public void setReadonly(boolean readonly) {
         this.readonly = readonly;
         if (transferHandler != null) {
