@@ -29,6 +29,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
     private final JLabel searchLabel;
     private final JButton prevButton;
     private final JButton nextButton;
+    private final JButton clearButton;
     private final JTable resultsTable;
     private final SearchResultTableModel tableModel;
 
@@ -41,7 +42,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         this.master = master;
 
         // Header panel with search label and navigation buttons
-        JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel headerPanel = new JPanel(new BorderLayout());
 
         prevButton = new JButton("<");
         prevButton.setToolTipText("Previous search results");
@@ -56,9 +57,22 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         searchLabel = new JLabel("Search results: ");
         searchLabel.setHorizontalAlignment(SwingConstants.LEFT);
 
-        headerPanel.add(prevButton);
-        headerPanel.add(nextButton);
-        headerPanel.add(searchLabel);
+        // Left panel for navigation and label
+        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        leftPanel.add(prevButton);
+        leftPanel.add(nextButton);
+        leftPanel.add(searchLabel);
+
+        // Clear button on the right
+        clearButton = new JButton("Clear");
+        clearButton.setToolTipText("Clear search results");
+        clearButton.addActionListener(e -> clearResults());
+
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        rightPanel.add(clearButton);
+
+        headerPanel.add(leftPanel, BorderLayout.WEST);
+        headerPanel.add(rightPanel, BorderLayout.EAST);
 
         // Table model and table
         tableModel = new SearchResultTableModel();
@@ -104,10 +118,25 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
 
         if (historyIndex >= 0 && historyIndex < history.size()) {
             currentResults = history.get(historyIndex);
-            searchLabel.setText(currentResults.getSearchText() + " (" + currentResults.getResultCount() + " results)");
+            searchLabetSetText(currentResults);
             updateTable();
             updateNavigationButtons();
         }
+    }
+
+    public void searchLabetSetText(SearchResults results) {
+        TreeFocusComponent source = results.getSource();
+        StringBuilder searchText = new StringBuilder();
+        if (source != null) {
+            searchText.append(" [")
+                    .append(source.getDisplayName())
+                    .append("] ");
+        }
+        searchText.append(results.getSearchText());
+        searchText.append(" (");
+        searchText.append(results.getResultCount());
+        searchText.append(" results)");
+        searchLabel.setText(searchText.toString());
     }
 
     private void updateNavigationButtons() {
@@ -175,11 +204,8 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         history.add(results);
         historyIndex = history.size() - 1;
 
-        // Update current results and display
-        currentResults = results;
-        String sourceName = "";
-        TreeFocusComponent source = results.getSource(); 
-        searchLabel.setText(results.getSearchText() + " (" + results.getResultCount() + " results)");
+        // Update current results and display 
+        searchLabetSetText(currentResults = results);
 
         // Update the table
         updateTable();

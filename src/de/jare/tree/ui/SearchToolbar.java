@@ -328,15 +328,7 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
         }
 
         if (!hasFilter) {
-            searchText = new StringBuilder("Results:");
-        }
-
-        TreeFocusComponent source = getActiveSource();
-
-        if (source != null) {
-            searchText.append(" [")
-                    .append(source.getDisplayName())
-                    .append("]");
+            return "Results:";
         }
 
         return searchText.toString();
@@ -415,10 +407,6 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
         valueField.setText("");
         typeKeyComboBox.setSelectedIndex(0);
         statusComboBox.setSelectedIndex(0);
-
-        // Fire empty search event
-        SearchCriteria emptyCriteria = new SearchCriteria("", "", "", "");
-        fireSearchEvent(emptyCriteria, new ArrayList<>(), "");
     }
 
     private void fireSearchEvent(SearchCriteria criteria, List<DefaultMutableTreeNode> results, String searchText) {
