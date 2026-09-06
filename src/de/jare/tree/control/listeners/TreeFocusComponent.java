@@ -56,4 +56,16 @@ public interface TreeFocusComponent {
         return false;
     }
 
+    /**
+     * Returns a display name for this component.
+     * <p>
+     * This is typically the name of the resource or editor being displayed.
+     * </p>
+     *
+     * @return the display name of this component
+     */
+    default String getDisplayName() {
+        return "Unknown";
+    }
+
 }
