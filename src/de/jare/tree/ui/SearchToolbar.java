@@ -7,10 +7,12 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.model.JackTreeModel;
+import java.awt.Component;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +30,7 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
     private final JTextField nameField;
     private final JTextField valueField;
     private final JComboBox<String> typeKeyComboBox;
-    private final JComboBox<String> statusComboBox;
+    private final JComboBox<EditStatus> statusComboBox;
     private final JButton searchButton;
     private final JButton clearButton;
 
@@ -135,12 +137,12 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
     /**
      * Possible edit status values for filtering.
      */
-    private static final String[] EDIT_STATUSES = {
-        "",
-        EditNode.EDIT_STATELESS,
-        EditNode.EDIT_OKAY,
-        EditNode.EDIT_WARNING,
-        EditNode.EDIT_ERROR
+    private static final EditStatus[] EDIT_STATUSES = {
+        null,
+        EditStatus.STATELESS,
+        EditStatus.OKAY,
+        EditStatus.WARNING,
+        EditStatus.ERROR
     };
 
     /**
@@ -224,7 +226,20 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
 
         // Edit status combo box
         statusComboBox = new JComboBox<>(EDIT_STATUSES);
-        statusComboBox.setToolTipText("Filter by edit status");
+        statusComboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof EditStatus) {
+                    setText(((EditStatus) value).getName());
+                } else if (value == null) {
+                    setText(" "); // Ein Leerzeichen für bessere Darstellung (keine Auswahl)
+                }
+                return this;
+            }
+        });
+        statusComboBox.setToolTipText("Filter by edit status (empty = no filter)");
 
         // Search button
         searchButton = new JButton("Search");
@@ -259,17 +274,14 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
         if (typeKey != null) {
             typeKey = typeKey.trim();
         }
-        String editStatus = (String) statusComboBox.getSelectedItem();
-
-        if (editStatus != null) {
-            editStatus = editStatus.trim();
-        }
+        EditStatus editStatus = (EditStatus) statusComboBox.getSelectedItem();
 
         // Pre-process name and value patterns for uppercase+digits only
         nameText = preprocessSearchPattern(nameText);
         valueText = preprocessSearchPattern(valueText);
 
-        SearchCriteria criteria = new SearchCriteria(nameText, valueText, typeKey, editStatus);
+        String editStatusString = editStatus != null ? editStatus.getLiteral() : null;
+        SearchCriteria criteria = new SearchCriteria(nameText, valueText, typeKey, editStatusString);
 
         if (!criteria.hasAnyFilter()) {
             JOptionPane.showMessageDialog(this, "Please enter at least one search criterion",
@@ -323,7 +335,9 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
             if (hasFilter) {
                 searchText.append(", ");
             }
-            searchText.append("Status='").append(criteria.getEditStatus()).append("'");
+            EditStatus status = EditStatus.getByName(criteria.getEditStatus());
+            String statusDisplay = status != null ? status.getLiteral() : criteria.getEditStatus();
+            searchText.append("Status='").append(statusDisplay).append("'");
             hasFilter = true;
         }
 
@@ -384,8 +398,10 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
 
             // Check edit status filter
             if (matches && criteria.hasEditStatusFilter()) {
-                Object nodeStatus = editNode.getEditStatus();
-                if (nodeStatus == null || !nodeStatus.toString().equals(criteria.getEditStatus())) {
+                EditStatus nodeStatus = editNode.getEditStatus();
+                String filterStatusStr = criteria.getEditStatus();
+                if (nodeStatus == null || filterStatusStr == null
+                        || !nodeStatus.getLiteral().equals(filterStatusStr)) {
                     matches = false;
                 }
             }
@@ -475,7 +491,7 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
      *
      * @return
      */
-    public JComboBox<String> getStatusComboBox() {
+    public JComboBox<EditStatus> getStatusComboBox() {
         return statusComboBox;
     }
 }
