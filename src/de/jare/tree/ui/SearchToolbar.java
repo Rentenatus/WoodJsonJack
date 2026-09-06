@@ -19,7 +19,8 @@ import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 
 /**
- * Toolbar for searching nodes in the tree by name, value, type key, or edit status.
+ * Toolbar for searching nodes in the tree by name, value, type key, or edit
+ * status.
  */
 public class SearchToolbar extends JPanel implements TreeFocusListener {
 
@@ -36,8 +37,8 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
     private List<SearchListener> searchListeners = new ArrayList<>();
 
     /**
-     * Converts a wildcard pattern to a regex pattern.
-     * ? matches any single character, * matches any sequence of characters.
+     * Converts a wildcard pattern to a regex pattern. ? matches any single
+     * character, * matches any sequence of characters.
      */
     private static Pattern createWildcardPattern(String pattern) {
         StringBuilder regex = new StringBuilder();
@@ -72,8 +73,8 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
     }
 
     /**
-     * Checks if a string matches a wildcard pattern.
-     * Supports * (any sequence) and ? (any single character).
+     * Checks if a string matches a wildcard pattern. Supports * (any sequence)
+     * and ? (any single character).
      */
     private static boolean matchesWildcard(String text, String pattern) {
         if (pattern == null || pattern.isEmpty()) {
@@ -87,15 +88,15 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
     }
 
     /**
-     * Pre-processes a search pattern: if it contains only uppercase letters and digits
-     * (and no wildcards or lowercase letters), insert * after each character.
-     * Example: "WJJ" becomes "W*J*J*", "B2B" becomes "B*2*B*"
+     * Pre-processes a search pattern: if it contains only uppercase letters and
+     * digits (and no wildcards or lowercase letters), insert * after each
+     * character. Example: "WJJ" becomes "W*J*J*", "B2B" becomes "B*2*B*"
      */
     private static String preprocessSearchPattern(String pattern) {
         if (pattern == null || pattern.isEmpty()) {
             return pattern;
         }
-        
+
         // Check if pattern contains only uppercase letters and digits
         // and does NOT contain wildcards (* or ?) or lowercase letters
         boolean onlyUppercaseAndDigits = true;
@@ -109,7 +110,7 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
                 break;
             }
         }
-        
+
         if (onlyUppercaseAndDigits) {
             StringBuilder result = new StringBuilder();
             for (char c : pattern.toCharArray()) {
@@ -117,7 +118,7 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
             }
             return result.toString();
         }
-        
+
         return pattern;
     }
 
@@ -249,11 +250,6 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
 
         // Register as TreeFocusListener to track active editor
         master.addSelectionListener(5, this);
-
-        // Add Enter key listener for name field
-        nameField.addActionListener(e -> performSearch());
-        valueField.addActionListener(e -> performSearch());
-        typeKeyComboBox.addActionListener(e -> performSearch());
     }
 
     private void performSearch() {
@@ -328,10 +324,19 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
                 searchText.append(", ");
             }
             searchText.append("Status='").append(criteria.getEditStatus()).append("'");
+            hasFilter = true;
         }
 
         if (!hasFilter) {
-            return "Search results";
+            searchText = new StringBuilder("Results:");
+        }
+
+        TreeFocusComponent source = getActiveSource();
+
+        if (source != null) {
+            searchText.append(" [")
+                    .append(source.getDisplayName())
+                    .append("]");
         }
 
         return searchText.toString();

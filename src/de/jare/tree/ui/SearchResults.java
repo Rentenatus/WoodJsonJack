@@ -28,8 +28,10 @@ public class SearchResults {
      * Creates a new SearchResults instance.
      *
      * @param searchText descriptive text of the search criteria
-     * @param results the list of matching tree nodes (defensive copy will be created)
-     * @param source the TreeFocusComponent that was searched (the editor context)
+     * @param results the list of matching tree nodes (defensive copy will be
+     * created)
+     * @param source the TreeFocusComponent that was searched (the editor
+     * context)
      */
     public SearchResults(String searchText, List<DefaultMutableTreeNode> results, TreeFocusComponent source) {
         this.searchText = searchText != null ? searchText : "";
@@ -40,14 +42,18 @@ public class SearchResults {
 
     /**
      * Returns the descriptive search text.
+     *
+     * @return
      */
     public String getSearchText() {
         return searchText;
     }
 
     /**
-     * Returns the list of matching tree nodes.
-     * The returned list is unmodifiable.
+     * Returns the list of matching tree nodes.The returned list is
+     * unmodifiable.
+     *
+     * @return
      */
     public List<DefaultMutableTreeNode> getResults() {
         return Collections.unmodifiableList(results);
@@ -55,6 +61,8 @@ public class SearchResults {
 
     /**
      * Returns the number of matching results.
+     *
+     * @return
      */
     public int getResultCount() {
         return results.size();
@@ -62,6 +70,8 @@ public class SearchResults {
 
     /**
      * Returns whether there are any results.
+     *
+     * @return
      */
     public boolean hasResults() {
         return !results.isEmpty();
@@ -69,15 +79,20 @@ public class SearchResults {
 
     /**
      * Returns the timestamp when this search was performed.
+     *
+     * @return
      */
     public Instant getTimestamp() {
         return timestamp;
     }
 
     /**
-     * Returns the TreeFocusComponent that was the source of this search.
-     * This allows tracking which editor context the results belong to.
-     * From the TreeFocusComponent, you can access the EditTree via getModel().getEditTree().
+     * Returns the TreeFocusComponent that was the source of this search.This
+     * allows tracking which editor context the results belong to. From the
+     * TreeFocusComponent, you can access the EditTree via
+     * getModel().getEditTree().
+     *
+     * @return
      */
     public TreeFocusComponent getSource() {
         return source;

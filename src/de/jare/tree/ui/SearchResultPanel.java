@@ -90,10 +90,12 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
     }
 
     private void navigateHistory(int direction) {
-        if (history.isEmpty()) return;
+        if (history.isEmpty()) {
+            return;
+        }
 
         historyIndex += direction;
-        
+
         if (historyIndex < 0) {
             historyIndex = 0;
         } else if (historyIndex >= history.size()) {
@@ -128,7 +130,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
 
         // Get the source component from current results
         TreeFocusComponent sourceComponent = currentResults != null ? currentResults.getSource() : null;
-        
+
         if (sourceComponent == null) {
             // Fallback: use active editor from master
             sourceComponent = (TreeFocusComponent) master.getActiveEditor();
@@ -172,16 +174,13 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         // Add to history
         history.add(results);
         historyIndex = history.size() - 1;
-        
+
         // Update current results and display
         currentResults = results;
         String sourceName = "";
-        TreeFocusComponent source = results.getSource();
-        if (source != null) {
-            sourceName = " [" + source.getDisplayName() + "]";
-        }
-        searchLabel.setText(results.getSearchText() + sourceName + " (" + results.getResultCount() + " results)");
-        
+        TreeFocusComponent source = results.getSource(); 
+        searchLabel.setText(results.getSearchText() + " (" + results.getResultCount() + " results)");
+
         // Update the table
         updateTable();
         updateNavigationButtons();
@@ -229,7 +228,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         // Find the index of the selected node in the current results
         List<DefaultMutableTreeNode> resultNodes = currentResults.getResults();
         int index = resultNodes.indexOf(node);
-        
+
         if (index >= 0) {
             // Select the row in the table
             resultsTable.setRowSelectionInterval(index, index);
@@ -258,20 +257,20 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         // Build path from root to target
         List<DefaultMutableTreeNode> pathNodes = new ArrayList<>();
         DefaultMutableTreeNode current = targetNode;
-        
+
         while (current != null && current != root) {
             pathNodes.add(0, current);
             current = (DefaultMutableTreeNode) current.getParent();
         }
-        
+
         if (current == root) {
             pathNodes.add(0, root);
         }
-        
+
         if (pathNodes.isEmpty()) {
             return null;
         }
-        
+
         return new TreePath(pathNodes.toArray());
     }
 
@@ -279,6 +278,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
      * Table model for displaying search results.
      */
     private static class SearchResultTableModel extends AbstractTableModel {
+
         private List<DefaultMutableTreeNode> results = new ArrayList<>();
         private final String[] columnNames = {"Name", "Value", "Type", "Status", "Path"};
 
@@ -335,11 +335,11 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         private String buildPath(DefaultMutableTreeNode node) {
             StringBuilder path = new StringBuilder();
             Object userObject = node.getUserObject();
-            
+
             if (userObject instanceof EditNode) {
                 EditNode editNode = (EditNode) userObject;
                 path.insert(0, "/" + editNode.getName());
-                
+
                 // Walk up the parent chain
                 DefaultMutableTreeNode parent = (DefaultMutableTreeNode) node.getParent();
                 while (parent != null) {
@@ -351,7 +351,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
                     parent = (DefaultMutableTreeNode) parent.getParent();
                 }
             }
-            
+
             return path.length() > 0 ? path.toString() : "/";
         }
 
