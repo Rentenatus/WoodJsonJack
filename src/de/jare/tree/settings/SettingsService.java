@@ -6,7 +6,6 @@
  */
 package de.jare.tree.settings;
 
-import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.io.JsonObjectWriter;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.JsonParser;
@@ -63,7 +62,7 @@ public class SettingsService {
                 return resetWoodSettings(file);
             }
             try {
-                WoodResolution reso = JsonParser.parse(file, definition, definition.getWoodSettingsRoot());
+                WoodResolution reso = JsonParser.parse(file, definition, definition.getRootClass());
                 if (reso.hasExceptions()) {
                     final List<JsonParseException> exceptions = reso.getUnmodifiableExceptions();
                     for (Exception exception : exceptions) {
@@ -137,7 +136,7 @@ public class SettingsService {
     public void saveWoodSettings(File file, WoodSettings settings)
             throws IOException, JsonParseException, JsonWriteException {
         ensureParentDirectory(file);
-        JsonObjectWriter.write(settings, file, definition, definition.getWoodSettingsRoot());
+        JsonObjectWriter.write(settings, file, definition, definition.getRootClass());
     }
 
     public void saveThemeSuite(File file, ThemeSuite suite) throws IOException, JsonParseException, JsonWriteException {

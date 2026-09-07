@@ -117,7 +117,8 @@ public class JsonWoodSettingsDefinition implements JsonItemDefinition {
         return model;
     }
 
-    public JsonClass getWoodSettingsRoot() {
+    @Override
+    public JsonClass getRootClass() {
         return woodSettingsRoot;
     }
 
