@@ -37,6 +37,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
     private final JButton prevButton;
     private final JButton nextButton;
     private final JButton historyButton;
+    private final JButton sortButton;
     private final JButton clearButton;
     private final JButton researchButton;
     private final JTable resultsTable;
@@ -47,6 +48,23 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
     private List<SearchResults> history = new ArrayList<>();
     private List<SearchToolbar.SearchCriteria> historyCriteria = new ArrayList<>();
     private int historyIndex = -1;
+
+    private SortConfig primarySort = null;
+    private SortConfig secondarySort = null;
+
+    private static class SortConfig {
+        final int columnIndex;
+        final boolean ascending;
+
+        SortConfig(int columnIndex, boolean ascending) {
+            this.columnIndex = columnIndex;
+            this.ascending = ascending;
+        }
+
+        String getDisplayName(String[] columnNames) {
+            return columnNames[columnIndex] + (ascending ? " ↑" : " ↓");
+        }
+    }
 
     public SearchResultPanel(JackMasterControl master) {
         super(new BorderLayout());
@@ -85,6 +103,12 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         clearButton.setToolTipText("Clear search results");
         clearButton.addActionListener(e -> clearResults());
 
+        // Sort button on the right
+        sortButton = new JButton("/");
+        sortButton.setToolTipText("Sort results");
+        sortButton.addActionListener(e -> showSortPopup(e));
+        sortButton.setEnabled(false);
+
         // Research button on the right
         researchButton = new JButton("Research");
         researchButton.setToolTipText("Re-search with the same filter");
@@ -92,6 +116,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         researchButton.setEnabled(false);
 
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        rightPanel.add(sortButton);
         rightPanel.add(researchButton);
         rightPanel.add(clearButton);
 
@@ -180,6 +205,11 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         prevButton.setEnabled(historyIndex > 0);
         nextButton.setEnabled(historyIndex < history.size() - 1);
         historyButton.setEnabled(!history.isEmpty());
+        updateSortButtonState();
+    }
+
+    private void updateSortButtonState() {
+        sortButton.setEnabled(currentResults != null && !currentResults.getResults().isEmpty());
     }
 
     private void showHistoryPopup(java.awt.event.ActionEvent e) {
@@ -231,6 +261,157 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
             updateTable();
             updateNavigationButtons();
         }
+    }
+
+    private void showSortPopup(java.awt.event.ActionEvent e) {
+        if (currentResults == null || currentResults.getResults().isEmpty()) {
+            return;
+        }
+
+        JPopupMenu popupMenu = new JPopupMenu();
+        String[] columnNames = tableModel.getColumnNames();
+
+        for (int col = 0; col < columnNames.length; col++) {
+            String displayName = getSortDisplayName(col, columnNames[col]);
+            JMenu columnMenu = new JMenu(displayName);
+            
+            JMenuItem ascendingItem = new JMenuItem("Ascending");
+            final int columnIndexAsc = col;
+            final boolean isAscendingAsc = true;
+            ascendingItem.addActionListener(ev -> applySort(columnIndexAsc, isAscendingAsc));
+            columnMenu.add(ascendingItem);
+            
+            JMenuItem descendingItem = new JMenuItem("Descending");
+            final int columnIndexDesc = col;
+            final boolean isAscendingDesc = false;
+            descendingItem.addActionListener(ev -> applySort(columnIndexDesc, isAscendingDesc));
+            columnMenu.add(descendingItem);
+            
+            popupMenu.add(columnMenu);
+        }
+
+        popupMenu.addSeparator();
+        
+        JMenuItem clearSortItem = new JMenuItem("Clear");
+        clearSortItem.addActionListener(ev -> clearSort());
+        popupMenu.add(clearSortItem);
+
+        JButton sourceButton = (JButton) e.getSource();
+        popupMenu.show(sourceButton, 0, sourceButton.getHeight());
+    }
+
+    private String getSortDisplayName(int columnIndex, String columnName) {
+        if (primarySort != null && primarySort.columnIndex == columnIndex) {
+            return (primarySort.ascending ? "1/ " : "1\\ ") + columnName;
+        }
+        if (secondarySort != null && secondarySort.columnIndex == columnIndex) {
+            return (secondarySort.ascending ? "2/ " : "2\\ ") + columnName;
+        }
+        return columnName;
+    }
+
+    private String[] getColumnNames() {
+        return tableModel.getColumnNames();
+    }
+
+    private void applySort(int columnIndex, boolean ascending) {
+        if (currentResults == null || currentResults.getResults().isEmpty()) {
+            return;
+        }
+
+        SortConfig newSort = new SortConfig(columnIndex, ascending);
+        
+        secondarySort = primarySort;
+        primarySort = newSort;
+        
+        sortAndUpdateTable();
+    }
+
+    private void clearSort() {
+        primarySort = null;
+        secondarySort = null;
+        sortAndUpdateTable();
+    }
+
+    private void sortAndUpdateTable() {
+        if (currentResults == null) {
+            return;
+        }
+        
+        List<DefaultMutableTreeNode> results = new ArrayList<>(currentResults.getResults());
+        
+        if (primarySort != null) {
+            results.sort((n1, n2) -> compareNodes(n1, n2, primarySort));
+            
+            if (secondarySort != null) {
+                results.sort((n1, n2) -> {
+                    int primaryCompare = compareNodes(n1, n2, primarySort);
+                    if (primaryCompare != 0) {
+                        return primaryCompare;
+                    }
+                    return compareNodes(n1, n2, secondarySort);
+                });
+            }
+        }
+        
+        tableModel.setResults(results);
+        tableModel.fireTableStructureChanged();
+    }
+
+    private int compareNodes(DefaultMutableTreeNode n1, DefaultMutableTreeNode n2, SortConfig sortConfig) {
+        String value1 = getNodeValueForColumn(n1, sortConfig.columnIndex);
+        String value2 = getNodeValueForColumn(n2, sortConfig.columnIndex);
+        
+        if (value1 == null && value2 == null) {
+            return 0;
+        }
+        if (value1 == null) {
+            return sortConfig.ascending ? -1 : 1;
+        }
+        if (value2 == null) {
+            return sortConfig.ascending ? 1 : -1;
+        }
+        
+        int comparison = value1.compareTo(value2);
+        return sortConfig.ascending ? comparison : -comparison;
+    }
+
+    private String getNodeValueForColumn(DefaultMutableTreeNode treeNode, int columnIndex) {
+        Object userObject = treeNode.getUserObject();
+        if (!(userObject instanceof EditNode)) {
+            return null;
+        }
+        EditNode node = (EditNode) userObject;
+        
+        switch (columnIndex) {
+            case 0: return node.getName();
+            case 1: return node.getValue();
+            case 2: return node.getTypeKey();
+            case 3: return node.getEditStatus() != null ? node.getEditStatus().getLiteral() : null;
+            case 4: return buildPathForNode(treeNode);
+            default: return null;
+        }
+    }
+
+    private String buildPathForNode(DefaultMutableTreeNode treeNode) {
+        StringBuilder path = new StringBuilder();
+        Object userObject = treeNode.getUserObject();
+        if (userObject instanceof EditNode) {
+            EditNode node = (EditNode) userObject;
+            path.insert(0, "/" + node.getName());
+        }
+        
+        DefaultMutableTreeNode parent = (DefaultMutableTreeNode) treeNode.getParent();
+        while (parent != null) {
+            Object parentObj = parent.getUserObject();
+            if (parentObj instanceof EditNode) {
+                EditNode parentNode = (EditNode) parentObj;
+                path.insert(0, "/" + parentNode.getName());
+            }
+            parent = (DefaultMutableTreeNode) parent.getParent();
+        }
+        
+        return path.length() > 0 ? path.toString() : "/";
     }
 
     private void selectNodeInTree(DefaultMutableTreeNode node) {
@@ -309,11 +490,16 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
 
     private void updateTable() {
         if (currentResults != null) {
-            tableModel.setResults(currentResults.getResults());
+            if (primarySort != null || secondarySort != null) {
+                sortAndUpdateTable();
+            } else {
+                tableModel.setResults(currentResults.getResults());
+                tableModel.fireTableStructureChanged();
+            }
         } else {
             tableModel.setResults(new ArrayList<>());
+            tableModel.fireTableStructureChanged();
         }
-        tableModel.fireTableDataChanged();
     }
 
     public void clearResults() {
@@ -322,6 +508,8 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         history.clear();
         historyCriteria.clear();
         historyIndex = -1;
+        primarySort = null;
+        secondarySort = null;
         searchLabel.setText("Search results: ");
         tableModel.setResults(new ArrayList<>());
         tableModel.fireTableDataChanged();
@@ -609,7 +797,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
     /**
      * Table model for displaying search results.
      */
-    private static class SearchResultTableModel extends AbstractTableModel {
+    private class SearchResultTableModel extends AbstractTableModel {
 
         private List<DefaultMutableTreeNode> results = new ArrayList<>();
         private final String[] columnNames = {"Name", "Value", "Type", "Status", "Path"};
@@ -630,7 +818,11 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
 
         @Override
         public String getColumnName(int column) {
-            return columnNames[column];
+            return getSortDisplayName(column, columnNames[column]);
+        }
+
+        public String[] getColumnNames() {
+            return columnNames;
         }
 
         @Override
