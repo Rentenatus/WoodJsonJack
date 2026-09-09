@@ -36,6 +36,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
     private final JLabel searchLabel;
     private final JButton prevButton;
     private final JButton nextButton;
+    private final JButton historyButton;
     private final JButton clearButton;
     private final JButton researchButton;
     private final JTable resultsTable;
@@ -59,6 +60,11 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         prevButton.addActionListener(e -> navigateHistory(-1));
         prevButton.setEnabled(false);
 
+        historyButton = new JButton("-");
+        historyButton.setToolTipText("Show search history");
+        historyButton.addActionListener(e -> showHistoryPopup(e));
+        historyButton.setEnabled(false);
+
         nextButton = new JButton(">");
         nextButton.setToolTipText("Next search results");
         nextButton.addActionListener(e -> navigateHistory(1));
@@ -70,6 +76,7 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
         // Left panel for navigation and label
         JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         leftPanel.add(prevButton);
+        leftPanel.add(historyButton);
         leftPanel.add(nextButton);
         leftPanel.add(searchLabel);
 
@@ -172,6 +179,58 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
     private void updateNavigationButtons() {
         prevButton.setEnabled(historyIndex > 0);
         nextButton.setEnabled(historyIndex < history.size() - 1);
+        historyButton.setEnabled(!history.isEmpty());
+    }
+
+    private void showHistoryPopup(java.awt.event.ActionEvent e) {
+        if (history.isEmpty()) {
+            return;
+        }
+
+        JPopupMenu popupMenu = new JPopupMenu();
+
+        for (int i = 0; i < history.size(); i++) {
+            SearchResults results = history.get(i);
+            String menuText = buildHistoryMenuText(results, i);
+            JMenuItem menuItem = new JMenuItem(menuText);
+            final int index = i;
+            menuItem.addActionListener(ev -> showHistoryItem(index));
+            popupMenu.add(menuItem);
+        }
+
+        JButton sourceButton = (JButton) e.getSource();
+        popupMenu.show(sourceButton, 0, sourceButton.getHeight());
+    }
+
+    private String buildHistoryMenuText(SearchResults results, int index) {
+        StringBuilder text = new StringBuilder();
+        if (index == historyIndex) {
+            text.append("> ");
+        }
+        text.append(index + 1).append(": ");
+        
+        LocalDateTime dateTime = LocalDateTime.ofInstant(results.getTimestamp(), ZoneId.systemDefault());
+        text.append(TIME_FORMATTER.format(dateTime)).append(" ");
+        
+        TreeFocusComponent source = results.getSource();
+        if (source != null) {
+            text.append("[").append(source.getDisplayName()).append("] ");
+        }
+        text.append(results.getSearchText());
+        text.append(" (").append(results.getResultCount()).append(" results)");
+        
+        return text.toString();
+    }
+
+    private void showHistoryItem(int index) {
+        if (index >= 0 && index < history.size()) {
+            historyIndex = index;
+            currentResults = history.get(historyIndex);
+            currentCriteria = historyCriteria.get(historyIndex);
+            searchLabetSetText(currentResults);
+            updateTable();
+            updateNavigationButtons();
+        }
     }
 
     private void selectNodeInTree(DefaultMutableTreeNode node) {
