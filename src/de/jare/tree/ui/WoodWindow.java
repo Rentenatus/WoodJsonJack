@@ -18,7 +18,9 @@ import de.jare.tree.ui.settings.PreferencesDialog;
 import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.swing.*;
 
 public class WoodWindow extends JFrame {
@@ -38,6 +40,7 @@ public class WoodWindow extends JFrame {
     private final WoodSettings settings;
     private final ThemeSuite themeSuite;
     private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
+    private final Map<File, Map<String, EditTree>> descriptionTreesMap = new HashMap<>();
     private PreferencesDialog preferencesDialog;
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
@@ -260,6 +263,40 @@ public class WoodWindow extends JFrame {
 
         // Set initial active editor
         jackmaster.setActiveEditor(treeContainer.getLeftTree(), this);
+    }
+
+    /**
+     * Stores the description trees for a given main file.
+     *
+     * @param mainFile the main JSON file
+     * @param descriptionTrees map of model names to their description EditTrees
+     */
+    public void setDescriptionTrees(File mainFile, Map<String, EditTree> descriptionTrees) {
+        if (mainFile != null && descriptionTrees != null && !descriptionTrees.isEmpty()) {
+            descriptionTreesMap.put(mainFile, descriptionTrees);
+        }
+    }
+
+    /**
+     * Gets the description trees for a given main file.
+     *
+     * @param mainFile the main JSON file
+     * @return map of model names to their description EditTrees, or empty map if none
+     */
+    public Map<String, EditTree> getDescriptionTrees(File mainFile) {
+        return descriptionTreesMap.getOrDefault(mainFile, new HashMap<>());
+    }
+
+    /**
+     * Shows an error dialog with the given message.
+     *
+     * @param message the error message to display
+     */
+    public void showErrorDialog(String message) {
+        JOptionPane.showMessageDialog(this,
+                message,
+                "Fehler",
+                JOptionPane.ERROR_MESSAGE);
     }
 
 }
