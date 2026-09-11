@@ -16,6 +16,8 @@ import de.jare.jsonconfig.def.JsonConfigDefinition;
 import de.jare.tree.control.JackMasterControl;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import javax.swing.JFileChooser;
@@ -74,42 +76,72 @@ public class JackMainActions {
     }
 
     /**
-     * Attempts to find a description file with path shift tolerance:
-     * 1. Direct path from descriptionFileMap
-     * 2. Relative to the original file's directory
-     * 3. Via file chooser dialog (user interaction)
+     * Findet Description-Datei mit intelligenter Pfadauflösung.
      *
-     * @param descriptionFilePath the path from the descriptionFileMap
-     * @param originalFile the originally loaded JSON file
-     * @return the found file, or null if user cancels
+     * Priorität:
+     * 1. Absolute Pfade (C:\, /)
+     * 2. Relative Pfade mit Prefix (../, ./) im Originalverzeichnis
+     * 3. Pfad OHNE "../"-Prefix im Originalverzeichnis (für Edge-Cases wie "../file.json" → "file.json")
+     * 4. User-Dialog
+     *
+     * @param descriptionFilePath der Pfad aus der descriptionFileMap
+     * @param originalFile die ursprünglich geladene JSON-Datei
+     * @return die gefundene Datei, oder null wenn User abbricht
      */
     public File findDescriptionFile(String descriptionFilePath, File originalFile) {
-        // 1. Try direct path
-        File directFile = new File(descriptionFilePath);
-        if (directFile.exists()) {
-            return directFile;
+        if (descriptionFilePath == null || originalFile == null) {
+            return null;
         }
 
-        // 2. Try relative to original file's directory
-        if (originalFile != null && originalFile.getParentFile() != null) {
-            File relativeFile = new File(originalFile.getParentFile(), descriptionFilePath);
-            if (relativeFile.exists()) {
-                return relativeFile;
+        // 1. Absolute Pfade direkt testen
+        try {
+            Path descPath = Paths.get(descriptionFilePath);
+            if (descPath.isAbsolute()) {
+                File file = descPath.toFile();
+                if (file.exists()) {
+                    return file;
+                }
             }
+        } catch (Exception e) {
+            // Ungültiger Pfad, ignorieren
         }
 
-        // 3. Open file chooser dialog for user
+        // 2. Pfad des Originalverzeichnisses
+        Path originalDir = Paths.get(originalFile.getAbsolutePath()).getParent();
+        if (originalDir == null) {
+            originalDir = Paths.get(System.getProperty("user.dir")); // Fallback: Arbeitsverzeichnis
+        }
+
+        // 2a. Mit vollem Pfad (inkl. ../) versuchen
+        try {
+            Path resolved = originalDir.resolve(descriptionFilePath).normalize();
+            File file = resolved.toFile();
+            if (file.exists()) {
+                return file;
+            }
+        } catch (Exception e) {
+            // Pfadfehler, ignorieren
+        }
+
+        // 2b. OHNE "../"-Prefix im Originalverzeichnis suchen
+        String cleanPath = descriptionFilePath.replaceFirst("^\\.\\./", "");
+        try {
+            Path direct = originalDir.resolve(cleanPath);
+            File file = direct.toFile();
+            if (file.exists()) {
+                return file;
+            }
+        } catch (Exception e) {
+            // Ignorieren
+        }
+
+        // 3. User-Dialog
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Description-Datei wählen für: " + descriptionFilePath);
         chooser.setFileFilter(new FileNameExtensionFilter("JSON-Dateien", "json"));
 
         int result = chooser.showOpenDialog(woodWindow);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            return chooser.getSelectedFile();
-        }
-
-        // User canceled - no description
-        return null;
+        return result == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;
     }
 
     /**
