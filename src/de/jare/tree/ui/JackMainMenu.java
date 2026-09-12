@@ -95,6 +95,11 @@ public class JackMainMenu extends JMenuBar {
         editMenu.add(addNodeItem);
         editMenu.add(deleteNodeItem);
         editMenu.add(renameNodeItem);
+        editMenu.addSeparator();
+
+        JMenuItem reparseItem = new JMenuItem("Re-parse Types");
+        reparseItem.addActionListener(e -> triggerReparse());
+        editMenu.add(reparseItem);
 
         JMenu optionsMenu = new JMenu("Options");
         JMenuItem preferencesItem = new JMenuItem("Preferences");
@@ -187,6 +192,24 @@ public class JackMainMenu extends JMenuBar {
 
     private void openPreferences() {
         woodWindow.openPreferences();
+    }
+
+    private void triggerReparse() {
+        if (lastSelectedEditor instanceof JackEditTree editTree) {
+            EditTree tree = editTree.getModel().getEditTree();
+            if (tree != null && tree.isParserRunning()) {
+                tree.triggerFullReparse();
+                JOptionPane.showMessageDialog(woodWindow,
+                        "Re-parsing gestartet. Status in der Baumansicht beobachten.",
+                        "Reparsing",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(woodWindow,
+                        "Kein aktiver Parser für diesen Editor.",
+                        "Reparsing",
+                        JOptionPane.WARNING_MESSAGE);
+            }
+        }
     }
 
     private void openJsonFile() {
