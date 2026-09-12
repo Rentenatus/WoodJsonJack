@@ -70,15 +70,45 @@ public class JackMainActions {
             Map<String, JsonModelDescriptor> descriptors = new HashMap<>();
             Map<String, EditTree> descriptionTrees = loadDescriptionFiles(resolution, file, descriptors);
 
-            // 4. Add main tree to window
+            // 4. Set model descriptor on main tree (starts parser automatically)
+            applyDescriptorToTree(tree, descriptors);
+
+            // 5. Add main tree to window
             woodWindow.addEditorTab(file, tree);
 
-            // 5. Store description trees for later use (next step)
+            // 6. Store description trees and descriptors for later use
             woodWindow.setDescriptionTrees(file, descriptionTrees);
             woodWindow.setDescriptionDescriptors(file, descriptors);
 
         } catch (IOException | JsonParseException e) {
             woodWindow.showErrorDialog("Fehler beim Öffnen der Datei: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Sets the first available JsonModelDescriptor on the EditTree, which
+     * automatically starts the TypeParserService. If multiple descriptors
+     * exist, the first becomes the main descriptor and the rest are added
+     * as repo descriptors.
+     *
+     * @param tree the EditTree to configure
+     * @param descriptors map of model names to their JsonModelDescriptor
+     */
+    private void applyDescriptorToTree(EditTree tree, Map<String, JsonModelDescriptor> descriptors) {
+        if (tree == null || descriptors == null || descriptors.isEmpty()) {
+            return;
+        }
+        JsonModelDescriptor primary = null;
+        for (Map.Entry<String, JsonModelDescriptor> entry : descriptors.entrySet()) {
+            if (primary == null) {
+                primary = entry.getValue();
+            } else {
+                primary.addRepoDescriptor(entry.getKey(), entry.getValue());
+            }
+        }
+        if (primary != null) {
+            tree.setJsonModelDescriptor(primary);
+            System.out.println("JsonModelDescriptor gesetzt, Parser gestartet: " + primary.getModelName());
         }
     }
 
