@@ -98,9 +98,15 @@ public class WoodWindow extends JFrame {
 
         horizontalSplit.setRightComponent(centerPanel);
 
-        // Tab-Wechsel steuert aktiven Editor
+        // Tab-Wechsel steuert aktiven Editor und pausiert Timer inaktiver Tabs
         centerTabs.addChangeListener(e -> {
             int idx = centerTabs.getSelectedIndex();
+            for (int i = 0; i < editorTrees.size(); i++) {
+                JackEditTreeContainer container = editorTrees.get(i);
+                boolean active = (i == idx);
+                container.getLeftTree().setParseTimerActive(active);
+                container.getRightTree().setParseTimerActive(active);
+            }
             if (idx >= 0 && idx < editorTrees.size()) {
                 JackEditTreeContainer container = editorTrees.get(idx);
                 jackmaster.setActiveEditor(container.getLeftTree(), this);
@@ -175,6 +181,14 @@ public class WoodWindow extends JFrame {
         // Properties an Selection-Orator h?ngen
         setLocationRelativeTo(null);
         setVisible(true);
+
+        // Beim Schließen des Fensters alle Parser und Timer beenden
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                shutdownEditors();
+            }
+        });
     }
 
     private JTable attributesTable;
@@ -265,6 +279,22 @@ public class WoodWindow extends JFrame {
 
         // Set initial active editor
         jackmaster.setActiveEditor(treeContainer.getLeftTree(), this);
+    }
+
+    /**
+     * Stops all parse refresh timers and parser services for all editor tabs.
+     * Called when the window is closing.
+     */
+    private void shutdownEditors() {
+        for (JackEditTreeContainer container : editorTrees) {
+            container.getLeftTree().stopParseRefreshTimer();
+            container.getRightTree().stopParseRefreshTimer();
+            EditTree leftTree = container.getLeftTree().getModel().getEditTree();
+            if (leftTree != null && leftTree.isParserRunning()) {
+                leftTree.stopParserService();
+                leftTree.close();
+            }
+        }
     }
 
     /**

@@ -432,6 +432,20 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
+     * Activates or deactivates the parse refresh timer based on whether
+     * this editor tab is currently visible.
+     *
+     * @param active true to start the timer, false to stop it
+     */
+    public void setParseTimerActive(boolean active) {
+        if (active) {
+            startParseRefreshTimer();
+        } else {
+            stopParseRefreshTimer();
+        }
+    }
+
+    /**
      * Polls the EditTree for ParseState changes and triggers node repaints
      * for nodes whose state has changed since the last tick.
      */
