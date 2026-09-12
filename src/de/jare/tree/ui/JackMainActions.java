@@ -12,6 +12,11 @@ import de.jare.jsoncasted.editor.core.JsonTreeConverter;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.JsonParser;
 import de.jare.jsoncasted.io.convertservice.WoodResolution;
+import de.jare.jsoncasted.item.JsonItem;
+import de.jare.jsoncasted.item.builder.JsonBuilder;
+import de.jare.jsoncasted.model.JsonBuildException;
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import de.jare.jsoncasted.model.descriptor.def.JsonDescriptorDefinition;
 import de.jare.jsonconfig.def.JsonConfigDefinition;
 import de.jare.tree.control.JackMasterControl;
 import java.io.File;
@@ -62,13 +67,15 @@ public class JackMainActions {
             WoodResolution resolution = JsonParser.parse(file, definition, definition.getRootClass());
 
             // 3. Load description files with path shift tolerance
-            Map<String, EditTree> descriptionTrees = loadDescriptionFiles(resolution, file);
+            Map<String, JsonModelDescriptor> descriptors = new HashMap<>();
+            Map<String, EditTree> descriptionTrees = loadDescriptionFiles(resolution, file, descriptors);
 
             // 4. Add main tree to window
             woodWindow.addEditorTab(file, tree);
 
             // 5. Store description trees for later use (next step)
             woodWindow.setDescriptionTrees(file, descriptionTrees);
+            woodWindow.setDescriptionDescriptors(file, descriptors);
 
         } catch (IOException | JsonParseException e) {
             woodWindow.showErrorDialog("Fehler beim Öffnen der Datei: " + e.getMessage());
@@ -146,12 +153,18 @@ public class JackMainActions {
 
     /**
      * Loads all description files referenced in the WoodResolution.
+     * Each description file is loaded twice: once as EditTree for the
+     * tree view, and once as JsonModelDescriptor for the On-the-Fly parser.
      *
      * @param resolution the WoodResolution after parsing the main file
      * @param originalFile the originally loaded JSON file
+     * @param descriptorsOut out-parameter: populated with model names to
+     *        their JsonModelDescriptor instances (may be null if not needed)
      * @return Map of model names to their description EditTrees
      */
-    public Map<String, EditTree> loadDescriptionFiles(WoodResolution resolution, File originalFile) {
+    public Map<String, EditTree> loadDescriptionFiles(
+            WoodResolution resolution, File originalFile,
+            Map<String, JsonModelDescriptor> descriptorsOut) {
         Map<String, EditTree> descriptionTrees = new HashMap<>();
 
         if (resolution == null) {
@@ -172,9 +185,18 @@ public class JackMainActions {
             try {
                 File descriptionFile = findDescriptionFile(filePath, originalFile);
                 if (descriptionFile != null && descriptionFile.exists()) {
+                    // 1. Load as EditTree for tree view
                     EditTree descriptionTree = JsonTreeConverter.fromJsonFile(descriptionFile);
                     descriptionTrees.put(modelName, descriptionTree);
                     System.out.println("Description für '" + modelName + "' geladen: " + descriptionFile.getAbsolutePath());
+
+                    // 2. Load as JsonModelDescriptor for On-the-Fly parser
+                    if (descriptorsOut != null) {
+                        JsonModelDescriptor descriptor = parseDescriptor(descriptionFile);
+                        if (descriptor != null) {
+                            descriptorsOut.put(modelName, descriptor);
+                        }
+                    }
                 } else {
                     System.out.println("Description für '" + modelName + "' nicht gefunden: " + filePath);
                 }
@@ -184,5 +206,30 @@ public class JackMainActions {
         }
 
         return descriptionTrees;
+    }
+
+    /**
+     * Parses a description file into a JsonModelDescriptor using
+     * JsonDescriptorDefinition as the meta-model.
+     *
+     * @param descriptionFile the description JSON file
+     * @return the parsed JsonModelDescriptor, or null if parsing fails
+     */
+    private JsonModelDescriptor parseDescriptor(File descriptionFile) {
+        try {
+            JsonDescriptorDefinition descDef = JsonDescriptorDefinition.getInstance();
+            WoodResolution descResolution = JsonParser.parse(
+                    descriptionFile, descDef, descDef.getRootClass());
+            if (descResolution == null || descResolution.getAnswer() == null) {
+                return null;
+            }
+            JsonItem item = descResolution.getAnswer();
+            return (JsonModelDescriptor) JsonBuilder.buildInstance(
+                    descDef.getModel(), true, item);
+        } catch (JsonParseException | JsonBuildException | ClassCastException e) {
+            System.err.println("Fehler beim Parsen des Descriptors aus '"
+                    + descriptionFile.getName() + "': " + e.getMessage());
+            return null;
+        }
     }
 }

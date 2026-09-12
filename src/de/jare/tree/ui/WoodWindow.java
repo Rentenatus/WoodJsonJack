@@ -7,6 +7,7 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -41,6 +42,7 @@ public class WoodWindow extends JFrame {
     private final ThemeSuite themeSuite;
     private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
     private final Map<File, Map<String, EditTree>> descriptionTreesMap = new HashMap<>();
+    private final Map<File, Map<String, JsonModelDescriptor>> descriptionDescriptorsMap = new HashMap<>();
     private PreferencesDialog preferencesDialog;
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
@@ -285,6 +287,28 @@ public class WoodWindow extends JFrame {
      */
     public Map<String, EditTree> getDescriptionTrees(File mainFile) {
         return descriptionTreesMap.getOrDefault(mainFile, new HashMap<>());
+    }
+
+    /**
+     * Stores the description descriptors for a given main file.
+     *
+     * @param mainFile the main JSON file
+     * @param descriptors map of model names to their JsonModelDescriptor
+     */
+    public void setDescriptionDescriptors(File mainFile, Map<String, JsonModelDescriptor> descriptors) {
+        if (mainFile != null && descriptors != null && !descriptors.isEmpty()) {
+            descriptionDescriptorsMap.put(mainFile, descriptors);
+        }
+    }
+
+    /**
+     * Gets the description descriptors for a given main file.
+     *
+     * @param mainFile the main JSON file
+     * @return map of model names to their JsonModelDescriptor, or empty map if none
+     */
+    public Map<String, JsonModelDescriptor> getDescriptionDescriptors(File mainFile) {
+        return descriptionDescriptorsMap.getOrDefault(mainFile, new HashMap<>());
     }
 
     /**
