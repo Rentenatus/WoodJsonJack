@@ -29,9 +29,9 @@ import javax.swing.JFileChooser;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
- * Central class for main actions like loading and handling JSON files.
- * Handles the loading of main files and their associated description files
- * with path shift tolerance.
+ * Central class for main actions like loading and handling JSON files. Handles
+ * the loading of main files and their associated description files with path
+ * shift tolerance.
  *
  * @author Janusch Rentenatus
  */
@@ -88,8 +88,8 @@ public class JackMainActions {
     /**
      * Sets the first available JsonModelDescriptor on the EditTree, which
      * automatically starts the TypeParserService. If multiple descriptors
-     * exist, the first becomes the main descriptor and the rest are added
-     * as repo descriptors.
+     * exist, the first becomes the main descriptor and the rest are added as
+     * repo descriptors.
      *
      * @param tree the EditTree to configure
      * @param descriptors map of model names to their JsonModelDescriptor
@@ -115,11 +115,10 @@ public class JackMainActions {
     /**
      * Findet Description-Datei mit intelligenter Pfadauflösung.
      *
-     * Priorität:
-     * 1. Absolute Pfade (C:\, /)
-     * 2. Relative Pfade mit Prefix (../, ./) im Originalverzeichnis
-     * 3. Pfad OHNE "../"-Prefix im Originalverzeichnis (für Edge-Cases wie "../file.json" → "file.json")
-     * 4. User-Dialog
+     * Priorität: 1. Absolute Pfade (C:\, /) 2. Relative Pfade mit Prefix (../,
+     * ./) im Originalverzeichnis 3. Pfad OHNE "../"-Prefix im
+     * Originalverzeichnis (für Edge-Cases wie "../file.json" → "file.json") 4.
+     * User-Dialog
      *
      * @param descriptionFilePath der Pfad aus der descriptionFileMap
      * @param originalFile die ursprünglich geladene JSON-Datei
@@ -182,14 +181,14 @@ public class JackMainActions {
     }
 
     /**
-     * Loads all description files referenced in the WoodResolution.
-     * Each description file is loaded twice: once as EditTree for the
-     * tree view, and once as JsonModelDescriptor for the On-the-Fly parser.
+     * Loads all description files referenced in the WoodResolution. Each
+     * description file is loaded twice: once as EditTree for the tree view, and
+     * once as JsonModelDescriptor for the On-the-Fly parser.
      *
      * @param resolution the WoodResolution after parsing the main file
      * @param originalFile the originally loaded JSON file
-     * @param descriptorsOut out-parameter: populated with model names to
-     *        their JsonModelDescriptor instances (may be null if not needed)
+     * @param descriptorsOut out-parameter: populated with model names to their
+     * JsonModelDescriptor instances (may be null if not needed)
      * @return Map of model names to their description EditTrees
      */
     public Map<String, EditTree> loadDescriptionFiles(
@@ -245,7 +244,7 @@ public class JackMainActions {
      * @param descriptionFile the description JSON file
      * @return the parsed JsonModelDescriptor, or null if parsing fails
      */
-    private JsonModelDescriptor parseDescriptor(File descriptionFile) {
+    private JsonModelDescriptor parseDescriptor(File descriptionFile) throws IOException {
         try {
             JsonDescriptorDefinition descDef = JsonDescriptorDefinition.getInstance();
             WoodResolution descResolution = JsonParser.parse(
