@@ -22,6 +22,9 @@ import static de.jare.jsoncasted.editor.command.JackUpdateAction.SELECT_UPDATED;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditStatus;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.ParseState;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.ContentListener;
@@ -54,6 +57,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
     private boolean readonly = false;
     private JackTreeNodeTransferHandler transferHandler;
+
+    private Timer parseRefreshTimer;
+    private final Map<Long, ParseState> lastParseStates = new HashMap<>();
 
     public JackEditTree(String rootName, String... propNames) {
         this(null, rootName, propNames);
@@ -140,6 +146,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             master.addFocusListener(1, focusListener);
             master.addUndoRedoListener(8, undoRedoListener);
         }
+
+        // Timer für ParseState-Refresh (pollt alle 200ms den Hintergrund-Parser)
+        parseRefreshTimer = new Timer(200, e -> refreshParseStates());
+        parseRefreshTimer.start();
     }
 
     // ========== TreeFocusListener Implementation ==========
@@ -400,6 +410,86 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     @Override
     public JackTreeModel getModel() {
         return (JackTreeModel) jtree.getModel();
+    }
+
+    /**
+     * Stops the parse refresh timer. Should be called when the editor tab
+     * is closed or hidden.
+     */
+    public void stopParseRefreshTimer() {
+        if (parseRefreshTimer != null) {
+            parseRefreshTimer.stop();
+        }
+    }
+
+    /**
+     * Starts the parse refresh timer if it was stopped.
+     */
+    public void startParseRefreshTimer() {
+        if (parseRefreshTimer != null && !parseRefreshTimer.isRunning()) {
+            parseRefreshTimer.start();
+        }
+    }
+
+    /**
+     * Activates or deactivates the parse refresh timer based on whether
+     * this editor tab is currently visible.
+     *
+     * @param active true to start the timer, false to stop it
+     */
+    public void setParseTimerActive(boolean active) {
+        if (active) {
+            startParseRefreshTimer();
+        } else {
+            stopParseRefreshTimer();
+        }
+    }
+
+    /**
+     * Polls the EditTree for ParseState changes and triggers node repaints
+     * for nodes whose state has changed since the last tick.
+     */
+    private void refreshParseStates() {
+        JackTreeModel model = getModel();
+        if (model == null) {
+            return;
+        }
+        EditTree editTree = model.getEditTree();
+        if (editTree == null) {
+            return;
+        }
+        EditNodeAbstract root = editTree.getRoot();
+        if (root == null) {
+            return;
+        }
+        checkNodeChanged(root, model);
+    }
+
+    /**
+     * Recursively checks a node and its children for ParseState changes.
+     * If a node's ParseState has changed, the corresponding Swing node is
+     * repainted via model.nodeChanged().
+     */
+    private void checkNodeChanged(EditNodeAbstract node, JackTreeModel model) {
+        if (node == null) {
+            return;
+        }
+        Long id = node.getEditId();
+        ParseState current = node.getParseState();
+        ParseState last = lastParseStates.get(id);
+        if (last != current) {
+            lastParseStates.put(id, current);
+            DefaultMutableTreeNode swingNode = model.findNodeByIdAndRange(
+                    node.getEditId(), node.getLeftRange(), node.getTimesRange());
+            if (swingNode != null) {
+                model.nodeChanged(swingNode);
+            }
+        }
+        for (EditNode child : node.getChildren()) {
+            if (child instanceof EditNodeAbstract absChild) {
+                checkNodeChanged(absChild, model);
+            }
+        }
     }
 
     JPanel getHeaderPanel() {

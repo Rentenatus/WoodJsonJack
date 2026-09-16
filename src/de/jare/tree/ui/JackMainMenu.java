@@ -8,7 +8,6 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
-import de.jare.jsoncasted.editor.core.JsonTreeConverter;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.tree.control.JackMasterControl;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
@@ -22,7 +21,6 @@ import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import java.awt.event.KeyEvent;
 import java.io.File;
-import java.io.IOException;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -31,6 +29,7 @@ public class JackMainMenu extends JMenuBar {
 
     private final WoodWindow woodWindow;
     private final JackMasterControl master;
+    private final JackMainActions mainActions;
     private final JMenuItem pasteItem;
     private final JMenuItem pasteUnderneathItem;
     private final JMenuItem deleteNodeItem;
@@ -43,6 +42,7 @@ public class JackMainMenu extends JMenuBar {
     public JackMainMenu(WoodWindow mainFrame, JackMasterControl master) {
         this.woodWindow = mainFrame;
         this.master = master;
+        this.mainActions = new JackMainActions(mainFrame, master);
 
         // Projekt-Menü
         JMenu projectMenu = new JMenu("Projekt");
@@ -95,6 +95,11 @@ public class JackMainMenu extends JMenuBar {
         editMenu.add(addNodeItem);
         editMenu.add(deleteNodeItem);
         editMenu.add(renameNodeItem);
+        editMenu.addSeparator();
+
+        JMenuItem reparseItem = new JMenuItem("Re-parse Types");
+        reparseItem.addActionListener(e -> triggerReparse());
+        editMenu.add(reparseItem);
 
         JMenu optionsMenu = new JMenu("Options");
         JMenuItem preferencesItem = new JMenuItem("Preferences");
@@ -189,6 +194,24 @@ public class JackMainMenu extends JMenuBar {
         woodWindow.openPreferences();
     }
 
+    private void triggerReparse() {
+        if (lastSelectedEditor instanceof JackEditTree editTree) {
+            EditTree tree = editTree.getModel().getEditTree();
+            if (tree != null && tree.isParserRunning()) {
+                tree.triggerFullReparse();
+                JOptionPane.showMessageDialog(woodWindow,
+                        "Re-parsing gestartet. Status in der Baumansicht beobachten.",
+                        "Reparsing",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(woodWindow,
+                        "Kein aktiver Parser für diesen Editor.",
+                        "Reparsing",
+                        JOptionPane.WARNING_MESSAGE);
+            }
+        }
+    }
+
     private void openJsonFile() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileFilter(new FileNameExtensionFilter("JSON Files", "json"));
@@ -197,27 +220,7 @@ public class JackMainMenu extends JMenuBar {
         int result = fileChooser.showOpenDialog(woodWindow);
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
-            loadJsonFile(selectedFile);
-        }
-    }
-
-    private void loadJsonFile(File file) {
-        try {
-            EditTree tree = JsonTreeConverter.fromJsonFile(file);
-            if (tree == null) {
-                return;
-            }
-            EditNode rootNode = tree.getRoot();
-            if (rootNode == null) {
-                return;
-            }
-            woodWindow.addEditorTab(file, tree);
-
-        } catch (IOException | JsonParseException e) {
-            JOptionPane.showMessageDialog(woodWindow,
-                    "Fehler beim Öffnen der Datei: " + e.getMessage(),
-                    "Fehler",
-                    JOptionPane.ERROR_MESSAGE);
+            mainActions.loadJsonFile(selectedFile);
         }
     }
 
