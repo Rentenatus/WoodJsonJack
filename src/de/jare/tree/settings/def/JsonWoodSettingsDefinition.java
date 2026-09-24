@@ -110,16 +110,13 @@ public class JsonWoodSettingsDefinition implements JsonItemDefinition {
         woodSettingsRoot.addField("knownProjects", projektEntry, LIST);
         woodSettingsRoot.addField("agentPreferences", agentPreferences);
         woodSettingsRoot.addField("userPreferences", userPreferences);
+
+        model.setRootNodeCast(woodSettingsRoot.getcName());
     }
 
     @Override
     public JsonModel getModel() {
         return model;
-    }
-
-    @Override
-    public JsonClass getRootClass() {
-        return woodSettingsRoot;
     }
 
     public JsonClass getThemeSuiteRoot() {
