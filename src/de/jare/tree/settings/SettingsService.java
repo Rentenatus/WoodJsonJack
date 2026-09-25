@@ -6,7 +6,6 @@
  */
 package de.jare.tree.settings;
 
-import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.io.JsonObjectWriter;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.JsonParser;
@@ -15,7 +14,7 @@ import de.jare.jsoncasted.io.convertservice.WoodResolution;
 import de.jare.jsoncasted.item.JsonItem;
 import de.jare.jsoncasted.item.builder.JsonBuilder;
 import de.jare.jsoncasted.model.JsonBuildException;
-import de.jare.tree.settings.def.JsonConfigDefinition;
+import de.jare.tree.settings.def.JsonWoodSettingsDefinition;
 import de.jare.tree.settings.project.ProjectSettings;
 import de.jare.tree.settings.theme.ThemeSuite;
 import java.io.File;
@@ -30,10 +29,10 @@ import java.util.logging.Logger;
  */
 public class SettingsService {
 
-    private final JsonConfigDefinition definition;
+    private final JsonWoodSettingsDefinition definition;
 
     public SettingsService() {
-        this.definition = JsonConfigDefinition.getInstance();
+        this.definition = JsonWoodSettingsDefinition.getInstance();
     }
 
     private File getUserHomeDir() {
@@ -63,7 +62,7 @@ public class SettingsService {
                 return resetWoodSettings(file);
             }
             try {
-                WoodResolution reso = JsonParser.parse(file, definition, definition.getWoodSettingsRoot());
+                WoodResolution reso = JsonParser.parse(file, definition, definition.getRootClass());
                 if (reso.hasExceptions()) {
                     final List<JsonParseException> exceptions = reso.getUnmodifiableExceptions();
                     for (Exception exception : exceptions) {
@@ -137,7 +136,7 @@ public class SettingsService {
     public void saveWoodSettings(File file, WoodSettings settings)
             throws IOException, JsonParseException, JsonWriteException {
         ensureParentDirectory(file);
-        JsonObjectWriter.write(settings, file, definition, definition.getWoodSettingsRoot());
+        JsonObjectWriter.write(settings, file, definition, definition.getRootClass());
     }
 
     public void saveThemeSuite(File file, ThemeSuite suite) throws IOException, JsonParseException, JsonWriteException {

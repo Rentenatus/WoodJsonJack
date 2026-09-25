@@ -7,6 +7,14 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.settings.WoodSettings;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditStatus;
+import de.jare.jsoncasted.editor.core.ParseState;
+import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -17,7 +25,6 @@ import javax.swing.JTree;
 import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeCellRenderer;
-import de.jare.jsoncasted.editor.core.EditNode;
 
 public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
@@ -69,10 +76,22 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
         panel.setBackground(bg);
         panel.setOpaque(true);
 
-        // Edit-Label bekommt f�r Lesbarkeit die gleiche Grundfarbe wie der Tree
+        // Edit-Label bekommt für Lesbarkeit die gleiche Grundfarbe wie der Tree
         if (!selected) {
             String foreKey = data != null ? "light." + data.getTypeKey() : null;
             editLabel.setForeground(data != null ? WoodSettings.INSTANCE.getShownTheme().getColor(foreKey) : fg);
+
+            // EditStatus-Farbe bei WARNING/ERROR überlagert die TypeKey-Farbe
+            if (data != null) {
+                EditStatus status = data.getEditStatus();
+                if (status == EditStatus.ERROR || status == EditStatus.WARNING) {
+                    String statusKey = "light.fore." + status.getLiteral();
+                    Color statusColor = WoodSettings.INSTANCE.getShownTheme().getColor(statusKey);
+                    if (statusColor != null) {
+                        editLabel.setForeground(statusColor);
+                    }
+                }
+            }
         } else {
             editLabel.setForeground(fg);
         }
@@ -80,7 +99,49 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
                 ? fg
                 : UIManager.getColor("Label.disabledForeground"));
 
+        // Tooltip mit ParseState, EditStatus und Typ-Info
+        if (data != null) {
+            panel.setToolTipText(buildTooltip(data));
+        } else {
+            panel.setToolTipText(null);
+        }
+
         return panel;
+    }
+
+    private String buildTooltip(EditNode data) {
+        StringBuilder sb = new StringBuilder("<html>");
+        sb.append("<b>").append(escapeHtml(data.getName())).append("</b><br>");
+        if (data instanceof EditNodeAbstract absNode) {
+            sb.append("Parse: ").append(absNode.getParseState().getName()).append("<br>");
+        }
+        sb.append("Status: ").append(data.getEditStatus().getName());
+        String msg = data.getEditMessage();
+        if (msg != null && !msg.isEmpty()) {
+            sb.append(" - ").append(escapeHtml(msg));
+        }
+        if (data instanceof EditNodeObject objNode) {
+            JsonTypeDescriptor type = objNode.getJsonType();
+            if (type != null) {
+                sb.append("<br>Typ: ").append(escapeHtml(type.getTypeName()));
+            }
+        } else if (data instanceof EditNodeProperty propNode) {
+            JsonFieldDescriptor field = propNode.getJsonField();
+            if (field != null) {
+                sb.append("<br>Feld: ").append(escapeHtml(field.getFieldName()));
+            }
+        }
+        sb.append("</html>");
+        return sb.toString();
+    }
+
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;");
     }
 
 }

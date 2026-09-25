@@ -10,20 +10,21 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditNodePropertyArr;
+import de.jare.jsoncasted.editor.core.EditStatus;
 
 public interface AScheme {
 
-    public static final String LIGHT_FORE_OKAY = "light.fore." + EditNode.EDIT_OKAY;
-    public static final String LIGHT_FORE_WARNING = "light.fore." + EditNode.EDIT_WARNING;
-    public static final String LIGHT_FORE_ERROR = "light.fore." + EditNode.EDIT_ERROR;
+    public static final String LIGHT_FORE_OKAY = "light.fore." + EditStatus.OKAY.getLiteral();
+    public static final String LIGHT_FORE_WARNING = "light.fore." + EditStatus.WARNING.getLiteral();
+    public static final String LIGHT_FORE_ERROR = "light.fore." + EditStatus.ERROR.getLiteral();
 
     public static final String LIGHT_FORE_OBJECT = "light." + EditNodeObject.FOREOBJECT;
     public static final String LIGHT_FORE_PROPERTY = "light." + EditNodeProperty.FOREPROPERTY;
     public static final String LIGHT_FORE_ARRAY = "light." + EditNodePropertyArr.FOREARRAY;
 
-    public static final String DARK_FORE_OKAY = "dark.fore." + EditNode.EDIT_OKAY;
-    public static final String DARK_FORE_WARNING = "dark.fore." + EditNode.EDIT_WARNING;
-    public static final String DARK_FORE_ERROR = "dark.fore." + EditNode.EDIT_ERROR;
+    public static final String DARK_FORE_OKAY = "dark.fore." + EditStatus.OKAY.getLiteral();
+    public static final String DARK_FORE_WARNING = "dark.fore." + EditStatus.WARNING.getLiteral();
+    public static final String DARK_FORE_ERROR = "dark.fore." + EditStatus.ERROR.getLiteral();
 
     public static final String DARK_FORE_OBJECT = "dark." + EditNodeObject.FOREOBJECT;
     public static final String DARK_FORE_PROPERTY = "dark." + EditNodeProperty.FOREPROPERTY;

@@ -25,11 +25,11 @@ import de.jare.tree.settings.theme.*;
 import java.awt.Color;
 import java.awt.Font;
 
-public class JsonConfigDefinition implements JsonItemDefinition {
+public class JsonWoodSettingsDefinition implements JsonItemDefinition {
 
-    public static final JsonConfigDefinition INSTANCE = new JsonConfigDefinition();
+    public static final JsonWoodSettingsDefinition INSTANCE = new JsonWoodSettingsDefinition();
 
-    public static JsonConfigDefinition getInstance() {
+    public static JsonWoodSettingsDefinition getInstance() {
         return INSTANCE;
     }
 
@@ -39,7 +39,7 @@ public class JsonConfigDefinition implements JsonItemDefinition {
     private final JsonClass themeSuiteRoot;
     private final JsonClass projectSettingsRoot;
 
-    public JsonConfigDefinition() {
+    public JsonWoodSettingsDefinition() {
         model = new JsonModel("Wood");
         model.addBasicModel();
 
@@ -110,15 +110,13 @@ public class JsonConfigDefinition implements JsonItemDefinition {
         woodSettingsRoot.addField("knownProjects", projektEntry, LIST);
         woodSettingsRoot.addField("agentPreferences", agentPreferences);
         woodSettingsRoot.addField("userPreferences", userPreferences);
+
+        model.setRootNodeCast(woodSettingsRoot.getcName());
     }
 
     @Override
     public JsonModel getModel() {
         return model;
-    }
-
-    public JsonClass getWoodSettingsRoot() {
-        return woodSettingsRoot;
     }
 
     public JsonClass getThemeSuiteRoot() {
