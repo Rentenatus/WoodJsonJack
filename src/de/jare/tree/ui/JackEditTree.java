@@ -24,6 +24,7 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.jsoncasted.editor.core.ParseState;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
@@ -48,16 +49,11 @@ import javax.swing.tree.*;
 
 public class JackEditTree extends JPanel implements TreeFocusComponent {
 
-    private static final String[] PARSE_MODES = {"without semantics", "soft parse", "hard parse"};
-    private static final int PARSE_MODE_WITHOUT_SEMANTICS = 0;
-    private static final int PARSE_MODE_SOFT_PARSE = 1;
-    private static final int PARSE_MODE_HARD_PARSE = 2;
-
     private final JackMasterControl master;
     private final JTree jtree;
     private final JPanel headerPanel;
     private final JLabel resourceLabel;
-    private final JComboBox<String> parseModeBox;
+    private final JComboBox<ParseMode> parseModeBox;
     private final JCheckBox linkCheckBox;
 
     private final TreeFocusListenerImpl treeFocusListener;
@@ -95,8 +91,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         leftPanel.add(resourceLabel);
 
         // Combo für den Parse-Modus
-        parseModeBox = new JComboBox<>(PARSE_MODES);
-        parseModeBox.setSelectedIndex(PARSE_MODE_WITHOUT_SEMANTICS);
+        parseModeBox = new JComboBox<>(ParseMode.values());
+        parseModeBox.setSelectedItem(ParseMode.WITHOUT_SEMANTICS);
         parseModeBox.setEnabled(false);
         parseModeBox.addActionListener(e -> onParseModeSelected());
         leftPanel.add(parseModeBox);
@@ -535,42 +531,51 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                 : null;
         if (descriptor != null) {
             resourceLabel.setText(providerName + "; model = " + descriptor.getModelName());
-            if (parseModeBox.getSelectedIndex() == PARSE_MODE_WITHOUT_SEMANTICS) {
-                parseModeBox.setSelectedIndex(PARSE_MODE_SOFT_PARSE);
-            }
+            parseModeBox.setSelectedItem(editTree != null ? editTree.getParseMode() : ParseMode.SOFT_PARSE);
             parseModeBox.setEnabled(true);
         } else {
             resourceLabel.setText(providerName + "; no model");
-            parseModeBox.setSelectedIndex(PARSE_MODE_WITHOUT_SEMANTICS);
+            parseModeBox.setSelectedItem(ParseMode.WITHOUT_SEMANTICS);
             parseModeBox.setEnabled(false);
         }
     }
 
     /**
-     * Handles parse mode selections. "hard parse" is only accepted when
-     * every node of the tree has the edit status OKAY; otherwise the
-     * offending nodes are published as "parse problems" to the search
-     * results, an error message asks the user to fix the parse errors
-     * first, and the combo falls back to "soft parse".
+     * Handles parse mode selections. The selected mode is applied to the
+     * EditTree. "hard parse" is only accepted when every node of the
+     * tree has the edit status OKAY; otherwise the offending nodes are
+     * published as "parse problems" to the search results, an error
+     * message asks the user to fix the parse errors first, and the combo
+     * falls back to the tree's current mode.
      */
     private void onParseModeSelected() {
-        if (parseModeBox.getSelectedIndex() != PARSE_MODE_HARD_PARSE) {
+        EditTree editTree = getModel().getEditTree();
+        if (editTree == null) {
             return;
         }
-        List<DefaultMutableTreeNode> problems = collectParseProblems();
-        if (problems.isEmpty()) {
+        ParseMode selected = (ParseMode) parseModeBox.getSelectedItem();
+        if (selected == editTree.getParseMode()) {
             return;
         }
-        if (master != null) {
-            master.fireParseProblems(this, problems);
+        if (selected == ParseMode.HARD_PARSE) {
+            List<DefaultMutableTreeNode> problems = collectParseProblems();
+            if (!problems.isEmpty()) {
+                if (master != null) {
+                    master.fireParseProblems(this, problems);
+                }
+                JOptionPane.showMessageDialog(this,
+                        "Hard parse requires the tree to be parsed completely without errors.\n"
+                        + "The " + problems.size() + " parse problems are listed in the search results.\n"
+                        + "Please fix the parse errors first.",
+                        "Hard parse",
+                        JOptionPane.WARNING_MESSAGE);
+                parseModeBox.setSelectedItem(editTree.getParseMode());
+                return;
+            }
         }
-        JOptionPane.showMessageDialog(this,
-                "Hard parse requires the tree to be parsed completely without errors.\n"
-                + "The " + problems.size() + " parse problems are listed in the search results.\n"
-                + "Please fix the parse errors first.",
-                "Hard parse",
-                JOptionPane.WARNING_MESSAGE);
-        parseModeBox.setSelectedIndex(PARSE_MODE_SOFT_PARSE);
+        if (!editTree.setParseMode(selected)) {
+            parseModeBox.setSelectedItem(editTree.getParseMode());
+        }
     }
 
     /**
