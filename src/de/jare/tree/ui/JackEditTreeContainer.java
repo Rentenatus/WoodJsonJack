@@ -36,7 +36,6 @@ public class JackEditTreeContainer extends JPanel {
     public JackEditTreeContainer(JackMasterControl master, String leftRootName, String rightRootName, String... propNames) {
         this.leftTree = new JackEditTree(master, leftRootName, propNames);
         this.rightTree = new JackEditTree(master, rightRootName, propNames);
-        this.rightTree.setResourceInfo("Keine abhängige Ressourcen.");
         this.rightTree.setReadonly(true);
         
         this.leftTree.getLinkCheckBox().addActionListener(
@@ -111,24 +110,6 @@ public class JackEditTreeContainer extends JPanel {
      */
     public JackEditTree getRightTree() {
         return rightTree;
-    }
-
-    /**
-     * Setzt den Text für die Ressourceninfo im linken Baum.
-     *
-     * @param text Der Text für die Ressourceninfo.
-     */
-    public void setLeftResourceInfo(String text) {
-        leftTree.setResourceInfo(text);
-    }
-
-    /**
-     * Setzt den Text für die Ressourceninfo im rechten Baum.
-     *
-     * @param text Der Text für die Ressourceninfo.
-     */
-    public void setRightResourceInfo(String text) {
-        rightTree.setResourceInfo(text);
     }
 
     /**

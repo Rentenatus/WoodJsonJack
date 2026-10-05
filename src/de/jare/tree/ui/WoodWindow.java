@@ -10,6 +10,7 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -169,6 +170,14 @@ public class WoodWindow extends JFrame {
 
         // Register search listener to switch to Search result tab when search is performed
         searchToolbar.addSearchListener((criteria, results) -> {
+            bottomTabs.setSelectedIndex(bottomTabs.indexOfTab(TAB_SEARCH_RESULT));
+        });
+
+        // Register parse problems listener to display problems in the Search result tab
+        jackmaster.addParseProblemsListener(searchResultPanel);
+
+        // Switch to Search result tab when parse problems are published
+        jackmaster.addParseProblemsListener((source, nodes) -> {
             bottomTabs.setSelectedIndex(bottomTabs.indexOfTab(TAB_SEARCH_RESULT));
         });
 
@@ -405,12 +414,13 @@ public class WoodWindow extends JFrame {
     public void addEditorTab(File file, EditTree tree) {
         JackEditTreeContainer newContainer = new JackEditTreeContainer(
                 jackmaster,
-                file.getName(),
-                file.getName()
+                THIS_SYNONYM,
+                THIS_SYNONYM
         );
         // Setze das geladene EditTree im linken Baum
         JackTreeModel model = new JackTreeModel(tree);
         newContainer.getLeftTree().getTree().setModel(model);
+        newContainer.getLeftTree().refreshResourceInfo();
         // newContainer.getLeftTree().getModel().rebuildFromDomain();
 
         addEditorTab(file, newContainer);

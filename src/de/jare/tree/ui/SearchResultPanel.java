@@ -9,6 +9,7 @@ package de.jare.tree.ui;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.listeners.ParseProblemsListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.model.JackTreeModel;
@@ -30,7 +31,7 @@ import javax.swing.tree.TreePath;
 /**
  * Panel for displaying search results in a table with navigation history.
  */
-public class SearchResultPanel extends JPanel implements TreeFocusListener, SearchToolbar.SearchListener {
+public class SearchResultPanel extends JPanel implements TreeFocusListener, SearchToolbar.SearchListener, ParseProblemsListener {
 
     private final JackMasterControl master;
     private final JLabel searchLabel;
@@ -466,6 +467,19 @@ public class SearchResultPanel extends JPanel implements TreeFocusListener, Sear
                 tree.scrollPathToVisible(path);
             }
         }
+    }
+
+    /**
+     * Shows the given parse problems in the search results table, reusing
+     * the search result display.
+     *
+     * @param source the editor tree that contains the nodes
+     * @param nodes the tree nodes whose edit status is not OKAY
+     */
+    @Override
+    public void onParseProblems(TreeFocusComponent source, List<DefaultMutableTreeNode> nodes) {
+        SearchResults results = new SearchResults("Parse problems: edit status not okay", nodes, source);
+        onSearch(null, results);
     }
 
     @Override
