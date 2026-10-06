@@ -139,6 +139,18 @@ public class SettingsService {
         JsonObjectWriter.write(settings, file, definition, definition.getRootClass());
     }
 
+    /**
+     * Saves the wood settings into the settings file of the user home directory.
+     *
+     * @param settings the settings to persist
+     * @throws IOException when the file cannot be written
+     * @throws JsonWriteException when the settings cannot be serialized
+     */
+    public void saveWoodSettings(WoodSettings settings)
+            throws IOException, JsonWriteException, JsonParseException {
+        saveWoodSettings(getWoodSettingsFile(), settings);
+    }
+
     public void saveThemeSuite(File file, ThemeSuite suite) throws IOException, JsonParseException, JsonWriteException {
         ensureParentDirectory(file);
         JsonObjectWriter.write(suite, file, definition, definition.getThemeSuiteRoot());

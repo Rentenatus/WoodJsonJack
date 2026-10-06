@@ -7,6 +7,8 @@
 package de.jare.tree.ui.settings;
 
 import de.jare.tree.settings.theme.ColorScheme;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import javax.swing.BorderFactory;
 import java.awt.*;
 import java.util.*;
@@ -45,16 +47,84 @@ public class ThemesPreferencesColorTable extends JPanel {
         // Add context menu
         setupContextMenu();
 
+        // Double click on a row opens the color chooser
+        colorsTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent evt) {
+                if (evt.getClickCount() == 2) {
+                    int row = colorsTable.rowAtPoint(evt.getPoint());
+                    if (row >= 0) {
+                        openColorChooser(row);
+                    }
+                }
+            }
+        });
+
         buildUi();
     }
 
     private void setupContextMenu() {
         popupMenu = new JPopupMenu();
 
+        JMenuItem chooseColorItem = new JMenuItem("Choose color...");
+        chooseColorItem.addActionListener(e -> {
+            int row = colorsTable.getSelectedRow();
+            if (row >= 0) {
+                openColorChooser(row);
+            }
+        });
+        popupMenu.add(chooseColorItem);
+        popupMenu.addSeparator();
+
         colorsTable.setComponentPopupMenu(popupMenu);
 
         // Update enabled state based on current state
         updateMenuItemsEnabledState();
+    }
+
+    /**
+     * Opens a color chooser for the scheme key of the given row. The chosen color is applied
+     * to the scheme, the table row and all listeners (work theme and preview).
+     *
+     * @param row the table row holding the scheme key to edit
+     */
+    void openColorChooser(int row) {
+        if (currentColorScheme == null || row < 0 || row >= colorsTableModel.getRowCount()) {
+            return;
+        }
+        final String key = String.valueOf(colorsTableModel.getValueAt(row, 0));
+        final Color current = (Color) colorsTableModel.getValueAt(row, 2);
+        final Color chosen = JColorChooser.showDialog(this, "Choose color for " + key, current);
+        if (chosen != null) {
+            applyColor(row, chosen);
+        }
+    }
+
+    /**
+     * Applies the given color to the scheme key of the row, updates the table row and
+     * notifies the color table listener and the change listener.
+     *
+     * @param row the table row holding the scheme key
+     * @param chosen the color to set
+     */
+    void applyColor(int row, Color chosen) {
+        if (currentColorScheme == null || chosen == null || row < 0 || row >= colorsTableModel.getRowCount()) {
+            return;
+        }
+        final String key = String.valueOf(colorsTableModel.getValueAt(row, 0));
+        currentColorScheme.setColor(key, chosen);
+        colorsTableModel.setValueAt(ColorScheme.colorToHex(chosen), row, 1);
+        colorsTableModel.setValueAt(chosen, row, 2);
+        notifyListeners();
+    }
+
+    private void notifyListeners() {
+        if (colorTableListener != null) {
+            colorTableListener.onColorsUpdated(currentColorScheme);
+        }
+        if (changeListener != null) {
+            changeListener.stateChanged(new javax.swing.event.ChangeEvent(this));
+        }
     }
 
     public void addPopupMenuItem(JMenuItem groupColorsItem) {
@@ -79,6 +149,7 @@ public class ThemesPreferencesColorTable extends JPanel {
     }
 
     private void buildUi() {
+        colorsTable.setToolTipText("Double-click a row to choose its color");
         JScrollPane colorsScrollPane = new JScrollPane(colorsTable);
         colorsScrollPane.setBorder(BorderFactory.createTitledBorder("Colors"));
         colorsScrollPane.setMinimumSize(new Dimension(180, 120));
@@ -108,14 +179,7 @@ public class ThemesPreferencesColorTable extends JPanel {
         // Update menu items enabled state
         updateMenuItemsEnabledState();
 
-        if (colorTableListener != null) {
-            colorTableListener.onColorsUpdated(colorScheme);
-        }
-
-        // Notify change listener
-        if (changeListener != null) {
-            changeListener.stateChanged(new javax.swing.event.ChangeEvent(this));
-        }
+        notifyListeners();
     }
 
     public DefaultTableModel getColorsTableModel() {

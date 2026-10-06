@@ -54,7 +54,7 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
         if (data != null) {
             editLabel.setText(data.getName());
-            String foreKey = "light." + data.getTypeKey();
+            String foreKey = WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey();
             editLabel.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
             infoLabel.setText(data.rightString() + " ");
         } else {
@@ -78,14 +78,16 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
         // Edit-Label bekommt für Lesbarkeit die gleiche Grundfarbe wie der Tree
         if (!selected) {
-            String foreKey = data != null ? "light." + data.getTypeKey() : null;
+            String foreKey = data != null
+                    ? WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey() : null;
             editLabel.setForeground(data != null ? WoodSettings.INSTANCE.getShownTheme().getColor(foreKey) : fg);
 
             // EditStatus-Farbe bei WARNING/ERROR überlagert die TypeKey-Farbe
             if (data != null) {
                 EditStatus status = data.getEditStatus();
                 if (status == EditStatus.ERROR || status == EditStatus.WARNING) {
-                    String statusKey = "light.fore." + status.getLiteral();
+                    String statusKey = WoodSettings.INSTANCE.getColorPrefix()
+                            + "fore." + status.getLiteral();
                     Color statusColor = WoodSettings.INSTANCE.getShownTheme().getColor(statusKey);
                     if (statusColor != null) {
                         editLabel.setForeground(statusColor);

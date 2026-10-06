@@ -107,6 +107,9 @@ public class JsonWoodSettingsDefinition implements JsonItemDefinition {
 
         woodSettingsRoot = model.newJsonReflect(WoodSettings.class);
         woodSettingsRoot.addField("themeId", asString);
+        woodSettingsRoot.addField("lightLaf", asString);
+        woodSettingsRoot.addField("darkLaf", asString);
+        woodSettingsRoot.addField("darkMode", asBoolean);
         woodSettingsRoot.addField("knownProjects", projektEntry, LIST);
         woodSettingsRoot.addField("agentPreferences", agentPreferences);
         woodSettingsRoot.addField("userPreferences", userPreferences);

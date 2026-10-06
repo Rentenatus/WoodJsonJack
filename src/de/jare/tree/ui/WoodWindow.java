@@ -9,6 +9,8 @@ package de.jare.tree.ui;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.io.JsonParseException;
+import de.jare.jsoncasted.io.JsonWriteException;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
 import de.jare.tree.control.JackMasterControl;
@@ -17,17 +19,21 @@ import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.model.JackTreeModel;
 import de.jare.tree.settings.SettingsService;
 import de.jare.tree.settings.WoodSettings;
-import de.jare.tree.settings.WoodSettings;
+import de.jare.tree.settings.theme.LafCatalog;
 import de.jare.tree.settings.theme.ThemeSuite;
 import de.jare.tree.ui.settings.PreferencesDialog;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
@@ -52,6 +58,7 @@ public class WoodWindow extends JFrame {
     private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
     private final Map<JackEditTreeContainer, File> editorFiles = new HashMap<>();
     private PreferencesDialog preferencesDialog;
+    private final List<Consumer<Boolean>> darkModeListeners = new ArrayList<>();
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
     private SearchResultPanel searchResultPanel;
@@ -59,7 +66,9 @@ public class WoodWindow extends JFrame {
 
     public WoodWindow() {
         settingsService = new SettingsService();
-        settings = settingsService.loadWoodSettings(false);
+        WoodSettings loaded = settingsService.loadWoodSettings(false);
+        WoodSettings.INSTANCE.adopt(loaded);
+        settings = WoodSettings.INSTANCE;
         themeSuite = settingsService.loadThemeSuite(false);
         settings.useThemeSuite(themeSuite);
         jackmaster = new JackMasterControl();
@@ -342,7 +351,8 @@ public class WoodWindow extends JFrame {
                     || status == EditStatus.WARNING
                     || status == EditStatus.OKAY)
                             ? (WoodSettings.INSTANCE.getShownTheme()
-                                    .getColor("light.fore." + status.getLiteral()))
+                                    .getColor(WoodSettings.INSTANCE.getColorPrefix()
+                                            + "fore." + status.getLiteral()))
                             : null;
             if (statusColor != null) {
                 c.setForeground(statusColor);
@@ -399,11 +409,55 @@ public class WoodWindow extends JFrame {
 
     public void openPreferences() {
         if (preferencesDialog == null) {
-            preferencesDialog = new PreferencesDialog(this, settings, themeSuite);
+            preferencesDialog = new PreferencesDialog(this, settings, themeSuite, settingsService);
         }
 
         preferencesDialog.setVisible(true);
         preferencesDialog.toFront();
+    }
+
+    /**
+     * Registers a listener that is immediately notified about the current dark mode state and
+     * on every change, so toggle items stay in sync with the preferences.
+     *
+     * @param listener receives true when the dark mode is active
+     */
+    public void addDarkModeListener(Consumer<Boolean> listener) {
+        darkModeListeners.add(listener);
+        listener.accept(settings.isDarkMode());
+    }
+
+    public boolean isDarkMode() {
+        return settings.isDarkMode();
+    }
+
+    /**
+     * Switches the color mode: installs the look and feel of the target mode, refreshes all
+     * windows and persists the switch, so it survives a restart.
+     *
+     * @param darkMode true for dark, false for light
+     */
+    public void setDarkMode(boolean darkMode) {
+        if (settings.isDarkMode() == darkMode) {
+            return;
+        }
+        settings.setDarkMode(darkMode);
+        LafCatalog.apply(settings);
+        persistSettings();
+        for (Consumer<Boolean> listener : darkModeListeners) {
+            listener.accept(darkMode);
+        }
+    }
+
+    /**
+     * Persists the wood settings, e.g. after a mode or theme switch.
+     */
+    public void persistSettings() {
+        try {
+            settingsService.saveWoodSettings(settings);
+        } catch (IOException | JsonParseException | JsonWriteException ex) {
+            Logger.getGlobal().log(Level.SEVERE, "Could not save wood settings: ", ex);
+        }
     }
 
     /**
