@@ -54,6 +54,10 @@
       "primitive": false,
       "reflective": false,
       "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }, 
+        {
           "name": "hint",
           "transientFlag": false
         }, 
@@ -64,7 +68,7 @@
         ]
     },
     "de.jare.jsoncasted.lang.JsonInstance<String>": {
-      "_woodObjectId": 11,
+      "_woodObjectId": 12,
       "typeName": "de.jare.jsoncasted.lang.JsonInstance<String>",
       "implementors": [
         ],
@@ -77,15 +81,18 @@
       "primitive": false,
       "reflective": false,
       "mappingAllFields": {
-        "_woodObjectId": 12,
+        "_woodObjectId": 13,
         "typeName": "String",
         "collectionType": "none"
       },
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "double": {
-      "_woodObjectId": 13,
+      "_woodObjectId": 15,
       "typeName": "double",
       "implementors": [
         ],
@@ -97,11 +104,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "de.jare.jsoncasted.lang.JsonInstance<String>[]": {
-      "_woodObjectId": 14,
+      "_woodObjectId": 17,
       "typeName": "de.jare.jsoncasted.lang.JsonInstance<String>[]",
       "implementors": [
         ],
@@ -114,15 +124,18 @@
       "primitive": false,
       "reflective": false,
       "mappingAllFields": {
-        "_woodObjectId": 15,
+        "_woodObjectId": 18,
         "typeName": "String",
         "collectionType": "array"
       },
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "String": {
-      "_woodObjectId": 16,
+      "_woodObjectId": 20,
       "typeName": "String",
       "implementors": [
         ],
@@ -134,11 +147,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "float": {
-      "_woodObjectId": 17,
+      "_woodObjectId": 22,
       "typeName": "float",
       "implementors": [
         ],
@@ -150,11 +166,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "de.jare.jsonconfig.item.ConfigLogging": {
-      "_woodObjectId": 18,
+      "_woodObjectId": 24,
       "typeName": "de.jare.jsonconfig.item.ConfigLogging",
       "implementors": [
         ],
@@ -187,11 +206,14 @@
       "skippingNulls": false,
       "primitive": false,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "de.jare.jsonconfig.item.ConfigProfileType": {
-      "_woodObjectId": 21,
+      "_woodObjectId": 28,
       "typeName": "de.jare.jsonconfig.item.ConfigProfileType",
       "implementors": [
         ],
@@ -203,11 +225,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "Double": {
-      "_woodObjectId": 22,
+      "_woodObjectId": 30,
       "typeName": "Double",
       "implementors": [
         ],
@@ -219,11 +244,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "int": {
-      "_woodObjectId": 23,
+      "_woodObjectId": 32,
       "typeName": "int",
       "implementors": [
         ],
@@ -235,11 +263,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "long": {
-      "_woodObjectId": 24,
+      "_woodObjectId": 34,
       "typeName": "long",
       "implementors": [
         ],
@@ -251,11 +282,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "de.jare.jsoncasted.lang.JsonInstance<Boolean>": {
-      "_woodObjectId": 25,
+      "_woodObjectId": 36,
       "typeName": "de.jare.jsoncasted.lang.JsonInstance<Boolean>",
       "implementors": [
         ],
@@ -268,15 +302,18 @@
       "primitive": false,
       "reflective": false,
       "mappingAllFields": {
-        "_woodObjectId": 26,
+        "_woodObjectId": 37,
         "typeName": "Boolean",
         "collectionType": "none"
       },
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "Integer": {
-      "_woodObjectId": 27,
+      "_woodObjectId": 39,
       "typeName": "Integer",
       "implementors": [
         ],
@@ -288,11 +325,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "Float": {
-      "_woodObjectId": 28,
+      "_woodObjectId": 41,
       "typeName": "Float",
       "implementors": [
         ],
@@ -304,11 +344,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "de.jare.jsonconfig.item.ConfigProfile": {
-      "_woodObjectId": 29,
+      "_woodObjectId": 43,
       "typeName": "de.jare.jsonconfig.item.ConfigProfile",
       "implementors": [
         ],
@@ -374,11 +417,14 @@
       "skippingNulls": false,
       "primitive": false,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "boolean": {
-      "_woodObjectId": 35,
+      "_woodObjectId": 50,
       "typeName": "boolean",
       "implementors": [
         ],
@@ -390,11 +436,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "Long": {
-      "_woodObjectId": 36,
+      "_woodObjectId": 52,
       "typeName": "Long",
       "implementors": [
         ],
@@ -406,11 +455,14 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "de.jare.jsonconfig.item.ConfigFeature": {
-      "_woodObjectId": 37,
+      "_woodObjectId": 54,
       "typeName": "de.jare.jsonconfig.item.ConfigFeature",
       "implementors": [
         ],
@@ -487,11 +539,14 @@
       "skippingNulls": false,
       "primitive": false,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     },
     "Object": {
-      "_woodObjectId": 44,
+      "_woodObjectId": 62,
       "typeName": "Object",
       "implementors": [
         ],
@@ -507,7 +562,7 @@
         ]
     },
     "Boolean": {
-      "_woodObjectId": 45,
+      "_woodObjectId": 63,
       "typeName": "Boolean",
       "implementors": [
         ],
@@ -519,7 +574,10 @@
       "skippingNulls": false,
       "primitive": true,
       "reflective": false,
-      "annotations": [
+      "annotations": [{
+          "name": "doc:*",
+          "transientFlag": false
+        }
         ]
     }
   },

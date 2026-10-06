@@ -31,7 +31,7 @@
         "Das ist das main Profile."
       ],
       "@doc:profile": [
-        "Field annotation on the profile field, undeclared - tolerated."
+        "Field annotation on the profile field, declared by the field doc default."
       ],
       profileLogging: {
         path: "seeddata/status/"
