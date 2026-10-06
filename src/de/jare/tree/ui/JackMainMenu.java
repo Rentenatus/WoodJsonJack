@@ -56,6 +56,8 @@ public class JackMainMenu extends JMenuBar {
 
         exitItem.addActionListener(e -> woodWindow.dispose());
         openItem.addActionListener(e -> openJsonFile());
+        saveItem.addActionListener(e -> mainActions.saveActiveFile());
+        saveAsItem.addActionListener(e -> mainActions.saveActiveFileAs());
 
         projectMenu.add(newItem);
         projectMenu.add(openItem);
@@ -103,10 +105,15 @@ public class JackMainMenu extends JMenuBar {
 
         JMenu optionsMenu = new JMenu("Options");
         JMenuItem preferencesItem = new JMenuItem("Preferences");
+        JCheckBoxMenuItem darkModeItem = new JCheckBoxMenuItem("Dark Mode");
 
         preferencesItem.addActionListener(e -> openPreferences());
+        darkModeItem.addActionListener(e -> woodWindow.setDarkMode(darkModeItem.isSelected()));
+        woodWindow.addDarkModeListener(darkModeItem::setSelected);
 
         optionsMenu.add(preferencesItem);
+        optionsMenu.addSeparator();
+        optionsMenu.add(darkModeItem);
 
         // Info-Menü
         JMenu infoMenu = new JMenu("Info");

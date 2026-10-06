@@ -71,7 +71,7 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
                 && dmtn.getUserObject() instanceof EditNode data) {
             currentData = data;
             textField.setText(text = data.getName());
-            String foreKey = "light." + data.getTypeKey();
+            String foreKey = WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey();
             textField.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
         } else {
             textField.setText(text = "");

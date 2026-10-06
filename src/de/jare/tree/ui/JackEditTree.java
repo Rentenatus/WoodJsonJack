@@ -24,7 +24,10 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.jsoncasted.editor.core.ParseState;
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.ContentListener;
@@ -35,9 +38,11 @@ import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
 import de.jare.tree.control.model.JackTreeModel;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.swing.*;
 import javax.swing.tree.*;
@@ -48,6 +53,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     private final JTree jtree;
     private final JPanel headerPanel;
     private final JLabel resourceLabel;
+    private final JComboBox<ParseMode> parseModeBox;
     private final JCheckBox linkCheckBox;
 
     private final TreeFocusListenerImpl treeFocusListener;
@@ -81,8 +87,15 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         headerPanel.add(rightPanel, BorderLayout.EAST);
 
         // Label für Ressourceninfo
-        resourceLabel = new JLabel("this = noname");
+        resourceLabel = new JLabel("this; no model");
         leftPanel.add(resourceLabel);
+
+        // Combo für den Parse-Modus
+        parseModeBox = new JComboBox<>(ParseMode.values());
+        parseModeBox.setSelectedItem(ParseMode.WITHOUT_SEMANTICS);
+        parseModeBox.setEnabled(false);
+        parseModeBox.addActionListener(e -> onParseModeSelected());
+        leftPanel.add(parseModeBox);
 
         // Checkbox für Link-Ansicht
         linkCheckBox = new JCheckBox();
@@ -150,6 +163,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         // Timer für ParseState-Refresh (pollt alle 200ms den Hintergrund-Parser)
         parseRefreshTimer = new Timer(200, e -> refreshParseStates());
         parseRefreshTimer.start();
+
+        refreshResourceInfo();
     }
 
     // ========== TreeFocusListener Implementation ==========
@@ -500,8 +515,108 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         return resourceLabel;
     }
 
-    void setResourceInfo(String text) {
-        resourceLabel.setText(text);
+    /**
+     * Updates the resource label and the parse mode combo from the current
+     * EditTree. The label shows "&lt;provider synonym&gt;; no model" or
+     * "&lt;provider synonym&gt;; model = &lt;model name&gt;". Without a model the combo
+     * shows "without semantics" and is disabled.
+     */
+    public void refreshResourceInfo() {
+        final EditTree editTree = getModel().getEditTree();
+        final String providerName = editTree != null && editTree.getProviderName() != null
+                ? editTree.getProviderName()
+                : THIS_SYNONYM;
+        final JsonModelDescriptor descriptor = editTree != null
+                ? editTree.getJsonModelDescriptor()
+                : null;
+        if (descriptor != null) {
+            resourceLabel.setText(providerName + "; model = " + descriptor.getModelName());
+            parseModeBox.setSelectedItem(editTree != null ? editTree.getParseMode() : ParseMode.SOFT_PARSE);
+            parseModeBox.setEnabled(true);
+        } else {
+            resourceLabel.setText(providerName + "; no model");
+            parseModeBox.setSelectedItem(ParseMode.WITHOUT_SEMANTICS);
+            parseModeBox.setEnabled(false);
+        }
+    }
+
+    /**
+     * Handles parse mode selections. The selected mode is applied to the
+     * EditTree. "hard parse" is only accepted when every node of the
+     * tree has the edit status OKAY; otherwise the offending nodes are
+     * published as "parse problems" to the search results, an error
+     * message asks the user to fix the parse errors first, and the combo
+     * falls back to the tree's current mode.
+     */
+    private void onParseModeSelected() {
+        EditTree editTree = getModel().getEditTree();
+        if (editTree == null) {
+            return;
+        }
+        ParseMode selected = (ParseMode) parseModeBox.getSelectedItem();
+        if (selected == editTree.getParseMode()) {
+            return;
+        }
+        if (selected == ParseMode.HARD_PARSE) {
+            List<DefaultMutableTreeNode> problems = collectParseProblems();
+            if (!problems.isEmpty()) {
+                if (master != null) {
+                    master.fireParseProblems(this, problems);
+                }
+                JOptionPane.showMessageDialog(this,
+                        "Hard parse requires the tree to be parsed completely without errors.\n"
+                        + "The " + problems.size() + " parse problems are listed in the search results.\n"
+                        + "Please fix the parse errors first.",
+                        "Hard parse",
+                        JOptionPane.WARNING_MESSAGE);
+                parseModeBox.setSelectedItem(editTree.getParseMode());
+                return;
+            }
+        }
+        if (!editTree.setParseMode(selected)) {
+            parseModeBox.setSelectedItem(editTree.getParseMode());
+        }
+    }
+
+    /**
+     * Collects the swing nodes of all tree nodes whose edit status is not
+     * OKAY.
+     *
+     * @return the offending nodes, empty when the tree is parsed
+     * completely
+     */
+    private List<DefaultMutableTreeNode> collectParseProblems() {
+        List<DefaultMutableTreeNode> problems = new ArrayList<>();
+        EditTree editTree = getModel().getEditTree();
+        if (editTree != null) {
+            collectNodesNotOkay(editTree.getRoot(), problems);
+        }
+        return problems;
+    }
+
+    /**
+     * Recursively collects the swing nodes of all nodes with an edit
+     * status other than OKAY.
+     *
+     * @param node the node to check together with its children
+     * @param problems the list the offending swing nodes are added to
+     */
+    private void collectNodesNotOkay(EditNodeAbstract node, List<DefaultMutableTreeNode> problems) {
+        if (node == null) {
+            return;
+        }
+        if (node.getEditStatus() != EditStatus.OKAY) {
+            DefaultMutableTreeNode swingNode = getModel().findNodeByIdAndRange(
+                    node.getEditId(), node.getLeftRange(), node.getTimesRange());
+            if (swingNode != null) {
+                problems.add(swingNode);
+            }
+        }
+        for (EditNode child : node.getChildren()) {
+            if (child instanceof EditNodeAbstract absChild) {
+                collectNodesNotOkay(absChild, problems);
+            }
+        }
     }
 
     public boolean isReadonly() {

@@ -9,10 +9,12 @@ package de.jare.tree.control;
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
+import de.jare.tree.control.listeners.ParseProblemsListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
 import javax.swing.tree.DefaultMutableTreeNode;
+import java.util.List;
 
 public class JackMasterControl {
 
@@ -20,6 +22,7 @@ public class JackMasterControl {
     private final Orator<FocusListener> focusOrator = new Orator<>();
     private final Orator<TreeFocusListener> selectionOrator = new Orator<>();
     private final Orator<ContentListener> contentOrator = new Orator<>();
+    private final Orator<ParseProblemsListener> parseProblemsOrator = new Orator<>();
 
     // welcher Editor ist aktuell aktiv (Tab-basiert)?
     private Object activeEditor; // bewusst generisch
@@ -85,6 +88,14 @@ public class JackMasterControl {
         undoMan.removeUndoRedoListener(l);
     }
 
+    public void addParseProblemsListener(ParseProblemsListener l) {
+        parseProblemsOrator.addListener(l);
+    }
+
+    public void removeParseProblemsListener(ParseProblemsListener l) {
+        parseProblemsOrator.removeListener(l);
+    }
+
     // Vom UI (z.B. JTabbedPane) gerufen, wenn ein Tab gewaehlt wird
     public void setActiveEditor(TreeFocusComponent editor, Object trigger) {
         Object previous = this.activeEditor;
@@ -113,6 +124,10 @@ public class JackMasterControl {
 
     public void fireContentCommand(String commandId, Object trigger) {
         contentOrator.say((level, l) -> l.onCommand(commandId, trigger));
+    }
+
+    public void fireParseProblems(TreeFocusComponent source, List<DefaultMutableTreeNode> nodes) {
+        parseProblemsOrator.say((level, l) -> l.onParseProblems(source, nodes));
     }
 
     public Object getActiveEditor() {

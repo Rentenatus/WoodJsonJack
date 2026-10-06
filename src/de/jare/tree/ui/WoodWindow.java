@@ -9,24 +9,31 @@ package de.jare.tree.ui;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.io.JsonParseException;
+import de.jare.jsoncasted.io.JsonWriteException;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.model.JackTreeModel;
 import de.jare.tree.settings.SettingsService;
 import de.jare.tree.settings.WoodSettings;
-import de.jare.tree.settings.WoodSettings;
+import de.jare.tree.settings.theme.LafCatalog;
 import de.jare.tree.settings.theme.ThemeSuite;
 import de.jare.tree.ui.settings.PreferencesDialog;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
@@ -49,7 +56,9 @@ public class WoodWindow extends JFrame {
     private final WoodSettings settings;
     private final ThemeSuite themeSuite;
     private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
+    private final Map<JackEditTreeContainer, File> editorFiles = new HashMap<>();
     private PreferencesDialog preferencesDialog;
+    private final List<Consumer<Boolean>> darkModeListeners = new ArrayList<>();
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
     private SearchResultPanel searchResultPanel;
@@ -57,7 +66,9 @@ public class WoodWindow extends JFrame {
 
     public WoodWindow() {
         settingsService = new SettingsService();
-        settings = settingsService.loadWoodSettings(false);
+        WoodSettings loaded = settingsService.loadWoodSettings(false);
+        WoodSettings.INSTANCE.adopt(loaded);
+        settings = WoodSettings.INSTANCE;
         themeSuite = settingsService.loadThemeSuite(false);
         settings.useThemeSuite(themeSuite);
         jackmaster = new JackMasterControl();
@@ -169,6 +180,14 @@ public class WoodWindow extends JFrame {
 
         // Register search listener to switch to Search result tab when search is performed
         searchToolbar.addSearchListener((criteria, results) -> {
+            bottomTabs.setSelectedIndex(bottomTabs.indexOfTab(TAB_SEARCH_RESULT));
+        });
+
+        // Register parse problems listener to display problems in the Search result tab
+        jackmaster.addParseProblemsListener(searchResultPanel);
+
+        // Switch to Search result tab when parse problems are published
+        jackmaster.addParseProblemsListener((source, nodes) -> {
             bottomTabs.setSelectedIndex(bottomTabs.indexOfTab(TAB_SEARCH_RESULT));
         });
 
@@ -332,7 +351,8 @@ public class WoodWindow extends JFrame {
                     || status == EditStatus.WARNING
                     || status == EditStatus.OKAY)
                             ? (WoodSettings.INSTANCE.getShownTheme()
-                                    .getColor("light.fore." + status.getLiteral()))
+                                    .getColor(WoodSettings.INSTANCE.getColorPrefix()
+                                            + "fore." + status.getLiteral()))
                             : null;
             if (statusColor != null) {
                 c.setForeground(statusColor);
@@ -389,11 +409,55 @@ public class WoodWindow extends JFrame {
 
     public void openPreferences() {
         if (preferencesDialog == null) {
-            preferencesDialog = new PreferencesDialog(this, settings, themeSuite);
+            preferencesDialog = new PreferencesDialog(this, settings, themeSuite, settingsService);
         }
 
         preferencesDialog.setVisible(true);
         preferencesDialog.toFront();
+    }
+
+    /**
+     * Registers a listener that is immediately notified about the current dark mode state and
+     * on every change, so toggle items stay in sync with the preferences.
+     *
+     * @param listener receives true when the dark mode is active
+     */
+    public void addDarkModeListener(Consumer<Boolean> listener) {
+        darkModeListeners.add(listener);
+        listener.accept(settings.isDarkMode());
+    }
+
+    public boolean isDarkMode() {
+        return settings.isDarkMode();
+    }
+
+    /**
+     * Switches the color mode: installs the look and feel of the target mode, refreshes all
+     * windows and persists the switch, so it survives a restart.
+     *
+     * @param darkMode true for dark, false for light
+     */
+    public void setDarkMode(boolean darkMode) {
+        if (settings.isDarkMode() == darkMode) {
+            return;
+        }
+        settings.setDarkMode(darkMode);
+        LafCatalog.apply(settings);
+        persistSettings();
+        for (Consumer<Boolean> listener : darkModeListeners) {
+            listener.accept(darkMode);
+        }
+    }
+
+    /**
+     * Persists the wood settings, e.g. after a mode or theme switch.
+     */
+    public void persistSettings() {
+        try {
+            settingsService.saveWoodSettings(settings);
+        } catch (IOException | JsonParseException | JsonWriteException ex) {
+            Logger.getGlobal().log(Level.SEVERE, "Could not save wood settings: ", ex);
+        }
     }
 
     /**
@@ -405,12 +469,13 @@ public class WoodWindow extends JFrame {
     public void addEditorTab(File file, EditTree tree) {
         JackEditTreeContainer newContainer = new JackEditTreeContainer(
                 jackmaster,
-                file.getName(),
-                file.getName()
+                THIS_SYNONYM,
+                THIS_SYNONYM
         );
         // Setze das geladene EditTree im linken Baum
         JackTreeModel model = new JackTreeModel(tree);
         newContainer.getLeftTree().getTree().setModel(model);
+        newContainer.getLeftTree().refreshResourceInfo();
         // newContainer.getLeftTree().getModel().rebuildFromDomain();
 
         addEditorTab(file, newContainer);
@@ -424,6 +489,7 @@ public class WoodWindow extends JFrame {
      */
     private void addEditorTab(File file, JackEditTreeContainer treeContainer) {
         editorTrees.add(treeContainer);
+        editorFiles.put(treeContainer, file);
         String tabTitle = file != null ? file.getName() : "New Editor";
         JScrollPane scrollPane = new JScrollPane(treeContainer);
         centerTabs.addTab(tabTitle, scrollPane);
@@ -436,6 +502,62 @@ public class WoodWindow extends JFrame {
 
         // Set initial active editor
         jackmaster.setActiveEditor(treeContainer.getLeftTree(), this);
+    }
+
+    /**
+     * Returns the editor container of the currently active editor tab, or { null} when no loaded editor
+     * is active. The fixed empty start editors are not part of the loaded editor list.
+     *
+     * @return the active JackEditTreeContainer, or { null}
+     */
+    public JackEditTreeContainer getActiveContainer() {
+        final Object active = jackmaster.getActiveEditor();
+        if (!(active instanceof JackEditTree)) {
+            return null;
+        }
+        for (JackEditTreeContainer container : editorTrees) {
+            if (container.getLeftTree() == active || container.getRightTree() == active) {
+                return container;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the edit tree of the loaded file of the currently active editor tab. The file content lives in the
+     * left tree of its container, regardless of which side has the focus.
+     *
+     * @return the edit tree of the active editor tab, or { null}
+     */
+    public EditTree getActiveEditTree() {
+        final JackEditTreeContainer container = getActiveContainer();
+        if (container == null || container.getLeftTree() == null || container.getLeftTree().getModel() == null) {
+            return null;
+        }
+        return container.getLeftTree().getModel().getEditTree();
+    }
+
+    /**
+     * Returns the file of the currently active editor tab, or { null} when the tree was not loaded from a
+     * file and has not been saved yet.
+     *
+     * @return the file of the active editor tab, or { null}
+     */
+    public File getActiveFile() {
+        final JackEditTreeContainer container = getActiveContainer();
+        return container == null ? null : editorFiles.get(container);
+    }
+
+    /**
+     * Sets the file of the currently active editor tab, e.g. after a save-as.
+     *
+     * @param file the file to remember for the active editor tab
+     */
+    public void setActiveFile(File file) {
+        final JackEditTreeContainer container = getActiveContainer();
+        if (container != null) {
+            editorFiles.put(container, file);
+        }
     }
 
     /**
