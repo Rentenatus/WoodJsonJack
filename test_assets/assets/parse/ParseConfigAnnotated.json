@@ -1,0 +1,42 @@
+{
+  "_woodModel": {
+    "name": "Seed",
+    "fileName": "ConfigAnnotatedDesc.json"
+  },
+  @hint: [
+    "Object level annotation, declared in the model.",
+    "The rows are implicitly strings."
+  ],
+  @dok: [
+    "Typo annotation, undeclared - tolerated as a free annotation with a warning."
+  ],
+  "@doc:comments": [
+    "Field level annotation on the comments field, declared.",
+    "The composite key is quoted because of the separator."
+  ],
+  comments: [
+    "Das ist ein Json Config Datei mit Annotationen."
+  ],
+  "@review:mainLogging": [
+    "Review is declared on the profiles field only, not on mainLogging - tolerated."
+  ],
+  mainLogging: {
+    level: "10",
+    path: "seeddata/status/"
+  },
+  profiles: [
+    {
+      profile: "main",
+      comments: [
+        "Das ist das main Profile."
+      ],
+      "@doc:profile": [
+        "Field annotation on the profile field, undeclared - tolerated."
+      ],
+      profileLogging: {
+        path: "seeddata/status/"
+      },
+      features: []
+    }
+  ]
+}
