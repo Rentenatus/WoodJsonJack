@@ -50,6 +50,7 @@ public class WoodWindow extends JFrame {
     private final WoodSettings settings;
     private final ThemeSuite themeSuite;
     private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
+    private final Map<JackEditTreeContainer, File> editorFiles = new HashMap<>();
     private PreferencesDialog preferencesDialog;
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
@@ -434,6 +435,7 @@ public class WoodWindow extends JFrame {
      */
     private void addEditorTab(File file, JackEditTreeContainer treeContainer) {
         editorTrees.add(treeContainer);
+        editorFiles.put(treeContainer, file);
         String tabTitle = file != null ? file.getName() : "New Editor";
         JScrollPane scrollPane = new JScrollPane(treeContainer);
         centerTabs.addTab(tabTitle, scrollPane);
@@ -446,6 +448,62 @@ public class WoodWindow extends JFrame {
 
         // Set initial active editor
         jackmaster.setActiveEditor(treeContainer.getLeftTree(), this);
+    }
+
+    /**
+     * Returns the editor container of the currently active editor tab, or { null} when no loaded editor
+     * is active. The fixed empty start editors are not part of the loaded editor list.
+     *
+     * @return the active JackEditTreeContainer, or { null}
+     */
+    public JackEditTreeContainer getActiveContainer() {
+        final Object active = jackmaster.getActiveEditor();
+        if (!(active instanceof JackEditTree)) {
+            return null;
+        }
+        for (JackEditTreeContainer container : editorTrees) {
+            if (container.getLeftTree() == active || container.getRightTree() == active) {
+                return container;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the edit tree of the loaded file of the currently active editor tab. The file content lives in the
+     * left tree of its container, regardless of which side has the focus.
+     *
+     * @return the edit tree of the active editor tab, or { null}
+     */
+    public EditTree getActiveEditTree() {
+        final JackEditTreeContainer container = getActiveContainer();
+        if (container == null || container.getLeftTree() == null || container.getLeftTree().getModel() == null) {
+            return null;
+        }
+        return container.getLeftTree().getModel().getEditTree();
+    }
+
+    /**
+     * Returns the file of the currently active editor tab, or { null} when the tree was not loaded from a
+     * file and has not been saved yet.
+     *
+     * @return the file of the active editor tab, or { null}
+     */
+    public File getActiveFile() {
+        final JackEditTreeContainer container = getActiveContainer();
+        return container == null ? null : editorFiles.get(container);
+    }
+
+    /**
+     * Sets the file of the currently active editor tab, e.g. after a save-as.
+     *
+     * @param file the file to remember for the active editor tab
+     */
+    public void setActiveFile(File file) {
+        final JackEditTreeContainer container = getActiveContainer();
+        if (container != null) {
+            editorFiles.put(container, file);
+        }
     }
 
     /**
