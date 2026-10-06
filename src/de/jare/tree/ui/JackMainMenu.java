@@ -56,6 +56,8 @@ public class JackMainMenu extends JMenuBar {
 
         exitItem.addActionListener(e -> woodWindow.dispose());
         openItem.addActionListener(e -> openJsonFile());
+        saveItem.addActionListener(e -> mainActions.saveActiveFile());
+        saveAsItem.addActionListener(e -> mainActions.saveActiveFileAs());
 
         projectMenu.add(newItem);
         projectMenu.add(openItem);
