@@ -9,6 +9,7 @@ package de.jare.tree.settings.theme;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.AnnotationKeys;
 import de.jare.jsoncasted.editor.core.EditNodePropertyArr;
 import de.jare.jsoncasted.editor.core.EditStatus;
 
@@ -21,6 +22,7 @@ public interface AScheme {
     public static final String LIGHT_FORE_OBJECT = "light." + EditNodeObject.FOREOBJECT;
     public static final String LIGHT_FORE_PROPERTY = "light." + EditNodeProperty.FOREPROPERTY;
     public static final String LIGHT_FORE_ARRAY = "light." + EditNodePropertyArr.FOREARRAY;
+    public static final String LIGHT_FORE_ANNOTATION = "light." + AnnotationKeys.FOREANNOTATION;
 
     public static final String DARK_FORE_OKAY = "dark.fore." + EditStatus.OKAY.getLiteral();
     public static final String DARK_FORE_WARNING = "dark.fore." + EditStatus.WARNING.getLiteral();
@@ -29,8 +31,11 @@ public interface AScheme {
     public static final String DARK_FORE_OBJECT = "dark." + EditNodeObject.FOREOBJECT;
     public static final String DARK_FORE_PROPERTY = "dark." + EditNodeProperty.FOREPROPERTY;
     public static final String DARK_FORE_ARRAY = "dark." + EditNodePropertyArr.FOREARRAY;
+    public static final String DARK_FORE_ANNOTATION = "dark." + AnnotationKeys.FOREANNOTATION;
 
     final public static String[] SCHEME_LIST = new String[]{
-        LIGHT_FORE_OKAY, LIGHT_FORE_WARNING, LIGHT_FORE_ERROR, LIGHT_FORE_OBJECT, LIGHT_FORE_PROPERTY, LIGHT_FORE_ARRAY,
-        DARK_FORE_OKAY, DARK_FORE_WARNING, DARK_FORE_ERROR, DARK_FORE_OBJECT, DARK_FORE_PROPERTY, DARK_FORE_ARRAY};
+        LIGHT_FORE_OKAY, LIGHT_FORE_WARNING, LIGHT_FORE_ERROR, LIGHT_FORE_OBJECT, LIGHT_FORE_PROPERTY,
+        LIGHT_FORE_ARRAY, LIGHT_FORE_ANNOTATION,
+        DARK_FORE_OKAY, DARK_FORE_WARNING, DARK_FORE_ERROR, DARK_FORE_OBJECT, DARK_FORE_PROPERTY,
+        DARK_FORE_ARRAY, DARK_FORE_ANNOTATION};
 }

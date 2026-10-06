@@ -131,7 +131,8 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
         "",
         "fore.object",
         "fore.property",
-        "fore.array"
+        "fore.array",
+        "fore.annotation"
     };
 
     /**
