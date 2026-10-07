@@ -108,6 +108,35 @@ public final class HardEditMenuBuilder {
                 && !HardEditAdvisor.permissibleAnnotations(selected, tree.getJsonModelDescriptor()).isEmpty();
     }
 
+    /**
+     * Shows the generic soft mode item in place of the hard mode sub menu, or vice versa: soft mode offers the generic
+     * add directly, hard mode only the permissible types as sub menu (parse mode concept, section 4).
+     *
+     * @param genericItem the direct menu item of the soft mode
+     * @param hardMenu the sub menu of the hard mode
+     * @param hardMode true when the selection is in hard parse mode
+     */
+    public static void switchModeItems(JMenuItem genericItem, JMenu hardMenu, boolean hardMode) {
+        genericItem.setVisible(!hardMode);
+        hardMenu.setVisible(hardMode);
+        // temporary debug aid: append the active parse mode to the add menu labels
+        genericItem.setText(baseLabel(genericItem.getText()) + " (soft)");
+        hardMenu.setText(baseLabel(hardMenu.getText()) + " (hard)");
+    }
+
+    /**
+     * Strips the temporary mode suffix from an add menu label.
+     *
+     * @param label the current label, with or without mode suffix
+     * @return the label without the mode suffix
+     */
+    private static String baseLabel(String label) {
+        if (label != null && (label.endsWith(" (soft)") || label.endsWith(" (hard)"))) {
+            return label.substring(0, label.length() - " (soft)".length());
+        }
+        return label;
+    }
+
     private static JMenuItem preparedItem(JackMasterControl master, HardEditAdvisor.ChildProposal proposal) {
         final JMenuItem item = new JMenuItem(proposal.getLabel());
         item.addActionListener(e -> master.fireContentCommand(EDIT_ADD_PREPARED, proposal.getPreparedChild()));

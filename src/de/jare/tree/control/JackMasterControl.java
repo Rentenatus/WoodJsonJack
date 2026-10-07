@@ -9,6 +9,8 @@ package de.jare.tree.control;
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
+import de.jare.jsoncasted.editor.core.ParseMode;
+import de.jare.tree.control.listeners.ParseModeListener;
 import de.jare.tree.control.listeners.ParseProblemsListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -23,6 +25,7 @@ public class JackMasterControl {
     private final Orator<TreeFocusListener> selectionOrator = new Orator<>();
     private final Orator<ContentListener> contentOrator = new Orator<>();
     private final Orator<ParseProblemsListener> parseProblemsOrator = new Orator<>();
+    private final Orator<ParseModeListener> parseModeOrator = new Orator<>();
 
     // welcher Editor ist aktuell aktiv (Tab-basiert)?
     private Object activeEditor; // bewusst generisch
@@ -92,6 +95,18 @@ public class JackMasterControl {
         parseProblemsOrator.addListener(l);
     }
 
+    public void addParseModeListener(int level, ParseModeListener l) {
+        parseModeOrator.addListener(level, l);
+    }
+
+    public void addParseModeListener(ParseModeListener l) {
+        parseModeOrator.addListener(l);
+    }
+
+    public void removeParseModeListener(ParseModeListener l) {
+        parseModeOrator.removeListener(l);
+    }
+
     public void removeParseProblemsListener(ParseProblemsListener l) {
         parseProblemsOrator.removeListener(l);
     }
@@ -128,6 +143,10 @@ public class JackMasterControl {
 
     public void fireParseProblems(TreeFocusComponent source, List<DefaultMutableTreeNode> nodes) {
         parseProblemsOrator.say((level, l) -> l.onParseProblems(source, nodes));
+    }
+
+    public void fireParseModeChanged(TreeFocusComponent source, ParseMode newMode) {
+        parseModeOrator.say((level, l) -> l.onParseModeChanged(source, newMode));
     }
 
     public Object getActiveEditor() {

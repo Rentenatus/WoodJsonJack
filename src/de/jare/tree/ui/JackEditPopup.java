@@ -11,6 +11,8 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.tree.control.JackMasterControl;
+import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_ANNOTATION;
+import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
@@ -33,6 +35,8 @@ public class JackEditPopup extends JPopupMenu {
     private final JMenuItem cutItem;
     private final JMenu addNodeMenu;
     private final JMenu addAnnotationMenu;
+    private final JMenuItem addNodeItem;
+    private final JMenuItem addAnnotationItem;
     private final JMenuItem renameNodeItem;
     private boolean lastRootSelected;
     private final JackMasterControl master;
@@ -46,10 +50,16 @@ public class JackEditPopup extends JPopupMenu {
         deleteNodeItem = new JMenuItem("Node löschen");
         renameNodeItem = new JMenuItem("Node umbenennen");
 
+        addNodeItem = new JMenuItem("Node hinzufügen");
+        addAnnotationItem = new JMenuItem("Annotation hinzufügen");
         deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
         renameNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_RENAME_NODE, this));
+        addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
+        addAnnotationItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_ANNOTATION, this));
 
+        add(addNodeItem);
         add(addNodeMenu);
+        add(addAnnotationItem);
         add(addAnnotationMenu);
         add(deleteNodeItem);
         add(renameNodeItem);
@@ -107,6 +117,10 @@ public class JackEditPopup extends JPopupMenu {
 
         master.getClipboardManager().addClipboardChangeListener(9,
                 stashName -> updatePasteEnabled());
+
+        // The parse mode may change without a selection change (mode combo): rebuild the menus when it does.
+        master.addParseModeListener(6, (source, newMode)
+                -> updateMenuEnabledState(lastRootSelected, lastSelectedNode != null));
     }
 
     private void updateMenuEnabledState(boolean rootSelected, boolean nodeExists) {
@@ -124,6 +138,11 @@ public class JackEditPopup extends JPopupMenu {
         deleteNodeItem.setEnabled(enableCutDelete);
         cutItem.setEnabled(enableCutDelete);
         renameNodeItem.setEnabled(enableAddRename);
+        // Soft mode offers the generic adds directly, hard mode only the permissible types as sub menu.
+        HardEditMenuBuilder.switchModeItems(addNodeItem, addNodeMenu, hard);
+        HardEditMenuBuilder.switchModeItems(addAnnotationItem, addAnnotationMenu, hard);
+        addNodeItem.setEnabled(enableAddRename);
+        addAnnotationItem.setEnabled(enableAddRename && canParentAnnotation());
         addNodeMenu.setEnabled(enableAddRename && (!hard || HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)));
         addAnnotationMenu.setEnabled(!isReadonly && canParentAnnotation()
                 && (!hard || HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)));

@@ -575,6 +575,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
         if (!editTree.setParseMode(selected)) {
             parseModeBox.setSelectedItem(editTree.getParseMode());
+            return;
+        }
+        if (master != null) {
+            master.fireParseModeChanged(this, selected);
         }
     }
 
@@ -1097,6 +1101,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
         tree.setParseMode(ParseMode.SOFT_PARSE);
         parseModeBox.setSelectedItem(ParseMode.SOFT_PARSE);
+        if (master != null) {
+            master.fireParseModeChanged(this, ParseMode.SOFT_PARSE);
+        }
         return true;
     }
 }
