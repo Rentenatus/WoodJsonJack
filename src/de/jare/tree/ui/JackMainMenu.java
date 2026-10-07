@@ -207,13 +207,13 @@ public class JackMainMenu extends JMenuBar {
             if (tree != null && tree.isParserRunning()) {
                 tree.triggerFullReparse();
                 JOptionPane.showMessageDialog(woodWindow,
-                        "Re-parsing gestartet. Status in der Baumansicht beobachten.",
-                        "Reparsing",
+                        "Re-parsing started. Watch the tree view for the status.",
+                        "Re-parse",
                         JOptionPane.INFORMATION_MESSAGE);
             } else {
                 JOptionPane.showMessageDialog(woodWindow,
-                        "Kein aktiver Parser für diesen Editor.",
-                        "Reparsing",
+                        "No active parser for this editor.",
+                        "Re-parse",
                         JOptionPane.WARNING_MESSAGE);
             }
         }
