@@ -7,7 +7,9 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.tree.control.JackMasterControl;
+import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_ANNOTATION;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
@@ -30,6 +32,7 @@ public class JackEditPopup extends JPopupMenu {
     private final JMenuItem deleteNodeItem;
     private final JMenuItem cutItem;
     private final JMenuItem addNodeItem;
+    private final JMenuItem addAnnotationItem;
     private final JMenuItem renameNodeItem;
     private final JackMasterControl master;
     private Object lastSelectedNode;
@@ -38,14 +41,17 @@ public class JackEditPopup extends JPopupMenu {
     public JackEditPopup(JackMasterControl master) {
         this.master = master;
         addNodeItem = new JMenuItem("Node hinzufügen");
+        addAnnotationItem = new JMenuItem("Annotation hinzufügen");
         deleteNodeItem = new JMenuItem("Node löschen");
         renameNodeItem = new JMenuItem("Node umbenennen");
 
         addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
+        addAnnotationItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_ANNOTATION, this));
         deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
         renameNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_RENAME_NODE, this));
 
         add(addNodeItem);
+        add(addAnnotationItem);
         add(deleteNodeItem);
         add(renameNodeItem);
 
@@ -93,8 +99,22 @@ public class JackEditPopup extends JPopupMenu {
         cutItem.setEnabled(enableCutDelete);
         addNodeItem.setEnabled(enableAddRename);
         renameNodeItem.setEnabled(enableAddRename);
+        addAnnotationItem.setEnabled(!isReadonly && canParentAnnotation());
 
         updatePasteEnabled();
+    }
+
+    /**
+     * Checks whether the currently selected node can parent an annotation (owning object or field property).
+     *
+     * @return true when an annotation may be added to the selection
+     */
+    private boolean canParentAnnotation() {
+        if (lastSelectedNode instanceof DefaultMutableTreeNode dmtn
+                && dmtn.getUserObject() instanceof EditNodeAbstract data) {
+            return data.canBeParentOfAnnotation();
+        }
+        return false;
     }
 
     private void updatePasteEnabled() {

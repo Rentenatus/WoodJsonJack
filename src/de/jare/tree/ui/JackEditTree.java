@@ -14,20 +14,21 @@ import de.jare.jsoncasted.editor.command.CopyToStashCommand;
 import de.jare.jsoncasted.editor.command.CutToStashCommand;
 import de.jare.jsoncasted.editor.command.DeleteNodeCommand;
 import de.jare.jsoncasted.editor.command.EditCommand;
-import de.jare.jsoncasted.editor.command.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.command.JackUpdateAction;
 import static de.jare.jsoncasted.editor.command.JackUpdateAction.REBUILD_AFFECTED;
 import static de.jare.jsoncasted.editor.command.JackUpdateAction.SELECT_ADDED;
 import static de.jare.jsoncasted.editor.command.JackUpdateAction.SELECT_UPDATED;
+import de.jare.jsoncasted.editor.command.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditNodeAnnotation;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.jsoncasted.editor.core.ParseState;
-import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.ContentListener;
@@ -212,6 +213,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             switch (commandId) {
                 case EDIT_ADD_NODE ->
                     addNode();
+                case EDIT_ADD_ANNOTATION ->
+                    addAnnotation();
                 case EDIT_DELETE_NODE ->
                     deleteNode();
                 case EDIT_RENAME_NODE ->
@@ -428,8 +431,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Stops the parse refresh timer. Should be called when the editor tab
-     * is closed or hidden.
+     * Stops the parse refresh timer. Should be called when the editor tab is closed or hidden.
      */
     public void stopParseRefreshTimer() {
         if (parseRefreshTimer != null) {
@@ -447,8 +449,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Activates or deactivates the parse refresh timer based on whether
-     * this editor tab is currently visible.
+     * Activates or deactivates the parse refresh timer based on whether this editor tab is currently visible.
      *
      * @param active true to start the timer, false to stop it
      */
@@ -461,8 +462,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Polls the EditTree for ParseState changes and triggers node repaints
-     * for nodes whose state has changed since the last tick.
+     * Polls the EditTree for ParseState changes and triggers node repaints for nodes whose state has changed since the
+     * last tick.
      */
     private void refreshParseStates() {
         JackTreeModel model = getModel();
@@ -481,9 +482,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Recursively checks a node and its children for ParseState changes.
-     * If a node's ParseState has changed, the corresponding Swing node is
-     * repainted via model.nodeChanged().
+     * Recursively checks a node and its children for ParseState changes. If a node's ParseState has changed, the
+     * corresponding Swing node is repainted via model.nodeChanged().
      */
     private void checkNodeChanged(EditNodeAbstract node, JackTreeModel model) {
         if (node == null) {
@@ -516,10 +516,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Updates the resource label and the parse mode combo from the current
-     * EditTree. The label shows "&lt;provider synonym&gt;; no model" or
-     * "&lt;provider synonym&gt;; model = &lt;model name&gt;". Without a model the combo
-     * shows "without semantics" and is disabled.
+     * Updates the resource label and the parse mode combo from the current EditTree. The label shows "&lt;provider
+     * synonym&gt;; no model" or "&lt;provider synonym&gt;; model = &lt;model name&gt;". Without a model the combo shows
+     * "without semantics" and is disabled.
      */
     public void refreshResourceInfo() {
         final EditTree editTree = getModel().getEditTree();
@@ -541,12 +540,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Handles parse mode selections. The selected mode is applied to the
-     * EditTree. "hard parse" is only accepted when every node of the
-     * tree has the edit status OKAY; otherwise the offending nodes are
-     * published as "parse problems" to the search results, an error
-     * message asks the user to fix the parse errors first, and the combo
-     * falls back to the tree's current mode.
+     * Handles parse mode selections. The selected mode is applied to the EditTree. "hard parse" is only accepted when
+     * every node of the tree has the edit status OKAY; otherwise the offending nodes are published as "parse problems"
+     * to the search results, an error message asks the user to fix the parse errors first, and the combo falls back to
+     * the tree's current mode.
      */
     private void onParseModeSelected() {
         EditTree editTree = getModel().getEditTree();
@@ -579,11 +576,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Collects the swing nodes of all tree nodes whose edit status is not
-     * OKAY.
+     * Collects the swing nodes of all tree nodes whose edit status is not OKAY.
      *
-     * @return the offending nodes, empty when the tree is parsed
-     * completely
+     * @return the offending nodes, empty when the tree is parsed completely
      */
     private List<DefaultMutableTreeNode> collectParseProblems() {
         List<DefaultMutableTreeNode> problems = new ArrayList<>();
@@ -595,8 +590,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Recursively collects the swing nodes of all nodes with an edit
-     * status other than OKAY.
+     * Recursively collects the swing nodes of all nodes with an edit status other than OKAY.
      *
      * @param node the node to check together with its children
      * @param problems the list the offending swing nodes are added to
@@ -653,8 +647,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Selects the given EditNodeAbstract nodes in the tree.Finds the
-     * corresponding tree nodes and sets the selection paths.
+     * Selects the given EditNodeAbstract nodes in the tree.Finds the corresponding tree nodes and sets the selection
+     * paths.
      *
      * @param nodes
      */
@@ -735,6 +729,36 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
         EditNodeAbstract newNode = selectedData.createChild("new");
         AddNodeCommand command = new AddNodeCommand(selectedData, newNode);
+
+        if (master != null) {
+            master.getUndoManager().executeCommand(command);
+        }
+    }
+
+    /**
+     * Adds a new annotation to the selected node. The default name is doc: the basic model declares doc:* on every
+     * type, so the fresh annotation binds OKAY immediately instead of arriving as a tolerated free annotation. Under a
+     * field property the annotation anchors at the field (composite), under an object at the object level.
+     */
+    private void addAnnotation() {
+        if (readonly) {
+            return;
+        }
+        TreePath path = jtree.getSelectionPath();
+        if (path == null) {
+            return;
+        }
+        DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
+        Object uo = selected.getUserObject();
+        if (!(uo instanceof EditNodeAbstract selectedData)) {
+            return; // Secure
+        }
+        if (!selectedData.canBeParentOfAnnotation()) {
+            return; // Secure
+        }
+
+        EditNodeAnnotation newAnnotation = new EditNodeAnnotation("doc");
+        AddNodeCommand command = new AddNodeCommand(selectedData, newAnnotation);
 
         if (master != null) {
             master.getUndoManager().executeCommand(command);
@@ -841,8 +865,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Speichert die Expansionszustände für die gegebenen Pfade. Nur Knoten,
-     * deren Pfad tatsächlich expanded ist, werden gespeichert.
+     * Speichert die Expansionszustände für die gegebenen Pfade. Nur Knoten, deren Pfad tatsächlich expanded ist, werden
+     * gespeichert.
      *
      * @param paths die TreePath-Array
      * @return Set der expandierten Node-IDs
@@ -856,8 +880,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Rekursiv alle expandierten Knoten unter einem Pfad sammeln. Nur Knoten,
-     * deren Pfad expanded ist, werden zur Liste hinzugefügt.
+     * Rekursiv alle expandierten Knoten unter einem Pfad sammeln. Nur Knoten, deren Pfad expanded ist, werden zur Liste
+     * hinzugefügt.
      */
     private void collectExpandedNodeIds(TreePath path, java.util.Set<Long> expandedIds) {
         if (path == null) {

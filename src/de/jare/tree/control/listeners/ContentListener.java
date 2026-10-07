@@ -9,9 +9,8 @@ package de.jare.tree.control.listeners;
 /**
  * Listener interface for content-related commands in the tree editor.
  * <p>
- * Implementations are notified when content modification commands such as copy, paste,
- * cut, delete, rename, or add node are triggered. This allows components to react
- * to content changes and update their state accordingly.
+ * Implementations are notified when content modification commands such as copy, paste, cut, delete, rename, or add node
+ * are triggered. This allows components to react to content changes and update their state accordingly.
  * </p>
  *
  * @author Janusch Rentenatus
@@ -24,8 +23,8 @@ public interface ContentListener {
     String EDIT_PASTE = "edit.paste";
 
     /**
-     * Command identifier for pasting content underneath the selected node.
-     * The pasted content will be inserted as a sibling after the selected node.
+     * Command identifier for pasting content underneath the selected node. The pasted content will be inserted as a
+     * sibling after the selected node.
      */
     String EDIT_PASTE_UNDERNEATH = "edit.pasteUnderneath";
 
@@ -55,10 +54,14 @@ public interface ContentListener {
     String EDIT_ADD_NODE = "edit.addNode";
 
     /**
+     * Command identifier for adding a new annotation to the selected node.
+     */
+    String EDIT_ADD_ANNOTATION = "edit.addAnnotation";
+
+    /**
      * Called when a content command is triggered.
      *
-     * @param commandId the identifier of the command being executed.
-     *                  Use the constants defined in this interface (e.g., {@link #EDIT_PASTE},
+     * @param commandId the identifier of the command being executed. Use the constants defined in this interface (e.g., {@link #EDIT_PASTE},
      *                  {@link #EDIT_COPY}, etc.)
      * @param trigger the object that triggered this command (e.g., a UI component or menu item)
      */
