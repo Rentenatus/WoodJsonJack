@@ -7,6 +7,7 @@ package de.jare.tree.parse;
 
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditNodeAnnotation;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditStatus;
@@ -68,45 +69,46 @@ public class AnnotationSoftParseNGTest {
 
         final EditNodeAbstract comments = findChild(root, "comments");
         assertNotNull(comments, "The comments field node must exist");
-        final EditNodeAbstract doc = findChild(comments, "@doc");
+        final EditNodeAbstract doc = findChild(comments, "@doc:comments");
         assertNotNull(doc, "The composite annotation must be a child of its target field node");
         assertSame(doc.getParent(), comments, "Kind von comments - the annotation lives under the field node");
         assertEquals(doc.getEditStatus(), EditStatus.OKAY,
                 "The declared field annotation must bind OKAY: " + describe(doc));
 
         final EditNodeAbstract mainLogging = findChild(root, "mainLogging");
-        final EditNodeAbstract review = findChild(mainLogging, "@review");
+        final EditNodeAbstract review = findChild(mainLogging, "@review:mainLogging");
         assertNotNull(review, "The composite review annotation must bind under mainLogging");
         assertEquals(review.getEditStatus(), EditStatus.WARNING,
                 "An annotation that is not declared for that field is tolerated: " + describe(review));
     }
 
     /**
-     * Deleting the annotated field never silently removes the annotation: it falls back to the owning object with
-     * its composite anchor and a WARNING, exactly as the annotation concept demands for persistent annotations.
+     * Deleting the annotated field removes the annotation with it: it hangs at its structural parent and there is
+     * no rescue - the edit tree keeps no parallel anchor state for the JSON round trip.
      */
     @Test
-    public void testFieldDeletionRescuesTheAnnotation() throws Exception {
+    public void testFieldDeletionRemovesTheAnnotationWithIt() throws Exception {
         final EditTree tree = loadAnnotatedTemplate();
         final EditNodeObject root = (EditNodeObject) tree.getRoot();
         final EditNodeAbstract comments = findChild(root, "comments");
         assertNotNull(comments, "The comments field node must exist before the deletion");
-        final EditNodeAbstract doc = findChild(comments, "@doc");
+        final EditNodeAbstract doc = findChild(comments, "@doc:comments");
         assertNotNull(doc, "The field annotation must live under the comments node before the deletion");
 
         assertTrue(tree.removeNode(comments), "The comments node must be removable");
         waitForParser(tree);
 
-        final EditNodeAbstract rescued = findChild(root, "@doc:comments");
-        assertNotNull(rescued,
-                "The annotation must survive the field deletion and stay anchored at the object");
-        assertSame(rescued, doc, "The rescued annotation must be the very same node, never a lost copy");
-        assertSame(rescued.getParent(), root, "The rescued annotation is anchored at the owning object");
-        assertEquals(rescued.getEditStatus(), EditStatus.WARNING,
-                "The rescued annotation falls back to a WARNING: " + describe(rescued));
-        assertTrue(rescued.getEditMessage() != null && rescued.getEditMessage().contains("missing"),
-                "The warning must name the missing target field: " + describe(rescued));
+        assertNull(findChild(root, "comments"),
+                "The field is gone from the tree");
+        assertNull(findChild(root, "@doc"),
+                "The annotation is not rescued to the owning object - it leaves the tree with its field");
+        for (int i = 0; i < root.getChildCount(); i++) {
+            if (root.getChildAt(i) == doc) {
+                fail("The annotation must be removed with its field, never rescued");
+            }
+        }
     }
+
 
     // ========== Helpers ==========
 
