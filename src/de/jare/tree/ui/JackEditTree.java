@@ -22,6 +22,7 @@ import de.jare.jsoncasted.editor.command.PasteFromStashCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeAnnotation;
+import de.jare.jsoncasted.editor.core.HardPasteProbe;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
@@ -215,6 +216,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                     addNode();
                 case EDIT_ADD_ANNOTATION ->
                     addAnnotation();
+                case EDIT_ADD_PREPARED ->
+                    addPreparedNode(trigger);
                 case EDIT_DELETE_NODE ->
                     deleteNode();
                 case EDIT_RENAME_NODE ->
@@ -765,6 +768,37 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
     }
 
+    /**
+     * Adds a prepared node to the selected node (hard edit menu): the model has built a typed child, the add
+     * itself runs through the regular AddNodeCommand, so undo, redo, selection and the synchronous hard parse
+     * behave like any add.
+     *
+     * @param trigger the prepared child node carried by the command trigger
+     */
+    private void addPreparedNode(Object trigger) {
+        if (readonly) {
+            return;
+        }
+        if (!(trigger instanceof EditNodeAbstract prepared)) {
+            return; // Secure
+        }
+        TreePath path = jtree.getSelectionPath();
+        if (path == null) {
+            return;
+        }
+        DefaultMutableTreeNode selected = (DefaultMutableTreeNode) path.getLastPathComponent();
+        Object uo = selected.getUserObject();
+        if (!(uo instanceof EditNodeAbstract selectedData)) {
+            return; // Secure
+        }
+
+        AddNodeCommand command = new AddNodeCommand(selectedData, prepared);
+
+        if (master != null) {
+            master.getUndoManager().executeCommand(command);
+        }
+    }
+
     private void deleteNode() {
         if (readonly) {
             return;
@@ -937,6 +971,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             return;
         }
 
+        if (!probeHardPasteOrSwitch(clipboardManager, stashName, targetData)) {
+            return; // dry run failed and the user cancelled
+        }
+
         // Create and execute paste command
         PasteFromStashCommand command = new PasteFromStashCommand(
                 clipboardManager,
@@ -997,6 +1035,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             return;
         }
 
+        if (!probeHardPasteOrSwitch(clipboardManager, stashName, parentData)) {
+            return; // dry run failed and the user cancelled
+        }
+
         // Get index of selected node in parent
         int selectedIndex = parentTreeNode.getIndex(selectedNode);
         int targetIndex = selectedIndex + 1;
@@ -1018,4 +1060,43 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
     }
 
+
+    /**
+     * Hard parse dry run before a paste (parse mode concept, section 6.4): the clipboard content is cloned into
+     * the air, parsed against the target anchor without docking, and the result decides - fitting content pastes
+     * green (the regular paste command re-confirms it synchronously), unfitting content offers the switch to
+     * soft parse. Cancel leaves the tree untouched: the clone was never docked, nothing happened. In soft mode
+     * there is nothing to decide: paste stays blind and tolerant.
+     *
+     * @param clipboardManager the clipboard manager
+     * @param stashName the active stash name
+     * @param targetData the paste target anchor
+     * @return true when the paste may proceed
+     */
+    private boolean probeHardPasteOrSwitch(ClipboardManager clipboardManager, String stashName,
+            EditNodeAbstract targetData) {
+        final EditTree tree = getModel().getEditTree();
+        if (tree == null || tree.getParseMode() != ParseMode.HARD_PARSE
+                || tree.getJsonModelDescriptor() == null) {
+            return true;
+        }
+        final EditNodeAbstract[] candidates = clipboardManager.getStash(stashName).getNodes();
+        final HardPasteProbe.Result probe = HardPasteProbe.probe(tree, targetData, candidates);
+        if (probe.fits()) {
+            return true;
+        }
+        final int answer = JOptionPane.showOptionDialog(this,
+                "<html>The clipboard content does not fit here: " + probe.getProblem()
+                + "<br>Switch to soft parse?</html>",
+                "Hard parse state",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
+                null,
+                new Object[]{"Switch to soft parse", "Cancel"}, "Cancel");
+        if (answer != 0) {
+            return false;
+        }
+        tree.setParseMode(ParseMode.SOFT_PARSE);
+        parseModeBox.setSelectedItem(ParseMode.SOFT_PARSE);
+        return true;
+    }
 }

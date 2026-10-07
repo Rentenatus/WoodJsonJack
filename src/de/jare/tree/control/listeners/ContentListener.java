@@ -59,6 +59,12 @@ public interface ContentListener {
     String EDIT_ADD_ANNOTATION = "edit.addAnnotation";
 
     /**
+     * Command identifier for adding a prepared node to the selected node. The trigger carries the prepared,
+     * model-typed child node (hard edit menu).
+     */
+    String EDIT_ADD_PREPARED = "edit.addPrepared";
+
+    /**
      * Called when a content command is triggered.
      *
      * @param commandId the identifier of the command being executed. Use the constants defined in this interface (e.g., {@link #EDIT_PASTE},

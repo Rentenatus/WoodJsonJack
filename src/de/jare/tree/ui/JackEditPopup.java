@@ -8,9 +8,9 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.tree.control.JackMasterControl;
-import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_ANNOTATION;
-import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
@@ -31,29 +31,47 @@ public class JackEditPopup extends JPopupMenu {
     private final JMenuItem pasteUnderneathItem;
     private final JMenuItem deleteNodeItem;
     private final JMenuItem cutItem;
-    private final JMenuItem addNodeItem;
-    private final JMenuItem addAnnotationItem;
+    private final JMenu addNodeMenu;
+    private final JMenu addAnnotationMenu;
     private final JMenuItem renameNodeItem;
+    private boolean lastRootSelected;
     private final JackMasterControl master;
     private Object lastSelectedNode;
     private TreeFocusComponent lastSelectedEditor;
 
     public JackEditPopup(JackMasterControl master) {
         this.master = master;
-        addNodeItem = new JMenuItem("Node hinzufügen");
-        addAnnotationItem = new JMenuItem("Annotation hinzufügen");
+        addNodeMenu = new JMenu("Node hinzufügen");
+        addAnnotationMenu = new JMenu("Annotation hinzufügen");
         deleteNodeItem = new JMenuItem("Node löschen");
         renameNodeItem = new JMenuItem("Node umbenennen");
 
-        addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
-        addAnnotationItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_ANNOTATION, this));
         deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
         renameNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_RENAME_NODE, this));
 
-        add(addNodeItem);
-        add(addAnnotationItem);
+        add(addNodeMenu);
+        add(addAnnotationMenu);
         add(deleteNodeItem);
         add(renameNodeItem);
+
+        // Hard mode changes the offers with every selection and mode switch:
+        // rebuild the dynamic sub menus each time the popup opens.
+        addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                updateMenuEnabledState(lastRootSelected, lastSelectedNode != null);
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {
+                // NoOp
+            }
+
+            @Override
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {
+                // NoOp
+            }
+        });
 
         JMenuItem copyItem = new JMenuItem("Copy");
         cutItem = new JMenuItem("Cut");
@@ -75,6 +93,7 @@ public class JackEditPopup extends JPopupMenu {
             @Override
             public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
                 lastSelectedNode = node;
+                lastRootSelected = rootSelected;
                 lastSelectedEditor = (trigger instanceof TreeFocusComponent) ? (TreeFocusComponent) trigger : null;
                 updateMenuEnabledState(rootSelected, node != null);
             }
@@ -95,11 +114,19 @@ public class JackEditPopup extends JPopupMenu {
         boolean enableCutDelete = !isReadonly && !rootSelected && nodeExists;
         boolean enableAddRename = !isReadonly && nodeExists;
 
+        final EditTree editTree = activeEditTree();
+        final EditNodeAbstract selected = selectedData();
+        final boolean hard = editTree != null && editTree.getParseMode() == ParseMode.HARD_PARSE
+                && editTree.getJsonModelDescriptor() != null;
+        HardEditMenuBuilder.populateAddNodeMenu(addNodeMenu, master, editTree, selected);
+        HardEditMenuBuilder.populateAddAnnotationMenu(addAnnotationMenu, master, editTree, selected);
+
         deleteNodeItem.setEnabled(enableCutDelete);
         cutItem.setEnabled(enableCutDelete);
-        addNodeItem.setEnabled(enableAddRename);
         renameNodeItem.setEnabled(enableAddRename);
-        addAnnotationItem.setEnabled(!isReadonly && canParentAnnotation());
+        addNodeMenu.setEnabled(enableAddRename && (!hard || HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)));
+        addAnnotationMenu.setEnabled(!isReadonly && canParentAnnotation()
+                && (!hard || HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)));
 
         updatePasteEnabled();
     }
@@ -110,11 +137,31 @@ public class JackEditPopup extends JPopupMenu {
      * @return true when an annotation may be added to the selection
      */
     private boolean canParentAnnotation() {
+        final EditNodeAbstract selected = selectedData();
+        return selected != null && selected.canBeParentOfAnnotation();
+    }
+
+    /**
+     * Returns the edit data of the last selected node.
+     *
+     * @return the selected EditNodeAbstract, or null
+     */
+    private EditNodeAbstract selectedData() {
         if (lastSelectedNode instanceof DefaultMutableTreeNode dmtn
                 && dmtn.getUserObject() instanceof EditNodeAbstract data) {
-            return data.canBeParentOfAnnotation();
+            return data;
         }
-        return false;
+        return null;
+    }
+
+    /**
+     * Returns the edit tree of the last selected editor.
+     *
+     * @return the EditTree of the selection, or null
+     */
+    private EditTree activeEditTree() {
+        return lastSelectedEditor instanceof JackEditTree editTree
+                ? editTree.getModel().getEditTree() : null;
     }
 
     private void updatePasteEnabled() {

@@ -7,10 +7,11 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.tree.control.JackMasterControl;
-import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
@@ -34,7 +35,8 @@ public class JackMainMenu extends JMenuBar {
     private final JMenuItem pasteUnderneathItem;
     private final JMenuItem deleteNodeItem;
     private final JMenuItem cutItem;
-    private final JMenuItem addNodeItem;
+    private final JMenu addNodeMenu;
+    private final JMenu addAnnotationMenu;
     private final JMenuItem renameNodeItem;
     private Object lastSelectedNode;
     private TreeFocusComponent lastSelectedEditor;
@@ -86,15 +88,16 @@ public class JackMainMenu extends JMenuBar {
         JMenu editMenu = new JMenu("Edit");
         editMenu.setMnemonic(KeyEvent.VK_E);
 
-        addNodeItem = new JMenuItem("Node hinzufügen");
+        addNodeMenu = new JMenu("Node hinzufügen");
+        addAnnotationMenu = new JMenu("Annotation hinzufügen");
         deleteNodeItem = new JMenuItem("Node löschen");
         renameNodeItem = new JMenuItem("Node umbenennen");
 
-        addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
         deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
         renameNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_RENAME_NODE, this));
 
-        editMenu.add(addNodeItem);
+        editMenu.add(addNodeMenu);
+        editMenu.add(addAnnotationMenu);
         editMenu.add(deleteNodeItem);
         editMenu.add(renameNodeItem);
         editMenu.addSeparator();
@@ -161,12 +164,54 @@ public class JackMainMenu extends JMenuBar {
         boolean enableCutDelete = !isReadonly && !rootSelected && nodeExists;
         boolean enableAddRename = !isReadonly && nodeExists;
 
+        final EditTree editTree = activeEditTree();
+        final EditNodeAbstract selected = selectedData();
+        final boolean hard = editTree != null && editTree.getParseMode() == ParseMode.HARD_PARSE
+                && editTree.getJsonModelDescriptor() != null;
+        HardEditMenuBuilder.populateAddNodeMenu(addNodeMenu, master, editTree, selected);
+        HardEditMenuBuilder.populateAddAnnotationMenu(addAnnotationMenu, master, editTree, selected);
+
         deleteNodeItem.setEnabled(enableCutDelete);
         cutItem.setEnabled(enableCutDelete);
-        addNodeItem.setEnabled(enableAddRename);
         renameNodeItem.setEnabled(enableAddRename);
+        addNodeMenu.setEnabled(enableAddRename && (!hard || HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)));
+        addAnnotationMenu.setEnabled(enableAddRename && canParentAnnotation()
+                && (!hard || HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)));
 
         updatePasteEnabled();
+    }
+
+    /**
+     * Checks whether the last selected node can parent an annotation (owning object or field property).
+     *
+     * @return true when an annotation may be added to the selection
+     */
+    private boolean canParentAnnotation() {
+        final EditNodeAbstract selected = selectedData();
+        return selected != null && selected.canBeParentOfAnnotation();
+    }
+
+    /**
+     * Returns the edit data of the last selected node.
+     *
+     * @return the selected EditNodeAbstract, or null
+     */
+    private EditNodeAbstract selectedData() {
+        if (lastSelectedNode instanceof DefaultMutableTreeNode dmtn
+                && dmtn.getUserObject() instanceof EditNodeAbstract data) {
+            return data;
+        }
+        return null;
+    }
+
+    /**
+     * Returns the edit tree of the last selected editor.
+     *
+     * @return the EditTree of the selection, or null
+     */
+    private EditTree activeEditTree() {
+        return lastSelectedEditor instanceof JackEditTree editTree
+                ? editTree.getModel().getEditTree() : null;
     }
 
     private void updatePasteEnabled() {
