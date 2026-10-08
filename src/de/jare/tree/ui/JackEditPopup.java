@@ -141,11 +141,15 @@ public class JackEditPopup extends JPopupMenu {
         // Soft mode offers the generic adds directly, hard mode only the permissible types as sub menu.
         HardEditMenuBuilder.switchModeItems(addNodeItem, addNodeMenu, hard);
         HardEditMenuBuilder.switchModeItems(addAnnotationItem, addAnnotationMenu, hard);
+        final boolean parentAnnotation = canParentAnnotation();
         addNodeItem.setEnabled(enableAddRename);
-        addAnnotationItem.setEnabled(enableAddRename && canParentAnnotation());
+        addAnnotationItem.setEnabled(enableAddRename && parentAnnotation);
         addNodeMenu.setEnabled(enableAddRename && (!hard || HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)));
-        addAnnotationMenu.setEnabled(!isReadonly && canParentAnnotation()
+        addAnnotationMenu.setEnabled(!isReadonly && parentAnnotation
                 && (!hard || HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)));
+
+        EditMenuEnablementLogger.logAddMenus(master, "edit popup", hard, isReadonly, nodeExists,
+                enableAddRename, parentAnnotation, editTree, selected);
 
         updatePasteEnabled();
     }

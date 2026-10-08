@@ -51,6 +51,7 @@ public class JackMasterControl {
         fastLog.registerType(new FastLogType("parser", "Parser", true));
         fastLog.registerType(new FastLogType("editor", "Editor", true));
         fastLog.registerType(new FastLogType("io", "Datei I/O", true));
+        fastLog.registerType(new FastLogType("ui", "UI", true));
         fastLog.registerType(new FastLogType("system", "System", false));
     }
 

@@ -316,10 +316,11 @@ public class FastLogNGTest {
         FastLog fastLog = master.getFastLog();
         assertNotNull(fastLog);
         List<FastLogType> types = fastLog.getTypes();
-        assertEquals(types.size(), 4);
+        assertEquals(types.size(), 5);
         assertTrue(fastLog.getType("parser").isWritable());
         assertTrue(fastLog.getType("editor").isWritable());
         assertTrue(fastLog.getType("io").isWritable());
+        assertTrue(fastLog.getType("ui").isWritable());
         assertFalse(fastLog.getType("system").isWritable());
     }
 

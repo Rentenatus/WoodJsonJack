@@ -193,11 +193,15 @@ public class JackMainMenu extends JMenuBar {
         // Soft mode offers the generic adds directly, hard mode only the permissible types as sub menu.
         HardEditMenuBuilder.switchModeItems(addNodeItem, addNodeMenu, hard);
         HardEditMenuBuilder.switchModeItems(addAnnotationItem, addAnnotationMenu, hard);
+        final boolean parentAnnotation = canParentAnnotation();
         addNodeItem.setEnabled(enableAddRename);
-        addAnnotationItem.setEnabled(enableAddRename && canParentAnnotation());
+        addAnnotationItem.setEnabled(enableAddRename && parentAnnotation);
         addNodeMenu.setEnabled(enableAddRename && (!hard || HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)));
-        addAnnotationMenu.setEnabled(enableAddRename && canParentAnnotation()
+        addAnnotationMenu.setEnabled(enableAddRename && parentAnnotation
                 && (!hard || HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)));
+
+        EditMenuEnablementLogger.logAddMenus(master, "main menu", hard, isReadonly, nodeExists,
+                enableAddRename, parentAnnotation, editTree, selected);
 
         updatePasteEnabled();
     }
