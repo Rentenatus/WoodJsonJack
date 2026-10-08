@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 
 /**
  * Test class for the enablement logging of the soft/hard edit menus. Verifies that
- * the JackEditPopup writes an "ui" fast log entry explaining why the soft add items
- * stay disabled.
+ * the JackEditPopup summarizes all disabled add-menu points of one logic run into a
+ * single "ui" fast log entry.
  *
  * @author Mistral Vibe
  * @author Janusch Rentenatus
@@ -89,10 +89,10 @@ public class JackEditPopupEnablementNGTest {
 
         master.setActiveEditor(new TestEditor(true), "test");
         List<FastLogEntry> uiEntries = master.getFastLog().getEntries("ui");
-        assertTrue(containsMessage(uiEntries, "[soft] edit popup: add node disabled: editor is read-only"),
-                "expected read-only reason for add node, got: " + messages(uiEntries));
-        assertTrue(containsMessage(uiEntries, "[soft] edit popup: add annotation disabled: editor is read-only"),
-                "expected read-only reason for add annotation, got: " + messages(uiEntries));
+        assertEquals(uiEntries.size(), 1,
+                "one logic run should produce exactly one ui entry, got: " + messages(uiEntries));
+        assertEquals(uiEntries.get(0).getMessage(),
+                "[soft] edit popup: disabled add menus: add node (editor is read-only); add annotation (editor is read-only)");
     }
 
     @Test
@@ -104,10 +104,10 @@ public class JackEditPopupEnablementNGTest {
         master.getFastLog().clear("ui");
         master.fireSelection(null, editor, false);
         List<FastLogEntry> uiEntries = master.getFastLog().getEntries("ui");
-        assertTrue(containsMessage(uiEntries, "[soft] edit popup: add node disabled: no node selected"),
-                "expected no-selection reason for add node, got: " + messages(uiEntries));
-        assertTrue(containsMessage(uiEntries, "[soft] edit popup: add annotation disabled: no node selected"),
-                "expected no-selection reason for add annotation, got: " + messages(uiEntries));
+        assertEquals(uiEntries.size(), 1,
+                "one logic run should produce exactly one ui entry, got: " + messages(uiEntries));
+        assertEquals(uiEntries.get(0).getMessage(),
+                "[soft] edit popup: disabled add menus: add node (no node selected); add annotation (no node selected)");
     }
 
     @Test
@@ -120,11 +120,10 @@ public class JackEditPopupEnablementNGTest {
         DefaultMutableTreeNode node = new DefaultMutableTreeNode(new Object());
         master.fireSelection(node, editor, false);
         List<FastLogEntry> uiEntries = master.getFastLog().getEntries("ui");
-        assertTrue(containsMessage(uiEntries,
-                "[soft] edit popup: add annotation disabled: selected node cannot parent an annotation"),
-                "expected cannot-parent reason for add annotation, got: " + messages(uiEntries));
-        assertFalse(containsMessage(uiEntries, "[soft] edit popup: add node disabled"),
-                "add node should be enabled with a node selected, got: " + messages(uiEntries));
+        assertEquals(uiEntries.size(), 1,
+                "one logic run should produce exactly one ui entry, got: " + messages(uiEntries));
+        assertEquals(uiEntries.get(0).getMessage(),
+                "[soft] edit popup: disabled add menus: add annotation (selected node cannot parent an annotation)");
     }
 
     @Test
@@ -138,18 +137,9 @@ public class JackEditPopupEnablementNGTest {
         master.fireSelection(node, editor, false);
         List<FastLogEntry> uiEntries = master.getFastLog().getEntries("ui");
         for (FastLogEntry entry : uiEntries) {
-            assertFalse(entry.getMessage().contains("add node disabled"),
-                    "no add-node-disabled entry expected, got: " + entry.getMessage());
+            assertFalse(entry.getMessage().contains("add node ("),
+                    "no add-node point expected in the summary, got: " + entry.getMessage());
         }
-    }
-
-    private static boolean containsMessage(List<FastLogEntry> entries, String expected) {
-        for (FastLogEntry entry : entries) {
-            if (expected.equals(entry.getMessage())) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static String messages(List<FastLogEntry> entries) {

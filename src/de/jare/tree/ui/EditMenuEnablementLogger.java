@@ -11,12 +11,16 @@ import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.HardEditAdvisor;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.fastlog.FastLog;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Schreibt in den FastLog-Typ "ui", warum die Add-Menues des Soft- oder Hard-Edit-Menu
  * deaktiviert bleiben. Es werden nur die Widgets des aktiven Modus geloggt: im Soft-Mode
- * die generischen Items, im Hard-Mode die typisierten Untermenues. Bei leeren Hard-Mode-
- * Vorschlaegen wird die Erklaerung des {@link HardEditAdvisor} an die Meldung angehaengt.
+ * die generischen Items, im Hard-Mode die typisierten Untermenues. Alle deaktivierten
+ * Punkte eines Logiklaufs werden zusammengefasst in einem einzigen Logeintrag. Bei
+ * leeren Hard-Mode-Vorschlaegen wird die Erklaerung des {@link HardEditAdvisor} an den
+ * jeweiligen Punkt angehaengt.
  *
  * @author Janusch Rentenatus
  */
@@ -27,7 +31,8 @@ public final class EditMenuEnablementLogger {
 
     /**
      * Loggt die Deaktivierungsgruende der Add-Menues eines Edit-Menu (Popup oder
-     * Hauptmenue) in den FastLog-Typ "ui".
+     * Hauptmenue) zusammengefasst in einem einzigen Eintrag im FastLog-Typ "ui".
+     * Bleibt alles enabled, wird nichts geloggt.
      *
      * @param master der Master-Control mit dem FastLog
      * @param menuName Kennzeichnung des Menu, z. B. "edit popup" oder "main menu"
@@ -44,6 +49,7 @@ public final class EditMenuEnablementLogger {
             boolean canParentAnnotation, EditTree editTree, EditNodeAbstract selected) {
         final FastLog fastLog = master.getFastLog();
         final String mode = hard ? "hard" : "soft";
+        final List<String> disabledPoints = new ArrayList<>();
 
         final String baseReason;
         if (!nodeExists) {
@@ -56,31 +62,31 @@ public final class EditMenuEnablementLogger {
 
         if (!hard) {
             if (!enableAddRename) {
-                fastLog.tryWrite("ui", "[" + mode + "] " + menuName + ": add node disabled: " + baseReason);
+                disabledPoints.add("add node (" + baseReason + ")");
             }
             if (!enableAddRename || !canParentAnnotation) {
-                fastLog.tryWrite("ui", "[" + mode + "] " + menuName + ": add annotation disabled: "
-                        + (baseReason != null ? baseReason : "selected node cannot parent an annotation"));
+                disabledPoints.add("add annotation ("
+                        + (baseReason != null ? baseReason : "selected node cannot parent an annotation") + ")");
             }
-            return;
+        } else if (!enableAddRename) {
+            disabledPoints.add("add node menu (" + baseReason + ")");
+            disabledPoints.add("add annotation menu (" + baseReason + ")");
+        } else {
+            if (!HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)) {
+                disabledPoints.add("add node menu (no permissible child types for this selection ("
+                        + HardEditAdvisor.explainEmptyChildren(selected, editTree.getJsonModelDescriptor()) + "))");
+            }
+            if (!canParentAnnotation) {
+                disabledPoints.add("add annotation menu (selected node cannot parent an annotation)");
+            } else if (!HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)) {
+                disabledPoints.add("add annotation menu (no permissible annotations for this selection ("
+                        + HardEditAdvisor.explainEmptyAnnotations(selected, editTree.getJsonModelDescriptor()) + "))");
+            }
         }
-        if (!enableAddRename) {
-            fastLog.tryWrite("ui", "[" + mode + "] " + menuName + ": add node menu disabled: " + baseReason);
-            fastLog.tryWrite("ui", "[" + mode + "] " + menuName + ": add annotation menu disabled: " + baseReason);
-            return;
-        }
-        if (!HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)) {
-            fastLog.tryWrite("ui", "[" + mode + "] " + menuName + ": add node menu disabled: "
-                    + "no permissible child types for this selection ("
-                    + HardEditAdvisor.explainEmptyChildren(selected, editTree.getJsonModelDescriptor()) + ")");
-        }
-        if (!canParentAnnotation) {
-            fastLog.tryWrite("ui", "[" + mode + "] " + menuName + ": add annotation menu disabled: "
-                    + "selected node cannot parent an annotation");
-        } else if (!HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)) {
-            fastLog.tryWrite("ui", "[" + mode + "] " + menuName + ": add annotation menu disabled: "
-                    + "no permissible annotations for this selection ("
-                    + HardEditAdvisor.explainEmptyAnnotations(selected, editTree.getJsonModelDescriptor()) + ")");
+
+        if (!disabledPoints.isEmpty()) {
+            fastLog.tryWrite("ui", "[" + mode + "] " + menuName + ": disabled add menus: "
+                    + String.join("; ", disabledPoints));
         }
     }
 
