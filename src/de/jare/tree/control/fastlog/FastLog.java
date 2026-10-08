@@ -17,8 +17,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Schneller In-Memory-Log (Ringpuffer) fuer kurze Systemmeldungen. Systeme
  * registrieren ihre Typen ueber {@link #registerType(FastLogType)}; nur Typen
  * mit {@code writable = true} nehmen Schreibzugriffe ueber
- * {@link #write(String, String)} an. Aelteste Eintraege werden ab einer
- * Kapazitaetsgrenze verdraengt, die laufende Nummer laeuft trotzdem weiter.
+ * {@link #write(String, String)} an. Ab der Obergrenze {@code maxEntries} werden die
+ * aeltesten Eintraege verdraengt, die laufende Nummer laeuft trotzdem weiter.
  * <p>
  * Der Log ist thread-safe; Systeme duerfen von beliebigen Threads schreiben.
  * Listener werden auf dem schreibenden Thread benachrichtigt.
@@ -29,34 +29,34 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class FastLog {
 
     /**
-     * Default-Kapazitaet des Ringpuffers.
+     * Default-Obergrenze des Ringpuffers.
      */
-    public static final int DEFAULT_CAPACITY = 2000;
+    public static final int DEFAULT_MAX_ENTRIES = 2000;
 
     private final Object lock = new Object();
     private final Map<String, FastLogType> types = new LinkedHashMap<>();
     private final ArrayDeque<FastLogEntry> entries = new ArrayDeque<>();
     private final List<FastLogListener> listeners = new CopyOnWriteArrayList<>();
-    private final int capacity;
+    private int maxEntries;
     private long nextNr = 1;
 
     /**
-     * Erzeugt einen FastLog mit der Default-Kapazitaet.
+     * Erzeugt einen FastLog mit der Default-Obergrenze.
      */
     public FastLog() {
-        this(DEFAULT_CAPACITY);
+        this(DEFAULT_MAX_ENTRIES);
     }
 
     /**
-     * Erzeugt einen FastLog mit der angegebenen Kapazitaet.
+     * Erzeugt einen FastLog mit der angegebenen Obergrenze.
      *
-     * @param capacity maximale Anzahl gehaltener Eintraege, mindestens 1
+     * @param maxEntries maximale Anzahl gehaltener Eintraege, mindestens 1
      */
-    public FastLog(int capacity) {
-        if (capacity < 1) {
-            throw new IllegalArgumentException("capacity muss mindestens 1 sein: " + capacity);
+    public FastLog(int maxEntries) {
+        if (maxEntries < 1) {
+            throw new IllegalArgumentException("maxEntries muss mindestens 1 sein: " + maxEntries);
         }
-        this.capacity = capacity;
+        this.maxEntries = maxEntries;
     }
 
     /**
@@ -100,10 +100,30 @@ public class FastLog {
     }
 
     /**
-     * @return die Kapazitaet des Ringpuffers
+     * @return die Obergrenze des Ringpuffers
      */
-    public int getCapacity() {
-        return capacity;
+    public int getMaxEntries() {
+        synchronized (lock) {
+            return maxEntries;
+        }
+    }
+
+    /**
+     * Setzt die Obergrenze des Ringpuffers. Beim Verkleinern werden sofort die
+     * aeltesten Eintraege verdraengt, bis die Grenze eingehalten wird.
+     *
+     * @param maxEntries neue Obergrenze, mindestens 1
+     */
+    public void setMaxEntries(int maxEntries) {
+        if (maxEntries < 1) {
+            throw new IllegalArgumentException("maxEntries muss mindestens 1 sein: " + maxEntries);
+        }
+        synchronized (lock) {
+            this.maxEntries = maxEntries;
+            while (entries.size() > maxEntries) {
+                entries.pollFirst();
+            }
+        }
     }
 
     /**
@@ -136,7 +156,7 @@ public class FastLog {
             }
             entry = new FastLogEntry(nextNr++, typeId, message == null ? "" : message, System.currentTimeMillis());
             entries.addLast(entry);
-            while (entries.size() > capacity) {
+            while (entries.size() > maxEntries) {
                 entries.pollFirst();
             }
         }

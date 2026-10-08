@@ -22,6 +22,12 @@ import java.util.List;
 
 public class JackMasterControl {
 
+    /**
+     * Obergrenze des FastLog: nur ein schneller Log, kein Full-Log. Ab dieser Grenze
+     * fallen die aeltesten Eintraege runter.
+     */
+    public static final int MAX_FAST_LOG_ENTRIES = 42;
+
     // Channels
     private final Orator<FocusListener> focusOrator = new Orator<>();
     private final Orator<TreeFocusListener> selectionOrator = new Orator<>();
@@ -40,7 +46,7 @@ public class JackMasterControl {
         this.undoMan = new JackUndoManager();
         this.selectionStack = new SelectionStackManager();
         this.clipboardManager = new ClipboardManager();
-        this.fastLog = new FastLog();
+        this.fastLog = new FastLog(MAX_FAST_LOG_ENTRIES);
         registerFastLogTypes();
         addSelectionListener(6, this.undoMan);
         addSelectionListener(8, this.selectionStack);

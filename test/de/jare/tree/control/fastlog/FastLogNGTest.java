@@ -181,18 +181,57 @@ public class FastLogNGTest {
     }
 
     @Test
-    public void testDefaultCapacity() {
-        System.out.println("testDefaultCapacity");
+    public void testDefaultMaxEntries() {
+        System.out.println("testDefaultMaxEntries");
 
-        assertEquals(new FastLog().getCapacity(), FastLog.DEFAULT_CAPACITY);
-        assertEquals(instance.getCapacity(), FastLog.DEFAULT_CAPACITY);
+        assertEquals(new FastLog().getMaxEntries(), FastLog.DEFAULT_MAX_ENTRIES);
+        assertEquals(instance.getMaxEntries(), FastLog.DEFAULT_MAX_ENTRIES);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testConstructorInvalidCapacityThrows() {
-        System.out.println("testConstructorInvalidCapacityThrows");
+    public void testConstructorInvalidMaxEntriesThrows() {
+        System.out.println("testConstructorInvalidMaxEntriesThrows");
 
         new FastLog(0);
+    }
+
+    @Test
+    public void testSetMaxEntriesTrimsOldest() throws Exception {
+        System.out.println("testSetMaxEntriesTrimsOldest");
+
+        for (int i = 1; i <= 5; i++) {
+            instance.write("parser", "msg " + i);
+        }
+        instance.setMaxEntries(3);
+        assertEquals(instance.getMaxEntries(), 3);
+        List<FastLogEntry> entries = instance.getEntries(null);
+        assertEquals(entries.size(), 3);
+        assertEquals(entries.get(0).getNr(), 3L);
+        assertEquals(entries.get(0).getMessage(), "msg 3");
+        assertEquals(entries.get(2).getNr(), 5L);
+    }
+
+    @Test
+    public void testSetMaxEntriesGrowAllowsMoreEntries() throws Exception {
+        System.out.println("testSetMaxEntriesGrowAllowsMoreEntries");
+
+        FastLog small = new FastLog(2);
+        small.registerType(new FastLogType("parser", "Parser", true));
+        small.write("parser", "a");
+        small.write("parser", "b");
+        small.setMaxEntries(5);
+        small.write("parser", "c");
+        small.write("parser", "d");
+        small.write("parser", "e");
+        assertEquals(small.getEntryCount(), 5);
+        assertEquals(small.getEntries(null).get(0).getMessage(), "a");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testSetMaxEntriesInvalidThrows() {
+        System.out.println("testSetMaxEntriesInvalidThrows");
+
+        instance.setMaxEntries(0);
     }
 
     // ========================================================================
@@ -322,6 +361,22 @@ public class FastLogNGTest {
         assertTrue(fastLog.getType("io").isWritable());
         assertTrue(fastLog.getType("ui").isWritable());
         assertFalse(fastLog.getType("system").isWritable());
+    }
+
+    @Test
+    public void testMasterControlFastLogLimitEvicts() throws Exception {
+        System.out.println("testMasterControlFastLogLimitEvicts");
+
+        JackMasterControl master = new JackMasterControl();
+        assertEquals(master.getFastLog().getMaxEntries(), JackMasterControl.MAX_FAST_LOG_ENTRIES);
+        assertEquals(master.getFastLog().getMaxEntries(), 42);
+        for (int i = 0; i < 50; i++) {
+            master.getFastLog().write("parser", "msg " + i);
+        }
+        List<FastLogEntry> entries = master.getFastLog().getEntries(null);
+        assertEquals(entries.size(), 42);
+        assertEquals(entries.get(0).getNr(), 9L);
+        assertEquals(entries.get(41).getNr(), 50L);
     }
 
     @Test
