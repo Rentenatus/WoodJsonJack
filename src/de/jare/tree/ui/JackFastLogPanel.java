@@ -38,9 +38,10 @@ import javax.swing.table.TableColumn;
 /**
  * Pane for the fast log in the bottom tabbed pane. On the left a list of
  * fast log types (with "All" as filter for all types), on the right a table
- * with the columns number, id and message. The message column is rendered as a
- * text area and clamped to {@link #MAX_VISIBLE_LINES} lines; the full text
- * is available via double click (or Enter) in a dialog with scroll bars.
+ * with the columns number, id and message, newest entry on top like in a
+ * mail application. The message column is rendered as a text area and
+ * clamped to {@link #MAX_VISIBLE_LINES} lines; the full text is available
+ * via double click (or Enter) in a dialog with scroll bars.
  * <p>
  * Changes to the log are received via {@link FastLogListener} and moved to
  * the EDT with invokeLater; several fast writes are coalesced into
@@ -81,8 +82,8 @@ public class JackFastLogPanel extends JPanel implements FastLogListener {
         tableModel = new JackFastLogTableModel(fastLog);
         table = new JTable(tableModel);
         table.setFillsViewportHeight(true);
-        table.getColumnModel().getColumn(0).setPreferredWidth(60);
-        table.getColumnModel().getColumn(1).setPreferredWidth(90);
+        table.getColumnModel().getColumn(0).setPreferredWidth(40);
+        table.getColumnModel().getColumn(1).setPreferredWidth(60);
         TableColumn messageCol = table.getColumnModel().getColumn(2);
         messageCol.setCellRenderer(new TextAreaRenderer());
         messageCol.setPreferredWidth(600);
@@ -183,17 +184,16 @@ public class JackFastLogPanel extends JPanel implements FastLogListener {
             updateScheduled = false;
             tableModel.reload();
             layoutRowHeights();
-            scrollToEndIfFollow();
+            scrollToTopIfFollow();
         });
     }
 
-    private void scrollToEndIfFollow() {
+    private void scrollToTopIfFollow() {
         if (!followBox.isSelected()) {
             return;
         }
-        int last = table.getRowCount() - 1;
-        if (last >= 0) {
-            table.scrollRectToVisible(table.getCellRect(last, 0, true));
+        if (table.getRowCount() > 0) {
+            table.scrollRectToVisible(table.getCellRect(0, 0, true));
         }
     }
 

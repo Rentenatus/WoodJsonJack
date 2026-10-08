@@ -14,6 +14,7 @@ import de.jare.jsoncasted.io.JsonWriteException;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.listeners.ParseProblemsListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.model.JackTreeModel;
@@ -65,6 +66,10 @@ public class WoodWindow extends JFrame {
     private SearchResultPanel searchResultPanel;
     private JackFastLogPanel fastLogPanel;
     private final TreeFocusListener treeFocusListener;
+    // The orator of the master control holds its listeners via weak references
+    // only: the field keeps the listener reachable, otherwise the garbage
+    // collector silently deregisters it.
+    private final ParseProblemsListener parseProblemsListener;
 
     public WoodWindow() {
         settingsService = new SettingsService();
@@ -190,9 +195,10 @@ public class WoodWindow extends JFrame {
         jackmaster.addParseProblemsListener(searchResultPanel);
 
         // Switch to Search result tab when parse problems are published
-        jackmaster.addParseProblemsListener((source, nodes) -> {
+        parseProblemsListener = (source, nodes) -> {
             bottomTabs.setSelectedIndex(bottomTabs.indexOfTab(TAB_SEARCH_RESULT));
-        });
+        };
+        jackmaster.addParseProblemsListener(parseProblemsListener);
 
         JPanel bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.add(searchToolbar, BorderLayout.NORTH);
