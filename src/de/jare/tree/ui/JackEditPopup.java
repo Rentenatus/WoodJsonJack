@@ -6,6 +6,7 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
@@ -19,6 +20,7 @@ import static de.jare.tree.control.listeners.ContentListener.EDIT_DELETE_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_PASTE_UNDERNEATH;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
+import de.jare.tree.control.listeners.ParseModeListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import java.awt.event.MouseAdapter;
@@ -42,6 +44,12 @@ public class JackEditPopup extends JPopupMenu {
     private final JackMasterControl master;
     private Object lastSelectedNode;
     private TreeFocusComponent lastSelectedEditor;
+    // The orator of the master control holds its listeners via weak references
+    // only: the fields keep the listeners reachable, otherwise the garbage
+    // collector silently deregisters them and the menu state freezes.
+    private final TreeFocusListener selectionListener;
+    private final ClipboardManager.ClipboardChangeListener clipboardListener;
+    private final ParseModeListener parseModeListener;
 
     public JackEditPopup(JackMasterControl master) {
         this.master = master;
@@ -99,7 +107,7 @@ public class JackEditPopup extends JPopupMenu {
         add(pasteItem);
         add(pasteUnderneathItem);
 
-        master.addSelectionListener(8, new TreeFocusListener() {
+        selectionListener = new TreeFocusListener() {
             @Override
             public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
                 lastSelectedNode = node;
@@ -113,14 +121,16 @@ public class JackEditPopup extends JPopupMenu {
                 lastSelectedEditor = editor;
                 updateMenuEnabledState(false, true);
             }
-        });
+        };
+        master.addSelectionListener(8, selectionListener);
 
-        master.getClipboardManager().addClipboardChangeListener(9,
-                stashName -> updatePasteEnabled());
+        clipboardListener = stashName -> updatePasteEnabled();
+        master.getClipboardManager().addClipboardChangeListener(9, clipboardListener);
 
         // The parse mode may change without a selection change (mode combo): rebuild the menus when it does.
-        master.addParseModeListener(6, (source, newMode)
-                -> updateMenuEnabledState(lastRootSelected, lastSelectedNode != null));
+        parseModeListener = (source, newMode)
+                -> updateMenuEnabledState(lastRootSelected, lastSelectedNode != null);
+        master.addParseModeListener(6, parseModeListener);
     }
 
     private void updateMenuEnabledState(boolean rootSelected, boolean nodeExists) {
