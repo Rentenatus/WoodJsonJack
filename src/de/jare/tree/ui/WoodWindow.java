@@ -47,6 +47,7 @@ public class WoodWindow extends JFrame {
     private static final String TAB_KI_ASSISTANT = "KI Assistant";
     private static final String TAB_JACK_CLIPBOARD = "Jack Clipboard";
     private static final String TAB_SEARCH_RESULT = "Search result";
+    private static final String TAB_FAST_LOG = "Fast Log";
 
     private final JackMasterControl jackmaster;
     private final JTabbedPane centerTabs;
@@ -62,6 +63,7 @@ public class WoodWindow extends JFrame {
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
     private SearchResultPanel searchResultPanel;
+    private JackFastLogPanel fastLogPanel;
     private final TreeFocusListener treeFocusListener;
 
     public WoodWindow() {
@@ -164,6 +166,7 @@ public class WoodWindow extends JFrame {
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
         bottomTabs.addTab(TAB_ATTRIBUTES, createAttributesPanel());
+        bottomTabs.addTab(TAB_FAST_LOG, createFastLogPanel());
         bottomTabs.addTab(TAB_JACK_UNDO, createJackUndoPanel());
         bottomTabs.addTab(TAB_KI_ASSISTANT, createKIAssistant());
         bottomTabs.addTab(TAB_JACK_CLIPBOARD, createJackClipboardPanel());
@@ -405,6 +408,11 @@ public class WoodWindow extends JFrame {
     private JPanel createSearchResultPanel() {
         searchResultPanel = new SearchResultPanel(jackmaster);
         return searchResultPanel;
+    }
+
+    private JPanel createFastLogPanel() {
+        fastLogPanel = new JackFastLogPanel(jackmaster);
+        return fastLogPanel;
     }
 
     public void openPreferences() {
