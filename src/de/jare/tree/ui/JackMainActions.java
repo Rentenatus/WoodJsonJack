@@ -63,7 +63,9 @@ public class JackMainActions {
                 }
             }
             woodWindow.addEditorTab(file, tree);
+            master.getFastLog().tryWrite("io", "Loaded " + file.getName());
         } catch (IOException | JsonParseException e) {
+            master.getFastLog().tryWrite("io", "Load failed: " + file.getName() + " - " + e.getMessage());
             woodWindow.showErrorDialog("Fehler beim Öffnen der Datei: " + e.getMessage());
         }
     }
@@ -122,8 +124,10 @@ public class JackMainActions {
         }
         try {
             EditTreeWriter.toJsonFile(target, tree);
+            master.getFastLog().tryWrite("io", "Saved " + target.getName());
             return true;
         } catch (IOException e) {
+            master.getFastLog().tryWrite("io", "Save failed: " + target.getName() + " - " + e.getMessage());
             woodWindow.showErrorDialog("Fehler beim Speichern der Datei: " + e.getMessage());
             return false;
         }

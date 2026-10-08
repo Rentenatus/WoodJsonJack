@@ -7,6 +7,8 @@
 package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
+import de.jare.tree.control.fastlog.FastLog;
+import de.jare.tree.control.fastlog.FastLogType;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
 import de.jare.jsoncasted.editor.core.ParseMode;
@@ -32,14 +34,24 @@ public class JackMasterControl {
     private final JackUndoManager undoMan;
     private final SelectionStackManager selectionStack;
     private final ClipboardManager clipboardManager;
+    private final FastLog fastLog;
 
     public JackMasterControl() {
         this.undoMan = new JackUndoManager();
         this.selectionStack = new SelectionStackManager();
         this.clipboardManager = new ClipboardManager();
+        this.fastLog = new FastLog();
+        registerFastLogTypes();
         addSelectionListener(6, this.undoMan);
         addSelectionListener(8, this.selectionStack);
         this.undoMan.addUndoRedoListener(9, this.selectionStack);
+    }
+
+    private void registerFastLogTypes() {
+        fastLog.registerType(new FastLogType("parser", "Parser", true));
+        fastLog.registerType(new FastLogType("editor", "Editor", true));
+        fastLog.registerType(new FastLogType("io", "Datei I/O", true));
+        fastLog.registerType(new FastLogType("system", "System", false));
     }
 
     // Registrierung
@@ -143,10 +155,12 @@ public class JackMasterControl {
 
     public void fireParseProblems(TreeFocusComponent source, List<DefaultMutableTreeNode> nodes) {
         parseProblemsOrator.say((level, l) -> l.onParseProblems(source, nodes));
+        fastLog.tryWrite("parser", "Parse problems: " + (nodes == null ? 0 : nodes.size()) + " node(s) with status != OKAY");
     }
 
     public void fireParseModeChanged(TreeFocusComponent source, ParseMode newMode) {
         parseModeOrator.say((level, l) -> l.onParseModeChanged(source, newMode));
+        fastLog.tryWrite("parser", "Parse mode changed to " + (newMode == null ? "null" : newMode.getLiteral()));
     }
 
     public Object getActiveEditor() {
@@ -163,6 +177,10 @@ public class JackMasterControl {
 
     public ClipboardManager getClipboardManager() {
         return clipboardManager;
+    }
+
+    public FastLog getFastLog() {
+        return fastLog;
     }
 
 }
