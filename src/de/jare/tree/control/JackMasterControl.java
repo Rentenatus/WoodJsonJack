@@ -7,8 +7,12 @@
 package de.jare.tree.control;
 
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
+import de.jare.tree.control.fastlog.FastLog;
+import de.jare.tree.control.fastlog.FastLogType;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.FocusListener;
+import de.jare.jsoncasted.editor.core.ParseMode;
+import de.jare.tree.control.listeners.ParseModeListener;
 import de.jare.tree.control.listeners.ParseProblemsListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -18,28 +22,46 @@ import java.util.List;
 
 public class JackMasterControl {
 
+    /**
+     * Upper limit of the FastLog: just a fast log, no full log. Beyond this
+     * limit the oldest entries are dropped.
+     */
+    public static final int MAX_FAST_LOG_ENTRIES = 42;
+
     // Channels
     private final Orator<FocusListener> focusOrator = new Orator<>();
     private final Orator<TreeFocusListener> selectionOrator = new Orator<>();
     private final Orator<ContentListener> contentOrator = new Orator<>();
     private final Orator<ParseProblemsListener> parseProblemsOrator = new Orator<>();
+    private final Orator<ParseModeListener> parseModeOrator = new Orator<>();
 
-    // welcher Editor ist aktuell aktiv (Tab-basiert)?
-    private Object activeEditor; // bewusst generisch
+    // which editor is currently active (tab based)?
+    private Object activeEditor; // deliberately generic
     private final JackUndoManager undoMan;
     private final SelectionStackManager selectionStack;
     private final ClipboardManager clipboardManager;
+    private final FastLog fastLog;
 
     public JackMasterControl() {
         this.undoMan = new JackUndoManager();
         this.selectionStack = new SelectionStackManager();
         this.clipboardManager = new ClipboardManager();
+        this.fastLog = new FastLog(MAX_FAST_LOG_ENTRIES);
+        registerFastLogTypes();
         addSelectionListener(6, this.undoMan);
         addSelectionListener(8, this.selectionStack);
         this.undoMan.addUndoRedoListener(9, this.selectionStack);
     }
 
-    // Registrierung
+    private void registerFastLogTypes() {
+        fastLog.registerType(new FastLogType("parser", "Parser", true));
+        fastLog.registerType(new FastLogType("editor", "Editor", true));
+        fastLog.registerType(new FastLogType("io", "File I/O", true));
+        fastLog.registerType(new FastLogType("ui", "UI", true));
+        fastLog.registerType(new FastLogType("system", "System", false));
+    }
+
+    // registration
     public void addFocusListener(FocusListener l) {
         focusOrator.addListener(l);
     }
@@ -92,11 +114,23 @@ public class JackMasterControl {
         parseProblemsOrator.addListener(l);
     }
 
+    public void addParseModeListener(int level, ParseModeListener l) {
+        parseModeOrator.addListener(level, l);
+    }
+
+    public void addParseModeListener(ParseModeListener l) {
+        parseModeOrator.addListener(l);
+    }
+
+    public void removeParseModeListener(ParseModeListener l) {
+        parseModeOrator.removeListener(l);
+    }
+
     public void removeParseProblemsListener(ParseProblemsListener l) {
         parseProblemsOrator.removeListener(l);
     }
 
-    // Vom UI (z.B. JTabbedPane) gerufen, wenn ein Tab gewaehlt wird
+    // called by the UI (e.g. JTabbedPane) when a tab is chosen
     public void setActiveEditor(TreeFocusComponent editor, Object trigger) {
         Object previous = this.activeEditor;
         if (previous == editor) {
@@ -104,7 +138,7 @@ public class JackMasterControl {
         }
         setActiveEditorSilent(editor);
 
-        // Fokus-Events verteilen
+        // dispatch focus events
         if (previous != null) {
             focusOrator.say((level, l) -> l.onFocusLost());
         }
@@ -128,6 +162,12 @@ public class JackMasterControl {
 
     public void fireParseProblems(TreeFocusComponent source, List<DefaultMutableTreeNode> nodes) {
         parseProblemsOrator.say((level, l) -> l.onParseProblems(source, nodes));
+        fastLog.tryWrite("parser", "Parse problems: " + (nodes == null ? 0 : nodes.size()) + " node(s) with status != OKAY");
+    }
+
+    public void fireParseModeChanged(TreeFocusComponent source, ParseMode newMode) {
+        parseModeOrator.say((level, l) -> l.onParseModeChanged(source, newMode));
+        fastLog.tryWrite("parser", "Parse mode changed to " + (newMode == null ? "null" : newMode.getLiteral()));
     }
 
     public Object getActiveEditor() {
@@ -144,6 +184,10 @@ public class JackMasterControl {
 
     public ClipboardManager getClipboardManager() {
         return clipboardManager;
+    }
+
+    public FastLog getFastLog() {
+        return fastLog;
     }
 
 }

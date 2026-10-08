@@ -7,9 +7,12 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.tree.control.JackMasterControl;
+import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_ANNOTATION;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_CUT;
@@ -34,8 +37,12 @@ public class JackMainMenu extends JMenuBar {
     private final JMenuItem pasteUnderneathItem;
     private final JMenuItem deleteNodeItem;
     private final JMenuItem cutItem;
+    private final JMenu addNodeMenu;
+    private final JMenu addAnnotationMenu;
     private final JMenuItem addNodeItem;
+    private final JMenuItem addAnnotationItem;
     private final JMenuItem renameNodeItem;
+    private boolean lastRootSelected;
     private Object lastSelectedNode;
     private TreeFocusComponent lastSelectedEditor;
 
@@ -44,15 +51,15 @@ public class JackMainMenu extends JMenuBar {
         this.master = master;
         this.mainActions = new JackMainActions(mainFrame, master);
 
-        // Projekt-Menü
-        JMenu projectMenu = new JMenu("Projekt");
+        // Project menu
+        JMenu projectMenu = new JMenu("Project");
         projectMenu.setMnemonic(KeyEvent.VK_P);
 
-        JMenuItem newItem = new JMenuItem("Neu");
-        JMenuItem openItem = new JMenuItem("Öffnen...");
-        JMenuItem saveItem = new JMenuItem("Speichern");
-        JMenuItem saveAsItem = new JMenuItem("Speichern unter...");
-        JMenuItem exitItem = new JMenuItem("Beenden");
+        JMenuItem newItem = new JMenuItem("New");
+        JMenuItem openItem = new JMenuItem("Open...");
+        JMenuItem saveItem = new JMenuItem("Save");
+        JMenuItem saveAsItem = new JMenuItem("Save As...");
+        JMenuItem exitItem = new JMenuItem("Exit");
 
         exitItem.addActionListener(e -> woodWindow.dispose());
         openItem.addActionListener(e -> openJsonFile());
@@ -82,19 +89,26 @@ public class JackMainMenu extends JMenuBar {
         projectMenu.add(pasteItem);
         projectMenu.add(pasteUnderneathItem);
 
-        // Edit-Menü
+        // Edit menu
         JMenu editMenu = new JMenu("Edit");
         editMenu.setMnemonic(KeyEvent.VK_E);
 
-        addNodeItem = new JMenuItem("Node hinzufügen");
-        deleteNodeItem = new JMenuItem("Node löschen");
-        renameNodeItem = new JMenuItem("Node umbenennen");
+        addNodeMenu = new JMenu("Add Node");
+        addAnnotationMenu = new JMenu("Add Annotation");
+        deleteNodeItem = new JMenuItem("Delete Node");
+        renameNodeItem = new JMenuItem("Rename Node");
 
-        addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
+        addNodeItem = new JMenuItem("Add Node");
+        addAnnotationItem = new JMenuItem("Add Annotation");
         deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
         renameNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_RENAME_NODE, this));
+        addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
+        addAnnotationItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_ANNOTATION, this));
 
         editMenu.add(addNodeItem);
+        editMenu.add(addNodeMenu);
+        editMenu.add(addAnnotationItem);
+        editMenu.add(addAnnotationMenu);
         editMenu.add(deleteNodeItem);
         editMenu.add(renameNodeItem);
         editMenu.addSeparator();
@@ -115,15 +129,15 @@ public class JackMainMenu extends JMenuBar {
         optionsMenu.addSeparator();
         optionsMenu.add(darkModeItem);
 
-        // Info-Menü
+        // Info menu
         JMenu infoMenu = new JMenu("Info");
         infoMenu.setMnemonic(KeyEvent.VK_I);
 
-        JMenuItem aboutItem = new JMenuItem("Über...");
+        JMenuItem aboutItem = new JMenuItem("About...");
         aboutItem.addActionListener(e
                 -> JOptionPane.showMessageDialog(woodWindow,
                         "Tree Editor\n© 2026",
-                        "Über",
+                        "About",
                         JOptionPane.INFORMATION_MESSAGE
                 )
         );
@@ -138,6 +152,7 @@ public class JackMainMenu extends JMenuBar {
             @Override
             public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
                 lastSelectedNode = node;
+                lastRootSelected = rootSelected;
                 if (trigger instanceof TreeFocusComponent treeFocusComponent) {
                     lastSelectedEditor = treeFocusComponent;
                 }
@@ -154,6 +169,10 @@ public class JackMainMenu extends JMenuBar {
         master.getClipboardManager().addClipboardChangeListener(9,
                 stashName -> updatePasteEnabled());
 
+        // The parse mode may change without a selection change (mode combo): rebuild the menus when it does.
+        master.addParseModeListener(6, (source, newMode)
+                -> updateMenuEnabledState(lastRootSelected, lastSelectedNode instanceof DefaultMutableTreeNode));
+
     }
 
     private void updateMenuEnabledState(boolean rootSelected, boolean nodeExists) {
@@ -161,12 +180,63 @@ public class JackMainMenu extends JMenuBar {
         boolean enableCutDelete = !isReadonly && !rootSelected && nodeExists;
         boolean enableAddRename = !isReadonly && nodeExists;
 
+        final EditTree editTree = activeEditTree();
+        final EditNodeAbstract selected = selectedData();
+        final boolean hard = editTree != null && editTree.getParseMode() == ParseMode.HARD_PARSE
+                && editTree.getJsonModelDescriptor() != null;
+        HardEditMenuBuilder.populateAddNodeMenu(addNodeMenu, master, editTree, selected);
+        HardEditMenuBuilder.populateAddAnnotationMenu(addAnnotationMenu, master, editTree, selected);
+
         deleteNodeItem.setEnabled(enableCutDelete);
         cutItem.setEnabled(enableCutDelete);
-        addNodeItem.setEnabled(enableAddRename);
         renameNodeItem.setEnabled(enableAddRename);
+        // Soft mode offers the generic adds directly, hard mode only the permissible types as sub menu.
+        HardEditMenuBuilder.switchModeItems(addNodeItem, addNodeMenu, hard);
+        HardEditMenuBuilder.switchModeItems(addAnnotationItem, addAnnotationMenu, hard);
+        final boolean parentAnnotation = canParentAnnotation();
+        addNodeItem.setEnabled(enableAddRename);
+        addAnnotationItem.setEnabled(enableAddRename && parentAnnotation);
+        addNodeMenu.setEnabled(enableAddRename && (!hard || HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)));
+        addAnnotationMenu.setEnabled(enableAddRename && parentAnnotation
+                && (!hard || HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)));
+
+        EditMenuEnablementLogger.logAddMenus(master, "main menu", hard, isReadonly, nodeExists,
+                enableAddRename, parentAnnotation, editTree, selected);
 
         updatePasteEnabled();
+    }
+
+    /**
+     * Checks whether the last selected node can parent an annotation (owning object or field property).
+     *
+     * @return true when an annotation may be added to the selection
+     */
+    private boolean canParentAnnotation() {
+        final EditNodeAbstract selected = selectedData();
+        return selected != null && selected.canBeParentOfAnnotation();
+    }
+
+    /**
+     * Returns the edit data of the last selected node.
+     *
+     * @return the selected EditNodeAbstract, or null
+     */
+    private EditNodeAbstract selectedData() {
+        if (lastSelectedNode instanceof DefaultMutableTreeNode dmtn
+                && dmtn.getUserObject() instanceof EditNodeAbstract data) {
+            return data;
+        }
+        return null;
+    }
+
+    /**
+     * Returns the edit tree of the last selected editor.
+     *
+     * @return the EditTree of the selection, or null
+     */
+    private EditTree activeEditTree() {
+        return lastSelectedEditor instanceof JackEditTree editTree
+                ? editTree.getModel().getEditTree() : null;
     }
 
     private void updatePasteEnabled() {
@@ -207,13 +277,13 @@ public class JackMainMenu extends JMenuBar {
             if (tree != null && tree.isParserRunning()) {
                 tree.triggerFullReparse();
                 JOptionPane.showMessageDialog(woodWindow,
-                        "Re-parsing gestartet. Status in der Baumansicht beobachten.",
-                        "Reparsing",
+                        "Re-parsing started. Watch the tree view for the status.",
+                        "Re-parse",
                         JOptionPane.INFORMATION_MESSAGE);
             } else {
                 JOptionPane.showMessageDialog(woodWindow,
-                        "Kein aktiver Parser für diesen Editor.",
-                        "Reparsing",
+                        "No active parser for this editor.",
+                        "Re-parse",
                         JOptionPane.WARNING_MESSAGE);
             }
         }
@@ -222,7 +292,7 @@ public class JackMainMenu extends JMenuBar {
     private void openJsonFile() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileFilter(new FileNameExtensionFilter("JSON Files", "json"));
-        fileChooser.setDialogTitle("JSON-Datei öffnen");
+        fileChooser.setDialogTitle("Open JSON file");
 
         int result = fileChooser.showOpenDialog(woodWindow);
         if (result == JFileChooser.APPROVE_OPTION) {

@@ -43,11 +43,11 @@ public class JackUndoPanel extends JPanel implements UndoRedoListener, TreeFocus
         undoTable.setCellSelectionEnabled(false);
         undoTable.setFocusable(false);
 
-        // linkes Buttonpanel
+        // left button panel
         buttonPanel = new JackUndoButtonPanel(master);
         add(buttonPanel, BorderLayout.WEST);
 
-        // Tabelle in der Mitte
+        // table in the center
         add(new JScrollPane(undoTable), BorderLayout.CENTER);
 
         master.addUndoRedoListener(this);

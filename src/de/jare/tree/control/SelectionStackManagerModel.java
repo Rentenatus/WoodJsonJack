@@ -16,10 +16,10 @@ import java.util.Objects;
 import javax.swing.tree.TreeModel;
 
 /**
- * Model für den Selektions-Stack eines einzelnen JTree.
+ * Model for the selection stack of a single JTree.
  * <p>
- * Hält nur die Stack-Daten (Entries, Position), keinerlei Listener oder
- * UI-Logik. Der Dispatcher/Listener ist SelectionStackManager.
+ * Holds only the stack data (entries, position), no listeners or UI logic.
+ * The dispatcher/listener is SelectionStackManager.
  * </p>
  *
  * @author Jansuch Rentenatus
@@ -29,14 +29,13 @@ public class SelectionStackManagerModel {
     private final WeakReference<TreeFocusComponent> weakTree;
 
     /**
-     * Stack der Selektions-Einträge. Die "Vergangenheit" (ältere Selektionen)
-     * liegt am Anfang, die "Zukunft" (neuere Selektionen) am Ende.
+     * Stack of selection entries. The "past" (older selections) sits at the
+     * front, the "future" (newer selections) at the end.
      */
     private final Deque<SelectionStackEntry> stack = new ArrayDeque<>();
 
     /**
-     * Aktuelle Position im Stack (0-basiert). -1 bedeutet: noch keine
-     * Selektion.
+     * Current position in the stack (0-based). -1 means: no selection yet.
      */
     private int currentPos = -1;
 
@@ -49,8 +48,8 @@ public class SelectionStackManagerModel {
     }
 
     /**
-     * Prüft, ob dieses Model zu dem JTree mit dem gegebenen TreeModel
-     * gehört.(Identitätsvergleich des TreeModel des gespeicherten JTree.)
+     * Checks whether this model belongs to the JTree with the given TreeModel
+     * (identity comparison of the TreeModel of the stored JTree).
      *
      * @param model
      * @return
@@ -61,8 +60,8 @@ public class SelectionStackManagerModel {
     }
 
     /**
-     * Neue Selektion an das Ende des Stacks anhängen.Schneidet ggf. alle
-     * "Forward"-Einträge hinter currentPos ab.
+     * Appends a new selection to the end of the stack. Trims all
+     * "forward" entries behind currentPos if necessary.
      *
      * @param entry
      */
@@ -70,7 +69,7 @@ public class SelectionStackManagerModel {
         if (entry == null) {
             return;
         }
-        // Wenn wir nicht am Ende sind, alle Einträge nach currentPos verwerfen
+        // when we are not at the end, discard all entries after currentPos
         if (currentPos >= 0 && currentPos < stack.size() - 1) {
             int keep = currentPos + 1;
             Deque<SelectionStackEntry> newStack = new ArrayDeque<>(keep);
@@ -84,7 +83,7 @@ public class SelectionStackManagerModel {
             stack.clear();
             stack.addAll(newStack);
         }
-        // Neuen Eintrag anhängen, Position auf letztes Element
+        // append the new entry, position on the last element
         stack.addLast(entry);
         currentPos = stack.size() - 1;
     }
@@ -98,8 +97,8 @@ public class SelectionStackManagerModel {
     }
 
     /**
-     * Ein Schritt zurück im Stack.Gibt den neuen aktuellen Entry, oder null,
-     * falls nicht möglich.
+     * One step back in the stack. Returns the new current entry, or null
+     * if not possible.
      *
      * @return
      */
@@ -112,8 +111,8 @@ public class SelectionStackManagerModel {
     }
 
     /**
-     * Ein Schritt vorwärts im Stack.Gibt den neuen aktuellen Entry, oder null,
-     * falls nicht möglich.
+     * One step forward in the stack. Returns the new current entry, or null
+     * if not possible.
      *
      * @return
      */
@@ -139,9 +138,9 @@ public class SelectionStackManagerModel {
     }
 
     /**
-     * Liefert bis zu max Labels für die "Vergangenheit" (Backward), relativ zur
-     * aktuellen Position.Format z.B.: "1: letztes Label", "2: vorletztes
-     * Label", ...
+     * Returns up to max labels for the "past" (backward), relative to the
+     * current position. Format e.g.: "1: last label", "2: second to last
+     * label", ...
      *
      * @param max
      * @return
@@ -152,7 +151,7 @@ public class SelectionStackManagerModel {
             return result;
         }
 
-        // Wir laufen rückwärts von currentPos - 1
+        // we walk backwards from currentPos - 1
         SelectionStackEntry[] array = stack.toArray(SelectionStackEntry[]::new);
         int index = currentPos - 1;
         while (index >= 0 && result.size() < max) {
@@ -165,9 +164,9 @@ public class SelectionStackManagerModel {
     }
 
     /**
-     * Liefert bis zu max Labels für die "Zukunft" (Forward), relativ zur
-     * aktuellen Position.Format z.B.: "1: nächstes Label", "2: übernächstes
-     * Label", ...
+     * Returns up to max labels for the "future" (forward), relative to the
+     * current position. Format e.g.: "1: next label", "2: label after
+     * next", ...
      *
      * @param max
      * @return
@@ -190,7 +189,7 @@ public class SelectionStackManagerModel {
     }
 
     /**
-     * Stack und Position komplett zurücksetzen.
+     * Completely resets the stack and position.
      */
     public void clear() {
         stack.clear();

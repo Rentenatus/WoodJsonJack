@@ -57,7 +57,7 @@ public class JackUndoTableModel extends AbstractTableModel {
         int redoCount = getRedoCount();
 
         if (rowIndex == redoCount) {
-            // Trenner-Zeile
+            // separator row
             return switch (columnIndex) {
                 case 0, 1, 2, 3, 4, 5 ->
                     "<---";

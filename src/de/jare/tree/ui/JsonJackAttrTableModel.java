@@ -23,7 +23,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFocusListener {
 
-    private final String[] columnNames = {"Name", "Value", "Typ", "^"};
+    private final String[] columnNames = {"Name", "Value", "Type", "^"};
     private List<PropertyRow> rows = new ArrayList<>();
     private JsonModelDescriptor jsonModelDescriptor;
     private EditNode currentEditNode;
@@ -67,19 +67,19 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
 
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
-        // Spalte 0 = Name (fix), Spalte 1 = Value (editierbar), Spalte 2 = Typ (nicht editierbar),
-        // Spalte 3 = "^"-Button (Klick wird ueber einen MouseListener abgefangt, nicht editierbar).
-        // Vorerst sind nur die Attribute "value", "name" und "primValue" editierbar.
+        // column 0 = Name (fixed), column 1 = Value (editable), column 2 = Type (not editable),
+        // column 3 = "^" button (the click is intercepted by a mouse listener, not editable).
+        // for now only the attributes "value", "name" and "primValue" are editable.
         return columnIndex == 1 && isAttributeEditable(rowIndex);
     }
 
     /**
-     * Prueft, ob das Attribut der angegebenen Zeile vorerst editierbar ist. Nur
-     * die Attribute "value", "name" und "primValue" duerfen bearbeitet werden;
-     * alle anderen sind read-only.
+     * Checks whether the attribute of the given row is editable for now. Only
+     * the attributes "value", "name" and "primValue" may be edited; all others
+     * are read-only.
      *
-     * @param rowIndex der Zeilenindex
-     * @return true, wenn das Attribut editierbar ist
+     * @param rowIndex the row index
+     * @return true when the attribute is editable
      */
     public boolean isAttributeEditable(int rowIndex) {
         if (rowIndex < 0 || rowIndex >= rows.size()) {
@@ -212,7 +212,7 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     }
 
     private void updateProperties(Object node) {
-        // Extrahiere das userObject aus DefaultMutableTreeNode
+        // extract the userObject from the DefaultMutableTreeNode
         Object actualNode = node;
         if (node instanceof DefaultMutableTreeNode treeNode) {
             actualNode = treeNode.getUserObject();
@@ -236,11 +236,11 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
                     JackAttribut jackAttribut = entry.getValue();
                     newRows.add(new PropertyRow(name, jackAttribut.getValue(), jackAttribut.getType()));
                 }
-                // Sortiere Attribute alphabetisch nach Namen
+                // sort the attributes alphabetically by name
                 newRows.sort(Comparator.comparing(PropertyRow::name));
             }
         } else {
-            // Fallback für nicht-EditNode Objekte
+            // fallback for non-EditNode objects
             newRows.add(new PropertyRow("toString", actualNode.toString(), "String"));
         }
 
@@ -275,12 +275,11 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     }
 
     /**
-     * Prueft, ob der "^"-Button fuer die angegebene Zeile aktiviert ist. Der
-     * Button ist nur aktiviert, wenn der Attribut-Wert weder null noch leer
-     * ist.
+     * Checks whether the "^" button is enabled for the given row. The button
+     * is only enabled when the attribute value is neither null nor empty.
      *
-     * @param rowIndex der Zeilenindex
-     * @return true, wenn der Button aktiviert sein soll
+     * @param rowIndex the row index
+     * @return true when the button should be enabled
      */
     public boolean isButtonEnabled(int rowIndex) {
         if (rowIndex < 0 || rowIndex >= rows.size()) {
@@ -295,10 +294,10 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     }
 
     /**
-     * Liefert die Eigenschaftszeile fuer die angegebene Zeile.
+     * Returns the property row for the given row index.
      *
-     * @param rowIndex der Zeilenindex
-     * @return die PropertyRow oder null, wenn der Index ungueltig ist
+     * @param rowIndex the row index
+     * @return the PropertyRow, or null when the index is invalid
      */
     public PropertyRow getRow(int rowIndex) {
         if (rowIndex < 0 || rowIndex >= rows.size()) {
@@ -308,10 +307,10 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     }
 
     /**
-     * Liefert den aktuell ausgewaehlten EditNode (Knoten), dessen Attribute in
-     * dieser Tabelle angezeigt werden.
+     * Returns the currently selected EditNode (node) whose attributes are
+     * shown in this table.
      *
-     * @return der aktuelle EditNode oder null, wenn kein Knoten ausgewaehlt ist
+     * @return the current EditNode, or null when no node is selected
      */
     public EditNode getCurrentEditNode() {
         return currentEditNode;

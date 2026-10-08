@@ -235,7 +235,7 @@ public class SearchToolbar extends JPanel implements TreeFocusListener {
                 if (value instanceof EditStatus) {
                     setText(((EditStatus) value).getName());
                 } else if (value == null) {
-                    setText(" "); // Ein Leerzeichen für bessere Darstellung (keine Auswahl)
+                    setText(" "); // a space for better display (no selection)
                 }
                 return this;
             }
