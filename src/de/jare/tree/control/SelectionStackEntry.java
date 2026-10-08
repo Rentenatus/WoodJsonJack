@@ -9,14 +9,14 @@ package de.jare.tree.control;
 import java.util.List;
 
 /**
- * Ereignis für Selektions‑Stack‑Änderungen.
+ * Event for selection stack changes.
  *
  * @author Jansuch Rentenatus
  */
 public class SelectionStackEntry {
 
-    private final List<Long> editIds;  // editIds der selektierten Knoten
-    private final String label;        // Beschriftung 
+    private final List<Long> editIds;  // editIds of the selected nodes
+    private final String label;        // caption 
 
     public SelectionStackEntry(List<Long> editIds, String label) {
         this.editIds = List.copyOf(editIds);

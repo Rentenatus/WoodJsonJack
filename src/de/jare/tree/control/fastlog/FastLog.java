@@ -14,14 +14,14 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Schneller In-Memory-Log (Ringpuffer) fuer kurze Systemmeldungen. Systeme
- * registrieren ihre Typen ueber {@link #registerType(FastLogType)}; nur Typen
- * mit {@code writable = true} nehmen Schreibzugriffe ueber
- * {@link #write(String, String)} an. Ab der Obergrenze {@code maxEntries} werden die
- * aeltesten Eintraege verdraengt, die laufende Nummer laeuft trotzdem weiter.
+ * Fast in-memory log (ring buffer) for short system messages. Systems
+ * register their types via {@link #registerType(FastLogType)}; only types
+ * with {@code writable = true} accept writes via
+ * {@link #write(String, String)}. Beyond the limit {@code maxEntries} the
+ * oldest entries are evicted, the running number still keeps counting up.
  * <p>
- * Der Log ist thread-safe; Systeme duerfen von beliebigen Threads schreiben.
- * Listener werden auf dem schreibenden Thread benachrichtigt.
+ * The log is thread-safe; systems may write from any thread.
+ * Listeners are notified on the writing thread.
  * </p>
  *
  * @author Janusch Rentenatus
@@ -29,7 +29,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class FastLog {
 
     /**
-     * Default-Obergrenze des Ringpuffers.
+     * Default upper limit of the ring buffer.
      */
     public static final int DEFAULT_MAX_ENTRIES = 2000;
 
@@ -41,36 +41,36 @@ public class FastLog {
     private long nextNr = 1;
 
     /**
-     * Erzeugt einen FastLog mit der Default-Obergrenze.
+     * Creates a FastLog with the default upper limit.
      */
     public FastLog() {
         this(DEFAULT_MAX_ENTRIES);
     }
 
     /**
-     * Erzeugt einen FastLog mit der angegebenen Obergrenze.
+     * Creates a FastLog with the given upper limit.
      *
-     * @param maxEntries maximale Anzahl gehaltener Eintraege, mindestens 1
+     * @param maxEntries maximum number of held entries, at least 1
      */
     public FastLog(int maxEntries) {
         if (maxEntries < 1) {
-            throw new IllegalArgumentException("maxEntries muss mindestens 1 sein: " + maxEntries);
+            throw new IllegalArgumentException("maxEntries must be at least 1: " + maxEntries);
         }
         this.maxEntries = maxEntries;
     }
 
     /**
-     * Registriert einen Fast-Log-Typ. Doppelte IDs werden abgelehnt.
+     * Registers a fast log type. Duplicate ids are rejected.
      *
-     * @param type der zu registrierende Typ
+     * @param type the type to register
      */
     public void registerType(FastLogType type) {
         if (type == null) {
-            throw new IllegalArgumentException("type darf nicht null sein");
+            throw new IllegalArgumentException("type must not be null");
         }
         synchronized (lock) {
             if (types.containsKey(type.getId())) {
-                throw new IllegalArgumentException("Fast-Log-Typ doppelt registriert: " + type.getId());
+                throw new IllegalArgumentException("fast log type registered twice: " + type.getId());
             }
             types.put(type.getId(), type);
         }
@@ -79,7 +79,7 @@ public class FastLog {
     /**
      * Returns all registered types in registration order.
      *
-     * @return Liste der registrierten Typen
+     * @return list of registered types
      */
     public List<FastLogType> getTypes() {
         synchronized (lock) {
@@ -100,7 +100,7 @@ public class FastLog {
     }
 
     /**
-     * @return die Obergrenze des Ringpuffers
+     * @return the upper limit of the ring buffer
      */
     public int getMaxEntries() {
         synchronized (lock) {
@@ -109,14 +109,14 @@ public class FastLog {
     }
 
     /**
-     * Setzt die Obergrenze des Ringpuffers. Beim Verkleinern werden sofort die
-     * aeltesten Eintraege verdraengt, bis die Grenze eingehalten wird.
+     * Sets the upper limit of the ring buffer. When shrinking, the oldest
+     * entries are evicted immediately until the limit is met.
      *
-     * @param maxEntries neue Obergrenze, mindestens 1
+     * @param maxEntries new upper limit, at least 1
      */
     public void setMaxEntries(int maxEntries) {
         if (maxEntries < 1) {
-            throw new IllegalArgumentException("maxEntries muss mindestens 1 sein: " + maxEntries);
+            throw new IllegalArgumentException("maxEntries must be at least 1: " + maxEntries);
         }
         synchronized (lock) {
             this.maxEntries = maxEntries;
@@ -127,7 +127,7 @@ public class FastLog {
     }
 
     /**
-     * @return die aktuelle Anzahl gehaltener Eintraege
+     * @return the current number of held entries
      */
     public int getEntryCount() {
         synchronized (lock) {
@@ -136,23 +136,23 @@ public class FastLog {
     }
 
     /**
-     * Schreibt einen Eintrag in den Log. Wirft eine {@link FastLogWriteException},
-     * wenn der Typ nicht registriert oder nicht beschreibbar ist.
+     * Writes an entry to the log. Throws a {@link FastLogWriteException}
+     * when the type is not registered or not writable.
      *
-     * @param typeId ID des Fast-Log-Typs
-     * @param message Meldungstext, null wird als leerer Text gespeichert
-     * @return der erzeugte Eintrag
-     * @throws FastLogWriteException wenn der Typ unbekannt oder nicht beschreibbar ist
+     * @param typeId id of the fast log type
+     * @param message message text, null is stored as empty text
+     * @return the created entry
+     * @throws FastLogWriteException when the type is unknown or not writable
      */
     public FastLogEntry write(String typeId, String message) throws FastLogWriteException {
         final FastLogEntry entry;
         synchronized (lock) {
             FastLogType type = types.get(typeId);
             if (type == null) {
-                throw new FastLogWriteException("Unbekannter Fast-Log-Typ: " + typeId);
+                throw new FastLogWriteException("Unknown fast log type: " + typeId);
             }
             if (!type.isWritable()) {
-                throw new FastLogWriteException("Fast-Log-Typ '" + typeId + "' ist nicht beschreibbar");
+                throw new FastLogWriteException("Fast log type '" + typeId + "' is not writable");
             }
             entry = new FastLogEntry(nextNr++, typeId, message == null ? "" : message, System.currentTimeMillis());
             entries.addLast(entry);
@@ -165,11 +165,11 @@ public class FastLog {
     }
 
     /**
-     * Schreibt einen Eintrag, sofern erlaubt, und wirft keine Exception.
+     * Writes an entry when allowed and throws no exception.
      *
-     * @param typeId ID des Fast-Log-Typs
-     * @param message Meldungstext
-     * @return true, wenn der Eintrag geschrieben wurde
+     * @param typeId id of the fast log type
+     * @param message message text
+     * @return true when the entry was written
      */
     public boolean tryWrite(String typeId, String message) {
         try {
@@ -184,8 +184,8 @@ public class FastLog {
      * Returns a snapshot of the entries, oldest first. Without a type id all
      * entries are returned, otherwise only entries of the given type.
      *
-     * @param typeId ID des Fast-Log-Typs oder null fuer alle Typen
-     * @return Liste der Eintraege
+     * @param typeId id of the fast log type, or null for all types
+     * @return list of entries
      */
     public List<FastLogEntry> getEntries(String typeId) {
         synchronized (lock) {
@@ -200,9 +200,9 @@ public class FastLog {
     }
 
     /**
-     * Loescht Eintraege eines Typs oder alle Eintraege.
+     * Deletes the entries of one type or all entries.
      *
-     * @param typeId ID des Fast-Log-Typs oder null fuer alle Typen
+     * @param typeId id of the fast log type, or null for all types
      */
     public void clear(String typeId) {
         synchronized (lock) {
@@ -216,9 +216,9 @@ public class FastLog {
     }
 
     /**
-     * Registriert einen Listener.
+     * Registers a listener.
      *
-     * @param l der Listener
+     * @param l the listener
      */
     public void addFastLogListener(FastLogListener l) {
         if (l != null && !listeners.contains(l)) {
@@ -227,9 +227,9 @@ public class FastLog {
     }
 
     /**
-     * Entfernt einen Listener.
+     * Removes a listener.
      *
-     * @param l der Listener
+     * @param l the listener
      */
     public void removeFastLogListener(FastLogListener l) {
         listeners.remove(l);

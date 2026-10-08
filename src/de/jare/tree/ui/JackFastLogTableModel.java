@@ -13,10 +13,10 @@ import java.util.List;
 import javax.swing.table.AbstractTableModel;
 
 /**
- * TableModel ueber den Eintraegen eines {@link FastLog}. Die Zeilen koennen
- * ueber {@link #setFilter(String)} auf einen Fast-Log-Typ eingeschraenkt
- * werden; null zeigt alle Typen. Die Message-Spalte ist read-only, der volle
- * Text wird ueber den Detail-Dialog angezeigt.
+ * TableModel over the entries of a {@link FastLog}. The rows can be
+ * restricted to one fast log type via {@link #setFilter(String)};
+ * null shows all types. The message column is read-only, the full
+ * text is shown in the detail dialog.
  *
  * @author Janusch Rentenatus
  */
@@ -29,9 +29,9 @@ public class JackFastLogTableModel extends AbstractTableModel {
     private List<FastLogEntry> rows = new ArrayList<>();
 
     /**
-     * Erzeugt das Model und laedt die initialen Eintraege.
+     * Creates the model and loads the initial entries.
      *
-     * @param fastLog der anzuzeigende FastLog
+     * @param fastLog the fast log to show
      */
     public JackFastLogTableModel(FastLog fastLog) {
         this.fastLog = fastLog;
@@ -39,9 +39,9 @@ public class JackFastLogTableModel extends AbstractTableModel {
     }
 
     /**
-     * Setzt den Typ-Filter und laedt die Zeilen neu.
+     * Sets the type filter and reloads the rows.
      *
-     * @param typeId ID des Fast-Log-Typs oder null fuer alle Typen
+     * @param typeId id of the fast log type, or null for all types
      */
     public void setFilter(String typeId) {
         this.filterTypeId = typeId;
@@ -49,14 +49,14 @@ public class JackFastLogTableModel extends AbstractTableModel {
     }
 
     /**
-     * @return der aktive Typ-Filter oder null fuer alle Typen
+     * @return the active type filter, or null for all types
      */
     public String getFilter() {
         return filterTypeId;
     }
 
     /**
-     * Laedt die Zeilen als Snapshot aus dem FastLog neu.
+     * Reloads the rows as a snapshot from the fast log.
      */
     public final void reload() {
         rows = fastLog.getEntries(filterTypeId);

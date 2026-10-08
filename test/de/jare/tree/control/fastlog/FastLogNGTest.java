@@ -32,7 +32,7 @@ public class FastLogNGTest {
     public void setUpMethod() throws Exception {
         instance = new FastLog();
         instance.registerType(new FastLogType("parser", "Parser", true));
-        instance.registerType(new FastLogType("io", "Datei I/O", true));
+        instance.registerType(new FastLogType("io", "File I/O", true));
         instance.registerType(new FastLogType("system", "System", false));
     }
 
@@ -64,7 +64,7 @@ public class FastLogNGTest {
 
         FastLogType type = instance.getType("io");
         assertNotNull(type);
-        assertEquals(type.getLabel(), "Datei I/O");
+        assertEquals(type.getLabel(), "File I/O");
         assertNull(instance.getType("ghost"));
     }
 

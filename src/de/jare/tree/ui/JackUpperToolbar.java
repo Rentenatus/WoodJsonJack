@@ -75,10 +75,10 @@ public class JackUpperToolbar extends JPanel implements ContentListener, TreeFoc
         ToolTipManager.sharedInstance().setDismissDelay(10000); // 10s sichtbar
         ToolTipManager.sharedInstance().setInitialDelay(800);
 
-        // initialer Zustand
+        // initial state
         updateButtons();
 
-        // im MasterControl registrieren:
+        // register in the master control:
         master.addContentListener(10, this);
         master.addSelectionListener(9, this);
         master.addUndoRedoListener(this);
@@ -110,7 +110,7 @@ public class JackUpperToolbar extends JPanel implements ContentListener, TreeFoc
     }
 
     protected void updateToolTips() {
-        // bis zu 5 Eintr�ge nach hinten/vorne
+        // up to 5 entries back/forward
         var back = selMan.getBackwardLabels(5);
         var fwd = selMan.getForwardLabels(5);
 

@@ -44,7 +44,7 @@ public class WoodWindow extends JFrame {
     // Bottom tab constants
     private static final String TAB_ATTRIBUTES = "Attributes";
     private static final String TAB_JACK_UNDO = "Jack Undo";
-    private static final String TAB_KI_ASSISTANT = "KI Assistant";
+    private static final String TAB_KI_ASSISTANT = "AI Assistant";
     private static final String TAB_JACK_CLIPBOARD = "Jack Clipboard";
     private static final String TAB_SEARCH_RESULT = "Search result";
     private static final String TAB_FAST_LOG = "Fast Log";
@@ -105,10 +105,10 @@ public class WoodWindow extends JFrame {
 
         editorTree1.setReadonly(true);
 
-        // Erstelle Jack Clipboard Panel
+        // create the Jack clipboard panel
         jackClipboardPanel = new JackClipboardPanel(jackmaster.getClipboardManager(), editorTree2.getLeftTree());
 
-        // obere Toolbar ueber den Editor-Tabs
+        // upper toolbar above the editor tabs
         JPanel upperToolbar = new JackUpperToolbar(jackmaster);
 
         JPanel centerPanel = new JPanel(new BorderLayout());
@@ -117,7 +117,7 @@ public class WoodWindow extends JFrame {
 
         horizontalSplit.setRightComponent(centerPanel);
 
-        // Tab-Wechsel steuert aktiven Editor und pausiert Timer inaktiver Tabs
+        // tab change controls the active editor and pauses timers of inactive tabs
         centerTabs.addChangeListener(e -> {
             int idx = centerTabs.getSelectedIndex();
             for (int i = 0; i < editorTrees.size(); i++) {
@@ -210,7 +210,7 @@ public class WoodWindow extends JFrame {
         setLocationRelativeTo(null);
         setVisible(true);
 
-        // Beim Schließen des Fensters alle Parser und Timer beenden
+        // stop all parsers and timers when the window closes
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
@@ -229,7 +229,7 @@ public class WoodWindow extends JFrame {
         attributesTable.setFillsViewportHeight(true);
         attributesTable.getTableHeader().setVisible(true);
 
-        // EditStatus-Farbe bei WARNING/ERROR fuer die Text-Spalten (Name, Value, Typ)
+        // edit status color at WARNING/ERROR for the text columns (Name, Value, Type)
         attributesTable.setDefaultRenderer(String.class, new EditStatusCellRenderer());
 
         installAttrDetailButtonColumn();
@@ -240,9 +240,9 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Installiert die "^"-Spalte (Spalte 3) der Attribut-Tabelle: ein als
-     * Button gerendertes Feld, das bei Klick den Detail-Dialog oeffnet, sofern
-     * der Attribut-Wert weder null noch leer ist.
+     * Installs the "^" column (column 3) of the attribute table: a field
+     * rendered as a button that opens the detail dialog on click when the
+     * attribute value is neither null nor empty.
      */
     private void installAttrDetailButtonColumn() {
         TableColumn buttonCol = attributesTable.getColumnModel().getColumn(3);
@@ -273,9 +273,9 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Oeffnet den Attribut-Detail-Dialog fuer die angegebene Zeile.
+     * Opens the attribute detail dialog for the given row.
      *
-     * @param modelRow der Modellzeilenindex
+     * @param modelRow the model row index
      */
     private void openAttrDetailDialog(int modelRow) {
         JsonJackAttrTableModel.PropertyRow row = attributesModel.getRow(modelRow);
@@ -294,11 +294,11 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Baut den Pfad eines Knotens, indem vom Knoten aus zu den Wurzeln
-     * aufsteigend die Namen verkettet werden (Format: "a > b > c").
+     * Builds the path of a node by concatenating the names upwards from
+     * the node to the roots (format: "a > b > c").
      *
-     * @param node der Knoten
-     * @return der Pfad oder ein leerer String, wenn der Knoten null ist
+     * @param node the node
+     * @return the path, or an empty string when the node is null
      */
     private String buildNodePath(EditNode node) {
         if (node == null) {
@@ -322,9 +322,9 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Renderer fuer die Text-Spalten der Attribut-Tabelle. Ueberlagert die
-     * Vordergrundfarbe mit der EditStatus-Farbe des ausgewaehlten Knotens, wenn
-     * dieser den Status ERROR oder WARNING hat – analog zum
+     * Renderer for the text columns of the attribute table. Overlays the
+     * foreground color with the edit status color of the selected node when
+     * it has status ERROR or WARNING – analogous to the
      * JsonJackTreeCellRenderer.
      */
     private static class EditStatusCellRenderer extends DefaultTableCellRenderer {
@@ -365,8 +365,8 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Renderer, der in der "^"-Spalte einen JButton anzeigt. Der Button ist nur
-     * aktiviert, wenn der Attribut-Wert nicht null oder leer ist.
+     * Renderer that shows a JButton in the "^" column. The button is only
+     * enabled when the attribute value is neither null nor empty.
      */
     private static class ButtonRenderer extends JButton implements TableCellRenderer {
 
@@ -394,8 +394,8 @@ public class WoodWindow extends JFrame {
     private JPanel createKIAssistant() {
         JPanel borderedPanel = new JPanel(new BorderLayout());
         JTextArea prompt = new JTextArea(5, 20);
-        prompt.setText("KI-Prompt hier...");
-        JButton askBtn = new JButton("KI fragen");
+        prompt.setText("AI prompt here...");
+        JButton askBtn = new JButton("Ask AI");
         borderedPanel.add(new JScrollPane(prompt), BorderLayout.CENTER);
         borderedPanel.add(askBtn, BorderLayout.SOUTH);
         return borderedPanel;
@@ -480,7 +480,7 @@ public class WoodWindow extends JFrame {
                 THIS_SYNONYM,
                 THIS_SYNONYM
         );
-        // Setze das geladene EditTree im linken Baum
+        // set the loaded EditTree in the left tree
         JackTreeModel model = new JackTreeModel(tree);
         newContainer.getLeftTree().getTree().setModel(model);
         newContainer.getLeftTree().refreshResourceInfo();
@@ -592,7 +592,7 @@ public class WoodWindow extends JFrame {
     public void showErrorDialog(String message) {
         JOptionPane.showMessageDialog(this,
                 message,
-                "Fehler",
+                "Error",
                 JOptionPane.ERROR_MESSAGE);
     }
 

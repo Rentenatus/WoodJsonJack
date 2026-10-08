@@ -7,18 +7,18 @@
 package de.jare.tree.control.fastlog;
 
 /**
- * Exception, die {@link FastLog#write(String, String)} wirft, wenn ein Eintrag
- * nicht geschrieben werden darf, z. B. weil der Typ nicht registriert ist oder
- * der Typ nicht beschreibbar ist.
+ * Exception thrown by {@link FastLog#write(String, String)} when an entry
+ * must not be written, e.g. because the type is not registered or the type
+ * is not writable.
  *
  * @author Janusch Rentenatus
  */
 public class FastLogWriteException extends Exception {
 
     /**
-     * Erzeugt eine FastLogWriteException mit einer Fehlermeldung.
+     * Creates a FastLogWriteException with an error message.
      *
-     * @param message die Fehlermeldung
+     * @param message the error message
      */
     public FastLogWriteException(String message) {
         super(message);

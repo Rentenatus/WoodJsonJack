@@ -30,7 +30,7 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
     private boolean readonly = false;
 
     public JsonJackTreeCellEditor(JackUndoManager undoMan) {
-        // Optional: Grundspaltenzahl, falls Metrics noch nicht da sind
+        // optional: base column count in case metrics are not available yet
         textField.setColumns(10);
         this.undoMan = undoMan;
 
@@ -89,10 +89,10 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
         }
 
         final FontMetrics fm = textField.getFontMetrics(textField.getFont());
-        // Breite des Textes + etwas Padding
+        // width of the text plus some padding
         int textWidth = fm.stringWidth(text) + 10;
 
-        // Mindestbreite: 10 Zeichen oder 128px, je nachdem was gr��er ist
+        // minimum width: 10 characters or 128px, whichever is greater
         final int min10Chars = Math.max(textWidth, fm.charWidth('M') * 10);
         final int minWidth = Math.max(min10Chars, 128);
 

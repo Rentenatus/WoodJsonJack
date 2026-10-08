@@ -24,8 +24,8 @@ public class WoodSettings {
     private String themeId;
 
     /**
-     * Transiente Variable, die das aktuell angezeigte Theme hält. Wird nicht
-     * serialisiert, sondern bei Bedarf aus der themeId neu geladen.
+     * Transient variable holding the currently shown theme. Not serialized;
+     * reloaded from the themeId on demand.
      */
     private Theme shownTheme;
 
@@ -34,10 +34,10 @@ public class WoodSettings {
     private String darkLaf;
     private boolean darkMode;
 
-    // Projekte
+    // projects
     private List<ProjektEntry> knownProjects;
 
-    // Editor-Defaults
+    // editor defaults
     private AgentPreferences agentPreferences;
     private UserPreferences userPreferences;
 

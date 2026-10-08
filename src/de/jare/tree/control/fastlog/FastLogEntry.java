@@ -7,9 +7,9 @@
 package de.jare.tree.control.fastlog;
 
 /**
- * Ein einzelner Eintrag des FastLog. Die {@code nr} ist global ueber alle Typen
- * monoton steigend; Luecken entstehen, wenn alte Eintraege aus dem Ringpuffer
- * verdraengt werden und die Nummerierung trotzdem weiterlaeuft.
+ * A single entry of the FastLog. The {@code nr} increases monotonically across
+ * all types; gaps occur when old entries are evicted from the ring buffer
+ * and the numbering still keeps counting up.
  *
  * @author Janusch Rentenatus
  */
@@ -21,12 +21,12 @@ public class FastLogEntry {
     private final long timestamp;
 
     /**
-     * Erzeugt einen neuen Fast-Log-Eintrag.
+     * Creates a new fast log entry.
      *
-     * @param nr laufende Nummer des Eintrags (global, monoton steigend)
-     * @param typeId ID des Fast-Log-Typs, in den geschrieben wurde
-     * @param message Meldungstext, inklusive Zeilenumbruechen
-     * @param timestamp Zeitpunkt des Eintrags in Millisekunden seit Epoche
+     * @param nr running number of the entry (global, monotonically increasing)
+     * @param typeId id of the fast log type that was written to
+     * @param message message text, including line breaks
+     * @param timestamp time of the entry in milliseconds since the epoch
      */
     public FastLogEntry(long nr, String typeId, String message, long timestamp) {
         this.nr = nr;
@@ -36,28 +36,28 @@ public class FastLogEntry {
     }
 
     /**
-     * @return die laufende Nummer des Eintrags
+     * @return the running number of the entry
      */
     public long getNr() {
         return nr;
     }
 
     /**
-     * @return die ID des Fast-Log-Typs
+     * @return the id of the fast log type
      */
     public String getTypeId() {
         return typeId;
     }
 
     /**
-     * @return der Meldungstext
+     * @return the message text
      */
     public String getMessage() {
         return message;
     }
 
     /**
-     * @return der Zeitpunkt des Eintrags in Millisekunden seit Epoche
+     * @return the time of the entry in milliseconds since the epoch
      */
     public long getTimestamp() {
         return timestamp;

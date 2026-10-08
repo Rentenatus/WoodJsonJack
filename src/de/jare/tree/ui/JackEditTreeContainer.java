@@ -11,8 +11,8 @@ import java.awt.*;
 import javax.swing.*;
 
 /**
- * Container für zwei JackEditTree-Instanzen, die nebeneinander angezeigt werden
- * können. Die Checkbox steuert, ob die rechte Instanz angezeigt wird.
+ * Container for two JackEditTree instances that can be shown side by side.
+ * The checkbox controls whether the right instance is shown.
  */
 public class JackEditTreeContainer extends JPanel {
     
@@ -26,12 +26,12 @@ public class JackEditTreeContainer extends JPanel {
     private final JSplitPane splitPane;
 
     /**
-     * Erstellt einen Container mit zwei JackEditTree-Instanzen.
+     * Creates a container with two JackEditTree instances.
      *
-     * @param master Der MasterControl für beide Bäume.
-     * @param leftRootName Der Name des Root-Knotens für den linken Baum.
-     * @param rightRootName Der Name des Root-Knotens für den rechten Baum.
-     * @param propNames Optionale Property-Namen für beide Bäume.
+     * @param master the master control for both trees.
+     * @param leftRootName the name of the root node for the left tree.
+     * @param rightRootName the name of the root node for the right tree.
+     * @param propNames optional property names for both trees.
      */
     public JackEditTreeContainer(JackMasterControl master, String leftRootName, String rightRootName, String... propNames) {
         this.leftTree = new JackEditTree(master, leftRootName, propNames);
@@ -60,9 +60,9 @@ public class JackEditTreeContainer extends JPanel {
     }
 
     /**
-     * Aktiviert oder deaktiviert die Gegenüberstellung der beiden Bäume.
+     * Enables or disables the side by side view of the two trees.
      *
-     * @param enabled Wenn true, wird die rechte Instanz angezeigt.
+     * @param enabled when true, the right instance is shown.
      */
     private void toggleLinkView(boolean enabled) {
         leftTree.getLinkCheckBox().setSelected(enabled);
@@ -95,27 +95,27 @@ public class JackEditTreeContainer extends JPanel {
     }
 
     /**
-     * Gibt den linken Baum zurück.
+     * Returns the left tree.
      *
-     * @return Der linke JackEditTree.
+     * @return the left JackEditTree.
      */
     public JackEditTree getLeftTree() {
         return leftTree;
     }
 
     /**
-     * Gibt den rechten Baum zurück.
+     * Returns the right tree.
      *
-     * @return Der rechte JackEditTree.
+     * @return the right JackEditTree.
      */
     public JackEditTree getRightTree() {
         return rightTree;
     }
 
     /**
-     * Setzt den Readonly-Modus für beide Bäume.
+     * Sets the read-only mode for both trees.
      *
-     * @param readonly Wenn true, sind beide Bäume schreibgeschützt.
+     * @param readonly when true, both trees are read-only.
      */
     public void setReadonly(boolean readonly) {
         leftTree.setReadonly(readonly);
@@ -123,9 +123,9 @@ public class JackEditTreeContainer extends JPanel {
     }
 
     /**
-     * Gibt zurück, ob die Bäume im Readonly-Modus sind.
+     * Returns whether the trees are in read-only mode.
      *
-     * @return true, wenn die Bäume schreibgeschützt sind.
+     * @return true when the trees are read-only.
      */
     public boolean isReadonly() {
         return leftTree.isReadonly();

@@ -23,8 +23,8 @@ import java.util.List;
 public class JackMasterControl {
 
     /**
-     * Obergrenze des FastLog: nur ein schneller Log, kein Full-Log. Ab dieser Grenze
-     * fallen die aeltesten Eintraege runter.
+     * Upper limit of the FastLog: just a fast log, no full log. Beyond this
+     * limit the oldest entries are dropped.
      */
     public static final int MAX_FAST_LOG_ENTRIES = 42;
 
@@ -35,8 +35,8 @@ public class JackMasterControl {
     private final Orator<ParseProblemsListener> parseProblemsOrator = new Orator<>();
     private final Orator<ParseModeListener> parseModeOrator = new Orator<>();
 
-    // welcher Editor ist aktuell aktiv (Tab-basiert)?
-    private Object activeEditor; // bewusst generisch
+    // which editor is currently active (tab based)?
+    private Object activeEditor; // deliberately generic
     private final JackUndoManager undoMan;
     private final SelectionStackManager selectionStack;
     private final ClipboardManager clipboardManager;
@@ -56,12 +56,12 @@ public class JackMasterControl {
     private void registerFastLogTypes() {
         fastLog.registerType(new FastLogType("parser", "Parser", true));
         fastLog.registerType(new FastLogType("editor", "Editor", true));
-        fastLog.registerType(new FastLogType("io", "Datei I/O", true));
+        fastLog.registerType(new FastLogType("io", "File I/O", true));
         fastLog.registerType(new FastLogType("ui", "UI", true));
         fastLog.registerType(new FastLogType("system", "System", false));
     }
 
-    // Registrierung
+    // registration
     public void addFocusListener(FocusListener l) {
         focusOrator.addListener(l);
     }
@@ -130,7 +130,7 @@ public class JackMasterControl {
         parseProblemsOrator.removeListener(l);
     }
 
-    // Vom UI (z.B. JTabbedPane) gerufen, wenn ein Tab gewaehlt wird
+    // called by the UI (e.g. JTabbedPane) when a tab is chosen
     public void setActiveEditor(TreeFocusComponent editor, Object trigger) {
         Object previous = this.activeEditor;
         if (previous == editor) {
@@ -138,7 +138,7 @@ public class JackMasterControl {
         }
         setActiveEditorSilent(editor);
 
-        // Fokus-Events verteilen
+        // dispatch focus events
         if (previous != null) {
             focusOrator.say((level, l) -> l.onFocusLost());
         }

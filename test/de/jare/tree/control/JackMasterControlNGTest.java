@@ -157,7 +157,7 @@ public class JackMasterControlNGTest {
     private static class TestTreeFocusComponent implements TreeFocusComponent {
 
         private final String name;
-        private final javax.swing.JTree dummyTree = new javax.swing.JTree();  // Dummy-JTree für Tests
+        private final javax.swing.JTree dummyTree = new javax.swing.JTree();  // dummy JTree for tests
 
         public TestTreeFocusComponent(String name) {
             this.name = name;
@@ -165,7 +165,7 @@ public class JackMasterControlNGTest {
 
         @Override
         public javax.swing.JTree getTree() {
-            return dummyTree;  // Gibt Dummy-JTree zurück statt null
+            return dummyTree;  // returns the dummy JTree instead of null
         }
 
         @Override

@@ -15,12 +15,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Schreibt in den FastLog-Typ "ui", warum die Add-Menues des Soft- oder Hard-Edit-Menu
- * deaktiviert bleiben. Es werden nur die Widgets des aktiven Modus geloggt: im Soft-Mode
- * die generischen Items, im Hard-Mode die typisierten Untermenues. Alle deaktivierten
- * Punkte eines Logiklaufs werden zusammengefasst in einem einzigen Logeintrag. Bei
- * leeren Hard-Mode-Vorschlaegen wird die Erklaerung des {@link HardEditAdvisor} an den
- * jeweiligen Punkt angehaengt.
+ * Writes to the fast log type "ui" why the add menus of the soft or hard edit menu
+ * stay disabled. Only the widgets of the active mode are logged: in soft mode
+ * the generic items, in hard mode the typed sub menus. All disabled
+ * points of one logic run are summarized in a single log entry. For
+ * empty hard mode proposals the explanation of the {@link HardEditAdvisor} is
+ * appended to the respective point.
  *
  * @author Janusch Rentenatus
  */
@@ -30,19 +30,19 @@ public final class EditMenuEnablementLogger {
     }
 
     /**
-     * Loggt die Deaktivierungsgruende der Add-Menues eines Edit-Menu (Popup oder
-     * Hauptmenue) zusammengefasst in einem einzigen Eintrag im FastLog-Typ "ui".
-     * Bleibt alles enabled, wird nichts geloggt.
+     * Logs the disable reasons of the add menus of an edit menu (popup or
+     * main menu), summarized in a single entry in the fast log type "ui".
+     * When everything stays enabled, nothing is logged.
      *
-     * @param master der Master-Control mit dem FastLog
-     * @param menuName Kennzeichnung des Menu, z. B. "edit popup" oder "main menu"
-     * @param hard true, wenn die Selektion im Hard-Parse-Mode mit Modell-Deskriptor ist
-     * @param isReadonly true, wenn kein Editor selektiert oder der Editor read-only ist
-     * @param nodeExists true, wenn ein Knoten selektiert ist
-     * @param enableAddRename true, wenn generisches Hinzufuegen erlaubt ist
-     * @param canParentAnnotation true, wenn der selektierte Knoten eine Annotation aufnehmen kann
-     * @param editTree der EditTree der Selektion oder null
-     * @param selected der selektierte Knoten oder null
+     * @param master the master control with the fast log
+     * @param menuName identification of the menu, e.g. "edit popup" or "main menu"
+     * @param hard true when the selection is in hard parse mode with a model descriptor
+     * @param isReadonly true when no editor is selected or the editor is read-only
+     * @param nodeExists true when a node is selected
+     * @param enableAddRename true when generic adding is allowed
+     * @param canParentAnnotation true when the selected node can parent an annotation
+     * @param editTree the edit tree of the selection, or null
+     * @param selected the selected node, or null
      */
     public static void logAddMenus(JackMasterControl master, String menuName, boolean hard,
             boolean isReadonly, boolean nodeExists, boolean enableAddRename,

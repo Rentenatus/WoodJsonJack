@@ -23,11 +23,11 @@ import javax.swing.JTextField;
 import javax.swing.WindowConstants;
 
 /**
- * Detail-Dialog fuer ein einzelnes Attribut eines {@code EditNode}. Zeigt oben
- * ein Label-Textfeld-Gitter mit Knoten-Name, Knoten-Pfad, Attribut-Typ und
- * Attribut-Name, darunter eine Beschriftung fuer den Attribut-Wert gefolgt von
- * einer zunaechst nicht editierbaren TextArea mit Umbruch und Scrollleisten.
- * Unten rechts befindet sich ein Close-Button.
+ * Detail dialog for a single attribute of an {@code EditNode}. Shows a
+ * label/text field grid at the top with node name, node path, attribute type and
+ * attribute name, below that a caption for the attribute value followed by
+ * a text area that is initially read-only, with line wrapping and scroll bars.
+ * A close button sits at the bottom right.
  *
  * @author Janusch Rentenatus
  */
@@ -38,22 +38,22 @@ public class JsonJackAttrDetailDialog extends JDialog {
     private JTextArea valueArea;
 
     /**
-     * Erzeugt einen neuen modalen Detail-Dialog.
+     * Creates a new modal detail dialog.
      *
-     * @param owner das uebergeordnete Fenster
-     * @param nodeName der Name des ausgewaehlten Knotens
-     * @param nodePath der Pfad des ausgewaehlten Knotens
-     * @param attrType der Typ des Attributs
-     * @param attrName der Name des Attributs
-     * @param attrValue der Wert des Attributs
-     * @param editable ob das Attribut (und damit die TextArea) editierbar ist
-     * @param acceptHandler Callback, der beim Klick auf "Accept" mit dem
-     * bearbeiteten Wert aufgerufen wird; darf null sein, wenn nicht editierbar
+     * @param owner the parent window
+     * @param nodeName the name of the selected node
+     * @param nodePath the path of the selected node
+     * @param attrType the type of the attribute
+     * @param attrName the name of the attribute
+     * @param attrValue the value of the attribute
+     * @param editable whether the attribute (and thus the text area) is editable
+     * @param acceptHandler callback invoked with the edited value when "Accept"
+     * is clicked; may be null when not editable
      */
     public JsonJackAttrDetailDialog(Frame owner, String nodeName, String nodePath,
             String attrType, String attrName, String attrValue, boolean editable,
             Consumer<String> acceptHandler) {
-        super(owner, "Attribut-Detail", true);
+        super(owner, "Attribute Detail", true);
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         buildUi(nodeName, nodePath, attrType, attrName, attrValue, editable, acceptHandler);
         setSize(540, 420);
@@ -81,10 +81,10 @@ public class JsonJackAttrDetailDialog extends JDialog {
         field.weightx = 1.0;
         field.fill = GridBagConstraints.HORIZONTAL;
 
-        addInfoRow(top, label, field, 0, "Knoten-Name:", nodeName);
-        addInfoRow(top, label, field, 1, "Knoten-Pfad:", nodePath);
-        addInfoRow(top, label, field, 2, "Attribut-Typ:", attrType);
-        addInfoRow(top, label, field, 3, "Attribut-Name:", attrName);
+        addInfoRow(top, label, field, 0, "Node Name:", nodeName);
+        addInfoRow(top, label, field, 1, "Node Path:", nodePath);
+        addInfoRow(top, label, field, 2, "Attribute Type:", attrType);
+        addInfoRow(top, label, field, 3, "Attribute Name:", attrName);
 
         GridBagConstraints valueLabel = new GridBagConstraints();
         valueLabel.gridx = 0;
@@ -92,7 +92,7 @@ public class JsonJackAttrDetailDialog extends JDialog {
         valueLabel.gridwidth = 2;
         valueLabel.anchor = GridBagConstraints.WEST;
         valueLabel.insets = new Insets(10, 0, 2, 0);
-        top.add(new JLabel("Attribut-Value:"), valueLabel);
+        top.add(new JLabel("Attribute Value:"), valueLabel);
 
         add(top, BorderLayout.NORTH);
 

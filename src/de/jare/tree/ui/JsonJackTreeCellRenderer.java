@@ -63,7 +63,7 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
             infoLabel.setText(" ");
         }
 
-        // Selektion/Focus nach JTree-Defaults nachbilden
+        // mimic selection/focus according to JTree defaults
         Color bg, fg;
         if (selected) {
             bg = UIManager.getColor("Tree.selectionBackground");
@@ -76,13 +76,13 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
         panel.setBackground(bg);
         panel.setOpaque(true);
 
-        // Edit-Label bekommt für Lesbarkeit die gleiche Grundfarbe wie der Tree
+        // for readability the edit label gets the same base color as the tree
         if (!selected) {
             String foreKey = data != null
                     ? WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey() : null;
             editLabel.setForeground(data != null ? WoodSettings.INSTANCE.getShownTheme().getColor(foreKey) : fg);
 
-            // EditStatus-Farbe bei WARNING/ERROR überlagert die TypeKey-Farbe
+            // the edit status color at WARNING/ERROR overlays the type key color
             if (data != null) {
                 EditStatus status = data.getEditStatus();
                 if (status == EditStatus.ERROR || status == EditStatus.WARNING) {
@@ -101,7 +101,7 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
                 ? fg
                 : UIManager.getColor("Label.disabledForeground"));
 
-        // Tooltip mit ParseState, EditStatus und Typ-Info
+        // tooltip with parse state, edit status and type info
         if (data != null) {
             panel.setToolTipText(buildTooltip(data));
         } else {
@@ -125,12 +125,12 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
         if (data instanceof EditNodeObject objNode) {
             JsonTypeDescriptor type = objNode.getJsonType();
             if (type != null) {
-                sb.append("<br>Typ: ").append(escapeHtml(type.getTypeName()));
+                sb.append("<br>Type: ").append(escapeHtml(type.getTypeName()));
             }
         } else if (data instanceof EditNodeProperty propNode) {
             JsonFieldDescriptor field = propNode.getJsonField();
             if (field != null) {
-                sb.append("<br>Feld: ").append(escapeHtml(field.getFieldName()));
+                sb.append("<br>Field: ").append(escapeHtml(field.getFieldName()));
             }
         }
         sb.append("</html>");

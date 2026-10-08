@@ -30,10 +30,10 @@ import javax.swing.KeyStroke;
 import javax.swing.WindowConstants;
 
 /**
- * Modaler Dialog, der den vollen Meldungstext eines {@link FastLogEntry} anzeigt.
- * Oben ein Label-Textfeld-Gitter mit Nr, Id und Timestamp, darunter eine nicht
- * editierbare TextArea mit Umbruch und Scrollleisten. Unten rechts ein
- * Close-Button, ESC schliesst den Dialog.
+ * Modal dialog that shows the full message text of a {@link FastLogEntry}.
+ * A label/text field grid at the top with number, id and timestamp, below that
+ * a read-only text area with wrapping and scroll bars. A close button at the
+ * bottom right, ESC closes the dialog.
  *
  * @author Janusch Rentenatus
  */
@@ -44,10 +44,10 @@ public class JackFastLogMessageDialog extends JDialog {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 
     /**
-     * Erzeugt einen neuen modalen Dialog fuer einen Fast-Log-Eintrag.
+     * Creates a new modal dialog for a fast log entry.
      *
-     * @param owner das uebergeordnete Fenster
-     * @param entry der anzuzeigende Eintrag
+     * @param owner the parent window
+     * @param entry the entry to show
      */
     public JackFastLogMessageDialog(Frame owner, FastLogEntry entry) {
         super(owner, "Fast Log Message", true);

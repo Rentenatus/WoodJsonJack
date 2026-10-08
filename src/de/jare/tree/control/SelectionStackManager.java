@@ -25,11 +25,11 @@ import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
 
 /**
- * Globaler Selektions-Stack-Manager.
+ * Global selection stack manager.
  * <p>
- * - Verwaltet pro JTree ein SelectionStackManagerModel (Stack-Daten). -
- * Reagiert auf TreeFocusListener-Events (aktiver Editor, selektierter Knoten).
- * - Stellt Selektionen über Backward/Forward wieder her.
+ * - Manages one SelectionStackManagerModel (stack data) per JTree. - Reacts to
+ * TreeFocusListener events (active editor, selected node).
+ * - Restores selections via Backward/Forward.
  * </p>
  *
  * @author Jansuch Rentenatus
@@ -50,7 +50,7 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
             return;
         }
 
-        // alle aktuell selektierten Pfade einsammeln
+        // collect all currently selected paths
         TreePath[] paths = tree.getTree().getSelectionPaths();
         if (paths == null || paths.length == 0) {
             return;
@@ -74,7 +74,7 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
         }
 
         if (!areEqual(checkIds, newEditIds)) {
-            // Label hier erstmal simpel auf node.toString();
+            // keep the label simple for now: node.toString();
             String label = node != null ? node.toString() : "Selection";
             addSelection(newEditIds, label);
         }
@@ -89,7 +89,7 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
         if (currentEntry.getEditIds().size() != newEditIds.size()) {
             return false;
         }
-        // alle IDs aus dem alten Eintrag aus dem Set entfernen
+        // remove all ids of the old entry from the set
         for (Long cEntry : currentEntry.getEditIds()) {
             if (!checkIds.remove(cEntry)) {
                 return false;
@@ -122,10 +122,10 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
     }
 
     /**
-     * Neue Selektion an das Ende des Stacks anhängen.
+     * Appends a new selection to the end of the stack.
      *
-     * @param editIds editIds der selektierten Knoten
-     * @param label Label für Anzeige/Tooltip
+     * @param editIds editIds of the selected nodes
+     * @param label label for display/tooltip
      */
     public void addSelection(List<Long> editIds, String label) {
         if (ignoreSelectionChanges || activeManager == null) {
@@ -181,8 +181,8 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
     }
 
     /**
-     * Navigiere einen Schritt zurück im Selektions-Stack und stelle die
-     * Selektion im JTree wieder her.
+     * Navigates one step back in the selection stack and restores the
+     * selection in the JTree.
      */
     public void selectionBackward() {
         if (activeManager == null) {
@@ -196,8 +196,8 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
     }
 
     /**
-     * Navigiere einen Schritt vorwärts im Selektions-Stack und stelle die
-     * Selektion im JTree wieder her.
+     * Navigates one step forward in the selection stack and restores the
+     * selection in the JTree.
      */
     public void selectionForward() {
         if (activeManager == null) {
@@ -211,8 +211,8 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
     }
 
     /**
-     * Stellt die Selektion anhand der editIds wieder her. Verhindert, dass
-     * diese programmatische Änderung erneut im Stack landet.
+     * Restores the selection by editIds. Prevents this programmatic change
+     * from landing on the stack again.
      */
     private void restoreSelection(TreeFocusComponent editTree, SelectionStackEntry entry) {
         if (editTree == null) {
@@ -237,7 +237,7 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
     }
 
     /**
-     * Labels für Tooltip/Popup des Backward-Buttons (max-Einträge).
+     * Labels for the tooltip/popup of the backward button (max entries).
      *
      * @param max
      * @return
@@ -250,7 +250,7 @@ public class SelectionStackManager implements TreeFocusListener, UndoRedoListene
     }
 
     /**
-     * Labels für Tooltip/Popup des Forward-Buttons (max-Einträge).
+     * Labels for the tooltip/popup of the forward button (max entries).
      *
      * @param max
      * @return

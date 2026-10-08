@@ -36,15 +36,15 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 
 /**
- * Pane fuer den FastLog im unteren TabbedPane. Links eine Liste der
- * Fast-Log-Typen (mit "All" als Filter fuer alle Typen), rechts eine Tabelle
- * mit den Spalten Nr, Id und Message. Die Message-Spalte wird als TextArea
- * gerendert und auf {@link #MAX_VISIBLE_LINES} Zeilen gedeckelt; der volle Text
- * ist per Doppelklick (oder Enter) in einem Dialog mit Scrollleisten zu sehen.
+ * Pane for the fast log in the bottom tabbed pane. On the left a list of
+ * fast log types (with "All" as filter for all types), on the right a table
+ * with the columns number, id and message. The message column is rendered as a
+ * text area and clamped to {@link #MAX_VISIBLE_LINES} lines; the full text
+ * is available via double click (or Enter) in a dialog with scroll bars.
  * <p>
- * Aenderungen am Log werden ueber {@link FastLogListener} empfangen und per
- * invokeLater auf den EDT verlagert; mehrere schnelle Schreibzugriffe werden zu
- * einem Tabellen-Update zusammengefasst.
+ * Changes to the log are received via {@link FastLogListener} and moved to
+ * the EDT with invokeLater; several fast writes are coalesced into
+ * a single table update.
  * </p>
  *
  * @author Janusch Rentenatus
@@ -62,10 +62,10 @@ public class JackFastLogPanel extends JPanel implements FastLogListener {
     private boolean updateScheduled;
 
     /**
-     * Erzeugt die Pane und registriert sie als Listener am FastLog des
-     * Master-Control.
+     * Creates the pane and registers it as listener on the fast log of the
+     * master control.
      *
-     * @param master der Master-Control
+     * @param master the master control
      */
     public JackFastLogPanel(JackMasterControl master) {
         this.fastLog = master.getFastLog();
@@ -172,8 +172,7 @@ public class JackFastLogPanel extends JPanel implements FastLogListener {
     }
 
     /**
-     * Fasst schnelle Schreibzugriffe zu einem Tabellen-Update auf dem EDT
-     * zusammen.
+     * Coalesces fast writes into a single table update on the EDT.
      */
     private void scheduleRefresh() {
         if (updateScheduled) {
@@ -199,9 +198,9 @@ public class JackFastLogPanel extends JPanel implements FastLogListener {
     }
 
     /**
-     * Setzt die Zeilenhoehen anhand des Message-Texts: der Text wird umgebrochen
-     * und die Hoehe auf {@link #MAX_VISIBLE_LINES} Zeilen gedeckelt, damit sehr
-     * lange Meldungen die Tabelle nicht auseinanderziehen.
+     * Sets the row heights from the message text: the text is wrapped and
+     * the height clamped to {@link #MAX_VISIBLE_LINES} lines so very long
+     * messages do not stretch the table.
      */
     private void layoutRowHeights() {
         int messageWidth = table.getColumnModel().getColumn(2).getWidth();
@@ -224,8 +223,8 @@ public class JackFastLogPanel extends JPanel implements FastLogListener {
     }
 
     /**
-     * Renderer, der die Message-Spalte als nicht editierbare TextArea mit
-     * Zeilenumbruch anzeigt.
+     * Renderer that shows the message column as a read-only text area with
+     * line wrapping.
      */
     private static class TextAreaRenderer extends javax.swing.JTextArea implements TableCellRenderer {
 

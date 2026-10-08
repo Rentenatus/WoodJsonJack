@@ -7,9 +7,9 @@
 package de.jare.tree.control.fastlog;
 
 /**
- * Deskriptor eines Fast-Log-Typs. Jeder Typ entspricht einem System, das in den
- * FastLog schreiben darf oder nicht. Ueber {@code writable} wird gesteuert, ob
- * {@link FastLog#write(String, String)} fuer diesen Typ Eintraege annimmt.
+ * Descriptor of a fast log type. Each type corresponds to a system that may
+ * or may not write to the FastLog. {@code writable} controls whether
+ * {@link FastLog#write(String, String)} accepts entries for this type.
  *
  * @author Janusch Rentenatus
  */
@@ -20,11 +20,11 @@ public class FastLogType {
     private final boolean writable;
 
     /**
-     * Erzeugt einen neuen Fast-Log-Typ.
+     * Creates a new fast log type.
      *
-     * @param id eindeutige ID des Typs, z. B. "parser"
-     * @param label Anzeigename des Typs, z. B. in der Typ-Liste der UI
-     * @param writable true, wenn Systeme in diesen Typ schreiben duerfen
+     * @param id unique id of the type, e.g. "parser"
+     * @param label display name of the type, e.g. in the type list of the UI
+     * @param writable true when systems may write to this type
      */
     public FastLogType(String id, String label, boolean writable) {
         this.id = id;
@@ -33,21 +33,21 @@ public class FastLogType {
     }
 
     /**
-     * @return die eindeutige ID des Typs
+     * @return the unique id of the type
      */
     public String getId() {
         return id;
     }
 
     /**
-     * @return der Anzeigename des Typs
+     * @return the display name of the type
      */
     public String getLabel() {
         return label;
     }
 
     /**
-     * @return true, wenn Systeme in diesen Typ schreiben duerfen
+     * @return true when systems may write to this type
      */
     public boolean isWritable() {
         return writable;
