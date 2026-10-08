@@ -9,14 +9,16 @@ package de.jare.tree.ui;
 import de.jare.tree.control.fastlog.FastLog;
 import de.jare.tree.control.fastlog.FastLogEntry;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import javax.swing.table.AbstractTableModel;
 
 /**
- * TableModel over the entries of a {@link FastLog}. The rows can be
- * restricted to one fast log type via {@link #setFilter(String)};
- * null shows all types. The message column is read-only, the full
- * text is shown in the detail dialog.
+ * TableModel over the entries of a {@link FastLog}, newest entry on
+ * top like in a mail application. The rows can be restricted to one
+ * fast log type via {@link #setFilter(String)}; null shows all types.
+ * The message column is read-only, the full text is shown in the
+ * detail dialog.
  *
  * @author Janusch Rentenatus
  */
@@ -56,10 +58,11 @@ public class JackFastLogTableModel extends AbstractTableModel {
     }
 
     /**
-     * Reloads the rows as a snapshot from the fast log.
+     * Reloads the rows as a snapshot from the fast log, newest entry first.
      */
     public final void reload() {
         rows = fastLog.getEntries(filterTypeId);
+        Collections.reverse(rows);
         fireTableDataChanged();
     }
 
