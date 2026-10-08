@@ -71,7 +71,7 @@ public class AnnotationSoftParseNGTest {
         assertNotNull(comments, "The comments field node must exist");
         final EditNodeAbstract doc = findChild(comments, "@doc:comments");
         assertNotNull(doc, "The composite annotation must be a child of its target field node");
-        assertSame(doc.getParent(), comments, "Kind von comments - the annotation lives under the field node");
+        assertSame(doc.getParent(), comments, "child of comments - the annotation lives under the field node");
         assertEquals(doc.getEditStatus(), EditStatus.OKAY,
                 "The declared field annotation must bind OKAY: " + describe(doc));
 

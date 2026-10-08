@@ -45,13 +45,13 @@ public class JackEditPopup extends JPopupMenu {
 
     public JackEditPopup(JackMasterControl master) {
         this.master = master;
-        addNodeMenu = new JMenu("Node hinzufügen");
-        addAnnotationMenu = new JMenu("Annotation hinzufügen");
-        deleteNodeItem = new JMenuItem("Node löschen");
-        renameNodeItem = new JMenuItem("Node umbenennen");
+        addNodeMenu = new JMenu("Add Node");
+        addAnnotationMenu = new JMenu("Add Annotation");
+        deleteNodeItem = new JMenuItem("Delete Node");
+        renameNodeItem = new JMenuItem("Rename Node");
 
-        addNodeItem = new JMenuItem("Node hinzufügen");
-        addAnnotationItem = new JMenuItem("Annotation hinzufügen");
+        addNodeItem = new JMenuItem("Add Node");
+        addAnnotationItem = new JMenuItem("Add Annotation");
         deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
         renameNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_RENAME_NODE, this));
         addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
@@ -141,11 +141,15 @@ public class JackEditPopup extends JPopupMenu {
         // Soft mode offers the generic adds directly, hard mode only the permissible types as sub menu.
         HardEditMenuBuilder.switchModeItems(addNodeItem, addNodeMenu, hard);
         HardEditMenuBuilder.switchModeItems(addAnnotationItem, addAnnotationMenu, hard);
+        final boolean parentAnnotation = canParentAnnotation();
         addNodeItem.setEnabled(enableAddRename);
-        addAnnotationItem.setEnabled(enableAddRename && canParentAnnotation());
+        addAnnotationItem.setEnabled(enableAddRename && parentAnnotation);
         addNodeMenu.setEnabled(enableAddRename && (!hard || HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)));
-        addAnnotationMenu.setEnabled(!isReadonly && canParentAnnotation()
+        addAnnotationMenu.setEnabled(!isReadonly && parentAnnotation
                 && (!hard || HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)));
+
+        EditMenuEnablementLogger.logAddMenus(master, "edit popup", hard, isReadonly, nodeExists,
+                enableAddRename, parentAnnotation, editTree, selected);
 
         updatePasteEnabled();
     }
@@ -212,7 +216,7 @@ public class JackEditPopup extends JPopupMenu {
     }
 
     /**
-     * Hilfsmethode, um das Popup an einem JTree zu registrieren.
+     * Helper method to register the popup on a JTree.
      *
      * @param tree
      * @param popup
@@ -253,13 +257,13 @@ public class JackEditPopup extends JPopupMenu {
                     }
                 }
 
-                // Nur wenn der angeklickte Knoten noch NICHT selektiert ist,
-                // machen wir eine Einzelauswahl – sonst bleibt die Multi-Selection erhalten.
+                // only when the clicked node is NOT yet selected,
+                // we make a single selection – otherwise the multi selection is preserved.
                 if (!alreadySelected) {
                     tree.setSelectionPath(path);
                 }
 
-                // Popup anzeigen 
+                // show the popup 
                 popup.show(tree, x, y);
             }
         });

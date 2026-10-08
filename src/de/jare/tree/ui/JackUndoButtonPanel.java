@@ -39,7 +39,7 @@ public class JackUndoButtonPanel extends JPanel {
         add(Box.createVerticalStrut(8));
         add(btnSkipRedo);
 
-        // initialer Zustand
+        // initial state
         updateButtons();
     }
 

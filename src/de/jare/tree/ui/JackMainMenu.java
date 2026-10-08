@@ -51,15 +51,15 @@ public class JackMainMenu extends JMenuBar {
         this.master = master;
         this.mainActions = new JackMainActions(mainFrame, master);
 
-        // Projekt-Menü
-        JMenu projectMenu = new JMenu("Projekt");
+        // Project menu
+        JMenu projectMenu = new JMenu("Project");
         projectMenu.setMnemonic(KeyEvent.VK_P);
 
-        JMenuItem newItem = new JMenuItem("Neu");
-        JMenuItem openItem = new JMenuItem("Öffnen...");
-        JMenuItem saveItem = new JMenuItem("Speichern");
-        JMenuItem saveAsItem = new JMenuItem("Speichern unter...");
-        JMenuItem exitItem = new JMenuItem("Beenden");
+        JMenuItem newItem = new JMenuItem("New");
+        JMenuItem openItem = new JMenuItem("Open...");
+        JMenuItem saveItem = new JMenuItem("Save");
+        JMenuItem saveAsItem = new JMenuItem("Save As...");
+        JMenuItem exitItem = new JMenuItem("Exit");
 
         exitItem.addActionListener(e -> woodWindow.dispose());
         openItem.addActionListener(e -> openJsonFile());
@@ -89,17 +89,17 @@ public class JackMainMenu extends JMenuBar {
         projectMenu.add(pasteItem);
         projectMenu.add(pasteUnderneathItem);
 
-        // Edit-Menü
+        // Edit menu
         JMenu editMenu = new JMenu("Edit");
         editMenu.setMnemonic(KeyEvent.VK_E);
 
-        addNodeMenu = new JMenu("Node hinzufügen");
-        addAnnotationMenu = new JMenu("Annotation hinzufügen");
-        deleteNodeItem = new JMenuItem("Node löschen");
-        renameNodeItem = new JMenuItem("Node umbenennen");
+        addNodeMenu = new JMenu("Add Node");
+        addAnnotationMenu = new JMenu("Add Annotation");
+        deleteNodeItem = new JMenuItem("Delete Node");
+        renameNodeItem = new JMenuItem("Rename Node");
 
-        addNodeItem = new JMenuItem("Node hinzufügen");
-        addAnnotationItem = new JMenuItem("Annotation hinzufügen");
+        addNodeItem = new JMenuItem("Add Node");
+        addAnnotationItem = new JMenuItem("Add Annotation");
         deleteNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_DELETE_NODE, this));
         renameNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_RENAME_NODE, this));
         addNodeItem.addActionListener(e -> master.fireContentCommand(EDIT_ADD_NODE, this));
@@ -129,15 +129,15 @@ public class JackMainMenu extends JMenuBar {
         optionsMenu.addSeparator();
         optionsMenu.add(darkModeItem);
 
-        // Info-Menü
+        // Info menu
         JMenu infoMenu = new JMenu("Info");
         infoMenu.setMnemonic(KeyEvent.VK_I);
 
-        JMenuItem aboutItem = new JMenuItem("Über...");
+        JMenuItem aboutItem = new JMenuItem("About...");
         aboutItem.addActionListener(e
                 -> JOptionPane.showMessageDialog(woodWindow,
                         "Tree Editor\n© 2026",
-                        "Über",
+                        "About",
                         JOptionPane.INFORMATION_MESSAGE
                 )
         );
@@ -193,11 +193,15 @@ public class JackMainMenu extends JMenuBar {
         // Soft mode offers the generic adds directly, hard mode only the permissible types as sub menu.
         HardEditMenuBuilder.switchModeItems(addNodeItem, addNodeMenu, hard);
         HardEditMenuBuilder.switchModeItems(addAnnotationItem, addAnnotationMenu, hard);
+        final boolean parentAnnotation = canParentAnnotation();
         addNodeItem.setEnabled(enableAddRename);
-        addAnnotationItem.setEnabled(enableAddRename && canParentAnnotation());
+        addAnnotationItem.setEnabled(enableAddRename && parentAnnotation);
         addNodeMenu.setEnabled(enableAddRename && (!hard || HardEditMenuBuilder.hasAddNodeProposals(editTree, selected)));
-        addAnnotationMenu.setEnabled(enableAddRename && canParentAnnotation()
+        addAnnotationMenu.setEnabled(enableAddRename && parentAnnotation
                 && (!hard || HardEditMenuBuilder.hasAddAnnotationProposals(editTree, selected)));
+
+        EditMenuEnablementLogger.logAddMenus(master, "main menu", hard, isReadonly, nodeExists,
+                enableAddRename, parentAnnotation, editTree, selected);
 
         updatePasteEnabled();
     }
@@ -288,7 +292,7 @@ public class JackMainMenu extends JMenuBar {
     private void openJsonFile() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileFilter(new FileNameExtensionFilter("JSON Files", "json"));
-        fileChooser.setDialogTitle("JSON-Datei öffnen");
+        fileChooser.setDialogTitle("Open JSON file");
 
         int result = fileChooser.showOpenDialog(woodWindow);
         if (result == JFileChooser.APPROVE_OPTION) {

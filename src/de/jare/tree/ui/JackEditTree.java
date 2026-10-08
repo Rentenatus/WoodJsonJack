@@ -76,30 +76,30 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     public JackEditTree(JackMasterControl master, String rootName, String... propNames) {
         this.master = master;
 
-        // Header-Panel für Labels und Icons
+        // header panel for labels and icons
         headerPanel = new JPanel();
         headerPanel.setLayout(new BorderLayout());
 
-        // Linkes Panel für das Label
+        // left panel for the label
         JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         headerPanel.add(leftPanel, BorderLayout.WEST);
 
-        // Rechtes Panel für die Checkbox
+        // right panel for the checkbox
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         headerPanel.add(rightPanel, BorderLayout.EAST);
 
-        // Label für Ressourceninfo
+        // label for resource info
         resourceLabel = new JLabel("this; no model");
         leftPanel.add(resourceLabel);
 
-        // Combo für den Parse-Modus
+        // combo for the parse mode
         parseModeBox = new JComboBox<>(ParseMode.values());
         parseModeBox.setSelectedItem(ParseMode.WITHOUT_SEMANTICS);
         parseModeBox.setEnabled(false);
         parseModeBox.addActionListener(e -> onParseModeSelected());
         leftPanel.add(parseModeBox);
 
-        // Checkbox für Link-Ansicht
+        // checkbox for the link view
         linkCheckBox = new JCheckBox();
         linkCheckBox.setSelectedIcon(new ImageIcon(getClass().getResource("/icons/link_view.png")));
         linkCheckBox.setIcon(new ImageIcon(getClass().getResource("/icons/no_link.png")));
@@ -114,7 +114,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         final JackUndoManager undoMan = master != null ? master.getUndoManager() : null;
         jtree.setCellEditor(new JsonJackTreeCellEditor(undoMan));
 
-        // Selektionslistener für den Tree
+        // selection listener for the tree
         jtree.addTreeSelectionListener(e -> {
             if (master != null && master.getActiveEditor() == JackEditTree.this) {
                 DefaultMutableTreeNode node
@@ -133,12 +133,12 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         }
         jtree.getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
 
-        // Layout für das JPanel
+        // layout for the JPanel
         setLayout(new BorderLayout());
         add(headerPanel, BorderLayout.NORTH);
         add(new JScrollPane(jtree), BorderLayout.CENTER);
 
-        // Root-Knoten und optionale Demo-Properties
+        // root node and optional demo properties
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) jtree.getModel().getRoot();
         for (String propName : propNames) {
             EditNodeAbstract childData = jackTreeModel.getEditTree().addNewChild(
@@ -162,7 +162,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             master.addUndoRedoListener(8, undoRedoListener);
         }
 
-        // Timer für ParseState-Refresh (pollt alle 200ms den Hintergrund-Parser)
+        // timer for parse state refresh (polls the background parser every 200 ms)
         parseRefreshTimer = new Timer(200, e -> refreshParseStates());
         parseRefreshTimer.start();
 
@@ -174,7 +174,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
         @Override
         public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
-            // Nur reagieren, wenn dieser Editor aktuell aktiv ist
+            // only react when this editor is currently active
             if (master != null && master.getActiveEditor() != JackEditTree.this) {
                 return;
             }
@@ -239,7 +239,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
         @Override
         public void onFocusGained() {
-            // aktuellen selektierten Knoten erneut melden
+            // report the currently selected node again
             if (master != null && master.getActiveEditor() == JackEditTree.this) {
                 DefaultMutableTreeNode node
                         = (DefaultMutableTreeNode) jtree.getLastSelectedPathComponent();
@@ -875,7 +875,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         ClipboardManager clipboardManager = master.getClipboardManager();
         String stashName = clipboardManager.getActiveStashName();
 
-        // Sichere die Expansionszustände der ausgewählten Knoten
+        // save the expansion states of the selected nodes
         java.util.Set<Long> expandedNodeIds = saveExpandedNodeIdsForPaths(paths);
 
         EditCommand command;
@@ -895,7 +895,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
         master.getUndoManager().executeCommand(command);
 
-        // Speichere die Expansionszustände im Stash
+        // store the expansion states in the stash
         ClipboardStash stash = clipboardManager.getStash(stashName);
         if (stash != null && expandedNodeIds != null && !expandedNodeIds.isEmpty()) {
             stash.setExpandedNodeIds(expandedNodeIds);
@@ -903,11 +903,11 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Speichert die Expansionszustände für die gegebenen Pfade. Nur Knoten, deren Pfad tatsächlich expanded ist, werden
-     * gespeichert.
+     * Saves the expansion states for the given paths. Only nodes whose path is actually expanded are
+     * stored.
      *
-     * @param paths die TreePath-Array
-     * @return Set der expandierten Node-IDs
+     * @param paths the TreePath array
+     * @return set of the expanded node ids
      */
     private java.util.Set<Long> saveExpandedNodeIdsForPaths(TreePath[] paths) {
         java.util.Set<Long> expandedIds = new java.util.HashSet<>();
@@ -918,8 +918,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Rekursiv alle expandierten Knoten unter einem Pfad sammeln. Nur Knoten, deren Pfad expanded ist, werden zur Liste
-     * hinzugefügt.
+     * Recursively collects all expanded nodes below a path. Only nodes whose path is expanded are added to the
+     * list.
      */
     private void collectExpandedNodeIds(TreePath path, java.util.Set<Long> expandedIds) {
         if (path == null) {
@@ -928,14 +928,14 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
 
-        // Nur hinzufügen, wenn dieser Pfad expanded ist
+        // only add when this path is expanded
         if (jtree.isExpanded(path)) {
             Object uo = node.getUserObject();
             if (uo instanceof EditNodeAbstract editNode) {
                 expandedIds.add(editNode.getEditId());
             }
 
-            // Rekursiv alle Kinder durchgehen
+            // walk all children recursively
             for (int i = 0; i < node.getChildCount(); i++) {
                 DefaultMutableTreeNode child = (DefaultMutableTreeNode) node.getChildAt(i);
                 TreePath childPath = path.pathByAddingChild(child);

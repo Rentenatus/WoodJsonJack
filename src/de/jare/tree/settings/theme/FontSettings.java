@@ -39,14 +39,14 @@ public class FontSettings implements AScheme {
         return fontMap.containsKey(key);
     }
 
-    // Überträgt die gespeicherten Fonts in den UIManager
+    // transfers the stored fonts into the UIManager
     public void accept() {
         for (Map.Entry<String, Font> entry : fontMap.entrySet()) {
             UIManager.put(entry.getKey(), entry.getValue());
         }
     }
 
-    // Lädt alle aktuellen Font-Defaults aus dem UIManager
+    // loads all current font defaults from the UIManager
     public void resetDefault() {
         fontMap.clear();
         Font font = (Font) UIManager.getDefaults().get("EditorPane.font");
@@ -66,7 +66,7 @@ public class FontSettings implements AScheme {
         fontMap.put(DARK_FORE_ANNOTATION, font);
     }
 
-    // Skaliert alle Fonts um den angegebenen Faktor
+    // scales all fonts by the given factor
     public void scale(float factor) {
         for (Map.Entry<String, Font> entry : fontMap.entrySet()) {
             Font f = entry.getValue();

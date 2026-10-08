@@ -63,8 +63,10 @@ public class JackMainActions {
                 }
             }
             woodWindow.addEditorTab(file, tree);
+            master.getFastLog().tryWrite("io", "Loaded " + file.getName());
         } catch (IOException | JsonParseException e) {
-            woodWindow.showErrorDialog("Fehler beim Öffnen der Datei: " + e.getMessage());
+            master.getFastLog().tryWrite("io", "Load failed: " + file.getName() + " - " + e.getMessage());
+            woodWindow.showErrorDialog("Error opening file: " + e.getMessage());
         }
     }
 
@@ -87,8 +89,8 @@ public class JackMainActions {
      */
     public void saveActiveFileAs() {
         final JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("JSON-Datei speichern...");
-        chooser.setFileFilter(new FileNameExtensionFilter("JSON-Dateien", "json"));
+        chooser.setDialogTitle("Save JSON file...");
+        chooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
         if (chooser.showSaveDialog(woodWindow) != JFileChooser.APPROVE_OPTION) {
             return;
         }
@@ -98,7 +100,7 @@ public class JackMainActions {
         }
         if (target.exists()) {
             final int answer = JOptionPane.showConfirmDialog(woodWindow,
-                    "Die Datei existiert bereits. Ueberschreiben?", "Speichern unter...",
+                    "The file already exists. Overwrite?", "Save As...",
                     JOptionPane.YES_NO_OPTION);
             if (answer != JOptionPane.YES_OPTION) {
                 return;
@@ -122,9 +124,11 @@ public class JackMainActions {
         }
         try {
             EditTreeWriter.toJsonFile(target, tree);
+            master.getFastLog().tryWrite("io", "Saved " + target.getName());
             return true;
         } catch (IOException e) {
-            woodWindow.showErrorDialog("Fehler beim Speichern der Datei: " + e.getMessage());
+            master.getFastLog().tryWrite("io", "Save failed: " + target.getName() + " - " + e.getMessage());
+            woodWindow.showErrorDialog("Error saving file: " + e.getMessage());
             return false;
         }
     }
@@ -138,7 +142,7 @@ public class JackMainActions {
 
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Descripcion of: " + org);
-        chooser.setFileFilter(new FileNameExtensionFilter("JSON-Dateien", "json"));
+        chooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
 
         int result = chooser.showOpenDialog(woodWindow);
         return result == JFileChooser.APPROVE_OPTION ? chooser.getSelectedFile() : null;

@@ -210,21 +210,21 @@ class JackTreeNodeTransferHandler extends TransferHandler {
 
     @Override
     protected void exportDone(JComponent source, Transferable data, int action) {
-        // Keine direkte Mutation mehr im Swing-Handler.
-        // Der Move wird vollständig durch MoveNodeCommand ausgeführt.
+        // no direct mutation in the Swing handler anymore.
+        // the move is fully executed by MoveNodeCommand.
     }
 
     /**
-     * Reduziert eine Selektion auf ihre Top-Level-Knoten.
+     * Reduces a selection to its top level nodes.
      *
      * <p>
-     * Wenn sowohl ein Parent als auch dessen Nachfahre selektiert sind, bleibt
-     * nur der Parent erhalten. Dadurch wird verhindert, dass bei einem Move
-     * dieselbe Teilbaumstruktur mehrfach oder widersprüchlich verarbeitet wird.
+     * When both a parent and one of its descendants are selected, only
+     * the parent remains. This prevents a move from processing the same
+     * subtree structure several times or contradictorily.
      * </p>
      *
-     * @param selectedNodes selektierte Tree-Nodes
-     * @return nur die obersten selektierten Knoten
+     * @param selectedNodes the selected tree nodes
+     * @return only the topmost selected nodes
      */
     private static DefaultMutableTreeNode[] reduceToTopLevelSelections(
             DefaultMutableTreeNode[] selectedNodes) {
@@ -251,11 +251,11 @@ class JackTreeNodeTransferHandler extends TransferHandler {
     }
 
     /**
-     * Prüft, ob ein selektierter Vorfahr existiert.
+     * Checks whether a selected ancestor exists.
      *
-     * @param node der zu prüfende Knoten
-     * @param selectedSet Menge aller selektierten Knoten
-     * @return true, wenn ein Vorfahr ebenfalls selektiert ist
+     * @param node the node to check
+     * @param selectedSet the set of all selected nodes
+     * @return true when an ancestor is also selected
      */
     private static boolean hasSelectedAncestor(
             DefaultMutableTreeNode node,
@@ -292,12 +292,12 @@ class JackTreeNodeTransferHandler extends TransferHandler {
     }
 
     /**
-     * Prüft, ob possibleAncestor ein Vorfahr von candidateTarget ist
-     * (einschließlich Gleichheit).
+     * Checks whether possibleAncestor is an ancestor of candidateTarget
+     * (including equality).
      *
-     * @param candidateTarget mögliches Ziel
-     * @param possibleAncestor möglicher Vorfahr
-     * @return true, wenn candidateTarget im Teilbaum von possibleAncestor liegt
+     * @param candidateTarget the candidate target
+     * @param possibleAncestor the possible ancestor
+     * @return true when candidateTarget lies inside the subtree of possibleAncestor
      */
     private static boolean isDescendant(
             DefaultMutableTreeNode candidateTarget,
@@ -314,11 +314,11 @@ class JackTreeNodeTransferHandler extends TransferHandler {
     }
 
     /**
-     * Normalisiert die Move-Reihenfolge stabil nach source-parent und
-     * source-index.
+     * Stably normalizes the move order by source parent and
+     * source index.
      *
-     * @param nodes die zu bewegenden EditNodes
-     * @return sortierte Kopie
+     * @param nodes the EditNodes to move
+     * @return sorted copy
      */
     private static EditNodeAbstract[] normalizeForMove(EditNodeAbstract[] nodes) {
         EditNodeAbstract[] copy = Arrays.copyOf(nodes, nodes.length);
