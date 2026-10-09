@@ -1,0 +1,381 @@
+package de.jare.tree.ui;
+
+import de.jare.jsoncasted.editor.core.EditLinkingSet;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
+import de.jare.tree.control.listeners.ContentListener;
+import de.jare.tree.control.listeners.ParseProblemsListener;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.model.JackTreeModel;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import javax.swing.table.AbstractTableModel;
+import javax.swing.tree.DefaultMutableTreeNode;
+
+/**
+ * Table model for the Fields pane: a view on the model side of the selected
+ * object. The first row shows the json type of the object, one row per field
+ * (child property) follows with name, value and node type. Object-typed fields
+ * offer their candidate instances through a combo box (see
+ * {@link #isComboBoxCell(int, int)}); the selection semantics are a later
+ * step - the base version only displays the candidates.
+ *
+ * <p>When a field is selected in the tree, the pane still shows the owning
+ * object and focuses the field's row (matched by edit id, not by name - array
+ * fields may repeat names).</p>
+ *
+ * @author Janusch Rentenatus
+ */
+public class JsonJackFieldTableModel extends AbstractTableModel
+        implements TreeFocusListener, ContentListener, ParseProblemsListener, JsonJackComboCapableModel {
+
+    private static final String[] columnNames = {"Name", "Value", "Type"};
+
+    private List<FieldRow> rows = new ArrayList<>();
+    private JsonModelDescriptor jsonModelDescriptor;
+    private EditTree editTree;
+    private EditNodeObject currentObject;
+    private long focusedFieldEditId = -1;
+
+    @Override
+    public int getRowCount() {
+        return rows.size();
+    }
+
+    @Override
+    public int getColumnCount() {
+        return columnNames.length;
+    }
+
+    @Override
+    public String getColumnName(int column) {
+        return columnNames[column];
+    }
+
+    @Override
+    public Object getValueAt(int rowIndex, int columnIndex) {
+        FieldRow row = rows.get(rowIndex);
+        return switch (columnIndex) {
+            case 0 ->
+                row.name();
+            case 1 ->
+                row.value();
+            case 2 ->
+                row.type();
+            default ->
+                null;
+        };
+    }
+
+    @Override
+    public boolean isCellEditable(int rowIndex, int columnIndex) {
+        // The base version edits primitive field values only; combo box cells
+        // (object fields) stay read-only until the selection semantics exist.
+        return columnIndex == 1 && rowIndex >= 1 && !isComboBoxCell(rowIndex, columnIndex);
+    }
+
+    @Override
+    public void setValueAt(Object aValue, int row, int col) {
+        if (col != 1 || row < 1 || row >= rows.size()) {
+            return;
+        }
+        FieldRow oldRow = rows.get(row);
+        if (currentObject == null) {
+            return;
+        }
+        // Write through to the node so the tree and the export see the change.
+        EditNode child = currentObject.getChildAt(row - 1);
+        if (child instanceof EditNodeProperty prop) {
+            prop.setValue(aValue == null ? null : aValue.toString());
+        }
+        rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(),
+                oldRow.comboBox(), oldRow.comboValues()));
+        fireTableCellUpdated(row, col);
+    }
+
+    @Override
+    public boolean isComboBoxCell(int rowIndex, int columnIndex) {
+        return columnIndex == 1 && rowIndex >= 1 && rowIndex < rows.size()
+                && rows.get(rowIndex).comboBox();
+    }
+
+    @Override
+    public Object[] getComboBoxValues(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= rows.size()) {
+            return new Object[0];
+        }
+        Object[] values = rows.get(rowIndex).comboValues();
+        return values == null ? new Object[0] : values;
+    }
+
+    // ========== TreeFocusListener ==========
+
+    @Override
+    public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
+        Object actualNode = node == null ? null : node.getUserObject();
+        EditNodeObject owner = null;
+        long focusId = -1;
+
+        if (actualNode instanceof EditNodeProperty prop) {
+            // A clicked field shows its owning object and focuses the field row.
+            owner = findOwningObject(prop);
+            focusId = prop.getEditId();
+        } else if (actualNode instanceof EditNodeObject obj) {
+            owner = obj;
+        } else if (actualNode instanceof EditNodeAbstract abs) {
+            owner = findOwningObject(abs);
+        }
+
+        updateRows(owner, focusId);
+    }
+
+    @Override
+    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
+        if (editor == null) {
+            return;
+        }
+        if (editor.getModel() instanceof JackTreeModel treeModel) {
+            this.editTree = treeModel.getEditTree();
+            setJsonModelDescriptor(treeModel.getJsonModelDescriptor());
+        }
+    }
+
+    // ========== ContentListener / ParseProblemsListener ==========
+
+    @Override
+    public void onCommand(String commandId, Object trigger) {
+        refresh();
+    }
+
+    @Override
+    public void onParseProblems(TreeFocusComponent source, List<DefaultMutableTreeNode> nodes) {
+        // Types resolve asynchronously: re-read the rows when a parse run finished.
+        refresh();
+    }
+
+    /**
+     * Re-reads the rows of the current object, keeping the focused field.
+     */
+    public void refresh() {
+        updateRows(currentObject, focusedFieldEditId);
+    }
+
+    // ========== Row construction ==========
+
+    private void updateRows(EditNodeObject owner, long focusId) {
+        this.currentObject = owner;
+        this.focusedFieldEditId = focusId;
+
+        List<FieldRow> newRows = new ArrayList<>();
+        if (owner != null) {
+            newRows.add(new FieldRow("jsonType", typeNameOf(owner), "header", false, null));
+            for (int i = 0; i < owner.getChildCount(); i++) {
+                if (!(owner.getChildAt(i) instanceof EditNodeProperty field)) {
+                    continue;
+                }
+                newRows.add(buildFieldRow(field));
+            }
+        }
+        rows = newRows;
+        fireTableDataChanged();
+    }
+
+    private FieldRow buildFieldRow(EditNodeProperty field) {
+        final String name = field.getName() == null ? "." : field.getName();
+        final String type = field.getType() == null ? "" : field.getType().getName();
+        final Object value = displayValueOf(field);
+        final Object[] candidates = comboBoxCandidates(field);
+        final boolean comboBox = candidates.length > 0;
+        return new FieldRow(name, value, type, comboBox, candidates);
+    }
+
+    private static Object displayValueOf(EditNodeProperty field) {
+        switch (field.getType()) {
+            case ARRAY -> {
+                int count = 0;
+                for (int i = 0; i < field.getChildCount(); i++) {
+                    if (field.getChildAt(i) instanceof EditNodeAbstract) {
+                        count++;
+                    }
+                }
+                return count + " element(s)";
+            }
+            case OBJECT -> {
+                for (int i = 0; i < field.getChildCount(); i++) {
+                    if (field.getChildAt(i) instanceof EditNodeObject childObject) {
+                        return childObject.getName();
+                    }
+                }
+                return "{ }";
+            }
+            default -> {
+                return field.getValue();
+            }
+        }
+    }
+
+    /**
+     * Three-tier candidate logic: a cleanly parsed field offers the object
+     * instances fitting its declared type (interface types include the
+     * implementors), an unparsed primitive falls back to the primitive node
+     * types, an unparsed object offers nothing.
+     */
+    private Object[] comboBoxCandidates(EditNodeProperty field) {
+        final JsonFieldDescriptor descriptor = field.getJsonField();
+        if (descriptor != null && jsonModelDescriptor != null) {
+            final JsonTypeDescriptor declared = jsonModelDescriptor.getType(descriptor.getTypeName());
+            if (declared != null && !declared.isPrimitive()) {
+                return instanceCandidates(declared);
+            }
+        }
+        // No field description: primitives can still be offered from the node type.
+        return switch (field.getType()) {
+            case STRING, NUMBER, LONG, BOOLEAN, NULL ->
+                new Object[]{"STRING", "NUMBER", "LONG", "BOOLEAN", "NULL"};
+            default ->
+                new Object[0];
+        };
+    }
+
+    /**
+     * Collects the object instances of the parsed JSON whose type fits the
+     * declared field type: a walk over the active tree plus the identities of
+     * the linking set (a deleted but referenced object stays selectable).
+     */
+    private Object[] instanceCandidates(JsonTypeDescriptor declared) {
+        List<Object> candidates = new ArrayList<>();
+        Set<EditNodeObject> seen = new HashSet<>();
+        if (editTree != null && editTree.getRoot() != null) {
+            collectFittingInstances(editTree.getRoot(), declared, candidates, seen);
+        }
+        final EditLinkingSet linkingSet = editTree == null ? null : editTree.getLinkingSet();
+        if (linkingSet != null) {
+            for (EditNodeObject held : linkingSet.getAllObjects()) {
+                if (seen.add(held) && typeFits(held, declared)) {
+                    candidates.add(instanceLabel(held));
+                }
+            }
+        }
+        return candidates.toArray();
+    }
+
+    private static void collectFittingInstances(EditNode node, JsonTypeDescriptor declared,
+            List<Object> candidates, Set<EditNodeObject> seen) {
+        if (node instanceof EditNodeObject obj && seen.add(obj) && typeFits(obj, declared)) {
+            candidates.add(instanceLabel(obj));
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            if (node.getChildAt(i) instanceof EditNodeAbstract child) {
+                collectFittingInstances(child, declared, candidates, seen);
+            }
+        }
+    }
+
+    private static boolean typeFits(EditNodeObject obj, JsonTypeDescriptor declared) {
+        final JsonTypeDescriptor objType = obj.getJsonType();
+        if (objType == null) {
+            return false;
+        }
+        if (objType.getTypeName().equals(declared.getTypeName())) {
+            return true;
+        }
+        // Interface field: every implementor of the declared type fits.
+        return objType.containsSuper(declared);
+    }
+
+    private static String instanceLabel(EditNodeObject obj) {
+        final JsonTypeDescriptor type = obj.getJsonType();
+        final String id = obj.getObjektId();
+        final StringBuilder sb = new StringBuilder(obj.getName() == null ? "?" : obj.getName());
+        if (type != null) {
+            sb.append(" (").append(type.getTypeName()).append(')');
+        }
+        if (id != null && !id.isEmpty()) {
+            sb.append(" #").append(id);
+        }
+        return sb.toString();
+    }
+
+    private static String typeNameOf(EditNodeObject obj) {
+        if (obj.getJsonType() != null) {
+            return obj.getJsonType().getTypeName();
+        }
+        if (obj.getCastName() != null && !obj.getCastName().isEmpty()) {
+            return obj.getCastName() + "?";
+        }
+        return "-";
+    }
+
+    /**
+     * Walks up from the given node to the next owning EditNodeObject.
+     *
+     * @param start the node to start from
+     * @return the owning object, or null when there is none
+     */
+    private static EditNodeObject findOwningObject(EditNode start) {
+        EditNode current = start;
+        while (current != null) {
+            if (current instanceof EditNodeObject obj) {
+                return obj;
+            }
+            current = current.getParent();
+        }
+        return null;
+    }
+
+    // ========== Accessors for the pane ==========
+
+    /**
+     * Returns the row index of the focused field, or -1 when no field is
+     * focused. Rows are matched by edit id, never by name - array fields may
+     * repeat names.
+     *
+     * @return the model row index of the focused field
+     */
+    public int getFocusedRowIndex() {
+        if (currentObject == null || focusedFieldEditId < 0) {
+            return -1;
+        }
+        int row = 1; // row 0 is the jsonType header
+        for (int i = 0; i < currentObject.getChildCount(); i++) {
+            if (!(currentObject.getChildAt(i) instanceof EditNodeProperty)) {
+                continue;
+            }
+            if (currentObject.getChildAt(i).getEditId() == focusedFieldEditId) {
+                return row;
+            }
+            row++;
+        }
+        return -1;
+    }
+
+    /**
+     * Returns the object currently shown by the pane.
+     *
+     * @return the current object, or null
+     */
+    public EditNodeObject getCurrentObject() {
+        return currentObject;
+    }
+
+    void setJsonModelDescriptor(JsonModelDescriptor descriptor) {
+        this.jsonModelDescriptor = descriptor;
+    }
+
+    /**
+     * One row of the Fields pane. The combo values are the candidate instances
+     * of an object-typed field; a non-empty array marks the row as combo box.
+     */
+    public record FieldRow(String name, Object value, String type, boolean comboBox, Object[] comboValues) {
+
+    }
+}

@@ -21,7 +21,7 @@ import java.util.Map;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 
-public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFocusListener {
+public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFocusListener, JsonJackComboCapableModel {
 
     private final String[] columnNames = {"Name", "Value", "Type", "^"};
     private List<PropertyRow> rows = new ArrayList<>();

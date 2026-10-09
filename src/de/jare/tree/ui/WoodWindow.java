@@ -44,6 +44,7 @@ public class WoodWindow extends JFrame {
 
     // Bottom tab constants
     private static final String TAB_ATTRIBUTES = "Attributes";
+    private static final String TAB_FIELDS = "Fields";
     private static final String TAB_JACK_UNDO = "Jack Undo";
     private static final String TAB_KI_ASSISTANT = "AI Assistant";
     private static final String TAB_JACK_CLIPBOARD = "Jack Clipboard";
@@ -171,6 +172,7 @@ public class WoodWindow extends JFrame {
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
         bottomTabs.addTab(TAB_ATTRIBUTES, createAttributesPanel());
+        bottomTabs.addTab(TAB_FIELDS, createFieldsPanel());
         bottomTabs.addTab(TAB_FAST_LOG, createFastLogPanel());
         bottomTabs.addTab(TAB_JACK_UNDO, createJackUndoPanel());
         bottomTabs.addTab(TAB_KI_ASSISTANT, createKIAssistant());
@@ -238,11 +240,54 @@ public class WoodWindow extends JFrame {
         // edit status color at WARNING/ERROR for the text columns (Name, Value, Type)
         attributesTable.setDefaultRenderer(String.class, new EditStatusCellRenderer());
 
+        // combo box editor for the value column (jsonType, jsonField rows)
+        attributesTable.setDefaultEditor(String.class, new JsonJackComboBoxCellEditor());
+
         installAttrDetailButtonColumn();
 
         JPanel borderedPanel = new JPanel(new BorderLayout());
         borderedPanel.add(new JScrollPane(attributesTable), BorderLayout.CENTER);
         return borderedPanel;
+    }
+
+    private JTable fieldsTable;
+    private JsonJackFieldTableModel fieldsModel;
+
+    /**
+     * Creates the Fields pane: a view on the model side of the selected object. The first row shows the json type,
+     * one row per field follows. A clicked field still shows the owning object and focuses the field's row. The
+     * model is held in a field on purpose: the orator of the master control keeps its listeners via weak references
+     * only, the garbage collector would silently deregister a local model.
+     */
+    private JPanel createFieldsPanel() {
+        fieldsModel = new JsonJackFieldTableModel();
+        jackmaster.addSelectionListener(fieldsModel);
+        jackmaster.addContentListener(fieldsModel);
+        jackmaster.addParseProblemsListener(fieldsModel);
+        fieldsTable = new JTable(fieldsModel);
+        fieldsTable.setFillsViewportHeight(true);
+        fieldsTable.getTableHeader().setVisible(true);
+        fieldsTable.setDefaultEditor(Object.class, new JsonJackComboBoxCellEditor());
+
+        // After every model refresh: focus the row of the field clicked in the tree.
+        fieldsTable.getModel().addTableModelListener(e -> applyFocusedField());
+
+        JPanel borderedPanel = new JPanel(new BorderLayout());
+        borderedPanel.add(new JScrollPane(fieldsTable), BorderLayout.CENTER);
+        return borderedPanel;
+    }
+
+    /**
+     * Selects and scrolls to the row of the field that was clicked in the tree - the pane always shows the owning
+     * object, the clicked field gets the focus. The row is matched by edit id inside the model.
+     */
+    private void applyFocusedField() {
+        final int row = fieldsModel.getFocusedRowIndex();
+        if (row >= 0 && row < fieldsTable.getRowCount()) {
+            fieldsTable.clearSelection();
+            fieldsTable.getSelectionModel().setSelectionInterval(row, row);
+            fieldsTable.scrollRectToVisible(fieldsTable.getCellRect(row, 0, true));
+        }
     }
 
     /**
