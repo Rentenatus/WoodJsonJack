@@ -45,6 +45,7 @@ public class JsonJackCollectionEditorDialog extends JDialog {
     private JTextField filterField;
     private JCheckBox duplicatesBox;
     private JTable candidatesTable;
+    private DefaultTableModel candidatesModel;
     private DefaultTableModel chosenModel;
     private boolean accepted;
 
@@ -98,12 +99,13 @@ public class JsonJackCollectionEditorDialog extends JDialog {
         add(top, BorderLayout.NORTH);
 
         // center: candidates on the left, buttons in the middle, chosen on the right
-        candidatesTable = new JTable(new Object[][]{}, COLUMNS) {
+        candidatesModel = new DefaultTableModel(new Object[][]{}, COLUMNS) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
+        candidatesTable = new JTable(candidatesModel);
         candidatesTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         chosenModel = new DefaultTableModel(new Object[][]{}, COLUMNS) {
             @Override
@@ -231,7 +233,7 @@ public class JsonJackCollectionEditorDialog extends JDialog {
 
     private void refreshCandidates() {
         final String needle = filterField.getText() == null ? "" : filterField.getText().trim().toLowerCase(Locale.ROOT);
-        final DefaultTableModel model = (DefaultTableModel) candidatesTable.getModel();
+        final DefaultTableModel model = candidatesModel;
         model.setRowCount(0);
         for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
             if (!duplicatesBox.isSelected() && chosen.contains(candidate)) {
