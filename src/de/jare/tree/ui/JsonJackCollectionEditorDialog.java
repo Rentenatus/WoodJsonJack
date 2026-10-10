@@ -140,11 +140,31 @@ public class JsonJackCollectionEditorDialog extends JDialog {
             buttons.add(button);
         }
 
-        JPanel center = new JPanel(new BorderLayout(8, 8));
+        // GridBagLayout on purpose: only the two tables get growth weight, the button column keeps
+        // its preferred width however wide the dialog becomes - the tables take the extra space.
+        JPanel center = new JPanel(new java.awt.GridBagLayout());
         center.setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
-        center.add(new JScrollPane(candidatesTable), BorderLayout.WEST);
-        center.add(buttons, BorderLayout.CENTER);
-        center.add(new JScrollPane(chosenTable), BorderLayout.EAST);
+        final java.awt.GridBagConstraints tableConstraints = new java.awt.GridBagConstraints();
+        tableConstraints.gridy = 0;
+        tableConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        tableConstraints.weightx = 1.0;
+        tableConstraints.weighty = 1.0;
+        tableConstraints.gridx = 0;
+        center.add(new JScrollPane(candidatesTable), tableConstraints);
+        final java.awt.GridBagConstraints buttonConstraints = new java.awt.GridBagConstraints();
+        buttonConstraints.gridy = 0;
+        buttonConstraints.gridx = 1;
+        buttonConstraints.fill = java.awt.GridBagConstraints.VERTICAL;
+        buttonConstraints.weightx = 0.0;
+        buttonConstraints.weighty = 1.0;
+        center.add(buttons, buttonConstraints);
+        final java.awt.GridBagConstraints chosenConstraints = new java.awt.GridBagConstraints();
+        chosenConstraints.gridy = 0;
+        chosenConstraints.gridx = 2;
+        chosenConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        chosenConstraints.weightx = 1.0;
+        chosenConstraints.weighty = 1.0;
+        center.add(new JScrollPane(chosenTable), chosenConstraints);
         candidatesTable.setPreferredScrollableViewportSize(new Dimension(280, 300));
         chosenTable.setPreferredScrollableViewportSize(new Dimension(280, 300));
         add(center, BorderLayout.CENTER);
