@@ -481,13 +481,19 @@ editString ist quer durch alle vier Schichten umgesetzt (Detailkonzept:
 Der Baum-Renderer (Hauptbaum-Labels) zeigt weiter den strukturellen Namen —
 editString greift zunaechst nur in Pane, Comboboxen und Dialogen.
 
-**Nachtrag Deklarationswert (Annotations-Konzept, Entscheidung 13):**
+**Nachtrag Deklarationswert (Annotations-Konzept, Entscheidung 13, korrigiert):**
 Annotationen duerfen einen Wert auf der Deklaration tragen -
 `profile.addAnnotation(JsonAnnotation.editString("${profile}"))` ist die
-Modell-Welt-Form des Templates, gesprochen im Code-Modell selbst, transportiert
-ueber describeHead und das reflektierte Feld `value` der Selbstbeschreibung
-(damit round-trippt der Wert durch die Description-Datei, eine Regeneration
-fischt ihn nicht mehr weg). Der Evaluator liest den Deklarationswert zuerst,
-die @editString-Adoption bleibt Fallback - Modell-Welt schlaegt
-Modellierungs-Welt. Fabriken: `JsonAnnotation.editString(...)`, `doc(...)`,
-`doc()`; JsonConfigDefinition zeigt das Beispiel an ConfigProfile.
+Modell-Welt-Form des Templates, gesprochen im Code-Modell selbst. DIE
+DATEI-FORM IST IMMER DER @-KEY: describe/saveAs emittiert Wert-
+Annotationen als `"@name": [wert]` am Typ- und Feld-Eintrag (Traeger-
+Interface JsonAnnotationCarrier, Zeilen des Werts = Array-Elemente,
+javadoc-artig - @doc darf mehrzeilig sein), die Annotationsliste der
+Datei bleibt art-only. Der Parse spiegelt es:
+`JsonModelDescriptor.adoptAnnotationValues(raw)` setzt die @-Key-Werte auf
+die Deklarationen im Deskriptor (zeilenweise gejoint, fehlende Deklaration
+wird angelegt) - damit round-trippt der Wert durch die Description-Datei
+und eine Regeneration fischt ihn nicht mehr weg. Laufzeit-Speicher ist die
+Annotation selbst (kein Sonderfeld auf JsonTypeDescriptor), der Evaluator
+liest `type.getAnnotation("editString").getValue()`. Der Ein-Element-
+Validator gilt fuer @editString, @doc ist ausgenommen.

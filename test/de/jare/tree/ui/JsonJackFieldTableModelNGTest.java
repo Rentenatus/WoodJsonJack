@@ -364,7 +364,7 @@ public class JsonJackFieldTableModelNGTest {
         EditTree tree = importTree();
         JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
         JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
-        sceneType.setEditString("${name} #${woodId}");
+        sceneType.addAnnotation(de.jare.jsoncasted.model.item.JsonAnnotation.editString("${name} #${woodId}"));
         descriptor.addType(sceneType);
         findProperty(tree, "target").setJsonField(new JsonFieldDescriptor("target", "Scene"));
         EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
