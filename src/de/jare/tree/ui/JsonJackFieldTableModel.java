@@ -6,6 +6,7 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
@@ -38,7 +39,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 public class JsonJackFieldTableModel extends AbstractTableModel
         implements TreeFocusListener, ContentListener, ParseProblemsListener, JsonJackComboCapableModel {
 
-    private static final String[] columnNames = {"Name", "Value", "Type"};
+    private static final String[] columnNames = {"Name", "Value", "Type", "JsonType"};
 
     private List<FieldRow> rows = new ArrayList<>();
     private JsonModelDescriptor jsonModelDescriptor;
@@ -71,6 +72,8 @@ public class JsonJackFieldTableModel extends AbstractTableModel
                 row.value();
             case 2 ->
                 row.type();
+            case 3 ->
+                row.jsonType();
             default ->
                 null;
         };
@@ -97,7 +100,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         if (child instanceof EditNodeProperty prop) {
             prop.setValue(aValue == null ? null : aValue.toString());
         }
-        rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(),
+        rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(), oldRow.jsonType(),
                 oldRow.comboBox(), oldRow.comboValues()));
         fireTableCellUpdated(row, col);
     }
@@ -177,7 +180,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
 
         List<FieldRow> newRows = new ArrayList<>();
         if (owner != null) {
-            newRows.add(new FieldRow("jsonType", typeNameOf(owner), "header", false, null));
+            newRows.add(new FieldRow("jsonType", typeNameOf(owner), "header", "", false, null));
             for (int i = 0; i < owner.getChildCount(); i++) {
                 if (!(owner.getChildAt(i) instanceof EditNodeProperty field)) {
                     continue;
@@ -195,7 +198,30 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         final Object value = displayValueOf(field);
         final Object[] candidates = comboBoxCandidates(field);
         final boolean comboBox = candidates.length > 0;
-        return new FieldRow(name, value, type, comboBox, candidates);
+        return new FieldRow(name, value, type, jsonTypeOf(field), comboBox, candidates);
+    }
+
+    /**
+     * Determines the model side type name of a field: the declared type of the field descriptor when the field is
+     * cleanly parsed, the resolved type of the object child as fallback, otherwise empty.
+     *
+     * @param field the field property
+     * @return the model type name, or an empty string when nothing is known
+     */
+    private static String jsonTypeOf(EditNodeProperty field) {
+        final JsonFieldDescriptor descriptor = field.getJsonField();
+        if (descriptor != null && descriptor.getTypeName() != null && !descriptor.getTypeName().isEmpty()) {
+            return descriptor.getTypeName();
+        }
+        if (field.getType() == JsonNodeType.OBJECT) {
+            for (int i = 0; i < field.getChildCount(); i++) {
+                if (field.getChildAt(i) instanceof EditNodeObject childObject
+                        && childObject.getJsonType() != null) {
+                    return childObject.getJsonType().getTypeName();
+                }
+            }
+        }
+        return "";
     }
 
     private static Object displayValueOf(EditNodeProperty field) {
@@ -375,7 +401,8 @@ public class JsonJackFieldTableModel extends AbstractTableModel
      * One row of the Fields pane. The combo values are the candidate instances
      * of an object-typed field; a non-empty array marks the row as combo box.
      */
-    public record FieldRow(String name, Object value, String type, boolean comboBox, Object[] comboValues) {
+    public record FieldRow(String name, Object value, String type, String jsonType,
+            boolean comboBox, Object[] comboValues) {
 
     }
 }

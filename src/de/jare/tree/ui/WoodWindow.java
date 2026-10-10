@@ -282,12 +282,19 @@ public class WoodWindow extends JFrame {
      * object, the clicked field gets the focus. The row is matched by edit id inside the model.
      */
     private void applyFocusedField() {
-        final int row = fieldsModel.getFocusedRowIndex();
-        if (row >= 0 && row < fieldsTable.getRowCount()) {
-            fieldsTable.clearSelection();
-            fieldsTable.getSelectionModel().setSelectionInterval(row, row);
-            fieldsTable.scrollRectToVisible(fieldsTable.getCellRect(row, 0, true));
-        }
+        // Deferred on purpose: JTable clears the selection model while processing
+        // fireTableDataChanged - AFTER the TableModelListener has run. Applying the
+        // focus inside the listener is therefore destroyed immediately. On the event
+        // queue the selection lands after the whole rebuild cascade (selection, content
+        // command, parse problems), and the last queued call wins.
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            final int row = fieldsModel.getFocusedRowIndex();
+            if (row >= 0 && row < fieldsTable.getRowCount()) {
+                fieldsTable.clearSelection();
+                fieldsTable.getSelectionModel().setSelectionInterval(row, row);
+                fieldsTable.scrollRectToVisible(fieldsTable.getCellRect(row, 0, true));
+            }
+        });
     }
 
     /**

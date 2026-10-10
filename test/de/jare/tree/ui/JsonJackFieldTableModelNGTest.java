@@ -87,6 +87,7 @@ public class JsonJackFieldTableModelNGTest {
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
         assertEquals(model.getRowCount(), 4, "jsonType header plus the three fields");
+        assertEquals(model.getColumnCount(), 4, "Name, Value, Type, JsonType");
         assertEquals(model.getValueAt(0, 0), "jsonType");
         assertEquals(model.getValueAt(1, 0), "target");
         assertEquals(model.getValueAt(2, 0), "a");
@@ -149,9 +150,49 @@ public class JsonJackFieldTableModelNGTest {
         model.setJsonModelDescriptor(descriptor);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
+        assertEquals(model.getValueAt(1, 3), "Scene", "the JsonType column shows the declared model type");
         assertTrue(model.isComboBoxCell(1, 1), "a described object field offers its instances");
         Object[] values = model.getComboBoxValues(1);
         assertEquals(values.length, 1, "exactly one Scene instance exists in the tree");
         assertTrue(values[0].toString().contains("Scene"), "the candidate names its type: " + values[0]);
+    }
+
+    /**
+     * Regression for the lost field focus: JTable clears the selection model while processing
+     * fireTableDataChanged - AFTER the TableModelListener has run. Applying the focus on the event
+     * queue (as the pane does) must survive every subsequent rebuild.
+     */
+    @Test
+    public void testFocusedRowSelectionSurvivesModelRebuilds() throws Exception {
+        EditTree tree = importTree();
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+
+        javax.swing.JTable table = new javax.swing.JTable(model);
+        table.getModel().addTableModelListener(e -> javax.swing.SwingUtilities.invokeLater(() -> {
+            final int row = model.getFocusedRowIndex();
+            if (row >= 0 && row < table.getRowCount()) {
+                table.getSelectionModel().setSelectionInterval(row, row);
+            }
+        }));
+
+        EditNodeProperty fieldA = findProperty(tree, "a");
+        assertNotNull(fieldA);
+        model.onNodeSelected(new DefaultMutableTreeNode(fieldA), null, false);
+        java.awt.EventQueue.invokeAndWait(() -> { });
+        assertEquals(table.getSelectedRow(), 2, "the field row is selected after the click");
+
+        // the cascade after a click rebuilds the model twice: content command and parse problems
+        model.onCommand("EDIT_ANY", null);
+        java.awt.EventQueue.invokeAndWait(() -> { });
+        assertEquals(table.getSelectedRow(), 2, "the selection survives the content command rebuild");
+
+        model.onParseProblems(null, null);
+        java.awt.EventQueue.invokeAndWait(() -> { });
+        assertEquals(table.getSelectedRow(), 2, "the selection survives the parse problems rebuild");
+
+        model.refresh();
+        java.awt.EventQueue.invokeAndWait(() -> { });
+        assertEquals(table.getSelectedRow(), 2, "the selection survives a manual refresh");
     }
 }
