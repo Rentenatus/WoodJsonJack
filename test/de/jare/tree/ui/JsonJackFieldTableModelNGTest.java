@@ -195,4 +195,56 @@ public class JsonJackFieldTableModelNGTest {
         java.awt.EventQueue.invokeAndWait(() -> { });
         assertEquals(table.getSelectedRow(), 2, "the selection survives a manual refresh");
     }
+
+    @Test
+    public void testAnnotationRowShowsAnnotationInJsonType() throws Exception {
+        final String annotatedJson = "{\n"
+                + "  \"@doc\": \"Hello\","
+                + "  \"name\": \"Target\"\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(annotatedJson, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getRowCount(), 3, "jsonType header, the annotation and the field");
+        assertTrue(model.getValueAt(1, 0).toString().startsWith("@"),
+                "the annotation row shows its composite display name: " + model.getValueAt(1, 0));
+        assertEquals(model.getValueAt(1, 3), "annotation", "the JsonType column marks the annotation row");
+        assertEquals(model.getValueAt(1, 1), "Hello", "the annotation row shows its own primitive value");
+    }
+
+    @Test
+    public void testPrimitiveRowGetsSyntheticValueRow() throws Exception {
+        final String primitiveJson = "{\n"
+                + "  \"values\": [ \"alpha\", \"beta\" ]\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(primitiveJson, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        // the first array row is a primitive object
+        EditNodeProperty values = findProperty(tree, "values");
+        assertNotNull(values);
+        assertTrue(values.getChildAt(0) instanceof EditNodeObject);
+        EditNodeObject rowObject = (EditNodeObject) values.getChildAt(0);
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(rowObject), null, false);
+
+        assertEquals(model.getRowCount(), 2, "jsonType header plus the synthetic value row");
+        assertEquals(model.getValueAt(1, 0), "value");
+        assertEquals(model.getValueAt(1, 1), "alpha");
+        assertTrue(model.isCellEditable(1, 1), "the synthetic value row is editable");
+
+        model.setValueAt("gamma", 1, 1);
+        assertEquals(model.getValueAt(1, 1), "gamma");
+        assertEquals(rowObject.getValue(), "gamma", "editing the synthetic row writes the object value");
+    }
 }

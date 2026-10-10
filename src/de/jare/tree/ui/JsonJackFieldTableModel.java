@@ -3,6 +3,7 @@ package de.jare.tree.ui;
 import de.jare.jsoncasted.editor.core.EditLinkingSet;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditNodeAnnotation;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditTree;
@@ -95,13 +96,18 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         if (currentObject == null) {
             return;
         }
-        // Write through to the node so the tree and the export see the change.
-        EditNode child = currentObject.getChildAt(row - 1);
-        if (child instanceof EditNodeProperty prop) {
-            prop.setValue(aValue == null ? null : aValue.toString());
+        if (oldRow.synthetic()) {
+            // The synthetic value row of a primitive object writes the object value itself.
+            currentObject.setName(aValue == null ? null : aValue.toString());
+        } else {
+            // Write through to the node so the tree and the export see the change.
+            EditNode child = currentObject.getChildAt(row - 1);
+            if (child instanceof EditNodeProperty prop) {
+                prop.setValue(aValue == null ? null : aValue.toString());
+            }
         }
         rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(), oldRow.jsonType(),
-                oldRow.comboBox(), oldRow.comboValues()));
+                oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
         fireTableCellUpdated(row, col);
     }
 
@@ -180,7 +186,12 @@ public class JsonJackFieldTableModel extends AbstractTableModel
 
         List<FieldRow> newRows = new ArrayList<>();
         if (owner != null) {
-            newRows.add(new FieldRow("jsonType", typeNameOf(owner), "header", "", false, null));
+            newRows.add(new FieldRow("jsonType", typeNameOf(owner), "header", "", false, null, false));
+            // A primitive object (an array row, for example) has no field children: its value gets a synthetic row.
+            if (isPrimitiveRowObject(owner)) {
+                final String cast = owner.getCastName() == null ? "" : owner.getCastName();
+                newRows.add(new FieldRow("value", owner.getValue(), "", cast, false, null, true));
+            }
             for (int i = 0; i < owner.getChildCount(); i++) {
                 if (!(owner.getChildAt(i) instanceof EditNodeProperty field)) {
                     continue;
@@ -198,11 +209,27 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         final Object value = displayValueOf(field);
         final Object[] candidates = comboBoxCandidates(field);
         final boolean comboBox = candidates.length > 0;
-        return new FieldRow(name, value, type, jsonTypeOf(field), comboBox, candidates);
+        final String jsonType = field instanceof EditNodeAnnotation
+                ? "annotation" : jsonTypeOf(field);
+        return new FieldRow(name, value, type, jsonType, comboBox, candidates, false);
     }
 
     /**
-     * Determines the model side type name of a field: the declared type of the field descriptor when the field is
+     * Checks whether the object is a primitive row: a scalar value without field children and without the object
+     * marker of a nested object (the converter creates nested objects with the info "{...}"). Typical case: a
+     * primitive array row.
+     *
+     * @param obj the object node
+     * @return true when the object represents a bare primitive value
+     */
+    private static boolean isPrimitiveRowObject(EditNodeObject obj) {
+        return obj.getChildCount() == 0 && obj.getValue() != null
+                && !"{...}".equals(obj.getObjektInfo());
+    }
+
+    /**
+     * Determines the model side type name of a field:
+ the declared type of the field descriptor when the field is
      * cleanly parsed, the resolved type of the object child as fallback, otherwise empty.
      *
      * @param field the field property
@@ -225,6 +252,10 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     }
 
     private static Object displayValueOf(EditNodeProperty field) {
+        // An annotation carries its text in its own primitive value, not in child elements.
+        if (field instanceof EditNodeAnnotation && field.getValue() != null) {
+            return field.getValue();
+        }
         switch (field.getType()) {
             case ARRAY -> {
                 int count = 0;
@@ -371,7 +402,8 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         if (currentObject == null || focusedFieldEditId < 0) {
             return -1;
         }
-        int row = 1; // row 0 is the jsonType header
+        // row 0 is the jsonType header, a primitive object adds the synthetic value row after it
+        int row = 1 + (isPrimitiveRowObject(currentObject) ? 1 : 0);
         for (int i = 0; i < currentObject.getChildCount(); i++) {
             if (!(currentObject.getChildAt(i) instanceof EditNodeProperty)) {
                 continue;
@@ -402,7 +434,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
      * of an object-typed field; a non-empty array marks the row as combo box.
      */
     public record FieldRow(String name, Object value, String type, String jsonType,
-            boolean comboBox, Object[] comboValues) {
+            boolean comboBox, Object[] comboValues, boolean synthetic) {
 
     }
 }
