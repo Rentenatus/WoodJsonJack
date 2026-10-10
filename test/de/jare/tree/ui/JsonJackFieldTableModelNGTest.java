@@ -13,6 +13,7 @@ import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.model.JackTreeModel;
 import de.jare.debug.JsonDebugLevel;
 import javax.swing.JTree;
+import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
 import org.testng.annotations.Test;
 import static org.testng.Assert.*;
@@ -246,5 +247,115 @@ public class JsonJackFieldTableModelNGTest {
         model.setValueAt("gamma", 1, 1);
         assertEquals(model.getValueAt(1, 1), "gamma");
         assertEquals(rowObject.getValue(), "gamma", "editing the synthetic row writes the object value");
+    }
+
+    @Test
+    public void testPrimitiveArrayIsNotInlineEditable() throws Exception {
+        EditTree tree = importTree();
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        // the "count" row carries primitive fallback combo candidates: not inline editable, like every combo cell
+        assertFalse(model.isCellEditable(3, 1), "combo cells (primitive fallback) are not inline editable");
+
+        // the "values" row is an array field
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }\n", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree listTree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+        JsonJackFieldTableModel listModel = new JsonJackFieldTableModel();
+        listModel.onEditorSelected(componentOf(listTree), null);
+        listModel.onNodeSelected(new DefaultMutableTreeNode(listTree.getRoot()), null, false);
+
+        assertTrue(listModel.isArrayFieldRow(1), "an array field row is detected");
+        assertTrue(listModel.isPrimitiveArrayListRow(1), "a list of primitives is a primitive list");
+        assertFalse(listModel.isCellEditable(1, 1), "array fields are not edited inline");
+        assertEquals(listModel.getCurrentPrimitiveList(1), java.util.List.of("alpha", "beta"));
+    }
+
+    @Test
+    public void testApplyPrimitiveListResult() throws Exception {
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }\n", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        model.applyPrimitiveListResult(1, java.util.List.of("x", "y", "z"));
+
+        assertEquals(model.getCurrentPrimitiveList(1), java.util.List.of("x", "y", "z"),
+                "the list editor result replaces the values");
+        de.jare.jsoncasted.editor.core.EditNodeObject row = (de.jare.jsoncasted.editor.core.EditNodeObject)
+                model.fieldOfRow(1).getChildAt(1);
+        assertEquals(row.getValue(), "y");
+    }
+
+    @Test
+    public void testObjectListCollectionDataAndApply() throws Exception {
+        final String sceneJson = "{\n"
+                + "  \"scenes\": [ { \"_woodObjectId\": \"4\", \"name\": \"A\" } ],\n"
+                + "  \"spare\": { \"_woodObjectId\": \"5\", \"name\": \"B\" }\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(sceneJson, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        descriptor.addType(sceneType);
+
+        EditNodeProperty scenesField = findProperty(tree, "scenes");
+        EditNodeProperty spareField = findProperty(tree, "spare");
+        assertNotNull(scenesField);
+        assertNotNull(spareField);
+        scenesField.setJsonField(new JsonFieldDescriptor("scenes", "Scene"));
+        assertTrue(scenesField.getChildAt(0) instanceof EditNodeObject);
+        assertTrue(spareField.getChildAt(0) instanceof EditNodeObject);
+        final EditNodeObject inList = (EditNodeObject) scenesField.getChildAt(0);
+        final EditNodeObject spare = (EditNodeObject) spareField.getChildAt(0);
+        inList.setJsonType(sceneType);
+        spare.setJsonType(sceneType);
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertTrue(model.isArrayFieldRow(1), "the scenes row is an array field");
+        assertFalse(model.isPrimitiveArrayListRow(1), "a list of objects is no primitive list");
+        assertFalse(model.isCellEditable(1, 1), "object lists are not edited inline");
+
+        final List<JsonJackFieldTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(1);
+        assertEquals(candidates.size(), 2, "both Scene instances fit the declared element type");
+
+        final List<JsonJackFieldTableModel.InstanceCandidate> current = model.getCurrentObjectList(1);
+        assertEquals(current.size(), 1, "one element is in the list");
+        assertSame(current.get(0).node(), inList);
+
+        // accept: the spare instance first (becomes a reference stub), the own element second (kept by identity)
+        JsonJackFieldTableModel.InstanceCandidate spareCandidate = null;
+        for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
+            if (candidate.node() == spare) {
+                spareCandidate = candidate;
+            }
+        }
+        assertNotNull(spareCandidate);
+        model.applyObjectListResult(1, java.util.List.of(spareCandidate, current.get(0)));
+
+        final EditNodeProperty fieldAfter = model.fieldOfRow(1);
+        assertEquals(fieldAfter.getChildCount(), 2, "both chosen elements are in the list");
+        final EditNodeObject first = (EditNodeObject) fieldAfter.getChildAt(0);
+        final EditNodeObject second = (EditNodeObject) fieldAfter.getChildAt(1);
+        assertTrue(first.isLinkReference(), "the added instance becomes a reference stub");
+        assertEquals(first.getLinkTarget(), "this::5");
+        assertSame(second, inList, "the kept element is the original node");
+        assertTrue(tree.getLinkingSet().hasReferencesTo("this::5"),
+                "the stub is registered in the reverse index");
     }
 }

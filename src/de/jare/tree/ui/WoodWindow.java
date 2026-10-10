@@ -272,6 +272,23 @@ public class WoodWindow extends JFrame {
         // After every model refresh: focus the row of the field clicked in the tree.
         fieldsTable.getModel().addTableModelListener(e -> applyFocusedField());
 
+        // Array fields are not edited inline: clicking the value cell opens the collection editor
+        // (object lists) or the primitive list editor (primitive lists and array annotations).
+        fieldsTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                final int viewRow = fieldsTable.rowAtPoint(e.getPoint());
+                final int viewCol = fieldsTable.columnAtPoint(e.getPoint());
+                if (viewRow < 0 || viewCol != 1) {
+                    return;
+                }
+                final int row = fieldsTable.convertRowIndexToModel(viewRow);
+                if (fieldsModel.isArrayFieldRow(row)) {
+                    openArrayFieldEditor(row);
+                }
+            }
+        });
+
         JPanel borderedPanel = new JPanel(new BorderLayout());
         borderedPanel.add(new JScrollPane(fieldsTable), BorderLayout.CENTER);
         return borderedPanel;
@@ -295,6 +312,34 @@ public class WoodWindow extends JFrame {
                 fieldsTable.scrollRectToVisible(fieldsTable.getCellRect(row, 0, true));
             }
         });
+    }
+
+    /**
+     * Opens the dedicated editor of an array field: the collection editor for object lists, the primitive list
+     * editor for primitive lists and array annotations. The result is applied through the model, which refreshes
+     * the pane.
+     *
+     * @param row the model row of the array field
+     */
+    private void openArrayFieldEditor(int row) {
+        if (fieldsModel.isPrimitiveArrayListRow(row)) {
+            final JsonJackPrimitiveListEditorDialog dialog = new JsonJackPrimitiveListEditorDialog(this,
+                    String.valueOf(fieldsModel.getValueAt(row, 0)),
+                    fieldsModel.getCurrentPrimitiveList(row));
+            dialog.setVisible(true);
+            if (dialog.isAccepted()) {
+                fieldsModel.applyPrimitiveListResult(row, dialog.getResult());
+            }
+        } else {
+            final JsonJackCollectionEditorDialog dialog = new JsonJackCollectionEditorDialog(this,
+                    String.valueOf(fieldsModel.getValueAt(row, 0)),
+                    fieldsModel.getInstanceCandidates(row),
+                    fieldsModel.getCurrentObjectList(row));
+            dialog.setVisible(true);
+            if (dialog.isAccepted()) {
+                fieldsModel.applyObjectListResult(row, dialog.getResult());
+            }
+        }
     }
 
     /**

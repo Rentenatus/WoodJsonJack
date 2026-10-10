@@ -82,9 +82,12 @@ public class JsonJackFieldTableModel extends AbstractTableModel
 
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
-        // The base version edits primitive field values only; combo box cells
-        // (object fields) stay read-only until the selection semantics exist.
-        return columnIndex == 1 && rowIndex >= 1 && !isComboBoxCell(rowIndex, columnIndex);
+        // Primitive field values are edited inline; combo box cells (object fields) stay read-only
+        // until the selection semantics exist; array fields (primitive lists, object lists and
+        // array annotations) open their dedicated editor dialog instead.
+        return columnIndex == 1 && rowIndex >= 1
+                && !isComboBoxCell(rowIndex, columnIndex)
+                && !isArrayFieldRow(rowIndex);
     }
 
     @Override
@@ -124,6 +127,244 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         }
         Object[] values = rows.get(rowIndex).comboValues();
         return values == null ? new Object[0] : values;
+    }
+
+    // ========== Array field editors ==========
+
+    /**
+     * One selectable object instance for the collection editor of an object list: its wood identity, its display
+     * text, its model type and the node itself (for identity comparison and for copies of identityless instances).
+     */
+    public record InstanceCandidate(String woodId, String text, String jsonType, EditNodeObject node) {
+
+    }
+
+    /**
+     * Checks whether the row is a field with an array value: a list of primitives, a list of objects or an array
+     * annotation. Array values are not edited inline - the pane opens the dedicated editor dialog.
+     *
+     * @param rowIndex the row index
+     * @return true when the row holds an array field
+     */
+    public boolean isArrayFieldRow(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        return field != null && field.getType() == JsonNodeType.ARRAY;
+    }
+
+    /**
+     * Checks whether the array field of the row holds primitives. An empty array counts as primitive - an empty
+     * object list has no elements to compare against.
+     *
+     * @param rowIndex the row index
+     * @return true when the elements are primitives (or the array is empty)
+     */
+    public boolean isPrimitiveArrayListRow(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null || field.getType() != JsonNodeType.ARRAY) {
+            return false;
+        }
+        for (int i = 0; i < field.getChildCount(); i++) {
+            if (field.getChildAt(i) instanceof EditNodeObject child) {
+                return isPrimitiveRowObject(child);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns the field property of the row, or null for the header row and the synthetic value row.
+     *
+     * @param rowIndex the row index
+     * @return the property of the row, or null
+     */
+    public EditNodeProperty fieldOfRow(int rowIndex) {
+        if (currentObject == null || rowIndex < 1) {
+            return null;
+        }
+        int row = 1 + (isPrimitiveRowObject(currentObject) ? 1 : 0);
+        for (int i = 0; i < currentObject.getChildCount(); i++) {
+            if (currentObject.getChildAt(i) instanceof EditNodeProperty field) {
+                if (rowIndex == row) {
+                    return field;
+                }
+                row++;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The candidate instances for the collection editor of an object list: objects fitting the declared element
+     * type (interface types include the implementors), without a declaration every non-primitive object. The walk
+     * covers the active tree and the identities of the linking set.
+     *
+     * @param rowIndex the row index of the array field
+     * @return the candidates, never null
+     */
+    public List<InstanceCandidate> getInstanceCandidates(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null) {
+            return List.of();
+        }
+        JsonTypeDescriptor declared = null;
+        final JsonFieldDescriptor descriptor = field.getJsonField();
+        if (descriptor != null && jsonModelDescriptor != null) {
+            declared = jsonModelDescriptor.getType(descriptor.getTypeName());
+        }
+        final List<InstanceCandidate> result = new ArrayList<>();
+        final Set<EditNodeObject> seen = new HashSet<>();
+        if (editTree != null && editTree.getRoot() != null) {
+            collectInstanceCandidates(editTree.getRoot(), declared, result, seen);
+        }
+        final EditLinkingSet linkingSet = editTree == null ? null : editTree.getLinkingSet();
+        if (linkingSet != null) {
+            for (EditNodeObject held : linkingSet.getAllObjects()) {
+                if (seen.add(held) && candidateFits(held, declared)) {
+                    result.add(candidateOf(held));
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * The object elements currently recorded in the list of the row.
+     *
+     * @param rowIndex the row index of the array field
+     * @return the current elements in list order, never null
+     */
+    public List<InstanceCandidate> getCurrentObjectList(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null) {
+            return List.of();
+        }
+        final List<InstanceCandidate> result = new ArrayList<>();
+        for (int i = 0; i < field.getChildCount(); i++) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && !isPrimitiveRowObject(child)) {
+                result.add(candidateOf(child));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * The primitive values currently recorded in the list of the row (primitive lists and array annotations).
+     *
+     * @param rowIndex the row index of the array field
+     * @return the current values in list order, never null
+     */
+    public List<String> getCurrentPrimitiveList(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null) {
+            return List.of();
+        }
+        final List<String> result = new ArrayList<>();
+        for (int i = 0; i < field.getChildCount(); i++) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && isPrimitiveRowObject(child)) {
+                result.add(child.getValue());
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Applies the result of the collection editor: the object elements of the array field are replaced by the
+     * chosen instances in the chosen order. A chosen instance with identity becomes a wood reference stub, one
+     * without identity a deep copy; an element that is the chosen node itself is kept as it is.
+     *
+     * @param rowIndex the row index of the array field
+     * @param chosen the chosen instances in list order
+     */
+    public void applyObjectListResult(int rowIndex, List<InstanceCandidate> chosen) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null || editTree == null) {
+            return;
+        }
+        // the elements currently in the list, by identity - they are detached below and their parent
+        // reference becomes invalid, so the identity comparison must happen before the removal
+        final List<EditNodeObject> toRemove = new ArrayList<>();
+        for (int i = 0; i < field.getChildCount(); i++) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && !isPrimitiveRowObject(child)) {
+                toRemove.add(child);
+            }
+        }
+        final Set<EditNodeObject> formerElements = new HashSet<>(toRemove);
+        for (EditNodeObject child : toRemove) {
+            editTree.removeChild(field, child);
+        }
+        final EditLinkingSet linkingSet = editTree.getLinkingSet();
+        final String provider = linkingSet == null ? null : linkingSet.getProviderName();
+        for (InstanceCandidate candidate : chosen) {
+            if (candidate.node() != null && formerElements.contains(candidate.node())) {
+                // the element is already in the list (identity match): re-append at the chosen position
+                editTree.addChild(field, candidate.node());
+                continue;
+            }
+            if (candidate.woodId() != null && provider != null) {
+                final EditNodeObject stub = new EditNodeObject(candidate.text());
+                stub.setLinkTarget(provider + de.jare.jsoncasted.lang.JsonTerms.COLONCOLON + candidate.woodId());
+                editTree.addChild(field, stub);
+            } else if (candidate.node() != null) {
+                editTree.addNode(field, candidate.node(), -1, true);
+            }
+        }
+        refresh();
+    }
+
+    /**
+     * Applies the result of the primitive list editor: the primitive rows of the array field are replaced by the
+     * given values in the given order.
+     *
+     * @param rowIndex the row index of the array field
+     * @param values the values in list order
+     */
+    public void applyPrimitiveListResult(int rowIndex, List<String> values) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null || editTree == null) {
+            return;
+        }
+        final List<EditNodeObject> toRemove = new ArrayList<>();
+        for (int i = 0; i < field.getChildCount(); i++) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && isPrimitiveRowObject(child)) {
+                toRemove.add(child);
+            }
+        }
+        for (EditNodeObject child : toRemove) {
+            editTree.removeChild(field, child);
+        }
+        for (String value : values) {
+            editTree.addChild(field, new EditNodeObject(value == null ? "" : value));
+        }
+        refresh();
+    }
+
+    private static void collectInstanceCandidates(EditNode node, JsonTypeDescriptor declared,
+            List<InstanceCandidate> result, Set<EditNodeObject> seen) {
+        if (node instanceof EditNodeObject obj && seen.add(obj) && candidateFits(obj, declared)) {
+            result.add(candidateOf(obj));
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            if (node.getChildAt(i) instanceof EditNodeAbstract child) {
+                collectInstanceCandidates(child, declared, result, seen);
+            }
+        }
+    }
+
+    private static boolean candidateFits(EditNodeObject obj, JsonTypeDescriptor declared) {
+        if (isPrimitiveRowObject(obj)) {
+            return false; // primitive rows are no object instances
+        }
+        if (declared == null) {
+            return true;
+        }
+        return typeFits(obj, declared);
+    }
+
+    private static InstanceCandidate candidateOf(EditNodeObject obj) {
+        final String woodId = obj.getObjektId();
+        final String text = obj.getName();
+        final String jsonType = obj.getJsonType() == null ? "" : obj.getJsonType().getTypeName();
+        return new InstanceCandidate(woodId, text, jsonType, obj);
     }
 
     // ========== TreeFocusListener ==========
