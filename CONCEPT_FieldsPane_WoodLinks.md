@@ -480,3 +480,14 @@ editString ist quer durch alle vier Schichten umgesetzt (Detailkonzept:
 
 Der Baum-Renderer (Hauptbaum-Labels) zeigt weiter den strukturellen Namen —
 editString greift zunaechst nur in Pane, Comboboxen und Dialogen.
+
+**Nachtrag Deklarationswert (Annotations-Konzept, Entscheidung 13):**
+Annotationen duerfen einen Wert auf der Deklaration tragen -
+`profile.addAnnotation(JsonAnnotation.editString("${profile}"))` ist die
+Modell-Welt-Form des Templates, gesprochen im Code-Modell selbst, transportiert
+ueber describeHead und das reflektierte Feld `value` der Selbstbeschreibung
+(damit round-trippt der Wert durch die Description-Datei, eine Regeneration
+fischt ihn nicht mehr weg). Der Evaluator liest den Deklarationswert zuerst,
+die @editString-Adoption bleibt Fallback - Modell-Welt schlaegt
+Modellierungs-Welt. Fabriken: `JsonAnnotation.editString(...)`, `doc(...)`,
+`doc()`; JsonConfigDefinition zeigt das Beispiel an ConfigProfile.
