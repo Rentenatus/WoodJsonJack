@@ -453,3 +453,30 @@ Die Tests der Phase A liegen in jsonCasted_edit
 `WoodLinkCommandNGTest`, `WoodLinkValidatorNGTest` — Suite 139 Tests, 0 Failures),
 die der Phase B in WoodJsonJack (`JsonJackFieldTableModelNGTest`, Suite 75
 Tests, 0 Failures).
+
+## 10. editString: Anzeige-Templates als Annotation (nachgetragen)
+
+editString ist quer durch alle vier Schichten umgesetzt (Detailkonzept:
+`annotationen-konzept.md`, Entscheidung 12, jsonCasted):
+
+- **Modell (jsonCasted):** `JsonAnnotation.EDIT_STRING` ("editString"),
+  deklariert am `descriptType` der Selbstbeschreibung — damit kann jeder
+  Typ-Eintrag einer Description-Datei `@editString` tragen.
+  `JsonTypeDescriptor.editString` ist Laufzeit-Speicher; die Adoption läuft
+  ueber `JsonModelDescriptor.adoptEditStrings(raw)` aus dem ROHEN JsonNode-Baum
+  (der Builder ist @-blind, Entscheidung 3 des Annotations-Konzepts).
+- **Validator (jsonCasted_edit):** `EditStringAnnotationValidator`
+  (`editstring.singleElement`) — `@editString` muss ein ein-elementiges
+  String-Array sein; ein Inline-String zaehlt als sein ein Element.
+- **Editor (jsonCasted_edit):** `EditStringEvaluator` — `${param}` greift auf
+  die Kind-Properties zu (Spezialnamen `woodId`, `jsonType`), Filter `upper`,
+  `lower`, `trim`, `substr:a:b`, `number:pattern`, `default:x`, Escape `$${`.
+  `displayText()` Fallback-Kette: Template → name-Feld → woodId → Knotenname.
+  Die Adoption haengt im `JsonTreeConverter.loadDescrAndConvertRessourceToEditTree`
+  (ein Rohparse bedient Cast und Adoption).
+- **UI (WoodJsonJack):** `JsonJackFieldTableModel` zeigt Kandidaten-Labels
+  (Combobox, Collection-Dialog: text-Spalte) und die Value-Spalte
+  objektwertiger Felder ueber `EditStringEvaluator.displayText`.
+
+Der Baum-Renderer (Hauptbaum-Labels) zeigt weiter den strukturellen Namen —
+editString greift zunaechst nur in Pane, Comboboxen und Dialogen.

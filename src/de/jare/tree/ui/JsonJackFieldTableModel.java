@@ -6,6 +6,7 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditNodeAnnotation;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditStringEvaluator;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
@@ -362,7 +363,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
 
     private static InstanceCandidate candidateOf(EditNodeObject obj) {
         final String woodId = obj.getObjektId();
-        final String text = obj.getName();
+        final String text = EditStringEvaluator.displayText(obj);
         final String jsonType = obj.getJsonType() == null ? "" : obj.getJsonType().getTypeName();
         return new InstanceCandidate(woodId, text, jsonType, obj);
     }
@@ -510,7 +511,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
             case OBJECT -> {
                 for (int i = 0; i < field.getChildCount(); i++) {
                     if (field.getChildAt(i) instanceof EditNodeObject childObject) {
-                        return childObject.getName();
+                        return EditStringEvaluator.displayText(childObject);
                     }
                 }
                 return "{ }";
@@ -593,7 +594,10 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     private static String instanceLabel(EditNodeObject obj) {
         final JsonTypeDescriptor type = obj.getJsonType();
         final String id = obj.getObjektId();
-        final StringBuilder sb = new StringBuilder(obj.getName() == null ? "?" : obj.getName());
+        final StringBuilder sb = new StringBuilder(EditStringEvaluator.displayText(obj));
+        if (sb.isEmpty()) {
+            sb.append('?');
+        }
         if (type != null) {
             sb.append(" (").append(type.getTypeName()).append(')');
         }

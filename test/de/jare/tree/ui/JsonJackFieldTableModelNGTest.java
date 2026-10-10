@@ -358,4 +358,51 @@ public class JsonJackFieldTableModelNGTest {
         assertTrue(tree.getLinkingSet().hasReferencesTo("this::5"),
                 "the stub is registered in the reverse index");
     }
+
+    @Test
+    public void testCandidatesAndValueColumnUseEditString() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        sceneType.setEditString("${name} #${woodId}");
+        descriptor.addType(sceneType);
+        findProperty(tree, "target").setJsonField(new JsonFieldDescriptor("target", "Scene"));
+        EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
+        targetObject.setJsonType(sceneType);
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getValueAt(1, 1), "Target #2",
+                "the value column shows the formatted editString of the child object");
+        assertTrue(model.isComboBoxCell(1, 1), "a described object field offers its instances");
+        Object[] values = model.getComboBoxValues(1);
+        assertEquals(values.length, 1, "exactly one Scene instance exists in the tree");
+        assertTrue(values[0].toString().contains("Target #2"),
+                "the candidate label shows the formatted editString: " + values[0]);
+    }
+
+    @Test
+    public void testCandidatesFallBackToPlainNamesWithoutTemplate() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        descriptor.addType(sceneType);
+        findProperty(tree, "target").setJsonField(new JsonFieldDescriptor("target", "Scene"));
+        EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
+        targetObject.setJsonType(sceneType);
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getValueAt(1, 1), "Target",
+                "without a template the value column falls back to the object name");
+        Object[] values = model.getComboBoxValues(1);
+        assertTrue(values[0].toString().startsWith("Target"),
+                "without a template the candidate label falls back to the object name: " + values[0]);
+    }
 }
