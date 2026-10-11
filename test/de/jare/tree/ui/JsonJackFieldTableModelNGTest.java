@@ -285,6 +285,8 @@ public class JsonJackFieldTableModelNGTest {
         assertFalse(model.isButtonEnabled(0), "the jsonType header opens nothing");
         assertTrue(model.isButtonEnabled(1), "an object field with a value opens the detail dialog");
         assertTrue(model.isButtonEnabled(3), "a primitive with a value opens the detail dialog");
+        assertFalse(model.isSingleObjectFieldRow(1), "an unparsed object field opens no reference editor");
+        assertFalse(model.isSingleObjectFieldRow(3), "a primitive with fallback candidates is no object field");
 
         de.jare.jsoncasted.lang.JsonResource resource
                 = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }\n", JsonDebugLevel.SIMPLE);
@@ -352,6 +354,7 @@ public class JsonJackFieldTableModelNGTest {
         assertNotNull(scenesField);
         assertNotNull(spareField);
         scenesField.setJsonField(new JsonFieldDescriptor("scenes", "Scene"));
+        spareField.setJsonField(new JsonFieldDescriptor("spare", "Scene"));
         assertTrue(scenesField.getChildAt(0) instanceof EditNodeObject);
         assertTrue(spareField.getChildAt(0) instanceof EditNodeObject);
         final EditNodeObject inList = (EditNodeObject) scenesField.getChildAt(0);
@@ -367,6 +370,9 @@ public class JsonJackFieldTableModelNGTest {
         assertTrue(model.isArrayFieldRow(1), "the scenes row is an array field");
         assertFalse(model.isPrimitiveArrayListRow(1), "a list of objects is no primitive list");
         assertFalse(model.isCellEditable(1, 1), "object lists are not edited inline");
+        assertFalse(model.isSingleObjectFieldRow(1), "an array field is no single object field");
+        assertTrue(model.isSingleObjectFieldRow(2), "the spare row is a parsed single object field");
+        assertTrue(model.isButtonEnabled(2), "a single object field opens the reference editor");
 
         final List<JsonJackFieldTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(1);
         assertEquals(candidates.size(), 2, "both Scene instances fit the declared element type");
@@ -394,6 +400,59 @@ public class JsonJackFieldTableModelNGTest {
         assertSame(second, inList, "the kept element is the original node");
         assertTrue(tree.getLinkingSet().hasReferencesTo("this::5"),
                 "the stub is registered in the reverse index");
+    }
+
+    @Test
+    public void testSingleObjectFieldChoiceReplacesValue() throws Exception {
+        final String json = "{\n"
+                + "  \"link\": { \"_woodObjectId\": \"4\", \"name\": \"A\" },\n"
+                + "  \"ref\": { \"_woodObjectId\": \"5\", \"name\": \"B\" }\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(json, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("refModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        descriptor.addType(sceneType);
+
+        EditNodeProperty linkField = findProperty(tree, "link");
+        EditNodeProperty refField = findProperty(tree, "ref");
+        assertNotNull(linkField);
+        assertNotNull(refField);
+        linkField.setJsonField(new JsonFieldDescriptor("link", "Scene"));
+        refField.setJsonField(new JsonFieldDescriptor("ref", "Scene"));
+        ((EditNodeObject) linkField.getChildAt(0)).setJsonType(sceneType);
+        ((EditNodeObject) refField.getChildAt(0)).setJsonType(sceneType);
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertTrue(model.isSingleObjectFieldRow(2), "the ref row is a parsed single object field");
+
+        // choose the link instance for the ref field: replaces the value with a reference stub
+        final List<JsonJackFieldTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(2);
+        JsonJackFieldTableModel.InstanceCandidate linkCandidate = null;
+        for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
+            if ("4".equals(candidate.woodId())) {
+                linkCandidate = candidate;
+            }
+        }
+        assertNotNull(linkCandidate);
+        model.applyObjectListResult(2, java.util.List.of(linkCandidate));
+
+        EditNodeProperty refAfter = model.fieldOfRow(2);
+        assertEquals(refAfter.getChildCount(), 1, "one chosen entry replaces the value");
+        final EditNodeObject value = (EditNodeObject) refAfter.getChildAt(0);
+        assertTrue(value.isLinkReference(), "the chosen instance becomes a reference stub");
+        assertEquals(value.getLinkTarget(), "this::4");
+
+        // empty or one entry is always allowed: the empty choice clears the field to null
+        model.applyObjectListResult(2, java.util.List.of());
+        assertEquals(model.fieldOfRow(2).getChildCount(), 0, "the empty choice nulls the field");
     }
 
     @Test

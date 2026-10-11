@@ -100,9 +100,9 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     }
 
     /**
-     * Checks whether the "^" button of the given row can open something: array fields open their
-     * dedicated list editor, every other row below the jsonType header opens the detail dialog
-     * when its value is neither null nor empty.
+     * Checks whether the "^" button of the given row can open something: array fields and parsed
+     * single object fields open their dedicated editors, every other row below the jsonType
+     * header opens the detail dialog when its value is neither null nor empty.
      *
      * @param rowIndex the row index
      * @return true when the button should be enabled
@@ -111,7 +111,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         if (rowIndex < 1 || rowIndex >= rows.size()) {
             return false;
         }
-        if (isArrayFieldRow(rowIndex)) {
+        if (isArrayFieldRow(rowIndex) || isSingleObjectFieldRow(rowIndex)) {
             return true;
         }
         Object value = rows.get(rowIndex).value();
@@ -180,6 +180,18 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     }
 
     /**
+     * Checks whether the object counts as a primitive element in a list: a reference stub looks
+     * like a primitive row (no children, the display text as value), but it is an object reference
+     * and belongs to the object side of every list handling.
+     *
+     * @param obj the object node
+     * @return true when the object is a primitive list element
+     */
+    private static boolean isPrimitiveListElement(EditNodeObject obj) {
+        return isPrimitiveRowObject(obj) && !obj.isLinkReference();
+    }
+
+    /**
      * Checks whether the array field of the row holds primitives. An empty array counts as primitive - an empty
      * object list has no elements to compare against.
      *
@@ -193,10 +205,26 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         }
         for (int i = 0; i < field.getChildCount(); i++) {
             if (field.getChildAt(i) instanceof EditNodeObject child) {
-                return isPrimitiveRowObject(child);
+                return isPrimitiveListElement(child);
             }
         }
         return true;
+    }
+
+    /**
+     * Checks whether the row is a parsed single object field: a combo box row (the field descriptor
+     * offers instance candidates) whose node type is OBJECT. Those fields open the collection editor
+     * in single mode - the choice replaces the value, an empty choice means null.
+     *
+     * @param rowIndex the row index
+     * @return true when the row is a parsed object reference field
+     */
+    public boolean isSingleObjectFieldRow(int rowIndex) {
+        if (!isComboBoxCell(rowIndex, 1)) {
+            return false;
+        }
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        return field != null && field.getType() == JsonNodeType.OBJECT;
     }
 
     /**
@@ -268,7 +296,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         }
         final List<InstanceCandidate> result = new ArrayList<>();
         for (int i = 0; i < field.getChildCount(); i++) {
-            if (field.getChildAt(i) instanceof EditNodeObject child && !isPrimitiveRowObject(child)) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && !isPrimitiveListElement(child)) {
                 result.add(candidateOf(child));
             }
         }
@@ -288,7 +316,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         }
         final List<String> result = new ArrayList<>();
         for (int i = 0; i < field.getChildCount(); i++) {
-            if (field.getChildAt(i) instanceof EditNodeObject child && isPrimitiveRowObject(child)) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && isPrimitiveListElement(child)) {
                 result.add(child.getValue());
             }
         }
@@ -312,7 +340,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         // reference becomes invalid, so the identity comparison must happen before the removal
         final List<EditNodeObject> toRemove = new ArrayList<>();
         for (int i = 0; i < field.getChildCount(); i++) {
-            if (field.getChildAt(i) instanceof EditNodeObject child && !isPrimitiveRowObject(child)) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && !isPrimitiveListElement(child)) {
                 toRemove.add(child);
             }
         }
@@ -353,7 +381,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         }
         final List<EditNodeObject> toRemove = new ArrayList<>();
         for (int i = 0; i < field.getChildCount(); i++) {
-            if (field.getChildAt(i) instanceof EditNodeObject child && isPrimitiveRowObject(child)) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && isPrimitiveListElement(child)) {
                 toRemove.add(child);
             }
         }
@@ -379,8 +407,8 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     }
 
     private static boolean candidateFits(EditNodeObject obj, JsonTypeDescriptor declared) {
-        if (isPrimitiveRowObject(obj)) {
-            return false; // primitive rows are no object instances
+        if (isPrimitiveRowObject(obj) || obj.isLinkReference()) {
+            return false; // primitive rows are no object instances, a stub is only a reference
         }
         if (declared == null) {
             return true;

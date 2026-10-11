@@ -31,16 +31,31 @@ import javax.swing.table.DefaultTableModel;
  * <p>With the duplicates checkbox unchecked the left side hides everything that
  * is already on the right; with duplicates allowed, entries stay selectable.</p>
  *
+ * <p>The dialog follows a target cardinality: {@link Cardinality#MANY} keeps the
+ * full list behavior, {@link Cardinality#SINGLE} edits a single object reference
+ * - "&gt;" replaces the value instead of appending, the sorting buttons and the
+ * duplicates checkbox are hidden, and the candidate table allows no multi
+ * selection. Empty or one entry is always accepted.</p>
+ *
  * @author Janusch Rentenatus
  */
 public class JsonJackCollectionEditorDialog extends JDialog {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Target cardinality of the dialog. MANY edits a list, SINGLE a single object reference
+     * where the choice replaces the value and empty means null.
+     */
+    public enum Cardinality {
+        MANY, SINGLE
+    }
+
     private static final String[] COLUMNS = {"woodId", "text", "jsonType"};
 
     private final List<JsonJackFieldTableModel.InstanceCandidate> candidates;
     private final List<JsonJackFieldTableModel.InstanceCandidate> chosen;
+    private final Cardinality cardinality;
 
     private JTextField filterField;
     private JCheckBox duplicatesBox;
@@ -56,13 +71,21 @@ public class JsonJackCollectionEditorDialog extends JDialog {
      * @param fieldLabel the label of the edited field
      * @param candidates the available instances
      * @param current the elements currently recorded in the list
+     * @param cardinality the target cardinality of the edited field
      */
     public JsonJackCollectionEditorDialog(Window owner, String fieldLabel,
             List<JsonJackFieldTableModel.InstanceCandidate> candidates,
-            List<JsonJackFieldTableModel.InstanceCandidate> current) {
-        super(owner, "Collection: " + fieldLabel, ModalityType.APPLICATION_MODAL);
+            List<JsonJackFieldTableModel.InstanceCandidate> current,
+            Cardinality cardinality) {
+        super(owner, (cardinality == Cardinality.SINGLE ? "Reference: " : "Collection: ") + fieldLabel,
+                ModalityType.APPLICATION_MODAL);
         this.candidates = new ArrayList<>(candidates);
         this.chosen = new ArrayList<>(current);
+        this.cardinality = cardinality;
+        if (cardinality == Cardinality.SINGLE && this.chosen.size() > 1) {
+            // a malformed state keeps its first entry instead of smuggling a list through the single dialog
+            this.chosen.subList(1, this.chosen.size()).clear();
+        }
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         buildUi();
         setSize(760, 460);
@@ -95,7 +118,10 @@ public class JsonJackCollectionEditorDialog extends JDialog {
         top.add(filterField);
         duplicatesBox = new JCheckBox("duplicates allowed", true);
         duplicatesBox.addActionListener(e -> refreshCandidates());
-        top.add(duplicatesBox);
+        if (cardinality != Cardinality.SINGLE) {
+            // single mode: no duplicates possible, the choice replaces the value
+            top.add(duplicatesBox);
+        }
         add(top, BorderLayout.NORTH);
 
         // center: candidates on the left, buttons in the middle, chosen on the right
@@ -106,7 +132,9 @@ public class JsonJackCollectionEditorDialog extends JDialog {
             }
         };
         candidatesTable = new JTable(candidatesModel);
-        candidatesTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        candidatesTable.setSelectionMode(cardinality == Cardinality.SINGLE
+                ? ListSelectionModel.SINGLE_SELECTION
+                : ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         chosenModel = new DefaultTableModel(new Object[][]{}, COLUMNS) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -136,8 +164,13 @@ public class JsonJackCollectionEditorDialog extends JDialog {
         final JButton bottomBtn = new JButton("\u21D3");
         bottomBtn.setToolTipText("move the selected entry to the bottom");
         bottomBtn.addActionListener(e -> moveChosen(chosenTable, Integer.MAX_VALUE));
-        for (JButton button : new JButton[]{add, remove, up, topBtn, down, bottomBtn}) {
-            buttons.add(button);
+        if (cardinality == Cardinality.SINGLE) {
+            buttons.add(add);
+            buttons.add(remove);
+        } else {
+            for (JButton button : new JButton[]{add, remove, up, topBtn, down, bottomBtn}) {
+                buttons.add(button);
+            }
         }
 
         // GridBagLayout on purpose: only the two tables get growth weight, the button column keeps
@@ -208,6 +241,17 @@ public class JsonJackCollectionEditorDialog extends JDialog {
     }
 
     private void moveSelectedToChosen() {
+        if (cardinality == Cardinality.SINGLE) {
+            // single reference: the choice replaces the value, never appends
+            chosen.clear();
+            final int viewRow = candidatesTable.getSelectedRow();
+            if (viewRow >= 0) {
+                chosen.add(candidates.get(candidatesTable.convertRowIndexToModel(viewRow)));
+            }
+            refreshChosen();
+            refreshCandidates();
+            return;
+        }
         final int[] selected = candidatesTable.getSelectedRows();
         for (int viewRow : selected) {
             final JsonJackFieldTableModel.InstanceCandidate candidate

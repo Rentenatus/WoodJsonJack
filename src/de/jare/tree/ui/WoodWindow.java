@@ -289,6 +289,8 @@ public class WoodWindow extends JFrame {
                     if (fieldsModel.isButtonEnabled(row)) {
                         if (fieldsModel.isArrayFieldRow(row)) {
                             openArrayFieldEditor(row);
+                        } else if (fieldsModel.isSingleObjectFieldRow(row)) {
+                            openSingleObjectFieldEditor(row);
                         } else {
                             openFieldDetailDialog(row);
                         }
@@ -343,21 +345,45 @@ public class WoodWindow extends JFrame {
                 fieldsModel.applyPrimitiveListResult(row, dialog.getResult());
             }
         } else {
-            final JsonJackCollectionEditorDialog dialog = new JsonJackCollectionEditorDialog(this,
-                    String.valueOf(fieldsModel.getValueAt(row, 0)),
-                    fieldsModel.getInstanceCandidates(row),
-                    fieldsModel.getCurrentObjectList(row));
-            dialog.setVisible(true);
-            if (dialog.isAccepted()) {
-                fieldsModel.applyObjectListResult(row, dialog.getResult());
-            }
+            openCollectionEditor(row, JsonJackCollectionEditorDialog.Cardinality.MANY);
+        }
+    }
+
+    /**
+     * Opens the collection editor in single mode on a parsed object reference field: the choice
+     * replaces the field value, an empty choice sets it to null. Both is always allowed - there
+     * is no nullable declaration in the model yet.
+     *
+     * @param row the model row of the object reference field
+     */
+    private void openSingleObjectFieldEditor(int row) {
+        openCollectionEditor(row, JsonJackCollectionEditorDialog.Cardinality.SINGLE);
+    }
+
+    /**
+     * Opens the collection editor with the given target cardinality. The result is applied through
+     * the model, which refreshes the pane.
+     *
+     * @param row the model row of the edited field
+     * @param cardinality the target cardinality of the edited field
+     */
+    private void openCollectionEditor(int row, JsonJackCollectionEditorDialog.Cardinality cardinality) {
+        final JsonJackCollectionEditorDialog dialog = new JsonJackCollectionEditorDialog(this,
+                String.valueOf(fieldsModel.getValueAt(row, 0)),
+                fieldsModel.getInstanceCandidates(row),
+                fieldsModel.getCurrentObjectList(row),
+                cardinality);
+        dialog.setVisible(true);
+        if (dialog.isAccepted()) {
+            fieldsModel.applyObjectListResult(row, dialog.getResult());
         }
     }
 
     /**
      * Installs the "^" column (column 4) of the fields table: a field rendered as a button that
-     * opens the editor of the row on click - the list editors for array fields, the detail dialog
-     * for every other row with a value.
+     * opens the editor of the row on click - the list editors for array fields, the single mode
+     * collection editor for parsed object reference fields, the detail dialog for every other
+     * row with a value.
      */
     private void installFieldsDetailButtonColumn() {
         TableColumn buttonCol = fieldsTable.getColumnModel().getColumn(4);
