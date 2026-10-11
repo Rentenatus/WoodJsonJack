@@ -139,7 +139,7 @@ public class JsonJackCollectionEditorDialog extends JDialog {
             top.add(duplicatesBox);
         }
         // the cardinality label tells the user which range the edited field accepts
-        final JLabel rangeLabel = new JLabel(cardinality.getRangeLabel());
+        final JLabel rangeLabel = new JLabel("Cardinality: " + cardinality.getRangeLabel());
         rangeLabel.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 0));
         top.add(rangeLabel);
         add(top, BorderLayout.NORTH);
