@@ -45,10 +45,26 @@ public class JsonJackCollectionEditorDialog extends JDialog {
 
     /**
      * Target cardinality of the dialog. MANY edits a list, SINGLE a single object reference
-     * where the choice replaces the value and empty means null.
+     * where the choice replaces the value and empty means null. The label shows the accepted
+     * range in the dialog header.
      */
     public enum Cardinality {
-        MANY, SINGLE
+        MANY("0 - *"), SINGLE("0 - 1");
+
+        private final String rangeLabel;
+
+        private Cardinality(String rangeLabel) {
+            this.rangeLabel = rangeLabel;
+        }
+
+        /**
+         * The range of accepted entries, shown to the user in the dialog header.
+         *
+         * @return the range label
+         */
+        public String getRangeLabel() {
+            return rangeLabel;
+        }
     }
 
     private static final String[] COLUMNS = {"woodId", "text", "jsonType"};
@@ -122,6 +138,10 @@ public class JsonJackCollectionEditorDialog extends JDialog {
             // single mode: no duplicates possible, the choice replaces the value
             top.add(duplicatesBox);
         }
+        // the cardinality label tells the user which range the edited field accepts
+        final JLabel rangeLabel = new JLabel(cardinality.getRangeLabel());
+        rangeLabel.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 0));
+        top.add(rangeLabel);
         add(top, BorderLayout.NORTH);
 
         // center: candidates on the left, buttons in the middle, chosen on the right
