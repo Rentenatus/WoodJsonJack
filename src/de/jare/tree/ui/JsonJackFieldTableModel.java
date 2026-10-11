@@ -27,7 +27,8 @@ import javax.swing.tree.DefaultMutableTreeNode;
 /**
  * Table model for the Fields pane: a view on the model side of the selected
  * object. The first row shows the json type of the object, one row per field
- * (child property) follows with name, value and node type. Object-typed fields
+ * (child property) follows with name, value and node type; a trailing "^"
+ * column opens the field editor dialogs. Object-typed fields
  * offer their candidate instances through a combo box (see
  * {@link #isComboBoxCell(int, int)}); the selection semantics are a later
  * step - the base version only displays the candidates.
@@ -41,7 +42,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 public class JsonJackFieldTableModel extends AbstractTableModel
         implements TreeFocusListener, ContentListener, ParseProblemsListener, JsonJackComboCapableModel {
 
-    private static final String[] columnNames = {"Name", "Value", "Type", "JsonType"};
+    private static final String[] columnNames = {"Name", "Value", "Type", "JsonType", "^"};
 
     private List<FieldRow> rows = new ArrayList<>();
     private JsonModelDescriptor jsonModelDescriptor;
@@ -76,6 +77,8 @@ public class JsonJackFieldTableModel extends AbstractTableModel
                 row.type();
             case 3 ->
                 row.jsonType();
+            case 4 ->
+                isButtonEnabled(rowIndex);
             default ->
                 null;
         };
@@ -89,6 +92,30 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         return columnIndex == 1 && rowIndex >= 1
                 && !isComboBoxCell(rowIndex, columnIndex)
                 && !isArrayFieldRow(rowIndex);
+    }
+
+    @Override
+    public Class<?> getColumnClass(int columnIndex) {
+        return columnIndex == 4 ? Boolean.class : String.class;
+    }
+
+    /**
+     * Checks whether the "^" button of the given row can open something: array fields open their
+     * dedicated list editor, every other row below the jsonType header opens the detail dialog
+     * when its value is neither null nor empty.
+     *
+     * @param rowIndex the row index
+     * @return true when the button should be enabled
+     */
+    public boolean isButtonEnabled(int rowIndex) {
+        if (rowIndex < 1 || rowIndex >= rows.size()) {
+            return false;
+        }
+        if (isArrayFieldRow(rowIndex)) {
+            return true;
+        }
+        Object value = rows.get(rowIndex).value();
+        return value != null && !value.toString().isEmpty();
     }
 
     @Override

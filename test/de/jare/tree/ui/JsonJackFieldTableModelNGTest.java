@@ -88,7 +88,7 @@ public class JsonJackFieldTableModelNGTest {
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
         assertEquals(model.getRowCount(), 4, "jsonType header plus the three fields");
-        assertEquals(model.getColumnCount(), 4, "Name, Value, Type, JsonType");
+        assertEquals(model.getColumnCount(), 5, "Name, Value, Type, JsonType, ^");
         assertEquals(model.getValueAt(0, 0), "jsonType");
         assertEquals(model.getValueAt(1, 0), "target");
         assertEquals(model.getValueAt(2, 0), "a");
@@ -273,6 +273,43 @@ public class JsonJackFieldTableModelNGTest {
         assertTrue(listModel.isPrimitiveArrayListRow(1), "a list of primitives is a primitive list");
         assertFalse(listModel.isCellEditable(1, 1), "array fields are not edited inline");
         assertEquals(listModel.getCurrentPrimitiveList(1), java.util.List.of("alpha", "beta"));
+    }
+
+    @Test
+    public void testDetailButtonEnablement() throws Exception {
+        EditTree tree = importTree();
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertFalse(model.isButtonEnabled(0), "the jsonType header opens nothing");
+        assertTrue(model.isButtonEnabled(1), "an object field with a value opens the detail dialog");
+        assertTrue(model.isButtonEnabled(3), "a primitive with a value opens the detail dialog");
+
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }\n", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree listTree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+        JsonJackFieldTableModel listModel = new JsonJackFieldTableModel();
+        listModel.onEditorSelected(componentOf(listTree), null);
+        listModel.onNodeSelected(new DefaultMutableTreeNode(listTree.getRoot()), null, false);
+
+        assertTrue(listModel.isButtonEnabled(1), "an array field opens the list editor");
+    }
+
+    @Test
+    public void testDetailButtonDisabledWithoutValue() throws Exception {
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"text\": \"\" }\n", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getRowCount(), 2, "jsonType header plus the empty text field");
+        assertFalse(model.isButtonEnabled(1), "a field without value opens nothing");
     }
 
     @Test
