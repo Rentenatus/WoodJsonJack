@@ -469,7 +469,8 @@ public class WoodWindow extends JFrame {
 
     /**
      * Renderer that shows a JButton in the "^" column. The button is only
-     * enabled when the attribute value is neither null nor empty.
+     * enabled (and labeled "^") when the attribute value is neither null nor
+     * empty; otherwise it is disabled and shows a blank label.
      */
     private static class ButtonRenderer extends JButton implements TableCellRenderer {
 
@@ -478,13 +479,13 @@ public class WoodWindow extends JFrame {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
                 boolean isSelected, boolean hasFocus, int row, int column) {
-            setText("^");
             int modelRow = table.convertRowIndexToModel(row);
+            boolean enabled = false;
             if (table.getModel() instanceof JsonJackAttrTableModel model) {
-                setEnabled(model.isButtonEnabled(modelRow));
-            } else {
-                setEnabled(false);
+                enabled = model.isButtonEnabled(modelRow);
             }
+            setEnabled(enabled);
+            setText(enabled ? "^" : " ");
             return this;
         }
     }
