@@ -501,4 +501,74 @@ public class JsonJackFieldTableModelNGTest {
         assertTrue(values[0].toString().startsWith("Target"),
                 "without a template the candidate label falls back to the object name: " + values[0]);
     }
+
+    /**
+     * A whole list reference: an identified array appears as candidate at list fields, picking it replaces the
+     * entire field content with one reference stub, and further candidates are ignored.
+     */
+    @Test
+    public void testWholeListReferenceCandidateAndApply() throws Exception {
+        final String sceneJson = "{\n"
+                + "  \"left\": <\"7\">[ { \"_woodObjectId\": \"4\", \"name\": \"A\" } ],\n"
+                + "  \"right\": [ { \"name\": \"B\" } ]\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(sceneJson, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        descriptor.addType(sceneType);
+
+        EditNodeProperty leftField = findProperty(tree, "left");
+        EditNodeProperty rightField = findProperty(tree, "right");
+        assertNotNull(leftField);
+        assertNotNull(rightField);
+        assertEquals(leftField.getObjektId(), "7", "the array identity must sit on the property");
+        leftField.setJsonField(new JsonFieldDescriptor("left", "Scene",
+                de.jare.jsoncasted.model.JsonCollectionType.LIST, false, false, null, null));
+        rightField.setJsonField(new JsonFieldDescriptor("right", "Scene",
+                de.jare.jsoncasted.model.JsonCollectionType.LIST, false, false, null, null));
+        ((EditNodeObject) leftField.getChildAt(0)).setJsonType(sceneType);
+        ((EditNodeObject) rightField.getChildAt(0)).setJsonType(sceneType);
+
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertTrue(model.isArrayFieldRow(1), "the left row is an array field");
+
+        final List<JsonJackFieldTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(2);
+        JsonJackFieldTableModel.InstanceCandidate arrayCandidate = null;
+        JsonJackFieldTableModel.InstanceCandidate objectCandidate = null;
+        for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
+            if ("7".equals(candidate.woodId())) {
+                arrayCandidate = candidate;
+            } else if ("4".equals(candidate.woodId())) {
+                objectCandidate = candidate;
+            }
+        }
+        assertNotNull(arrayCandidate, "the identified array must be a candidate at a list field: " + candidates);
+        assertTrue(arrayCandidate.node() instanceof EditNodeProperty,
+                "the array candidate is the array property itself");
+        assertTrue(arrayCandidate.jsonType().startsWith("Scene"),
+                "the candidate type names the element type: " + arrayCandidate.jsonType());
+        assertNotNull(objectCandidate, "the object instances stay candidates");
+
+        // a whole list reference replaces the content: the extra object candidate is ignored
+        model.applyObjectListResult(2, java.util.Arrays.asList(arrayCandidate, objectCandidate));
+        assertEquals(rightField.getType(), JsonNodeType.OBJECT,
+                "the field mirrors the imported form of a stub at a list field");
+        assertEquals(rightField.getChildCount(), 1, "only the reference stub remains");
+        final EditNodeObject stub = (EditNodeObject) rightField.getChildAt(0);
+        assertTrue(stub.isLinkReference(), "the child must be a reference stub");
+        assertEquals(stub.getLinkTarget(), "this::7", "the stub points at the shared array");
+
+        // reopening shows the referenced array as the current content
+        final List<JsonJackFieldTableModel.InstanceCandidate> current = model.getCurrentObjectList(2);
+        assertEquals(current.size(), 1);
+        assertEquals(current.get(0).woodId(), "7", "the stub shows the target id");
+    }
 }

@@ -160,10 +160,11 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     // ========== Array field editors ==========
 
     /**
-     * One selectable object instance for the collection editor of an object list: its wood identity, its display
-     * text, its model type and the node itself (for identity comparison and for copies of identityless instances).
+     * One selectable instance for the collection editor: its wood identity, its display text, its model type and
+     * the node itself (for identity comparison and for copies of identityless instances). The node is an object
+     * instance, or - for whole list references - an identified array property.
      */
-    public record InstanceCandidate(String woodId, String text, String jsonType, EditNodeObject node) {
+    public record InstanceCandidate(String woodId, String text, String jsonType, EditNodeAbstract node) {
 
     }
 
@@ -267,15 +268,17 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         if (descriptor != null && jsonModelDescriptor != null) {
             declared = jsonModelDescriptor.getType(descriptor.getTypeName());
         }
+        // A whole list reference fits at a list field only: object rows never offer arrays.
+        final boolean rowIsListField = descriptor != null && descriptor.isAsListOrArray();
         final List<InstanceCandidate> result = new ArrayList<>();
-        final Set<EditNodeObject> seen = new HashSet<>();
+        final Set<EditNodeAbstract> seen = new HashSet<>();
         if (editTree != null && editTree.getRoot() != null) {
-            collectInstanceCandidates(editTree.getRoot(), declared, result, seen);
+            collectInstanceCandidates(editTree.getRoot(), declared, rowIsListField, result, seen);
         }
         final EditLinkingSet linkingSet = editTree == null ? null : editTree.getLinkingSet();
         if (linkingSet != null) {
-            for (EditNodeObject held : linkingSet.getAllObjects()) {
-                if (seen.add(held) && candidateFits(held, declared)) {
+            for (EditNodeAbstract held : linkingSet.getAllObjects()) {
+                if (seen.add(held) && candidateFits(held, declared, rowIsListField)) {
                     result.add(candidateOf(held));
                 }
             }
@@ -336,6 +339,14 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         if (field == null || editTree == null) {
             return;
         }
+        // a whole list reference replaces the entire content: only the array candidate counts
+        List<InstanceCandidate> effective = chosen;
+        for (InstanceCandidate candidate : chosen) {
+            if (candidate.node() instanceof EditNodeProperty) {
+                effective = List.of(candidate);
+                break;
+            }
+        }
         // the elements currently in the list, by identity - they are detached below and their parent
         // reference becomes invalid, so the identity comparison must happen before the removal
         final List<EditNodeObject> toRemove = new ArrayList<>();
@@ -350,7 +361,7 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         }
         final EditLinkingSet linkingSet = editTree.getLinkingSet();
         final String provider = linkingSet == null ? null : linkingSet.getProviderName();
-        for (InstanceCandidate candidate : chosen) {
+        for (InstanceCandidate candidate : effective) {
             if (candidate.node() != null && formerElements.contains(candidate.node())) {
                 // the element is already in the list (identity match): re-append at the chosen position
                 editTree.addChild(field, candidate.node());
@@ -363,6 +374,11 @@ public class JsonJackFieldTableModel extends AbstractTableModel
             } else if (candidate.node() != null) {
                 editTree.addNode(field, candidate.node(), -1, true);
             }
+        }
+        if (effective != chosen) {
+            // the field now holds a single whole list reference instead of the list itself:
+            // the property mirrors the imported form of a stub at a list field
+            field.setType(JsonNodeType.OBJECT);
         }
         refresh();
     }
@@ -394,19 +410,29 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         refresh();
     }
 
-    private static void collectInstanceCandidates(EditNode node, JsonTypeDescriptor declared,
-            List<InstanceCandidate> result, Set<EditNodeObject> seen) {
-        if (node instanceof EditNodeObject obj && seen.add(obj) && candidateFits(obj, declared)) {
-            result.add(candidateOf(obj));
+    private static void collectInstanceCandidates(EditNode node, JsonTypeDescriptor declared, boolean rowIsListField,
+            List<InstanceCandidate> result, Set<EditNodeAbstract> seen) {
+        if (node instanceof EditNodeAbstract abs && seen.add(abs) && candidateFits(abs, declared, rowIsListField)) {
+            result.add(candidateOf(abs));
         }
         for (int i = 0; i < node.getChildCount(); i++) {
             if (node.getChildAt(i) instanceof EditNodeAbstract child) {
-                collectInstanceCandidates(child, declared, result, seen);
+                collectInstanceCandidates(child, declared, rowIsListField, result, seen);
             }
         }
     }
 
-    private static boolean candidateFits(EditNodeObject obj, JsonTypeDescriptor declared) {
+    /**
+     * Checks whether the node fits as a candidate for the edited row: an object instance fits when its type matches
+     * the declared element type, an identified array fits as a whole list reference at list fields only.
+     */
+    private static boolean candidateFits(EditNodeAbstract node, JsonTypeDescriptor declared, boolean rowIsListField) {
+        if (node instanceof EditNodeProperty array) {
+            return rowIsListField && arrayCandidateFits(array, declared);
+        }
+        if (!(node instanceof EditNodeObject obj)) {
+            return false;
+        }
         if (isPrimitiveRowObject(obj) || obj.isLinkReference()) {
             return false; // primitive rows are no object instances, a stub is only a reference
         }
@@ -416,11 +442,45 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         return typeFits(obj, declared);
     }
 
-    private static InstanceCandidate candidateOf(EditNodeObject obj) {
-        final String woodId = obj.getObjektId();
+    /**
+     * An array fits as a whole list reference when it carries a wood identity and its element type matches the
+     * declared element type of the edited field.
+     */
+    private static boolean arrayCandidateFits(EditNodeProperty array, JsonTypeDescriptor declaredElement) {
+        if (array.getType() != JsonNodeType.ARRAY || array.getObjektId() == null) {
+            return false; // only identified arrays are referencable as a whole
+        }
+        if (declaredElement == null) {
+            return true;
+        }
+        final JsonFieldDescriptor arrayField = array.getJsonField();
+        return arrayField != null && declaredElement.getTypeName().equals(arrayField.getTypeName());
+    }
+
+    private static InstanceCandidate candidateOf(EditNodeAbstract node) {
+        if (node instanceof EditNodeProperty array) {
+            final JsonFieldDescriptor field = array.getJsonField();
+            final String jsonType = field == null ? "array" : field.getTypeName() + "[]";
+            final String text = array.getName() + " (" + array.getChildCount() + ")";
+            return new InstanceCandidate(array.getObjektId(), text, jsonType, array);
+        }
+        final EditNodeObject obj = (EditNodeObject) node;
+        final String woodId = obj.getObjektId() != null ? obj.getObjektId() : linkTargetId(obj);
         final String text = EditStringEvaluator.displayText(obj);
         final String jsonType = obj.getJsonType() == null ? "" : obj.getJsonType().getTypeName();
         return new InstanceCandidate(woodId, text, jsonType, obj);
+    }
+
+    /**
+     * Extracts the bare target id of a reference stub: the part behind the provider prefix of the link target.
+     */
+    private static String linkTargetId(EditNodeObject obj) {
+        final String target = obj.getLinkTarget();
+        if (target == null || target.isEmpty()) {
+            return null;
+        }
+        final int idx = target.lastIndexOf(de.jare.jsoncasted.lang.JsonTerms.COLONCOLON);
+        return idx < 0 ? target : target.substring(idx + de.jare.jsoncasted.lang.JsonTerms.COLONCOLON.length());
     }
 
     // ========== TreeFocusListener ==========
@@ -613,9 +673,9 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         }
         final EditLinkingSet linkingSet = editTree == null ? null : editTree.getLinkingSet();
         if (linkingSet != null) {
-            for (EditNodeObject held : linkingSet.getAllObjects()) {
-                if (seen.add(held) && typeFits(held, declared)) {
-                    candidates.add(instanceLabel(held));
+            for (EditNodeAbstract held : linkingSet.getAllObjects()) {
+                if (held instanceof EditNodeObject obj && seen.add(obj) && typeFits(obj, declared)) {
+                    candidates.add(instanceLabel(obj));
                 }
             }
         }
