@@ -44,6 +44,7 @@ public class WoodWindow extends JFrame {
 
     // Bottom tab constants
     private static final String TAB_ATTRIBUTES = "Attributes";
+    private static final String TAB_FIELDS = "Fields";
     private static final String TAB_JACK_UNDO = "Jack Undo";
     private static final String TAB_KI_ASSISTANT = "AI Assistant";
     private static final String TAB_JACK_CLIPBOARD = "Jack Clipboard";
@@ -171,6 +172,7 @@ public class WoodWindow extends JFrame {
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
         bottomTabs.addTab(TAB_ATTRIBUTES, createAttributesPanel());
+        bottomTabs.addTab(TAB_FIELDS, createFieldsPanel());
         bottomTabs.addTab(TAB_FAST_LOG, createFastLogPanel());
         bottomTabs.addTab(TAB_JACK_UNDO, createJackUndoPanel());
         bottomTabs.addTab(TAB_KI_ASSISTANT, createKIAssistant());
@@ -238,11 +240,181 @@ public class WoodWindow extends JFrame {
         // edit status color at WARNING/ERROR for the text columns (Name, Value, Type)
         attributesTable.setDefaultRenderer(String.class, new EditStatusCellRenderer());
 
+        // combo box editor for the value column (jsonType, jsonField rows)
+        attributesTable.setDefaultEditor(String.class, new JsonJackComboBoxCellEditor());
+
         installAttrDetailButtonColumn();
 
         JPanel borderedPanel = new JPanel(new BorderLayout());
         borderedPanel.add(new JScrollPane(attributesTable), BorderLayout.CENTER);
         return borderedPanel;
+    }
+
+    private JTable fieldsTable;
+    private JsonJackFieldTableModel fieldsModel;
+
+    /**
+     * Creates the Fields pane: a view on the model side of the selected object. The first row shows the json type,
+     * one row per field follows. A clicked field still shows the owning object and focuses the field's row. The
+     * model is held in a field on purpose: the orator of the master control keeps its listeners via weak references
+     * only, the garbage collector would silently deregister a local model.
+     */
+    private JPanel createFieldsPanel() {
+        fieldsModel = new JsonJackFieldTableModel();
+        jackmaster.addSelectionListener(fieldsModel);
+        jackmaster.addContentListener(fieldsModel);
+        jackmaster.addParseProblemsListener(fieldsModel);
+        fieldsTable = new JTable(fieldsModel);
+        fieldsTable.setFillsViewportHeight(true);
+        fieldsTable.getTableHeader().setVisible(true);
+        fieldsTable.setDefaultEditor(Object.class, new JsonJackComboBoxCellEditor());
+        installFieldsDetailButtonColumn();
+
+        // After every model refresh: focus the row of the field clicked in the tree.
+        fieldsTable.getModel().addTableModelListener(e -> applyFocusedField());
+
+        // Array fields are not edited inline: clicking the value cell opens the collection editor
+        // (object lists) or the primitive list editor (primitive lists and array annotations).
+        // The "^" column opens the same editors on array rows, the detail dialog otherwise.
+        fieldsTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                final int viewRow = fieldsTable.rowAtPoint(e.getPoint());
+                final int viewCol = fieldsTable.columnAtPoint(e.getPoint());
+                if (viewRow < 0 || viewCol < 0) {
+                    return;
+                }
+                final int row = fieldsTable.convertRowIndexToModel(viewRow);
+                if (fieldsTable.convertColumnIndexToModel(viewCol) == 4) {
+                    if (fieldsModel.isButtonEnabled(row)) {
+                        if (fieldsModel.isArrayFieldRow(row)) {
+                            openArrayFieldEditor(row);
+                        } else if (fieldsModel.isSingleObjectFieldRow(row)) {
+                            openSingleObjectFieldEditor(row);
+                        } else {
+                            openFieldDetailDialog(row);
+                        }
+                    }
+                    return;
+                }
+                if (viewCol == 1 && fieldsModel.isArrayFieldRow(row)) {
+                    openArrayFieldEditor(row);
+                }
+            }
+        });
+
+        JPanel borderedPanel = new JPanel(new BorderLayout());
+        borderedPanel.add(new JScrollPane(fieldsTable), BorderLayout.CENTER);
+        return borderedPanel;
+    }
+
+    /**
+     * Selects and scrolls to the row of the field that was clicked in the tree - the pane always shows the owning
+     * object, the clicked field gets the focus. The row is matched by edit id inside the model.
+     */
+    private void applyFocusedField() {
+        // Deferred on purpose: JTable clears the selection model while processing
+        // fireTableDataChanged - AFTER the TableModelListener has run. Applying the
+        // focus inside the listener is therefore destroyed immediately. On the event
+        // queue the selection lands after the whole rebuild cascade (selection, content
+        // command, parse problems), and the last queued call wins.
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            final int row = fieldsModel.getFocusedRowIndex();
+            if (row >= 0 && row < fieldsTable.getRowCount()) {
+                fieldsTable.clearSelection();
+                fieldsTable.getSelectionModel().setSelectionInterval(row, row);
+                fieldsTable.scrollRectToVisible(fieldsTable.getCellRect(row, 0, true));
+            }
+        });
+    }
+
+    /**
+     * Opens the dedicated editor of an array field: the collection editor for object lists, the primitive list
+     * editor for primitive lists and array annotations. The result is applied through the model, which refreshes
+     * the pane.
+     *
+     * @param row the model row of the array field
+     */
+    private void openArrayFieldEditor(int row) {
+        if (fieldsModel.isPrimitiveArrayListRow(row)) {
+            final JsonJackPrimitiveListEditorDialog dialog = new JsonJackPrimitiveListEditorDialog(this,
+                    String.valueOf(fieldsModel.getValueAt(row, 0)),
+                    fieldsModel.getCurrentPrimitiveList(row));
+            dialog.setVisible(true);
+            if (dialog.isAccepted()) {
+                fieldsModel.applyPrimitiveListResult(row, dialog.getResult());
+            }
+        } else {
+            openCollectionEditor(row, JsonJackCollectionEditorDialog.Cardinality.MANY);
+        }
+    }
+
+    /**
+     * Opens the collection editor in single mode on a parsed object reference field: the choice
+     * replaces the field value, an empty choice sets it to null. Both is always allowed - there
+     * is no nullable declaration in the model yet.
+     *
+     * @param row the model row of the object reference field
+     */
+    private void openSingleObjectFieldEditor(int row) {
+        openCollectionEditor(row, JsonJackCollectionEditorDialog.Cardinality.SINGLE);
+    }
+
+    /**
+     * Opens the collection editor with the given target cardinality. The result is applied through
+     * the model, which refreshes the pane.
+     *
+     * @param row the model row of the edited field
+     * @param cardinality the target cardinality of the edited field
+     */
+    private void openCollectionEditor(int row, JsonJackCollectionEditorDialog.Cardinality cardinality) {
+        final JsonJackCollectionEditorDialog dialog = new JsonJackCollectionEditorDialog(this,
+                String.valueOf(fieldsModel.getValueAt(row, 0)),
+                fieldsModel.getInstanceCandidates(row),
+                fieldsModel.getCurrentObjectList(row),
+                cardinality);
+        dialog.setVisible(true);
+        if (dialog.isAccepted()) {
+            fieldsModel.applyObjectListResult(row, dialog.getResult());
+        }
+    }
+
+    /**
+     * Installs the "^" column (column 4) of the fields table: a field rendered as a button that
+     * opens the editor of the row on click - the list editors for array fields, the single mode
+     * collection editor for parsed object reference fields, the detail dialog for every other
+     * row with a value.
+     */
+    private void installFieldsDetailButtonColumn() {
+        TableColumn buttonCol = fieldsTable.getColumnModel().getColumn(4);
+        buttonCol.setCellRenderer(new ButtonRenderer());
+        buttonCol.setPreferredWidth(36);
+        buttonCol.setMaxWidth(36);
+        buttonCol.setMinWidth(28);
+        buttonCol.setResizable(false);
+    }
+
+    /**
+     * Opens the detail dialog on a field row of the Fields pane: name, value and json type of
+     * the field, writable when the row is inline editable. The accepted value is written back
+     * through the model, which refreshes the pane.
+     *
+     * @param modelRow the model row of the field
+     */
+    private void openFieldDetailDialog(int modelRow) {
+        EditNode node = fieldsModel.getCurrentObject();
+        String nodeName = (node != null && node.getName() != null) ? node.getName() : "";
+        String nodePath = buildNodePath(node);
+        Object value = fieldsModel.getValueAt(modelRow, 1);
+        Object jsonType = fieldsModel.getValueAt(modelRow, 3);
+        JsonJackAttrDetailDialog dialog = new JsonJackAttrDetailDialog(
+                this, nodeName, nodePath,
+                jsonType == null ? "" : jsonType.toString(),
+                String.valueOf(fieldsModel.getValueAt(modelRow, 0)),
+                value == null ? "" : value.toString(),
+                fieldsModel.isCellEditable(modelRow, 1),
+                newValue -> fieldsModel.setValueAt(newValue, modelRow, 1));
+        dialog.setVisible(true);
     }
 
     /**
@@ -371,8 +543,10 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Renderer that shows a JButton in the "^" column. The button is only
-     * enabled when the attribute value is neither null nor empty.
+     * Renderer that shows a JButton in the "^" column of the attribute and
+     * fields tables. The button is only enabled (and labeled "^") when the
+     * row offers something to open; otherwise it is disabled and shows a
+     * blank label.
      */
     private static class ButtonRenderer extends JButton implements TableCellRenderer {
 
@@ -381,13 +555,15 @@ public class WoodWindow extends JFrame {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
                 boolean isSelected, boolean hasFocus, int row, int column) {
-            setText("^");
             int modelRow = table.convertRowIndexToModel(row);
-            if (table.getModel() instanceof JsonJackAttrTableModel model) {
-                setEnabled(model.isButtonEnabled(modelRow));
-            } else {
-                setEnabled(false);
+            boolean enabled = false;
+            if (table.getModel() instanceof JsonJackAttrTableModel attrModel) {
+                enabled = attrModel.isButtonEnabled(modelRow);
+            } else if (table.getModel() instanceof JsonJackFieldTableModel fieldModel) {
+                enabled = fieldModel.isButtonEnabled(modelRow);
             }
+            setEnabled(enabled);
+            setText(enabled ? "^" : " ");
             return this;
         }
     }
