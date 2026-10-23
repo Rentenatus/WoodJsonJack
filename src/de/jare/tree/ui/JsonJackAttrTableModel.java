@@ -6,18 +6,24 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.command.RenameNodeCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.JackAttribut;
+import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
+import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.model.JackTreeModel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 
@@ -27,6 +33,26 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     private List<PropertyRow> rows = new ArrayList<>();
     private JsonModelDescriptor jsonModelDescriptor;
     private EditNode currentEditNode;
+    private EditTree editTree;
+    private final JackUndoManager undoMan;
+
+    /**
+     * Creates a local-only model: no change ever leaves the pane, renames included.
+     */
+    public JsonJackAttrTableModel() {
+        this(null);
+    }
+
+    /**
+     * Creates the model with the undo manager of the master control. A rename of the "name"
+     * attribute is executed as a {@link RenameNodeCommand} through it - provided the parse
+     * mode of the active tree allows renaming (see {@link #setValueAt(Object, int, int)}).
+     *
+     * @param undoMan the undo manager of the master control, may be {@code null}
+     */
+    public JsonJackAttrTableModel(JackUndoManager undoMan) {
+        this.undoMan = undoMan;
+    }
 
     @Override
     public int getRowCount() {
@@ -55,14 +81,48 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         };
     }
 
+    /**
+     * Accepts the change locally - and for the "name" attribute as the one exception of the
+     * sandbox: renaming is allowed in the soft parse mode (a rename re-binds the field: new
+     * name - other field - other type moves in, the soft parser follows asynchronously) and
+     * without semantics (no model, plain tree editing). In both modes the rename is executed
+     * as a {@link RenameNodeCommand} through the undo manager, so the tree shows it and undo
+     * works. The hard parse mode forbids renames so far (parse mode concept, open decision 2):
+     * the change stays in the pane there. Every other attribute never leaves the pane.
+     */
     @Override
     public void setValueAt(Object aValue, int row, int col) {
         if (col == 1 && row < rows.size()) {
             PropertyRow oldRow = rows.get(row);
+            if ("name".equals(oldRow.name()) && renameReachesTree()) {
+                final String newName = asText(aValue);
+                // a blank name is no valid rename - the pane guards it (the command check exists,
+                // but the history manager does not enforce it on execute)
+                if (newName != null && !newName.isBlank()
+                        && !Objects.equals(currentEditNode.getName(), newName)) {
+                    undoMan.executeCommand(new RenameNodeCommand(currentEditNode, newName));
+                }
+            }
             PropertyRow newRow = new PropertyRow(oldRow.name(), aValue, oldRow.type());
             rows.set(row, newRow);
             fireTableCellUpdated(row, col);
         }
+    }
+
+    /**
+     * Checks whether a rename of the current node may reach the tree: the undo manager must be
+     * wired, the active tree must be known, and its parse mode must allow renaming - the hard
+     * parse mode forbids renames until the hard edit concept implements its re-type path.
+     *
+     * @return true when a rename is written through as a command
+     */
+    private boolean renameReachesTree() {
+        return undoMan != null && currentEditNode != null && editTree != null
+                && editTree.getParseMode() != ParseMode.HARD_PARSE;
+    }
+
+    private static String asText(Object value) {
+        return value == null ? null : value.toString();
     }
 
     @Override
@@ -208,7 +268,10 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         if (editor == null) {
             return;
         }
-        setJsonModelDescriptor(editor.getModel().getJsonModelDescriptor());
+        if (editor.getModel() instanceof JackTreeModel treeModel) {
+            this.editTree = treeModel.getEditTree();
+            setJsonModelDescriptor(treeModel.getJsonModelDescriptor());
+        }
     }
 
     private void updateProperties(Object node) {

@@ -18,8 +18,10 @@ import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.model.JackTreeModel;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -37,6 +39,13 @@ import javax.swing.tree.DefaultMutableTreeNode;
  * object and focuses the field's row (matched by edit id, not by name - array
  * fields may repeat names).</p>
  *
+ * <p>The pane is a sandbox: it accepts changes - inline value edits and the
+ * results of the list editors - but never writes them back into the edit node,
+ * whatever the parse mode of the tree is. The changes live in local overrides
+ * keyed by edit id; they survive refreshes of the same object (the soft parse
+ * mode refreshes asynchronously, the hard mode after every command) and are
+ * dropped when another object or editor is selected.</p>
+ *
  * @author Janusch Rentenatus
  */
 public class JsonJackFieldTableModel extends AbstractTableModel
@@ -49,6 +58,12 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     private EditTree editTree;
     private EditNodeObject currentObject;
     private long focusedFieldEditId = -1;
+
+    // Local sandbox overrides, keyed by the edit id of the field (the synthetic value row
+    // uses the edit id of the object itself). Never written back into the edit node.
+    private final Map<Long, String> valueOverrides = new HashMap<>();
+    private final Map<Long, List<InstanceCandidate>> objectListOverrides = new HashMap<>();
+    private final Map<Long, List<String>> primitiveListOverrides = new HashMap<>();
 
     @Override
     public int getRowCount() {
@@ -118,25 +133,24 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         return value != null && !value.toString().isEmpty();
     }
 
+    /**
+     * Accepts the change locally only: the new value is kept in the sandbox override of the row
+     * and shown in the pane, but never written back into the edit node - neither as a mutation
+     * nor as a parse trigger, whatever the parse mode of the tree is.
+     */
     @Override
     public void setValueAt(Object aValue, int row, int col) {
         if (col != 1 || row < 1 || row >= rows.size()) {
             return;
         }
-        FieldRow oldRow = rows.get(row);
         if (currentObject == null) {
             return;
         }
-        if (oldRow.synthetic()) {
-            // The synthetic value row of a primitive object writes the object value itself.
-            currentObject.setName(aValue == null ? null : aValue.toString());
-        } else {
-            // Write through to the node so the tree and the export see the change.
-            EditNode child = currentObject.getChildAt(row - 1);
-            if (child instanceof EditNodeProperty prop) {
-                prop.setValue(aValue == null ? null : aValue.toString());
-            }
+        final long key = overrideKeyOf(row);
+        if (key >= 0L) {
+            valueOverrides.put(key, aValue == null ? null : aValue.toString());
         }
+        final FieldRow oldRow = rows.get(row);
         rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(), oldRow.jsonType(),
                 oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
         fireTableCellUpdated(row, col);
@@ -287,7 +301,9 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     }
 
     /**
-     * The object elements currently recorded in the list of the row.
+     * The object elements the row currently shows: the sandbox override of the list editor when
+     * one exists, the object elements recorded in the edit node otherwise. The dialog prefills
+     * itself from this list, so a reopened editor sees the last sandbox choice.
      *
      * @param rowIndex the row index of the array field
      * @return the current elements in list order, never null
@@ -296,6 +312,10 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         final EditNodeProperty field = fieldOfRow(rowIndex);
         if (field == null) {
             return List.of();
+        }
+        final List<InstanceCandidate> override = objectListOverrides.get(field.getEditId());
+        if (override != null) {
+            return override;
         }
         final List<InstanceCandidate> result = new ArrayList<>();
         for (int i = 0; i < field.getChildCount(); i++) {
@@ -307,7 +327,10 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     }
 
     /**
-     * The primitive values currently recorded in the list of the row (primitive lists and array annotations).
+     * The primitive values the row currently shows: the sandbox override of the list editor when
+     * one exists, the primitive rows recorded in the edit node otherwise (primitive lists and
+     * array annotations). The dialog prefills itself from this list, so a reopened editor sees
+     * the last sandbox choice.
      *
      * @param rowIndex the row index of the array field
      * @return the current values in list order, never null
@@ -316,6 +339,10 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         final EditNodeProperty field = fieldOfRow(rowIndex);
         if (field == null) {
             return List.of();
+        }
+        final List<String> override = primitiveListOverrides.get(field.getEditId());
+        if (override != null) {
+            return override;
         }
         final List<String> result = new ArrayList<>();
         for (int i = 0; i < field.getChildCount(); i++) {
@@ -327,16 +354,19 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     }
 
     /**
-     * Applies the result of the collection editor: the object elements of the array field are replaced by the
-     * chosen instances in the chosen order. A chosen instance with identity becomes a wood reference stub, one
-     * without identity a deep copy; an element that is the chosen node itself is kept as it is.
+     * Applies the result of the collection editor to the sandbox only: the chosen instances replace
+     * the displayed content of the row in the chosen order - a whole list reference (an identified
+     * array candidate) reduces the choice to itself, as before. The edit node is never touched:
+     * no element is detached, no reference stub is created, no parse runs - neither in the soft nor
+     * in the hard parse mode. The override survives refreshes of the same object and is dropped
+     * when another object is selected.
      *
      * @param rowIndex the row index of the array field
      * @param chosen the chosen instances in list order
      */
     public void applyObjectListResult(int rowIndex, List<InstanceCandidate> chosen) {
         final EditNodeProperty field = fieldOfRow(rowIndex);
-        if (field == null || editTree == null) {
+        if (field == null || rowIndex < 1 || rowIndex >= rows.size()) {
             return;
         }
         // a whole list reference replaces the entire content: only the array candidate counts
@@ -347,67 +377,33 @@ public class JsonJackFieldTableModel extends AbstractTableModel
                 break;
             }
         }
-        // the elements currently in the list, by identity - they are detached below and their parent
-        // reference becomes invalid, so the identity comparison must happen before the removal
-        final List<EditNodeObject> toRemove = new ArrayList<>();
-        for (int i = 0; i < field.getChildCount(); i++) {
-            if (field.getChildAt(i) instanceof EditNodeObject child && !isPrimitiveListElement(child)) {
-                toRemove.add(child);
-            }
-        }
-        final Set<EditNodeObject> formerElements = new HashSet<>(toRemove);
-        for (EditNodeObject child : toRemove) {
-            editTree.removeChild(field, child);
-        }
-        final EditLinkingSet linkingSet = editTree.getLinkingSet();
-        final String provider = linkingSet == null ? null : linkingSet.getProviderName();
-        for (InstanceCandidate candidate : effective) {
-            if (candidate.node() != null && formerElements.contains(candidate.node())) {
-                // the element is already in the list (identity match): re-append at the chosen position
-                editTree.addChild(field, candidate.node());
-                continue;
-            }
-            if (candidate.woodId() != null && provider != null) {
-                final EditNodeObject stub = new EditNodeObject(candidate.text());
-                stub.setLinkTarget(provider + de.jare.jsoncasted.lang.JsonTerms.COLONCOLON + candidate.woodId());
-                editTree.addChild(field, stub);
-            } else if (candidate.node() != null) {
-                editTree.addNode(field, candidate.node(), -1, true);
-            }
-        }
-        if (effective != chosen) {
-            // the field now holds a single whole list reference instead of the list itself:
-            // the property mirrors the imported form of a stub at a list field
-            field.setType(JsonNodeType.OBJECT);
-        }
-        refresh();
+        objectListOverrides.put(field.getEditId(), List.copyOf(effective));
+        final FieldRow oldRow = rows.get(rowIndex);
+        rows.set(rowIndex, new FieldRow(oldRow.name(), previewTextOf(effective), oldRow.type(),
+                oldRow.jsonType(), oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
+        fireTableCellUpdated(rowIndex, 1);
     }
 
     /**
-     * Applies the result of the primitive list editor: the primitive rows of the array field are replaced by the
-     * given values in the given order.
+     * Applies the result of the primitive list editor to the sandbox only: the chosen values
+     * replace the displayed content of the row in the given order. The edit node is never touched
+     * - the primitive rows of the field stay as they are, no parse runs in any parse mode. The
+     * override survives refreshes of the same object and is dropped when another object is
+     * selected.
      *
      * @param rowIndex the row index of the array field
      * @param values the values in list order
      */
     public void applyPrimitiveListResult(int rowIndex, List<String> values) {
         final EditNodeProperty field = fieldOfRow(rowIndex);
-        if (field == null || editTree == null) {
+        if (field == null || rowIndex < 1 || rowIndex >= rows.size()) {
             return;
         }
-        final List<EditNodeObject> toRemove = new ArrayList<>();
-        for (int i = 0; i < field.getChildCount(); i++) {
-            if (field.getChildAt(i) instanceof EditNodeObject child && isPrimitiveListElement(child)) {
-                toRemove.add(child);
-            }
-        }
-        for (EditNodeObject child : toRemove) {
-            editTree.removeChild(field, child);
-        }
-        for (String value : values) {
-            editTree.addChild(field, new EditNodeObject(value == null ? "" : value));
-        }
-        refresh();
+        primitiveListOverrides.put(field.getEditId(), List.copyOf(values));
+        final FieldRow oldRow = rows.get(rowIndex);
+        rows.set(rowIndex, new FieldRow(oldRow.name(), String.join(", ", values), oldRow.type(),
+                oldRow.jsonType(), oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
+        fireTableCellUpdated(rowIndex, 1);
     }
 
     private static void collectInstanceCandidates(EditNode node, JsonTypeDescriptor declared, boolean rowIsListField,
@@ -510,7 +506,14 @@ public class JsonJackFieldTableModel extends AbstractTableModel
             return;
         }
         if (editor.getModel() instanceof JackTreeModel treeModel) {
-            this.editTree = treeModel.getEditTree();
+            final EditTree newTree = treeModel.getEditTree();
+            if (newTree != this.editTree) {
+                // another editor: the sandbox of the previous tree is dropped
+                valueOverrides.clear();
+                objectListOverrides.clear();
+                primitiveListOverrides.clear();
+            }
+            this.editTree = newTree;
             setJsonModelDescriptor(treeModel.getJsonModelDescriptor());
         }
     }
@@ -538,6 +541,15 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     // ========== Row construction ==========
 
     private void updateRows(EditNodeObject owner, long focusId) {
+        if (owner != currentObject) {
+            // another object (or none) is shown: the sandbox of the previous object is dropped.
+            // refresh() re-enters with the same object and keeps the overrides - they must
+            // survive the refreshes of both parse modes (soft: asynchronous, hard: after
+            // every command).
+            valueOverrides.clear();
+            objectListOverrides.clear();
+            primitiveListOverrides.clear();
+        }
         this.currentObject = owner;
         this.focusedFieldEditId = focusId;
 
@@ -547,7 +559,9 @@ public class JsonJackFieldTableModel extends AbstractTableModel
             // A primitive object (an array row, for example) has no field children: its value gets a synthetic row.
             if (isPrimitiveRowObject(owner)) {
                 final String cast = owner.getCastName() == null ? "" : owner.getCastName();
-                newRows.add(new FieldRow("value", owner.getValue(), "", cast, false, null, true));
+                final String value = valueOverrides.containsKey(owner.getEditId())
+                        ? valueOverrides.get(owner.getEditId()) : owner.getValue();
+                newRows.add(new FieldRow("value", value, "", cast, false, null, true));
             }
             for (int i = 0; i < owner.getChildCount(); i++) {
                 if (!(owner.getChildAt(i) instanceof EditNodeProperty field)) {
@@ -563,12 +577,72 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     private FieldRow buildFieldRow(EditNodeProperty field) {
         final String name = field.getName() == null ? "." : field.getName();
         final String type = field.getType() == null ? "" : field.getType().getName();
-        final Object value = displayValueOf(field);
+        final Object value = sandboxedDisplayValue(field, field.getEditId());
         final Object[] candidates = comboBoxCandidates(field);
         final boolean comboBox = candidates.length > 0;
         final String jsonType = field instanceof EditNodeAnnotation
                 ? "annotation" : jsonTypeOf(field);
         return new FieldRow(name, value, type, jsonType, comboBox, candidates, false);
+    }
+
+    /**
+     * The display value of a field: the sandbox override when one exists, the node state otherwise.
+     * A list editor override wins over an inline value override - array rows are not inline
+     * editable.
+     *
+     * @param field the field property
+     * @param editId the edit id of the field, the key of the sandbox overrides
+     * @return the value to show in the Value column
+     */
+    private Object sandboxedDisplayValue(EditNodeProperty field, long editId) {
+        final List<InstanceCandidate> objectList = objectListOverrides.get(editId);
+        if (objectList != null) {
+            return previewTextOf(objectList);
+        }
+        final List<String> primitiveList = primitiveListOverrides.get(editId);
+        if (primitiveList != null) {
+            return String.join(", ", primitiveList);
+        }
+        if (valueOverrides.containsKey(editId)) {
+            return valueOverrides.get(editId);
+        }
+        return displayValueOf(field);
+    }
+
+    /**
+     * The preview text of a chosen instance list: the candidate texts in list order, comma
+     * separated.
+     *
+     * @param candidates the chosen instances
+     * @return the preview text, empty when nothing is chosen
+     */
+    private static String previewTextOf(List<InstanceCandidate> candidates) {
+        final StringBuilder sb = new StringBuilder();
+        for (InstanceCandidate candidate : candidates) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(candidate.text());
+        }
+        return sb.toString();
+    }
+
+    /**
+     * The sandbox key of a row: the edit id of the field of the row, or of the object itself for
+     * the synthetic value row of a primitive object, or -1 when the row carries no sandbox state.
+     *
+     * @param rowIndex the model row index
+     * @return the edit id of the row owner, or -1
+     */
+    private long overrideKeyOf(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= rows.size()) {
+            return -1L;
+        }
+        if (rows.get(rowIndex).synthetic()) {
+            return currentObject.getEditId();
+        }
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        return field == null ? -1L : field.getEditId();
     }
 
     /**

@@ -1,6 +1,6 @@
 # Konzept: Wood-Links im Editor-Core und Fields-Pane
 
-**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop.
+**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop. Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit der einen Ausnahme des Renames im Soft-Modus.
 **Betroffene Projekte**: `jsonCasted_edit` (Phase A, Editor-Core), `WoodJsonJack` (Phase B, Swing-UI)
 **Abhängigkeiten**: `JsonTreeConverter`, `EditTreeWriter`, `EditTree`, `EditNodeObject`, `EditLinkingSet`, `JsonModelDescriptor`, `JsonTerms`
 **Vorbedingung**: Phase A vor Phase B — die Combobox des Fields-Pane filtert Objekt-Instanzen, die der Editor heute noch verliert.
@@ -77,6 +77,10 @@ während der Konvertierung ins EditTree schreiben — der bereits existierende
    Json-Typ, eine Zeile pro Feld (Kindknoten). Bei Objekt-Feldern bietet eine Combobox nur
    die passenden Objekt-Instanzen aus der bereits geparsten JSON an — bei Interfacetypen
    die Menge der implementierenden Objekttypen, was nur eine Zusatzprüfung des Filters ist.
+3. Beide Panes (Attributes und Fields) sind Sandbox-Ansichten: sie erlauben Änderungen, wo
+   es Sinn macht (Wertspalte inline, Collection-/Primitive-List-Editor, Detail-Dialog),
+   spielen diese aber nie in den EditNode zurück — unabhängig vom Parse-Modus (soft/hard)
+   des Baums (Details in Kapitel 5.1).
 
 ---
 
@@ -338,14 +342,48 @@ bisher nur auf `onNodeSelected`).
 - Der Feld-Fokus bleibt auch beim Wechsel zwischen Attributes/Fields-Tab erhalten
   (Model behält seinen Zustand, Tab-Wechsel baut die Tabelle nicht neu).
 
+### 5.1 Sandbox-Semantik der Panes
+
+Beide Panes akzeptieren Änderungen — Wertspalte inline, Collection-/Primitive-List-Editor,
+Detail-Dialog — schreiben sie aber nie in den EditNode zurück. Damit lösen Pane-Edits in
+keinem Parse-Modus einen Parse aus (SOFT: der Hintergrund-Parser schläft, HARD: kein
+synchroner Lauf, keine Validierungsstatus-Änderung).
+
+- **Speicherort**: `JsonJackFieldTableModel` hält lokale Overrides, geschlüsselt nach der
+  editId des Felds (`valueOverrides`, `objectListOverrides`, `primitiveListOverrides`); die
+  synthetische Wertzeile eines primitiven Objekts nutzt die editId des Objekts selbst. Das
+  `JsonJackAttrTableModel` ändert wie bisher nur die lokale PropertyRow.
+- **Lebenszyklus**: Overrides überstehen jeden Refresh desselben Objekts — im Soft-Modus den
+  asynchronen `onParseProblems`-Refresh, im Hard-Modus den `onCommand`-Refresh — und werden
+  bei Auswahl eines anderen Objekts oder einem Editor-Wechsel verworfen.
+- **Anzeige**: Die Value-Spalte zeigt die Override-Vorschau (Instanztexte bzw. Werte,
+  kommasepariert); die Dialoge füllen sich über `getCurrentObjectList()`/
+  `getCurrentPrimitiveList()` aus dem Override — ein wieder geöffneter Editor sieht die
+  letzte Sandbox-Wahl.
+- **Entfallene Write-back-Pfade**: `applyObjectListResult`/`applyPrimitiveListResult` erzeugen
+  keine Reference-Stubs mehr, registrieren nichts im LinkingSet und ändern keinen
+  `JsonNodeType`. Die Whole-List-Reference-Logik bleibt als lokale Anzeige erhalten (nur der
+  Array-Kandidat zählt, wie gehabt).
+- **Ausnahme Name (Attributes-Pane)**: Die „name"-Zeile ist die eine Ausnahme der Sandbox. Ein
+  Rename wird im Soft-Modus (und ohne Semantik) als `RenameNodeCommand` über den UndoManager
+  ausgeführt und schlägt im Tree durch — neuer Name, anderes Feld, anderer Typ rückt nach, der
+  Soft-Parser folgt asynchron; Undo greift wie beim Tree-Rename. Der Hard-Modus verbietet
+  Renames bislang (Parse-Modi-Konzept, offene Entscheidung 2): dort bleibt die Änderung lokal.
+  Ein leerer Name wird von der Pane abgefangen (der Command-Check existiert, wird vom
+  HistoryManager aber nicht erzwungen).
+
 ---
 
 ## 6. Offene Punkte / bewusst vertagt
 
 1. **Auswahl-Semantik der Combobox** (der "später reden"-Punkt): Auswahl eines Objekts
    setzt das Feld auf eine **Link-Referenz** (Kindknoten wird Referenz-Knoten mit
-   `linkTarget`, Export schreibt `_woodLink`) statt auf eine Kopie. Braucht ein
-   eigenes Command (`SetFieldLinkCommand`), damit Undo greift. Klärungsfragen:
+   `linkTarget`, Export schreibt `_woodLink`) statt auf eine Kopie — sobald die
+   Auswahl-Semantik steht. Der frühere Write-through der Panes (Stub-Erzeugung und
+   LinkingSet-Registrierung in `applyObjectListResult`, `setType`-Spiegelung, primitive
+   Row-Ersetzung) ist mit der Sandbox-Semantik (Kapitel 5.1) entfernt; die Wahl landet nur
+   noch lokal. Ein späterer Write-back gehört in ein eigenes Command
+   (`SetFieldLinkCommand`), damit Undo greift. Klärungsfragen:
    Verweisen auf Objekte mit oder ohne woodId? Wird beim Setzen automatisch eine
    woodId ans Original vergeben?
 2. **woodId-Generierung**: Woher kommen Ids für neu angelegte Objekte? Kandidat ist
@@ -443,6 +481,14 @@ oder verschoben:
    Undo einer Löschung bindet die Identität so an die wieder eingefügte Kopie.
    Gelöschte Stubs verlassen den Reverse-Index, Identitäten bleiben
    (Halteraum).
+5. **Panes sind Sandboxes.** Beide Panes erlauben Änderungen, spielen sie aber nie in den
+   EditNode zurück (Kapitel 5.1): `JsonJackFieldTableModel.setValueAt`,
+   `applyObjectListResult` und `applyPrimitiveListResult` schreiben ausschließlich lokale
+   Overrides (nach editId), das `JsonJackAttrTableModel` ändert nur die lokale Zeile —
+   Ausnahme: der Rename der „name"-Zeile als Command im Soft-Modus (Kapitel 5.1). Der
+   `JsonJackFieldTableModelNGTest` (18) und der `JsonJackAttrTableModelNGTest` (5) sichern
+   den Vertrag: EditNode unangetastet, Override überlebt die Refreshes beider Parse-Modi,
+   Objektwechsel verwirft, Rename nur im Soft-Modus.
 
 Zusätzlich gilt im Validator-Umfeld: der `EditValidationRunner` läuft nur mit
 einem non-null Deskriptor — WoodLink-Diagnosen erscheinen also nur bei

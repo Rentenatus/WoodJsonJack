@@ -40,7 +40,7 @@ public class JsonJackAttributesPane extends JPanel {
     public JsonJackAttributesPane(JackMasterControl jackmaster, Frame owner) {
         super(new BorderLayout());
         this.owner = owner;
-        attributesModel = new JsonJackAttrTableModel();
+        attributesModel = new JsonJackAttrTableModel(jackmaster.getUndoManager());
         jackmaster.addSelectionListener(attributesModel);
         attributesTable = new JTable(attributesModel);
         attributesTable.setFillsViewportHeight(true);

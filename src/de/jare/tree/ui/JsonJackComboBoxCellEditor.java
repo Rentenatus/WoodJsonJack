@@ -48,8 +48,11 @@ public class JsonJackComboBoxCellEditor extends AbstractCellEditor implements Ta
 
     @Override
     public Object getCellEditorValue() {
-        if (textField != null && comboBox == null) {
+        if (textField != null) {
             return textField.getText();
+        }
+        if (comboBox != null) {
+            return comboBox.getSelectedItem();
         }
         return currentValue;
     }
@@ -59,8 +62,20 @@ public class JsonJackComboBoxCellEditor extends AbstractCellEditor implements Ta
         return true;
     }
 
+    /**
+     * Captures the live value before the editor is torn down: the JTable reads
+     * {@link #getCellEditorValue()} only after this method returned, when the
+     * components are already released. The captured value becomes
+     * {@code currentValue}, so the typed text (or the combo choice made without
+     * an action event, e.g. on focus loss) reaches setValueAt.
+     */
     @Override
     public boolean stopCellEditing() {
+        if (textField != null) {
+            currentValue = textField.getText();
+        } else if (comboBox != null) {
+            currentValue = comboBox.getSelectedItem();
+        }
         textField = null;
         comboBox = null;
         return super.stopCellEditing();

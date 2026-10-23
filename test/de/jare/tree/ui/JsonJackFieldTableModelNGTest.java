@@ -246,7 +246,16 @@ public class JsonJackFieldTableModelNGTest {
 
         model.setValueAt("gamma", 1, 1);
         assertEquals(model.getValueAt(1, 1), "gamma");
-        assertEquals(rowObject.getValue(), "gamma", "editing the synthetic row writes the object value");
+        assertEquals(rowObject.getValue(), "alpha", "the pane never writes back into the edit node");
+
+        // the sandbox survives refreshes of the same object (soft parse refreshes asynchronously)
+        model.refresh();
+        assertEquals(model.getValueAt(1, 1), "gamma", "the local change survives a refresh of the same object");
+
+        // another object selection drops the sandbox
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+        model.onNodeSelected(new DefaultMutableTreeNode(rowObject), null, false);
+        assertEquals(model.getValueAt(1, 1), "alpha", "another object selection drops the sandbox");
     }
 
     @Test
@@ -328,10 +337,17 @@ public class JsonJackFieldTableModelNGTest {
         model.applyPrimitiveListResult(1, java.util.List.of("x", "y", "z"));
 
         assertEquals(model.getCurrentPrimitiveList(1), java.util.List.of("x", "y", "z"),
-                "the list editor result replaces the values");
+                "the list editor result lands in the sandbox of the pane");
+        assertEquals(model.getValueAt(1, 1), "x, y, z", "the value column previews the chosen list");
+        de.jare.jsoncasted.editor.core.EditNodeProperty values = model.fieldOfRow(1);
+        assertEquals(values.getChildCount(), 2, "the edit node keeps its rows");
         de.jare.jsoncasted.editor.core.EditNodeObject row = (de.jare.jsoncasted.editor.core.EditNodeObject)
-                model.fieldOfRow(1).getChildAt(1);
-        assertEquals(row.getValue(), "y");
+                values.getChildAt(1);
+        assertEquals(row.getValue(), "beta", "the pane never writes back into the edit node");
+
+        model.refresh();
+        assertEquals(model.getCurrentPrimitiveList(1), java.util.List.of("x", "y", "z"),
+                "the sandbox survives the refresh of the same object");
     }
 
     @Test
@@ -381,7 +397,7 @@ public class JsonJackFieldTableModelNGTest {
         assertEquals(current.size(), 1, "one element is in the list");
         assertSame(current.get(0).node(), inList);
 
-        // accept: the spare instance first (becomes a reference stub), the own element second (kept by identity)
+        // accept: the spare instance first, the own element second - both land in the sandbox only
         JsonJackFieldTableModel.InstanceCandidate spareCandidate = null;
         for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
             if (candidate.node() == spare) {
@@ -392,14 +408,22 @@ public class JsonJackFieldTableModelNGTest {
         model.applyObjectListResult(1, java.util.List.of(spareCandidate, current.get(0)));
 
         final EditNodeProperty fieldAfter = model.fieldOfRow(1);
-        assertEquals(fieldAfter.getChildCount(), 2, "both chosen elements are in the list");
-        final EditNodeObject first = (EditNodeObject) fieldAfter.getChildAt(0);
-        final EditNodeObject second = (EditNodeObject) fieldAfter.getChildAt(1);
-        assertTrue(first.isLinkReference(), "the added instance becomes a reference stub");
-        assertEquals(first.getLinkTarget(), "this::5");
-        assertSame(second, inList, "the kept element is the original node");
-        assertTrue(tree.getLinkingSet().hasReferencesTo("this::5"),
-                "the stub is registered in the reverse index");
+        assertEquals(fieldAfter.getChildCount(), 1, "the edit node keeps its element");
+        assertSame(fieldAfter.getChildAt(0), inList, "the original child stays untouched");
+        assertFalse(((EditNodeObject) fieldAfter.getChildAt(0)).isLinkReference(),
+                "the pane never creates a reference stub");
+        assertFalse(tree.getLinkingSet().hasReferencesTo("this::5"),
+                "nothing is registered in the reverse index");
+
+        final List<JsonJackFieldTableModel.InstanceCandidate> shown = model.getCurrentObjectList(1);
+        assertEquals(shown.size(), 2, "the pane shows the chosen elements in the chosen order");
+        assertSame(shown.get(0).node(), spare);
+        assertSame(shown.get(1).node(), inList);
+        assertEquals(model.getValueAt(1, 1), "B, A", "the value column previews the chosen list");
+
+        model.refresh();
+        assertEquals(model.getCurrentObjectList(1).size(), 2,
+                "the sandbox survives the refresh of the same object");
     }
 
     @Test
@@ -433,7 +457,7 @@ public class JsonJackFieldTableModelNGTest {
 
         assertTrue(model.isSingleObjectFieldRow(2), "the ref row is a parsed single object field");
 
-        // choose the link instance for the ref field: replaces the value with a reference stub
+        // choose the link instance for the ref field: lands in the sandbox only
         final List<JsonJackFieldTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(2);
         JsonJackFieldTableModel.InstanceCandidate linkCandidate = null;
         for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
@@ -445,14 +469,18 @@ public class JsonJackFieldTableModelNGTest {
         model.applyObjectListResult(2, java.util.List.of(linkCandidate));
 
         EditNodeProperty refAfter = model.fieldOfRow(2);
-        assertEquals(refAfter.getChildCount(), 1, "one chosen entry replaces the value");
+        assertEquals(refAfter.getChildCount(), 1, "the edit node keeps its value");
         final EditNodeObject value = (EditNodeObject) refAfter.getChildAt(0);
-        assertTrue(value.isLinkReference(), "the chosen instance becomes a reference stub");
-        assertEquals(value.getLinkTarget(), "this::4");
+        assertFalse(value.isLinkReference(), "the pane never creates a reference stub");
 
-        // empty or one entry is always allowed: the empty choice clears the field to null
+        final List<JsonJackFieldTableModel.InstanceCandidate> shown = model.getCurrentObjectList(2);
+        assertEquals(shown.size(), 1, "the pane shows the chosen entry");
+        assertEquals(shown.get(0).woodId(), "4", "the choice names the chosen instance");
+
+        // empty or one entry is always allowed: the empty choice clears the pane value
         model.applyObjectListResult(2, java.util.List.of());
-        assertEquals(model.fieldOfRow(2).getChildCount(), 0, "the empty choice nulls the field");
+        assertTrue(model.getCurrentObjectList(2).isEmpty(), "the empty choice clears the pane value");
+        assertEquals(refAfter.getChildCount(), 1, "the edit node still keeps its value");
     }
 
     @Test
@@ -557,18 +585,52 @@ public class JsonJackFieldTableModelNGTest {
                 "the candidate type names the element type: " + arrayCandidate.jsonType());
         assertNotNull(objectCandidate, "the object instances stay candidates");
 
-        // a whole list reference replaces the content: the extra object candidate is ignored
+        // a whole list reference replaces the sandbox content: the extra object candidate is ignored
         model.applyObjectListResult(2, java.util.Arrays.asList(arrayCandidate, objectCandidate));
-        assertEquals(rightField.getType(), JsonNodeType.OBJECT,
-                "the field mirrors the imported form of a stub at a list field");
-        assertEquals(rightField.getChildCount(), 1, "only the reference stub remains");
-        final EditNodeObject stub = (EditNodeObject) rightField.getChildAt(0);
-        assertTrue(stub.isLinkReference(), "the child must be a reference stub");
-        assertEquals(stub.getLinkTarget(), "this::7", "the stub points at the shared array");
+        assertEquals(rightField.getType(), JsonNodeType.ARRAY, "the node type never changes from the pane");
+        assertEquals(rightField.getChildCount(), 1, "the edit node keeps its element");
+        final EditNodeObject element = (EditNodeObject) rightField.getChildAt(0);
+        assertFalse(element.isLinkReference(), "the pane never creates a reference stub");
 
-        // reopening shows the referenced array as the current content
+        // reopening shows the referenced array as the current sandbox content
         final List<JsonJackFieldTableModel.InstanceCandidate> current = model.getCurrentObjectList(2);
         assertEquals(current.size(), 1);
-        assertEquals(current.get(0).woodId(), "7", "the stub shows the target id");
+        assertEquals(current.get(0).woodId(), "7", "the whole list reference shows the target id");
+    }
+
+    /**
+     * The sandbox contract of the pane: an inline value edit shows in the pane and survives the
+     * refreshes of both parse modes (content command, parse problems, manual), but never reaches
+     * the edit node and is dropped when another object is selected.
+     */
+    @Test
+    public void testInlineEditStaysLocalAndSurvivesRefreshes() throws Exception {
+        EditTree tree = importTree();
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        // the "a" row is an unparsed object field without candidates: inline editable
+        assertTrue(model.isCellEditable(2, 1), "the unparsed object field is inline editable");
+        model.setValueAt("sandbox", 2, 1);
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the pane shows the local change");
+
+        final EditNodeProperty fieldA = findProperty(tree, "a");
+        assertNotNull(fieldA);
+        assertEquals(fieldA.getChildCount(), 1, "the edit node keeps its child");
+
+        // the refreshes of the soft and the hard parse mode keep the override
+        model.onCommand("EDIT_ANY", null);
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the change survives the content command refresh");
+        model.onParseProblems(null, null);
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the change survives the parse problems refresh");
+        model.refresh();
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the change survives a manual refresh");
+
+        // another object drops the sandbox
+        final EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
+        model.onNodeSelected(new DefaultMutableTreeNode(targetObject), null, false);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+        assertNotEquals(model.getValueAt(2, 1), "sandbox", "another object selection drops the sandbox");
     }
 }

@@ -20,10 +20,12 @@ import javax.swing.table.TableColumn;
 /**
  * Fields pane: a view on the model side of the selected object. The first row
  * shows the json type, one row per field follows. A clicked field still shows
- * the owning object and focuses the field's row. The model is held in a field
- * on purpose: the orator of the master control keeps its listeners via weak
- * references only, the garbage collector would silently deregister a local
- * model.
+ * the owning object and focuses the field's row. The pane is a sandbox: it
+ * accepts changes (inline value edits and the results of the list editors),
+ * but never writes them back into the edit node, whatever the parse mode of
+ * the tree is. The model is held in a field on purpose: the orator of the
+ * master control keeps its listeners via weak references only, the garbage
+ * collector would silently deregister a local model.
  */
 public class JsonJackFieldsPane extends JPanel {
 
@@ -104,8 +106,8 @@ public class JsonJackFieldsPane extends JPanel {
 
     /**
      * Opens the dedicated editor of an array field: the collection editor for object lists, the primitive list
-     * editor for primitive lists and array annotations. The result is applied through the model, which refreshes
-     * the pane.
+     * editor for primitive lists and array annotations. The result is applied to the sandbox of the pane only -
+     * the edit node is never written back, whatever the parse mode of the tree is.
      *
      * @param row the model row of the array field
      */
@@ -135,8 +137,8 @@ public class JsonJackFieldsPane extends JPanel {
     }
 
     /**
-     * Opens the collection editor with the given target cardinality. The result is applied through
-     * the model, which refreshes the pane.
+     * Opens the collection editor with the given target cardinality. The result is applied to the sandbox of the
+     * pane only - the edit node is never written back, whatever the parse mode of the tree is.
      *
      * @param row the model row of the edited field
      * @param cardinality the target cardinality of the edited field
@@ -170,8 +172,8 @@ public class JsonJackFieldsPane extends JPanel {
 
     /**
      * Opens the detail dialog on a field row of the Fields pane: name, value and json type of
-     * the field, writable when the row is inline editable. The accepted value is written back
-     * through the model, which refreshes the pane.
+     * the field, writable when the row is inline editable. The accepted value lands in the
+     * sandbox of the pane - the edit node is never written back.
      *
      * @param modelRow the model row of the field
      */
