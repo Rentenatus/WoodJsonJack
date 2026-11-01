@@ -1,9 +1,9 @@
-# Konzept: Wood-Links im Editor-Core und Fields-Pane
+# Konzept: Wood-Links im Editor-Core und Object-Pane
 
-**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop. Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit drei Ausnahmen: Renames im Soft-Modus, primitive Werte in beiden Modi und jsonField-Kombination (Feld-Auswahl der Parent-Description) in beiden Modi.
+**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b) — das Fields-Pane heißt seit dem Umbenennen **Object-Pane** (es zeigt das Objekt mit seinen Feldern; Klassen `JsonJackObjectPane`/`JsonJackObjectTableModel`, Tab-Label „Object"). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop. Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit vier Ausnahmen: Renames im Soft-Modus, primitive Werte in beiden Modi, jsonField-Kombination (Feld-Auswahl der Parent-Description) in beiden Modi und die Erzeugung fehlender Felder (AddNodeCommand) in der Object-Pane.
 **Betroffene Projekte**: `jsonCasted_edit` (Phase A, Editor-Core), `WoodJsonJack` (Phase B, Swing-UI)
 **Abhängigkeiten**: `JsonTreeConverter`, `EditTreeWriter`, `EditTree`, `EditNodeObject`, `EditLinkingSet`, `JsonModelDescriptor`, `JsonTerms`
-**Vorbedingung**: Phase A vor Phase B — die Combobox des Fields-Pane filtert Objekt-Instanzen, die der Editor heute noch verliert.
+**Vorbedingung**: Phase A vor Phase B — die Combobox des Object-Pane filtert Objekt-Instanzen, die der Editor heute noch verliert.
 
 ---
 
@@ -12,7 +12,7 @@
 1. [Ausgangslage](#1-ausgangslage)
 2. [Zielbild](#2-zielbild)
 3. [Phase A: Wood-Links in der Editor-Core](#3-phase-a-wood-links-in-der-editor-core)
-4. [Phase B: Fields-Pane](#4-phase-b-fields-pane)
+4. [Phase B: Object-Pane](#4-phase-b-object-pane)
 5. [Selektions- und Fokus-Semantik](#5-selektions-und-fokus-semantik)
 6. [Offene Punkte / bewusst vertagt](#6-offene-punkte--bewusst-vertagt)
 7. [Aufwand und Reihenfolge](#7-aufwand-und-reihenfolge)
@@ -59,7 +59,7 @@ Der Ist-Zustand bei der Analyse:
 **Folge**: Ein N-fach verlinktes Objekt erscheint im Editor als das Original plus N leere
 `{}`-Knoten. Speichert man (`JackMainActions.saveActiveFile` → `EditTreeWriter.toJsonFile`),
 sind die Links endgültig verloren. Das ist ein heute existierender Datenverlust-Bug,
-unabhängig vom Fields-Pane.
+unabhängig vom Object-Pane.
 
 Wichtig für die Architektur: `JsonTreeConverter` baut den Baum, **bevor** das `EditTree`
 existiert (Kommentar im `EditTree`-Konstruktor). Die Link-Registrierung kann daher nicht
@@ -73,18 +73,22 @@ während der Konvertierung ins EditTree schreiben — der bereits existierende
 1. Der Editor kennt die Identität von Objekten: `EditNodeObject` trägt seine woodId und
    Referenz-Knoten tragen ihr Link-Ziel. Import und Export sind verlustfrei, Undo/Redo
    und Clipboard erhalten die Linkstruktur.
-2. Das Fields-Pane zeigt zum selektierten Objekt eine Sicht auf das Modell: Kopfzeile mit
-   Json-Typ, eine Zeile pro Feld (Kindknoten). Bei Objekt-Feldern bietet eine Combobox nur
-   die passenden Objekt-Instanzen aus der bereits geparsten JSON an — bei Interfacetypen
-   die Menge der implementierenden Objekttypen, was nur eine Zusatzprüfung des Filters ist.
-3. Beide Panes (Attributes und Fields) sind Sandbox-Ansichten: sie erlauben Änderungen, wo
+2. Das Object-Pane zeigt zum selektierten Objekt eine Sicht auf das Modell: Kopfzeile mit
+   Json-Typ, eine Zeile pro Feld (Kindknoten) — und bei geparstem Objekt die deklarierten
+   Felder, die das JSON noch nicht trägt, als leere Zeilen (der Edit erzeugt den Kindknoten).
+   Bei Objekt-Feldern bietet eine Combobox nur die passenden Objekt-Instanzen aus der
+   bereits geparsten JSON an — bei Interfacetypen die Menge der implementierenden
+   Objekttypen, was nur eine Zusatzprüfung des Filters ist.
+3. Beide Panes (Attributes und Object) sind Sandbox-Ansichten: sie erlauben Änderungen, wo
    es Sinn macht (Wertspalte inline, Collection-/Primitive-List-Editor, Detail-Dialog),
    spielen diese aber nie in den EditNode zurück — unabhängig vom Parse-Modus (soft/hard)
-   des Baums (Details in Kapitel 5.1). Drei Ausnahmen: der Rename der „name"-Zeile im
+   des Baums (Details in Kapitel 5.1). Vier Ausnahmen: der Rename der „name"-Zeile im
    Attributes-Pane schlägt im Soft-Modus als Command im Tree durch, primitive Werte
-   (Text, Zahl, Boolean) schlagen in beiden Modi durch — Primitive sind stets formkonform —
-   und die jsonField-Zeile des Attributes-Panes wird bei geparstem Parent-Objekt zur
-   Combobox der Felder des Parent-Typs; eine Auswahl bindet das Feld in beiden Modi neu.
+   (Text, Zahl, Boolean) schlagen in beiden Modi durch — Primitive sind stets formkonform —,
+   die jsonField-Zeile des Attributes-Panes wird bei geparstem Parent-Objekt zur
+   Combobox der Felder des Parent-Typs (eine Auswahl bindet das Feld in beiden Modi neu),
+   und der Inline-Edit einer fehlenden Feld-Zeile der Object-Pane erzeugt den Kindknoten
+   als Command.
 
 ---
 
@@ -258,9 +262,12 @@ bestehende `ValidatorRegistry`/`EditValidationRunner`-Infrastruktur, Vorbild
 
 ---
 
-## 4. Phase B: Fields-Pane
+## 4. Phase B: Object-Pane
 
-### B1 — `JsonJackFieldTableModel` (neu, `de.jare.tree.ui`)
+*Ursprünglich als Fields-Pane geplant und gebaut; umbenannt, weil das Pane das Objekt mit
+seinen Feldern zeigt — Klassen, Tab-Label und Doku folgen dem Namen seither.*
+
+### B1 — `JsonJackObjectTableModel` (neu, `de.jare.tree.ui`)
 
 Direktes Analogon zu `JsonJackAttrTableModel`, implementiert `TreeFocusListener`,
 registriert über `jackmaster.addSelectionListener(...)`:
@@ -317,17 +324,18 @@ Attributes-Pane nach.
 
 Die Feld-Description trifft asynchron ein: `setJsonField` feuert
 `EditTree.notifyTypeDescriptorChanged` und `propagateElementTypeToChildren`. Das
-Fields-Model muss darauf reagieren und die sichtbaren Zeilen aktualisieren, sonst
+Object-Modell muss darauf reagieren und die sichtbaren Zeilen aktualisieren, sonst
 stehen leere Comboboxen, obwohl das Modell die Antwort längst kennt. Derselbe
 Refresh-Hook ist ein latenter Bugfix für das `JsonJackAttrTableModel` (refresht
 bisher nur auf `onNodeSelected`).
 
 ### B5 — Einbindung in `WoodWindow`
 
-- Konstante `TAB_FIELDS = "Fields"`; `bottomTabs.addTab(TAB_FIELDS, createFieldsPanel())`
+- Konstante `TAB_FIELDS = "Object"` (Name der Konstante historisch, Label „Object");
+  `bottomTabs.addTab(TAB_FIELDS, new JsonJackObjectPane(jackmaster, this))`
   neben `TAB_ATTRIBUTES`.
-- `createFieldsPanel()` analog `createAttributesPanel()`: Model bauen,
-  `jackmaster.addSelectionListener(fieldsModel)`, JTable mit `EditStatusCellRenderer`,
+- Pane analog zur Attributes-Pane: Model bauen,
+  `jackmaster.addSelectionListener(...)`, JTable mit `EditStatusCellRenderer`,
   Combobox-Editor aus B3.
 - Model als **Feld** in `WoodWindow` halten: der Orator des Master-Controls hält
   Listener nur schwach referenziert, der GC deregistriert sie sonst still
@@ -340,10 +348,11 @@ bisher nur auf `onNodeSelected`).
 
 ## 5. Selektions- und Fokus-Semantik
 
-- Klick auf ein Objekt im Baum → Fields-Pane zeigt dieses Objekt (jsonType + alle Felder).
-- Klick auf ein Feld (Property) im Baum → Fields-Pane zeigt das **Parent-Objekt**,
+- Klick auf ein Objekt im Baum → Object-Pane zeigt dieses Objekt (jsonType + alle Felder,
+  plus die fehlenden deklarierten als leere Zeilen).
+- Klick auf ein Feld (Property) im Baum → Object-Pane zeigt das **Parent-Objekt**,
   die Zeile des geklickten Feldes erhält den Fokus (Selection + Scroll).
-- Der Feld-Fokus bleibt auch beim Wechsel zwischen Attributes/Fields-Tab erhalten
+- Der Feld-Fokus bleibt auch beim Wechsel zwischen Attributes/Object-Tab erhalten
   (Model behält seinen Zustand, Tab-Wechsel baut die Tabelle nicht neu).
 
 ### 5.1 Sandbox-Semantik der Panes
@@ -353,7 +362,7 @@ Detail-Dialog — schreiben sie aber nie in den EditNode zurück. Damit lösen P
 keinem Parse-Modus einen Parse aus (SOFT: der Hintergrund-Parser schläft, HARD: kein
 synchroner Lauf, keine Validierungsstatus-Änderung).
 
-- **Speicherort**: `JsonJackFieldTableModel` hält lokale Overrides, geschlüsselt nach der
+- **Speicherort**: `JsonJackObjectTableModel` hält lokale Overrides, geschlüsselt nach der
   editId des Felds (`valueOverrides`, `objectListOverrides`, `primitiveListOverrides`); die
   synthetische Wertzeile eines primitiven Objekts nutzt die editId des Objekts selbst. Das
   `JsonJackAttrTableModel` ändert wie bisher nur die lokale PropertyRow.
@@ -371,7 +380,7 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   `getCurrentPrimitiveList()` aus dem Override — ein wieder geöffneter Editor sieht die
   letzte Sandbox-Wahl. Die Schaltflächen-Spalte unterscheidet UX-seitig: „^" markiert eine
   editierbare Zeile, „-" eine nur lesbare (deren Dialog öffnet read-only), „?" eine
-  Deskriptor-Zeile (jsonField/jsonType im Attributes-Pane, jsonType-Header im Fields-Pane —
+  Deskriptor-Zeile (jsonField/jsonType im Attributes-Pane, jsonType-Header im Object-Pane —
   ihr Dialog zeigt die ausführliche Stringdarstellung des JsonField- bzw.
   JsonType-Deskriptors; aktiviert nur, wenn der Parser einen aufgelöst hat, sonst bleibt
   die Schaltfläche leer), leer bleibt der deaktivierte Zustand. Die jsonType-Zeile des
@@ -398,7 +407,7 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   parst asynchron nach, Hard validiert synchron, der Parser bewertet den Inhalt (ein Text im
   Zahlenfeld wird markiert). Im Attributes-Pane betrifft das die `primValue` einer Property mit
   primitivem Node-Typ (STRING, NUMBER, LONG, BOOLEAN, NULL) und den `value` eines primitiven
-  Zeilenobjekts (skalare Array-Zeile: keine Kinder, ein Wert); im Fields-Pane die Inline-Wert
+  Zeilenobjekts (skalare Array-Zeile: keine Kinder, ein Wert); im Object-Pane die Inline-Wert
   der synthetischen Zeile und den `setValueAt`-Weg des Detail-Dialogs. Die Listeneditoren und
   Objektfelder bleiben Sandbox bis zur Auswahl-Semantik. `EditNodeObject` trägt dafür ein
   echtes `setValue` mit Parse-Notifikation — vorher war es ein NoOp, auch `setAttributes` lief
@@ -417,6 +426,16 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   leere Wahl und der Durchreich-Array-Wrapper bleiben lokal (Ablehnung mit Fast-Log-Notiz);
   ein freitextlicher Feldname bleibt der `name`-Zeile vorbehalten. Ohne geparsten Parent ist
   die Zeile read-only (keine Kandidaten, kein freitextlicher Fallback).
+- **Ausnahme fehlende Felder (Object-Pane)**: Ein geparstes Objekt zeigt die deklarierten
+  Felder, die das JSON noch nicht trägt, als leere Zeilen unter den vorhandenen — die
+  Vorschläge kommen aus `HardEditAdvisor.permissibleChildren` (dieselbe Quelle wie das
+  Add-Menü des Hard-Modus: Skalare typisiert, Referenzen mit vorbereiteten Wertobjekten,
+  Collections als Array-Properties). Ein Inline-Edit einer skalaren Leerzeile erzeugt den
+  Kindknoten — als undoablem `AddNodeCommand` mit dem getippten Wert; der Parser bewertet
+  den Inhalt wie bei jedem Add. Referenz- und Array-Felder bleiben read-only (ihr Add
+  läuft über das Menü), ein leerer Tipp und das local-only-Modell ohne UndoManager
+  bleiben in der Pane. Nach dem Add verschwindet die Leerzeile: das Feld ist jetzt
+  vorhanden.
 
 ---
 
@@ -437,7 +456,7 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
    müssen, klärt die Auswahl-Semantik.
 3. **UI-Sicht auf den Halteraum**: Luft-Objekte im LinkingSet sind unsichtbar, solange
    kein Knoten auf sie zeigt. Für das endgültige Löschen und Aufräumen braucht es
-   eine Sicht (z. B. Sektion im Fields-Pane oder eigener Baumabschnitt). Design offen.
+   eine Sicht (z. B. Sektion im Object-Pane oder eigener Baumabschnitt). Design offen.
 4. **Renderer**: Darstellung von Referenz-Knoten im Baum (Icon/Tooltip "ref: name").
    Assets in `assets/icons/` erweitern. Zwei Varianten mit unterschiedlichem
    UI-Aufwand:
@@ -472,7 +491,7 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
 | A1–A3 | woodId/linkTarget, Import, Export | 1–2 Tage |
 | A4–A5 | Commands/Undo, Validator | 1 Tag |
 | A6 | Tests | 0,5–1 Tag |
-| B1–B5 | Fields-Pane inkl. Editor + Refresh-Hook | 1 Tag |
+| B1–B5 | Object-Pane (ursprünglich Fields-Pane) inkl. Editor + Refresh-Hook | 1 Tag |
 
 Reihenfolge zwingend A vor B: ohne Link-Trägerfähigkeit kann die Combobox nur
 Stufe 2/3 (primitive Fallbacks) liefern und der Editor verliert weiterhin Links.
@@ -528,21 +547,23 @@ oder verschoben:
    Gelöschte Stubs verlassen den Reverse-Index, Identitäten bleiben
    (Halteraum).
 5. **Panes sind Sandboxes.** Beide Panes erlauben Änderungen, spielen sie aber nie in den
-   EditNode zurück (Kapitel 5.1): `JsonJackFieldTableModel.setValueAt`,
+   EditNode zurück (Kapitel 5.1): `JsonJackObjectTableModel.setValueAt`,
    `applyObjectListResult` und `applyPrimitiveListResult` schreiben ausschließlich lokale
    Overrides (nach editId), das `JsonJackAttrTableModel` ändert nur die lokale Zeile —
-   Ausnahmen: der Rename der „name"-Zeile als RenameNodeCommand im Soft-Modus (Attributes-Pane)
-   und primitive Werte als SetNodeValueCommand in beiden Modi (beide Panes, Kapitel 5.1). Der
-   `JsonJackFieldTableModelNGTest` (21) und der `JsonJackAttrTableModelNGTest` (11) sichern
+   Ausnahmen (Kapitel 5.1): der Rename der „name"-Zeile als RenameNodeCommand im Soft-Modus
+   (Attributes-Pane), primitive Werte als SetNodeValueCommand in beiden Modi (beide Panes),
+   die jsonField-Kombination als RenameNodeCommand in beiden Modi (Attributes-Pane) und die
+   Erzeugung fehlender Felder als AddNodeCommand (Object-Pane). Der
+   `JsonJackObjectTableModelNGTest` (26) und der `JsonJackAttrTableModelNGTest` (17) sichern
    den Vertrag: EditNode unangetastet, Override überlebt die Refreshes beider Parse-Modi,
-   Objektwechsel verwirft, Rename nur im Soft-Modus, primitive Werte in beiden Modi aus beiden
-   Panes.
+   Objektwechsel verwirft, Rename nur im Soft-Modus, primitive Werte, jsonField-Auswahl und
+   fehlende Felder in ihren Modi aus beiden Panes.
 6. **Gemeinsame Basisklasse der Pane-Modelle.** Die Querschnitts-Verkabelung — Editor-Selektion
    (treeModel/editTree/Deskriptor-Fang), UndoRedo-Refresh mit Identitätsvergleich des eigenen
    TreeModels, Write-back-Bereitschaft, `isPrimitiveType`/`asText` — lebt in
    `AbstractJsonJackTableModel`; die Tabellen-Semantik (Zeilen, Sandbox-Overrides, Kandidaten,
    Write-back-Gates) bleibt je Modell. Ein Tree-Wechsel meldet sich als Hook
-   (`onEditorTreeChanged`) — das Fields-Modell verwirft dort seine Sandbox.
+   (`onEditorTreeChanged`) — das Object-Modell verwirft dort seine Sandbox.
 
 Zusätzlich gilt im Validator-Umfeld: der `EditValidationRunner` läuft nur mit
 einem non-null Deskriptor — WoodLink-Diagnosen erscheinen also nur bei
@@ -551,8 +572,9 @@ geladenem Modell (Verhalten aller Validatoren, nicht spezifisch für Wood-Links)
 Die Tests der Phase A liegen in jsonCasted_edit
 (`EditLinkingSetNGTest`, `WoodLinkImportNGTest`, `WoodLinkRoundTripNGTest`,
 `WoodLinkCommandNGTest`, `WoodLinkValidatorNGTest` — Suite 139 Tests, 0 Failures),
-die der Phase B in WoodJsonJack (`JsonJackFieldTableModelNGTest`, Suite 75
-Tests, 0 Failures).
+die der Phase B in WoodJsonJack (`JsonJackObjectTableModelNGTest`,
+`JsonJackAttrTableModelNGTest` und die UI-Suiten — Stand der Sandbox-Verträge:
+123 Tests, 0 Failures).
 
 ## 10. editString: Anzeige-Templates als Annotation (nachgetragen)
 
@@ -574,7 +596,7 @@ editString ist quer durch alle vier Schichten umgesetzt (Detailkonzept:
   `displayText()` Fallback-Kette: Template → name-Feld → woodId → Knotenname.
   Die Adoption haengt im `JsonTreeConverter.loadDescrAndConvertRessourceToEditTree`
   (ein Rohparse bedient Cast und Adoption).
-- **UI (WoodJsonJack):** `JsonJackFieldTableModel` zeigt Kandidaten-Labels
+- **UI (WoodJsonJack):** `JsonJackObjectTableModel` zeigt Kandidaten-Labels
   (Combobox, Collection-Dialog: text-Spalte) und die Value-Spalte
   objektwertiger Felder ueber `EditStringEvaluator.displayText`.
 

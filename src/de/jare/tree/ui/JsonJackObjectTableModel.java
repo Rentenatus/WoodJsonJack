@@ -1,6 +1,7 @@
 package de.jare.tree.ui;
 
 
+import de.jare.jsoncasted.editor.command.AddNodeCommand;
 import de.jare.jsoncasted.editor.command.SetNodeValueCommand;
 import de.jare.jsoncasted.editor.core.EditLinkingSet;
 import de.jare.jsoncasted.editor.core.EditNode;
@@ -10,6 +11,8 @@ import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditStringEvaluator;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.HardEditAdvisor;
+import de.jare.jsoncasted.editor.core.HardEditAdvisor.ChildProposal;
 import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
@@ -33,10 +36,12 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 
 /**
- * Table model for the Fields pane: a view on the model side of the selected
+ * Table model for the Object pane: a view on the model side of the selected
  * object. The first row shows the json type of the object, one row per field
  * (child property) follows with name, value and node type; a trailing "^"
- * column opens the field editor dialogs. Object-typed fields
+ * column opens the field editor dialogs. A parsed object appends the declared
+ * fields the JSON does not carry yet as empty rows - an edit creates the child
+ * node (see {@link #setValueAt(Object, int, int)}). Object-typed fields
  * offer their candidate instances through a combo box as well (see
  * {@link #isComboBoxCell(int, int)}); the selection semantics of those are a
  * later step - the base version only displays the candidates.
@@ -46,10 +51,12 @@ import javax.swing.tree.DefaultMutableTreeNode;
  * fields may repeat names).</p>
  *
  * <p>The pane is a sandbox: it accepts changes - inline value edits and the results of
- * the list editors - but writes them back only through the primitive value exception: the
- * inline value of a primitive field and the synthetic value row of a primitive row object
- * execute a SetNodeValueCommand in BOTH parse modes (primitives are shape-conform, the
- * parser judges the content). Everything else - object fields, array fields and their
+ * the list editors - but writes them back only through the two write-back exceptions:
+ * the primitive value (the inline value of a primitive field and the synthetic value row
+ * of a primitive row object execute a SetNodeValueCommand in BOTH parse modes - primitives
+ * are shape-conform, the parser judges the content) and the missing field row (an edit
+ * creates the prepared child of the model advisor as an undoable AddNodeCommand carrying
+ * the typed value). Everything else - object fields, array fields and their
  * list editors - lives in local overrides keyed by edit id; they survive refreshes of the
  * same object (the soft parse mode refreshes asynchronously, the hard mode after every
  * command) and are dropped when another object or editor is selected.</p>
@@ -64,6 +71,9 @@ public class JsonJackObjectTableModel extends AbstractJsonJackTableModel
     private List<FieldRow> rows = new ArrayList<>();
     private EditNodeObject currentObject;
     private long focusedFieldEditId = -1;
+    // the missing declared fields of a parsed owner: empty rows whose edit creates the child
+    private List<ChildProposal> missingProposals = List.of();
+    private int firstMissingRowIndex = -1;
 
     /**
      * Creates a local-only model: no change ever leaves the pane, primitive values included.
@@ -137,6 +147,14 @@ public class JsonJackObjectTableModel extends AbstractJsonJackTableModel
 
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
+        // A missing field row edits as inline text when the prepared child is a scalar -
+        // the edit creates the child with the typed value. Object, array and reference
+        // fields are created through the add menu, an inline text makes no sense there.
+        if (isMissingFieldRow(rowIndex)) {
+            final EditNodeAbstract child = proposalOfRow(rowIndex).getPreparedChild();
+            return columnIndex == 1 && child instanceof EditNodeProperty property
+                    && isPrimitiveType(property.getType());
+        }
         // Primitive field values are edited inline; combo box cells (object fields) stay read-only
         // until the selection semantics exist; array fields (primitive lists, object lists and
         // array annotations) open their dedicated editor dialog instead.
@@ -223,6 +241,19 @@ public class JsonJackObjectTableModel extends AbstractJsonJackTableModel
         if (currentObject == null) {
             return;
         }
+        if (isMissingFieldRow(row)) {
+            // the empty row of a missing declared field: the edit creates the child node
+            // (undoable, the pane refreshes through the undo/redo listener). A refused
+            // write-back keeps the choice locally in the row.
+            final boolean created = writeBackMissingField(proposalOfRow(row), asText(aValue));
+            if (!created) {
+                final FieldRow oldRow = rows.get(row);
+                rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(), oldRow.jsonType(),
+                        oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
+                fireTableCellUpdated(row, col);
+            }
+            return;
+        }
         final long key = overrideKeyOf(row);
         if (key >= 0L) {
             valueOverrides.put(key, aValue == null ? null : aValue.toString());
@@ -272,6 +303,9 @@ public class JsonJackObjectTableModel extends AbstractJsonJackTableModel
      * @return true when the user can change the row through the pane
      */
     public boolean isEditableRow(int rowIndex) {
+        if (isMissingFieldRow(rowIndex)) {
+            return isCellEditable(rowIndex, 1);
+        }
         return isArrayFieldRow(rowIndex) || isSingleObjectFieldRow(rowIndex)
                 || isCellEditable(rowIndex, 1);
     }
@@ -674,6 +708,8 @@ public class JsonJackObjectTableModel extends AbstractJsonJackTableModel
         }
         this.currentObject = owner;
         this.focusedFieldEditId = focusId;
+        missingProposals = List.of();
+        firstMissingRowIndex = -1;
 
         List<FieldRow> newRows = new ArrayList<>();
         if (owner != null) {
@@ -691,9 +727,91 @@ public class JsonJackObjectTableModel extends AbstractJsonJackTableModel
                 }
                 newRows.add(buildFieldRow(field));
             }
+            // A parsed object shows the declared fields the JSON does not carry yet as
+            // empty rows - an edit creates the child node (see writeBackMissingField).
+            if (getJsonModelDescriptor() != null && !isPrimitiveRowObject(owner)) {
+                missingProposals = HardEditAdvisor.permissibleChildren(owner, getJsonModelDescriptor());
+                for (ChildProposal proposal : missingProposals) {
+                    if (firstMissingRowIndex < 0) {
+                        firstMissingRowIndex = newRows.size();
+                    }
+                    newRows.add(missingFieldRow(proposal));
+                }
+            }
         }
         rows = newRows;
         fireTableDataChanged();
+    }
+
+    /**
+     * Builds the empty row of a missing declared field: the prepared child of the model
+     * advisor carries its name and node type, the JsonType column shows the declared
+     * model type of the field. The empty value marks the field as not present yet.
+     *
+     * @param proposal the missing field proposal of the model advisor
+     * @return the empty field row
+     */
+    private FieldRow missingFieldRow(ChildProposal proposal) {
+        final EditNodeAbstract child = proposal.getPreparedChild();
+        final String name = child.getName() == null ? "." : child.getName();
+        final String type = child instanceof EditNodeProperty property && property.getType() != null
+                ? property.getType().getName() : "";
+        final JsonFieldDescriptor field = currentObject == null
+                || currentObject.getJsonType() == null
+                        ? null : currentObject.getJsonType().getField(name);
+        final String jsonType = field == null ? "" : field.getTypeName();
+        return new FieldRow(name, "", type, jsonType, false, null, false);
+    }
+
+    /**
+     * Checks whether the row is an empty row of a missing declared field - the JSON does
+     * not carry the field yet, the model description proposes it.
+     *
+     * @param rowIndex the row index
+     * @return true when the row is a missing field row
+     */
+    public boolean isMissingFieldRow(int rowIndex) {
+        return firstMissingRowIndex >= 0 && rowIndex >= firstMissingRowIndex
+                && rowIndex < firstMissingRowIndex + missingProposals.size();
+    }
+
+    /**
+     * The missing field proposal of the row - the model advisor has prepared the typed
+     * child node of the field.
+     *
+     * @param rowIndex the row index
+     * @return the proposal, or null when the row is no missing field row
+     */
+    private ChildProposal proposalOfRow(int rowIndex) {
+        if (!isMissingFieldRow(rowIndex)) {
+            return null;
+        }
+        return missingProposals.get(rowIndex - firstMissingRowIndex);
+    }
+
+    /**
+     * Executes the write-back of a missing field row: the model advisor has prepared the
+     * typed child, the edit creates it under the shown object - as an undoable
+     * {@link AddNodeCommand} carrying the typed value (scalar fields; every other field
+     * type is created as prepared, its content is edited on the node afterwards). The
+     * parser judges the content, soft follows asynchronously, hard validates
+     * synchronously. Without an undo manager (the local-only constructor) and for a
+     * blank value nothing runs: the change stays in the pane.
+     *
+     * @param proposal the missing field proposal of the row
+     * @param newValue the typed value of the new field
+     * @return true when the child was created
+     */
+    private boolean writeBackMissingField(ChildProposal proposal, String newValue) {
+        if (proposal == null || !isWriteBackReady() || newValue == null || newValue.isBlank()) {
+            return false;
+        }
+        final EditNodeAbstract child = proposal.getPreparedChild();
+        if (child instanceof EditNodeProperty property && isPrimitiveType(property.getType())) {
+            property.setValue(newValue);
+        }
+        getUndoMan().executeCommand(new AddNodeCommand(currentObject, child));
+        return true;
     }
 
     private FieldRow buildFieldRow(EditNodeProperty field) {

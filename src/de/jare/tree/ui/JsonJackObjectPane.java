@@ -18,16 +18,17 @@ import javax.swing.JTable;
 import javax.swing.table.TableColumn;
 
 /**
- * Fields pane: a view on the model side of the selected object. The first row
+ * Object pane: a view on the model side of the selected object. The first row
  * shows the json type, one row per field follows. A clicked field still shows
- * the owning object and focuses the field's row. The pane is a sandbox: it
- * accepts changes (inline value edits and the results of the list editors)
- * and writes them back only through the exception of the sandbox contract -
- * primitive values reach the node as a command in both parse modes,
- * everything else stays in the pane. The model is held in a field on
- * purpose: the orator of the master control keeps its listeners via weak
- * references only, the garbage collector would silently deregister a local
- * model.
+ * the owning object and focuses the field's row. A parsed object appends its
+ * missing declared fields as empty rows - an edit creates the child node. The
+ * pane is a sandbox: it accepts changes (inline value edits and the results
+ * of the list editors) and writes them back only through the two exceptions
+ * of the sandbox contract - primitive values and missing field creations
+ * reach the node as commands, everything else stays in the pane. The model is
+ * held in a field on purpose: the orator of the master control keeps its
+ * listeners via weak references only, the garbage collector would silently
+ * deregister a local model.
  */
 public class JsonJackObjectPane extends JPanel {
 

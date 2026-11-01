@@ -757,9 +757,148 @@ public class JsonJackObjectTableModelNGTest {
         rootType.addField(new JsonFieldDescriptor("target", "Root"));
         rootType.addField(new JsonFieldDescriptor("a", "Root"));
         rootType.addField(new JsonFieldDescriptor("count", "Root"));
+        // the JSON carries neither of them: a parsed object proposes both as empty rows
+        final JsonTypeDescriptor textType = new JsonTypeDescriptor("Text")
+                .withPrimitive(true).withNodeType(JsonNodeType.STRING);
+        rootType.addField(new JsonFieldDescriptor("spare", "Text"));
+        final JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        rootType.addField(new JsonFieldDescriptor("ref", "Scene"));
         descriptor.addType(rootType);
+        descriptor.addType(textType);
+        descriptor.addType(sceneType);
         ((EditNodeObject) tree.getRoot()).setJsonType(rootType);
         return descriptor;
+    }
+
+    /**
+     * The row index of the field with the given name.
+     */
+    private static int rowOf(JsonJackObjectTableModel model, String name) {
+        for (int i = 0; i < model.getRowCount(); i++) {
+            if (name.equals(model.getValueAt(i, 0))) {
+                return i;
+            }
+        }
+        fail("no row named " + name);
+        return -1;
+    }
+
+    /**
+     * Selects the object in the pane like a tree click does - with the model descriptor
+     * of the parsed editor and the undo manager of the master control when given, so
+     * the missing field rows appear and the write-back exceptions can run.
+     */
+    private static JsonJackObjectTableModel selectObject(EditTree tree, EditNodeObject object,
+            JsonModelDescriptor descriptor, JackUndoManager undoMan) {
+        final JackTreeModel treeModel = new JackTreeModel(tree);
+        final JsonJackObjectTableModel model = new JsonJackObjectTableModel(undoMan);
+        if (undoMan != null) {
+            undoMan.setActiveModel(treeModel);
+        }
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(object), null, false);
+        return model;
+    }
+
+    /**
+     * A parsed object appends the declared fields the JSON does not carry yet as empty
+     * rows: scalars are inline editable (the edit creates the child), reference and
+     * array fields stay read-only (the add menu creates them). Without a model there
+     * are no proposals.
+     */
+    @Test
+    public void testParsedObjectShowsMissingFieldsAsEmptyRows() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = bindRootType(tree);
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getRowCount(), 7,
+                "header, the four present fields and the two missing fields");
+        final int spareRow = rowOf(model, "spare");
+        assertTrue(model.isMissingFieldRow(spareRow), "the spare row is a missing field row");
+        assertEquals(model.getValueAt(spareRow, 1), "", "the missing field shows an empty value");
+        assertEquals(model.getValueAt(spareRow, 3), "Text", "the JsonType column shows the declared type");
+        assertTrue(model.isCellEditable(spareRow, 1), "a scalar missing field is inline editable");
+        assertFalse(model.isButtonEnabled(spareRow), "an empty row opens nothing");
+
+        final int refRow = rowOf(model, "ref");
+        assertTrue(model.isMissingFieldRow(refRow), "the ref row is a missing field row");
+        assertFalse(model.isCellEditable(refRow, 1),
+                "a reference field is created through the add menu, not by a text edit");
+
+        // without a model the pane shows no proposals
+        EditTree bareTree = importTree();
+        JsonJackObjectTableModel bareModel = new JsonJackObjectTableModel();
+        bareModel.onEditorSelected(componentOf(bareTree), null);
+        bareModel.onNodeSelected(new DefaultMutableTreeNode(bareTree.getRoot()), null, false);
+        assertEquals(bareModel.getRowCount(), 4, "header plus the three fields, no proposals");
+    }
+
+    /**
+     * The edit of a missing field row creates the child node: as an undoable
+     * AddNodeCommand carrying the typed value - no NPE, undo removes the child again.
+     */
+    @Test
+    public void testMissingFieldEditCreatesTheChild() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = bindRootType(tree);
+        final JackUndoManager undoMan = new JackUndoManager();
+        JsonJackObjectTableModel model = selectObject(tree, (EditNodeObject) tree.getRoot(), descriptor, undoMan);
+
+        final int childrenBefore = tree.getRoot().getChildCount();
+        final int spareRow = rowOf(model, "spare");
+        model.setValueAt("hello", spareRow, 1);
+
+        assertEquals(tree.getRoot().getChildCount(), childrenBefore + 1,
+                "the edit created the child node");
+        final EditNodeProperty spare = findProperty(tree, "spare");
+        assertNotNull(spare, "the child exists under the object");
+        assertEquals(spare.getValue(), "hello", "the created child carries the typed value");
+        assertEquals(spare.getType(), JsonNodeType.STRING, "the model typed the child");
+
+        undoMan.undo();
+        assertNull(findProperty(tree, "spare"), "the creation is undoable");
+    }
+
+    /**
+     * A blank edit creates no child: the change stays in the pane.
+     */
+    @Test
+    public void testBlankMissingFieldEditStaysLocal() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = bindRootType(tree);
+        final JackUndoManager undoMan = new JackUndoManager();
+        JsonJackObjectTableModel model = selectObject(tree, (EditNodeObject) tree.getRoot(), descriptor, undoMan);
+
+        final int childrenBefore = tree.getRoot().getChildCount();
+        final int spareRow = rowOf(model, "spare");
+        model.setValueAt("   ", spareRow, 1);
+
+        assertEquals(tree.getRoot().getChildCount(), childrenBefore, "a blank value creates no child");
+        assertEquals(model.getValueAt(spareRow, 1), "   ", "the pane still shows the input");
+    }
+
+    /**
+     * The edit of a missing field row without an undo manager (the local-only
+     * constructor) creates no child: the change stays in the pane.
+     */
+    @Test
+    public void testMissingFieldWithoutUndoManagerStaysLocal() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = bindRootType(tree);
+        JsonJackObjectTableModel model = selectObject(tree, (EditNodeObject) tree.getRoot(), descriptor, null);
+
+        final int childrenBefore = tree.getRoot().getChildCount();
+        final int spareRow = rowOf(model, "spare");
+        model.setValueAt("hello", spareRow, 1);
+
+        assertEquals(tree.getRoot().getChildCount(), childrenBefore,
+                "no undo manager, no child creation");
+        assertEquals(model.getValueAt(spareRow, 1), "hello", "the pane still shows the change");
     }
 
     /**
