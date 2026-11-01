@@ -1,0 +1,930 @@
+package de.jare.tree.ui;
+
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.JsonTreeConverter;
+import de.jare.jsoncasted.io.parserservice.JsonParserService;
+import de.jare.jsoncasted.lang.JsonNodeType;
+import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
+import de.jare.tree.control.JackUndoManager;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+import de.jare.tree.control.model.JackTreeModel;
+import de.jare.debug.JsonDebugLevel;
+import javax.swing.JTree;
+import java.util.List;
+import javax.swing.tree.DefaultMutableTreeNode;
+import org.testng.annotations.Test;
+import static org.testng.Assert.*;
+
+/**
+ * Model tests for the Fields pane: row construction from the selected object,
+ * parent resolution and focus on a clicked field, and the three-tier combo
+ * box candidate logic (descriptor, primitive fallback, none for unparsed
+ * objects).
+ *
+ * @author Janusch Rentenatus
+ */
+public class JsonJackObjectTableModelNGTest {
+
+    private static final String LINKED_JSON = "{\n"
+            + "  \"_woodObjectId\": \"1\",\n"
+            + "  \"target\": {\n"
+            + "    \"_woodObjectId\": \"2\",\n"
+            + "    \"name\": \"Target\"\n"
+            + "  },\n"
+            + "  \"a\": {\n"
+            + "    \"_woodLink\": \"this::2\"\n"
+            + "  },\n"
+            + "  \"count\": 5\n"
+            + "}\n";
+
+    private static EditTree importTree() throws java.io.IOException, de.jare.jsoncasted.io.JsonParseException {
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(LINKED_JSON, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        return JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+    }
+
+    /**
+     * Minimal focus component: the model only reads the tree model from it.
+     */
+    private static TreeFocusComponent componentOf(EditTree tree) {
+        final JackTreeModel treeModel = new JackTreeModel(tree);
+        return new TreeFocusComponent() {
+            @Override
+            public JTree getTree() {
+                return null;
+            }
+
+            @Override
+            public JackTreeModel getModel() {
+                return treeModel;
+            }
+
+            @Override
+            public de.jare.tree.control.JackMasterControl getJackMaster() {
+                return null;
+            }
+        };
+    }
+
+    private static EditNodeProperty findProperty(EditTree tree, String name) {
+        for (int i = 0; i < tree.getRoot().getChildCount(); i++) {
+            if (tree.getRoot().getChildAt(i) instanceof EditNodeProperty prop
+                    && name.equals(prop.getName())) {
+                return prop;
+            }
+        }
+        return null;
+    }
+
+    @Test
+    public void testObjectSelectionBuildsRows() throws Exception {
+        EditTree tree = importTree();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getRowCount(), 4, "jsonType header plus the three fields");
+        assertEquals(model.getColumnCount(), 5, "Name, Value, Type, JsonType, ^");
+        assertEquals(model.getValueAt(0, 0), "jsonType");
+        assertEquals(model.getValueAt(1, 0), "target");
+        assertEquals(model.getValueAt(2, 0), "a");
+        assertEquals(model.getValueAt(3, 0), "count");
+        assertEquals(model.getFocusedRowIndex(), -1, "an object click focuses no field");
+    }
+
+    @Test
+    public void testFieldClickShowsParentAndFocusesRow() throws Exception {
+        EditTree tree = importTree();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+
+        EditNodeProperty fieldA = findProperty(tree, "a");
+        assertNotNull(fieldA);
+        model.onNodeSelected(new DefaultMutableTreeNode(fieldA), null, false);
+
+        assertSame(model.getCurrentObject(), tree.getRoot(),
+                "a clicked field still shows the owning object");
+        assertEquals(model.getFocusedRowIndex(), 2, "the 'a' row gets the focus, matched by edit id");
+    }
+
+    @Test
+    public void testPrimitiveFallbackOffersNodeTypes() throws Exception {
+        EditTree tree = importTree();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        EditNodeProperty count = findProperty(tree, "count");
+        assertNotNull(count);
+        assertEquals(count.getType(), JsonNodeType.LONG);
+        assertTrue(model.isComboBoxCell(3, 1), "an unparsed primitive field offers the node type candidates");
+        assertEquals(model.getComboBoxValues(3).length, 5);
+    }
+
+    @Test
+    public void testUnparsedObjectFieldHasNoCandidates() throws Exception {
+        EditTree tree = importTree();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertFalse(model.isComboBoxCell(2, 1),
+                "an unparsed object field has no model knowledge - no combo box");
+    }
+
+    @Test
+    public void testDescribedObjectFieldOffersInstances() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        descriptor.addType(sceneType);
+        findProperty(tree, "target").setJsonField(new JsonFieldDescriptor("target", "Scene"));
+        EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
+        targetObject.setJsonType(sceneType);
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getValueAt(1, 3), "Scene", "the JsonType column shows the declared model type");
+        assertTrue(model.isComboBoxCell(1, 1), "a described object field offers its instances");
+        Object[] values = model.getComboBoxValues(1);
+        assertEquals(values.length, 1, "exactly one Scene instance exists in the tree");
+        assertTrue(values[0].toString().contains("Scene"), "the candidate names its type: " + values[0]);
+    }
+
+    /**
+     * Regression for the lost field focus: JTable clears the selection model while processing
+     * fireTableDataChanged - AFTER the TableModelListener has run. Applying the focus on the event
+     * queue (as the pane does) must survive every subsequent rebuild.
+     */
+    @Test
+    public void testFocusedRowSelectionSurvivesModelRebuilds() throws Exception {
+        EditTree tree = importTree();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+
+        javax.swing.JTable table = new javax.swing.JTable(model);
+        table.getModel().addTableModelListener(e -> javax.swing.SwingUtilities.invokeLater(() -> {
+            final int row = model.getFocusedRowIndex();
+            if (row >= 0 && row < table.getRowCount()) {
+                table.getSelectionModel().setSelectionInterval(row, row);
+            }
+        }));
+
+        EditNodeProperty fieldA = findProperty(tree, "a");
+        assertNotNull(fieldA);
+        model.onNodeSelected(new DefaultMutableTreeNode(fieldA), null, false);
+        java.awt.EventQueue.invokeAndWait(() -> { });
+        assertEquals(table.getSelectedRow(), 2, "the field row is selected after the click");
+
+        // the cascade after a click rebuilds the model twice: content command and parse problems
+        model.onCommand("EDIT_ANY", null);
+        java.awt.EventQueue.invokeAndWait(() -> { });
+        assertEquals(table.getSelectedRow(), 2, "the selection survives the content command rebuild");
+
+        model.onParseProblems(null, null);
+        java.awt.EventQueue.invokeAndWait(() -> { });
+        assertEquals(table.getSelectedRow(), 2, "the selection survives the parse problems rebuild");
+
+        model.refresh();
+        java.awt.EventQueue.invokeAndWait(() -> { });
+        assertEquals(table.getSelectedRow(), 2, "the selection survives a manual refresh");
+    }
+
+    @Test
+    public void testAnnotationRowShowsAnnotationInJsonType() throws Exception {
+        final String annotatedJson = "{\n"
+                + "  \"@doc\": \"Hello\","
+                + "  \"name\": \"Target\"\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(annotatedJson, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getRowCount(), 3, "jsonType header, the annotation and the field");
+        assertTrue(model.getValueAt(1, 0).toString().startsWith("@"),
+                "the annotation row shows its composite display name: " + model.getValueAt(1, 0));
+        assertEquals(model.getValueAt(1, 3), "annotation", "the JsonType column marks the annotation row");
+        assertEquals(model.getValueAt(1, 1), "Hello", "the annotation row shows its own primitive value");
+    }
+
+    @Test
+    public void testPrimitiveRowGetsSyntheticValueRow() throws Exception {
+        final String primitiveJson = "{\n"
+                + "  \"values\": [ \"alpha\", \"beta\" ]\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(primitiveJson, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        // the first array row is a primitive object
+        EditNodeProperty values = findProperty(tree, "values");
+        assertNotNull(values);
+        assertTrue(values.getChildAt(0) instanceof EditNodeObject);
+        EditNodeObject rowObject = (EditNodeObject) values.getChildAt(0);
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(rowObject), null, false);
+
+        assertEquals(model.getRowCount(), 2, "jsonType header plus the synthetic value row");
+        assertEquals(model.getValueAt(1, 0), "value");
+        assertEquals(model.getValueAt(1, 1), "alpha");
+        assertTrue(model.isCellEditable(1, 1), "the synthetic value row is editable");
+
+        // the local-only constructor (no undo manager) keeps the change in the pane
+        model.setValueAt("gamma", 1, 1);
+        assertEquals(model.getValueAt(1, 1), "gamma");
+        assertEquals(rowObject.getValue(), "alpha",
+                "without an undo manager the change never leaves the pane");
+
+        // the sandbox survives refreshes of the same object (soft parse refreshes asynchronously)
+        model.refresh();
+        assertEquals(model.getValueAt(1, 1), "gamma", "the local change survives a refresh of the same object");
+
+        // another object selection drops the sandbox
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+        model.onNodeSelected(new DefaultMutableTreeNode(rowObject), null, false);
+        assertEquals(model.getValueAt(1, 1), "alpha", "another object selection drops the sandbox");
+    }
+
+    @Test
+    public void testPrimitiveArrayIsNotInlineEditable() throws Exception {
+        EditTree tree = importTree();
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        // the "count" row carries primitive fallback combo candidates: not inline editable, like every combo cell
+        assertFalse(model.isCellEditable(3, 1), "combo cells (primitive fallback) are not inline editable");
+
+        // the "values" row is an array field
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }\n", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree listTree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+        JsonJackObjectTableModel listModel = new JsonJackObjectTableModel();
+        listModel.onEditorSelected(componentOf(listTree), null);
+        listModel.onNodeSelected(new DefaultMutableTreeNode(listTree.getRoot()), null, false);
+
+        assertTrue(listModel.isArrayFieldRow(1), "an array field row is detected");
+        assertTrue(listModel.isPrimitiveArrayListRow(1), "a list of primitives is a primitive list");
+        assertFalse(listModel.isCellEditable(1, 1), "array fields are not edited inline");
+        assertEquals(listModel.getCurrentPrimitiveList(1), java.util.List.of("alpha", "beta"));
+    }
+
+    @Test
+    public void testDetailButtonEnablement() throws Exception {
+        EditTree tree = importTree();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertFalse(model.isButtonEnabled(0), "the jsonType header opens nothing");
+        assertTrue(model.isButtonEnabled(1), "an object field with a value opens the detail dialog");
+        assertTrue(model.isButtonEnabled(3), "a primitive with a value opens the detail dialog");
+        assertFalse(model.isSingleObjectFieldRow(1), "an unparsed object field opens no reference editor");
+        assertFalse(model.isSingleObjectFieldRow(3), "a primitive with fallback candidates is no object field");
+
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }\n", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree listTree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+        JsonJackObjectTableModel listModel = new JsonJackObjectTableModel();
+        listModel.onEditorSelected(componentOf(listTree), null);
+        listModel.onNodeSelected(new DefaultMutableTreeNode(listTree.getRoot()), null, false);
+
+        assertTrue(listModel.isButtonEnabled(1), "an array field opens the list editor");
+    }
+
+    @Test
+    public void testDetailButtonDisabledWithoutValue() throws Exception {
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"text\": \"\" }\n", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getRowCount(), 2, "jsonType header plus the empty text field");
+        assertFalse(model.isButtonEnabled(1), "a field without value opens nothing");
+    }
+
+    @Test
+    public void testApplyPrimitiveListResult() throws Exception {
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }\n", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        model.applyPrimitiveListResult(1, java.util.List.of("x", "y", "z"));
+
+        assertEquals(model.getCurrentPrimitiveList(1), java.util.List.of("x", "y", "z"),
+                "the list editor result lands in the sandbox of the pane");
+        assertEquals(model.getValueAt(1, 1), "x, y, z", "the value column previews the chosen list");
+        de.jare.jsoncasted.editor.core.EditNodeProperty values = model.fieldOfRow(1);
+        assertEquals(values.getChildCount(), 2, "the edit node keeps its rows");
+        de.jare.jsoncasted.editor.core.EditNodeObject row = (de.jare.jsoncasted.editor.core.EditNodeObject)
+                values.getChildAt(1);
+        assertEquals(row.getValue(), "beta", "the pane never writes back into the edit node");
+
+        model.refresh();
+        assertEquals(model.getCurrentPrimitiveList(1), java.util.List.of("x", "y", "z"),
+                "the sandbox survives the refresh of the same object");
+    }
+
+    @Test
+    public void testObjectListCollectionDataAndApply() throws Exception {
+        final String sceneJson = "{\n"
+                + "  \"scenes\": [ { \"_woodObjectId\": \"4\", \"name\": \"A\" } ],\n"
+                + "  \"spare\": { \"_woodObjectId\": \"5\", \"name\": \"B\" }\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(sceneJson, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        descriptor.addType(sceneType);
+
+        EditNodeProperty scenesField = findProperty(tree, "scenes");
+        EditNodeProperty spareField = findProperty(tree, "spare");
+        assertNotNull(scenesField);
+        assertNotNull(spareField);
+        scenesField.setJsonField(new JsonFieldDescriptor("scenes", "Scene"));
+        spareField.setJsonField(new JsonFieldDescriptor("spare", "Scene"));
+        assertTrue(scenesField.getChildAt(0) instanceof EditNodeObject);
+        assertTrue(spareField.getChildAt(0) instanceof EditNodeObject);
+        final EditNodeObject inList = (EditNodeObject) scenesField.getChildAt(0);
+        final EditNodeObject spare = (EditNodeObject) spareField.getChildAt(0);
+        inList.setJsonType(sceneType);
+        spare.setJsonType(sceneType);
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertTrue(model.isArrayFieldRow(1), "the scenes row is an array field");
+        assertFalse(model.isPrimitiveArrayListRow(1), "a list of objects is no primitive list");
+        assertFalse(model.isCellEditable(1, 1), "object lists are not edited inline");
+        assertFalse(model.isSingleObjectFieldRow(1), "an array field is no single object field");
+        assertTrue(model.isSingleObjectFieldRow(2), "the spare row is a parsed single object field");
+        assertTrue(model.isButtonEnabled(2), "a single object field opens the reference editor");
+
+        final List<JsonJackObjectTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(1);
+        assertEquals(candidates.size(), 2, "both Scene instances fit the declared element type");
+
+        final List<JsonJackObjectTableModel.InstanceCandidate> current = model.getCurrentObjectList(1);
+        assertEquals(current.size(), 1, "one element is in the list");
+        assertSame(current.get(0).node(), inList);
+
+        // accept: the spare instance first, the own element second - both land in the sandbox only
+        JsonJackObjectTableModel.InstanceCandidate spareCandidate = null;
+        for (JsonJackObjectTableModel.InstanceCandidate candidate : candidates) {
+            if (candidate.node() == spare) {
+                spareCandidate = candidate;
+            }
+        }
+        assertNotNull(spareCandidate);
+        model.applyObjectListResult(1, java.util.List.of(spareCandidate, current.get(0)));
+
+        final EditNodeProperty fieldAfter = model.fieldOfRow(1);
+        assertEquals(fieldAfter.getChildCount(), 1, "the edit node keeps its element");
+        assertSame(fieldAfter.getChildAt(0), inList, "the original child stays untouched");
+        assertFalse(((EditNodeObject) fieldAfter.getChildAt(0)).isLinkReference(),
+                "the pane never creates a reference stub");
+        assertFalse(tree.getLinkingSet().hasReferencesTo("this::5"),
+                "nothing is registered in the reverse index");
+
+        final List<JsonJackObjectTableModel.InstanceCandidate> shown = model.getCurrentObjectList(1);
+        assertEquals(shown.size(), 2, "the pane shows the chosen elements in the chosen order");
+        assertSame(shown.get(0).node(), spare);
+        assertSame(shown.get(1).node(), inList);
+        assertEquals(model.getValueAt(1, 1), "B, A", "the value column previews the chosen list");
+
+        model.refresh();
+        assertEquals(model.getCurrentObjectList(1).size(), 2,
+                "the sandbox survives the refresh of the same object");
+    }
+
+    @Test
+    public void testSingleObjectFieldChoiceReplacesValue() throws Exception {
+        final String json = "{\n"
+                + "  \"link\": { \"_woodObjectId\": \"4\", \"name\": \"A\" },\n"
+                + "  \"ref\": { \"_woodObjectId\": \"5\", \"name\": \"B\" }\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(json, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("refModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        descriptor.addType(sceneType);
+
+        EditNodeProperty linkField = findProperty(tree, "link");
+        EditNodeProperty refField = findProperty(tree, "ref");
+        assertNotNull(linkField);
+        assertNotNull(refField);
+        linkField.setJsonField(new JsonFieldDescriptor("link", "Scene"));
+        refField.setJsonField(new JsonFieldDescriptor("ref", "Scene"));
+        ((EditNodeObject) linkField.getChildAt(0)).setJsonType(sceneType);
+        ((EditNodeObject) refField.getChildAt(0)).setJsonType(sceneType);
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertTrue(model.isSingleObjectFieldRow(2), "the ref row is a parsed single object field");
+
+        // choose the link instance for the ref field: lands in the sandbox only
+        final List<JsonJackObjectTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(2);
+        JsonJackObjectTableModel.InstanceCandidate linkCandidate = null;
+        for (JsonJackObjectTableModel.InstanceCandidate candidate : candidates) {
+            if ("4".equals(candidate.woodId())) {
+                linkCandidate = candidate;
+            }
+        }
+        assertNotNull(linkCandidate);
+        model.applyObjectListResult(2, java.util.List.of(linkCandidate));
+
+        EditNodeProperty refAfter = model.fieldOfRow(2);
+        assertEquals(refAfter.getChildCount(), 1, "the edit node keeps its value");
+        final EditNodeObject value = (EditNodeObject) refAfter.getChildAt(0);
+        assertFalse(value.isLinkReference(), "the pane never creates a reference stub");
+
+        final List<JsonJackObjectTableModel.InstanceCandidate> shown = model.getCurrentObjectList(2);
+        assertEquals(shown.size(), 1, "the pane shows the chosen entry");
+        assertEquals(shown.get(0).woodId(), "4", "the choice names the chosen instance");
+
+        // empty or one entry is always allowed: the empty choice clears the pane value
+        model.applyObjectListResult(2, java.util.List.of());
+        assertTrue(model.getCurrentObjectList(2).isEmpty(), "the empty choice clears the pane value");
+        assertEquals(refAfter.getChildCount(), 1, "the edit node still keeps its value");
+    }
+
+    @Test
+    public void testCandidatesAndValueColumnUseEditString() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        sceneType.addAnnotation(de.jare.jsoncasted.model.item.JsonAnnotation.editString("${name} #${woodId}"));
+        descriptor.addType(sceneType);
+        findProperty(tree, "target").setJsonField(new JsonFieldDescriptor("target", "Scene"));
+        EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
+        targetObject.setJsonType(sceneType);
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getValueAt(1, 1), "Target #2",
+                "the value column shows the formatted editString of the child object");
+        assertTrue(model.isComboBoxCell(1, 1), "a described object field offers its instances");
+        Object[] values = model.getComboBoxValues(1);
+        assertEquals(values.length, 1, "exactly one Scene instance exists in the tree");
+        assertTrue(values[0].toString().contains("Target #2"),
+                "the candidate label shows the formatted editString: " + values[0]);
+    }
+
+    @Test
+    public void testCandidatesFallBackToPlainNamesWithoutTemplate() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        descriptor.addType(sceneType);
+        findProperty(tree, "target").setJsonField(new JsonFieldDescriptor("target", "Scene"));
+        EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
+        targetObject.setJsonType(sceneType);
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getValueAt(1, 1), "Target",
+                "without a template the value column falls back to the object name");
+        Object[] values = model.getComboBoxValues(1);
+        assertTrue(values[0].toString().startsWith("Target"),
+                "without a template the candidate label falls back to the object name: " + values[0]);
+    }
+
+    /**
+     * A whole list reference: an identified array appears as candidate at list fields, picking it replaces the
+     * entire field content with one reference stub, and further candidates are ignored.
+     */
+    @Test
+    public void testWholeListReferenceCandidateAndApply() throws Exception {
+        final String sceneJson = "{\n"
+                + "  \"left\": <\"7\">[ { \"_woodObjectId\": \"4\", \"name\": \"A\" } ],\n"
+                + "  \"right\": [ { \"name\": \"B\" } ]\n"
+                + "}\n";
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse(sceneJson, JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+
+        JsonModelDescriptor descriptor = new JsonModelDescriptor("sceneModel");
+        JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        descriptor.addType(sceneType);
+
+        EditNodeProperty leftField = findProperty(tree, "left");
+        EditNodeProperty rightField = findProperty(tree, "right");
+        assertNotNull(leftField);
+        assertNotNull(rightField);
+        assertEquals(leftField.getObjektId(), "7", "the array identity must sit on the property");
+        leftField.setJsonField(new JsonFieldDescriptor("left", "Scene",
+                de.jare.jsoncasted.model.JsonCollectionType.LIST, false, false, null, null));
+        rightField.setJsonField(new JsonFieldDescriptor("right", "Scene",
+                de.jare.jsoncasted.model.JsonCollectionType.LIST, false, false, null, null));
+        ((EditNodeObject) leftField.getChildAt(0)).setJsonType(sceneType);
+        ((EditNodeObject) rightField.getChildAt(0)).setJsonType(sceneType);
+
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertTrue(model.isArrayFieldRow(1), "the left row is an array field");
+
+        final List<JsonJackObjectTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(2);
+        JsonJackObjectTableModel.InstanceCandidate arrayCandidate = null;
+        JsonJackObjectTableModel.InstanceCandidate objectCandidate = null;
+        for (JsonJackObjectTableModel.InstanceCandidate candidate : candidates) {
+            if ("7".equals(candidate.woodId())) {
+                arrayCandidate = candidate;
+            } else if ("4".equals(candidate.woodId())) {
+                objectCandidate = candidate;
+            }
+        }
+        assertNotNull(arrayCandidate, "the identified array must be a candidate at a list field: " + candidates);
+        assertTrue(arrayCandidate.node() instanceof EditNodeProperty,
+                "the array candidate is the array property itself");
+        assertTrue(arrayCandidate.jsonType().startsWith("Scene"),
+                "the candidate type names the element type: " + arrayCandidate.jsonType());
+        assertNotNull(objectCandidate, "the object instances stay candidates");
+
+        // a whole list reference replaces the sandbox content: the extra object candidate is ignored
+        model.applyObjectListResult(2, java.util.Arrays.asList(arrayCandidate, objectCandidate));
+        assertEquals(rightField.getType(), JsonNodeType.ARRAY, "the node type never changes from the pane");
+        assertEquals(rightField.getChildCount(), 1, "the edit node keeps its element");
+        final EditNodeObject element = (EditNodeObject) rightField.getChildAt(0);
+        assertFalse(element.isLinkReference(), "the pane never creates a reference stub");
+
+        // reopening shows the referenced array as the current sandbox content
+        final List<JsonJackObjectTableModel.InstanceCandidate> current = model.getCurrentObjectList(2);
+        assertEquals(current.size(), 1);
+        assertEquals(current.get(0).woodId(), "7", "the whole list reference shows the target id");
+    }
+
+    /**
+     * Minimal focus component bound to an existing tree model: the refresh checks the model
+     * identity, so editor selection and undo manager must carry the SAME instance.
+     */
+    private static TreeFocusComponent componentOf(final JackTreeModel treeModel) {
+        return new TreeFocusComponent() {
+            @Override
+            public JTree getTree() {
+                return null;
+            }
+
+            @Override
+            public JackTreeModel getModel() {
+                return treeModel;
+            }
+
+            @Override
+            public de.jare.tree.control.JackMasterControl getJackMaster() {
+                return null;
+            }
+        };
+    }
+
+    /**
+     * A value command executed outside the pane - the Attributes pane writes a primitive value
+     * through, for example - refreshes the rows: the pane follows execute and undo of its own
+     * editor, the sandbox overrides of the shown object survive the refresh.
+     */
+    @Test
+    public void testAttrSideValueCommandRefreshesThePane() throws Exception {
+        EditTree tree = importTree();
+        final JackTreeModel treeModel = new JackTreeModel(tree);
+        JackUndoManager undoMan = new JackUndoManager();
+        undoMan.setActiveModel(treeModel);
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        undoMan.addUndoRedoListener(5, model);
+        model.onEditorSelected(componentOf(treeModel), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getValueAt(3, 1), "5", "the count row shows the current value");
+        undoMan.executeCommand(
+                new de.jare.jsoncasted.editor.command.SetNodeValueCommand(findProperty(tree, "count"), "42"));
+        assertEquals(model.getValueAt(3, 1), "42", "the pane follows a value command from outside");
+        undoMan.undo();
+        assertEquals(model.getValueAt(3, 1), "5", "the pane follows the undo");
+    }
+
+    /**
+     * The write-back exception, symmetric to the Attributes pane: a primitive value reaches the
+     * node as a command in both parse modes, undo works. Object fields stay sandbox.
+     */
+    @Test
+    public void testPrimitiveValueReachesTheNodeFromTheFieldsPane() throws Exception {
+        EditTree tree = importTree();
+        final JackTreeModel treeModel = new JackTreeModel(tree);
+        JackUndoManager undoMan = new JackUndoManager();
+        undoMan.setActiveModel(treeModel);
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel(undoMan);
+        undoMan.addUndoRedoListener(5, model);
+        model.onEditorSelected(componentOf(treeModel), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        // the count field is a LONG primitive: a value edit through setValueAt (the detail
+        // dialog path) runs through. The row shows the primitive fallback combo - inline
+        // editing stays blocked for combo cells, the value write is the model contract.
+        model.setValueAt("42", 3, 1);
+        assertEquals(findProperty(tree, "count").getValue(), "42",
+                "a primitive value edit reaches the node from the fields pane");
+        assertEquals(model.getValueAt(3, 1), "42", "the pane shows the change");
+
+        undoMan.undo();
+        assertEquals(findProperty(tree, "count").getValue(), "5", "the value edit is undoable");
+
+        // an object field stays sandbox: its edit never leaves the pane
+        model.setValueAt("sandbox", 2, 1);
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the pane shows the object edit locally");
+        assertEquals(findProperty(tree, "a").getChildCount(), 1,
+                "the object field node is untouched");
+    }
+
+    /**
+     * The synthetic value row of a primitive row object writes the object value itself - as a
+     * command, symmetric to the Attributes pane.
+     */
+    @Test
+    public void testPrimitiveRowObjectValueReachesTheNodeFromTheFieldsPane() throws Exception {
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+        EditNodeProperty values = findProperty(tree, "values");
+        EditNodeObject rowObject = (EditNodeObject) values.getChildAt(0);
+
+        final JackTreeModel treeModel = new JackTreeModel(tree);
+        JackUndoManager undoMan = new JackUndoManager();
+        undoMan.setActiveModel(treeModel);
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel(undoMan);
+        undoMan.addUndoRedoListener(5, model);
+        model.onEditorSelected(componentOf(treeModel), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(rowObject), null, false);
+
+        model.setValueAt("gamma", 1, 1);
+        assertEquals(rowObject.getValue(), "gamma",
+                "the synthetic value row reaches the row object as a command");
+
+        undoMan.undo();
+        assertEquals(rowObject.getValue(), "alpha", "the row object edit is undoable");
+    }
+
+    /**
+     * The sandbox contract of the pane: an inline value edit shows in the pane and survives the
+     * refreshes of both parse modes (content command, parse problems, manual), but never reaches
+     * the edit node and is dropped when another object is selected.
+     */
+    @Test
+    public void testInlineEditStaysLocalAndSurvivesRefreshes() throws Exception {
+        EditTree tree = importTree();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        // the "a" row is an unparsed object field without candidates: inline editable
+        assertTrue(model.isCellEditable(2, 1), "the unparsed object field is inline editable");
+        model.setValueAt("sandbox", 2, 1);
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the pane shows the local change");
+
+        final EditNodeProperty fieldA = findProperty(tree, "a");
+        assertNotNull(fieldA);
+        assertEquals(fieldA.getChildCount(), 1, "the edit node keeps its child");
+
+        // the refreshes of the soft and the hard parse mode keep the override
+        model.onCommand("EDIT_ANY", null);
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the change survives the content command refresh");
+        model.onParseProblems(null, null);
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the change survives the parse problems refresh");
+        model.refresh();
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the change survives a manual refresh");
+
+        // another object drops the sandbox
+        final EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
+        model.onNodeSelected(new DefaultMutableTreeNode(targetObject), null, false);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+        assertNotEquals(model.getValueAt(2, 1), "sandbox", "another object selection drops the sandbox");
+    }
+
+    /**
+     * Binds a parsed model to the tree: the root object gets a type descriptor with the
+     * fields of the LINKED_JSON document - the state of a fully parsed owner.
+     */
+    private static JsonModelDescriptor bindRootType(EditTree tree) {
+        final JsonModelDescriptor descriptor = new JsonModelDescriptor("fieldModel");
+        final JsonTypeDescriptor rootType = new JsonTypeDescriptor("Root");
+        rootType.addField(new JsonFieldDescriptor("_woodObjectId", "Root"));
+        rootType.addField(new JsonFieldDescriptor("target", "Root"));
+        rootType.addField(new JsonFieldDescriptor("a", "Root"));
+        rootType.addField(new JsonFieldDescriptor("count", "Root"));
+        // the JSON carries neither of them: a parsed object proposes both as empty rows
+        final JsonTypeDescriptor textType = new JsonTypeDescriptor("Text")
+                .withPrimitive(true).withNodeType(JsonNodeType.STRING);
+        rootType.addField(new JsonFieldDescriptor("spare", "Text"));
+        final JsonTypeDescriptor sceneType = new JsonTypeDescriptor("Scene");
+        rootType.addField(new JsonFieldDescriptor("ref", "Scene"));
+        descriptor.addType(rootType);
+        descriptor.addType(textType);
+        descriptor.addType(sceneType);
+        ((EditNodeObject) tree.getRoot()).setJsonType(rootType);
+        return descriptor;
+    }
+
+    /**
+     * The row index of the field with the given name.
+     */
+    private static int rowOf(JsonJackObjectTableModel model, String name) {
+        for (int i = 0; i < model.getRowCount(); i++) {
+            if (name.equals(model.getValueAt(i, 0))) {
+                return i;
+            }
+        }
+        fail("no row named " + name);
+        return -1;
+    }
+
+    /**
+     * Selects the object in the pane like a tree click does - with the model descriptor
+     * of the parsed editor and the undo manager of the master control when given, so
+     * the missing field rows appear and the write-back exceptions can run.
+     */
+    private static JsonJackObjectTableModel selectObject(EditTree tree, EditNodeObject object,
+            JsonModelDescriptor descriptor, JackUndoManager undoMan) {
+        final JackTreeModel treeModel = new JackTreeModel(tree);
+        final JsonJackObjectTableModel model = new JsonJackObjectTableModel(undoMan);
+        if (undoMan != null) {
+            undoMan.setActiveModel(treeModel);
+        }
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(object), null, false);
+        return model;
+    }
+
+    /**
+     * A parsed object appends the declared fields the JSON does not carry yet as empty
+     * rows: scalars are inline editable (the edit creates the child), reference and
+     * array fields stay read-only (the add menu creates them). Without a model there
+     * are no proposals.
+     */
+    @Test
+    public void testParsedObjectShowsMissingFieldsAsEmptyRows() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = bindRootType(tree);
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.setJsonModelDescriptor(descriptor);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getRowCount(), 7,
+                "header, the four present fields and the two missing fields");
+        final int spareRow = rowOf(model, "spare");
+        assertTrue(model.isMissingFieldRow(spareRow), "the spare row is a missing field row");
+        assertEquals(model.getValueAt(spareRow, 1), "", "the missing field shows an empty value");
+        assertEquals(model.getValueAt(spareRow, 3), "Text", "the JsonType column shows the declared type");
+        assertTrue(model.isCellEditable(spareRow, 1), "a scalar missing field is inline editable");
+        assertFalse(model.isButtonEnabled(spareRow), "an empty row opens nothing");
+
+        final int refRow = rowOf(model, "ref");
+        assertTrue(model.isMissingFieldRow(refRow), "the ref row is a missing field row");
+        assertFalse(model.isCellEditable(refRow, 1),
+                "a reference field is created through the add menu, not by a text edit");
+
+        // without a model the pane shows no proposals
+        EditTree bareTree = importTree();
+        JsonJackObjectTableModel bareModel = new JsonJackObjectTableModel();
+        bareModel.onEditorSelected(componentOf(bareTree), null);
+        bareModel.onNodeSelected(new DefaultMutableTreeNode(bareTree.getRoot()), null, false);
+        assertEquals(bareModel.getRowCount(), 4, "header plus the three fields, no proposals");
+    }
+
+    /**
+     * The edit of a missing field row creates the child node: as an undoable
+     * AddNodeCommand carrying the typed value - no NPE, undo removes the child again.
+     */
+    @Test
+    public void testMissingFieldEditCreatesTheChild() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = bindRootType(tree);
+        final JackUndoManager undoMan = new JackUndoManager();
+        JsonJackObjectTableModel model = selectObject(tree, (EditNodeObject) tree.getRoot(), descriptor, undoMan);
+
+        final int childrenBefore = tree.getRoot().getChildCount();
+        final int spareRow = rowOf(model, "spare");
+        model.setValueAt("hello", spareRow, 1);
+
+        assertEquals(tree.getRoot().getChildCount(), childrenBefore + 1,
+                "the edit created the child node");
+        final EditNodeProperty spare = findProperty(tree, "spare");
+        assertNotNull(spare, "the child exists under the object");
+        assertEquals(spare.getValue(), "hello", "the created child carries the typed value");
+        assertEquals(spare.getType(), JsonNodeType.STRING, "the model typed the child");
+
+        undoMan.undo();
+        assertNull(findProperty(tree, "spare"), "the creation is undoable");
+    }
+
+    /**
+     * A blank edit creates no child: the change stays in the pane.
+     */
+    @Test
+    public void testBlankMissingFieldEditStaysLocal() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = bindRootType(tree);
+        final JackUndoManager undoMan = new JackUndoManager();
+        JsonJackObjectTableModel model = selectObject(tree, (EditNodeObject) tree.getRoot(), descriptor, undoMan);
+
+        final int childrenBefore = tree.getRoot().getChildCount();
+        final int spareRow = rowOf(model, "spare");
+        model.setValueAt("   ", spareRow, 1);
+
+        assertEquals(tree.getRoot().getChildCount(), childrenBefore, "a blank value creates no child");
+        assertEquals(model.getValueAt(spareRow, 1), "   ", "the pane still shows the input");
+    }
+
+    /**
+     * The edit of a missing field row without an undo manager (the local-only
+     * constructor) creates no child: the change stays in the pane.
+     */
+    @Test
+    public void testMissingFieldWithoutUndoManagerStaysLocal() throws Exception {
+        EditTree tree = importTree();
+        JsonModelDescriptor descriptor = bindRootType(tree);
+        JsonJackObjectTableModel model = selectObject(tree, (EditNodeObject) tree.getRoot(), descriptor, null);
+
+        final int childrenBefore = tree.getRoot().getChildCount();
+        final int spareRow = rowOf(model, "spare");
+        model.setValueAt("hello", spareRow, 1);
+
+        assertEquals(tree.getRoot().getChildCount(), childrenBefore,
+                "no undo manager, no child creation");
+        assertEquals(model.getValueAt(spareRow, 1), "hello", "the pane still shows the change");
+    }
+
+    /**
+     * The jsonType header is a descriptor info row: enabled when the owner is typed, the
+     * info text carries the verbose string representation of the JsonTypeDescriptor.
+     */
+    @Test
+    public void testJsonTypeHeaderOpensVerboseTypeDescriptor() throws Exception {
+        EditTree tree = importTree();
+        bindRootType(tree);
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertTrue(model.isDescriptorInfoRow(0), "the jsonType header is a descriptor row");
+        assertTrue(model.isButtonEnabled(0), "a parsed owner has a type descriptor to show");
+        assertTrue(model.descriptorInfoText(0).contains("typeName=Root"),
+                "the verbose text names the type: " + model.descriptorInfoText(0));
+
+        // an unparsed owner has no type descriptor: the button stays blank
+        EditTree bareTree = importTree();
+        JsonJackObjectTableModel bareModel = new JsonJackObjectTableModel();
+        bareModel.onEditorSelected(componentOf(bareTree), null);
+        bareModel.onNodeSelected(new DefaultMutableTreeNode(bareTree.getRoot()), null, false);
+        assertTrue(bareModel.isDescriptorInfoRow(0));
+        assertFalse(bareModel.isButtonEnabled(0), "no resolved type, nothing to show");
+        assertNull(bareModel.descriptorInfoText(0));
+    }
+}

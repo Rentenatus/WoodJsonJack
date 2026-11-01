@@ -1,0 +1,634 @@
+# Konzept: Wood-Links im Editor-Core und Object-Pane
+
+**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b) — das Fields-Pane heißt seit dem Umbenennen **Object-Pane** (es zeigt das Objekt mit seinen Feldern; Klassen `JsonJackObjectPane`/`JsonJackObjectTableModel`, Tab-Label „Object"). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop. Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit vier Ausnahmen: Renames im Soft-Modus als Freitext bzw. im Hard-Modus über die Kandidaten-Combobox, primitive Werte in beiden Modi, jsonField-Kombination (Feld-Auswahl der Parent-Description) in beiden Modi und die Erzeugung fehlender Felder (AddNodeCommand) in der Object-Pane.
+**Betroffene Projekte**: `jsonCasted_edit` (Phase A, Editor-Core), `WoodJsonJack` (Phase B, Swing-UI)
+**Abhängigkeiten**: `JsonTreeConverter`, `EditTreeWriter`, `EditTree`, `EditNodeObject`, `EditLinkingSet`, `JsonModelDescriptor`, `JsonTerms`
+**Vorbedingung**: Phase A vor Phase B — die Combobox des Object-Pane filtert Objekt-Instanzen, die der Editor heute noch verliert.
+
+---
+
+## Inhaltsverzeichnis
+
+1. [Ausgangslage](#1-ausgangslage)
+2. [Zielbild](#2-zielbild)
+3. [Phase A: Wood-Links in der Editor-Core](#3-phase-a-wood-links-in-der-editor-core)
+4. [Phase B: Object-Pane](#4-phase-b-object-pane)
+5. [Selektions- und Fokus-Semantik](#5-selektions-und-fokus-semantik)
+6. [Offene Punkte / bewusst vertagt](#6-offene-punkte--bewusst-vertagt)
+7. [Aufwand und Reihenfolge](#7-aufwand-und-reihenfolge)
+8. [Risiken](#8-risiken)
+
+---
+
+## 1. Ausgangslage
+
+### 1.1 Link-System in jsonCasted (funktioniert)
+
+Ein Objekt kann in der Deserialisierung N-mal verlinkt sein. Writer und Parser lösen das über
+Metadaten-Member, die in `JsonTerms` definiert sind:
+
+```
+"_woodObjectId": "123456"        // Term: TERM_WOOD_OBJECT_ID — Identität des Originals
+"_woodLink": "save::123456"     // Term: TERM_WOOD_LINK     — Referenz auf eine woodId
+```
+
+Der `WoodIdFinder` baut daraus eine `LinkingSet` (objectIdMap, linkMap, unconnected-Set),
+`WoodResolution`/`WoodProxyResolver` lösen die Referenzen beim Casten auf. Der Writer
+emittiert die Terme wieder. Ein Roundtrip über `JsonParser` → `JsonObjectWriter` ist verlustfrei.
+
+Dazu kommt der **Systemknoten** `JsonTerms.TERM_WOOD_DEFINITIONS` (`_woodDefinitions`):
+Objekte können außerhalb der Baumstruktur in der Ressourcen-/Definition-Sektion abgelegt
+werden. Das existiert vollständig — der Parser scannt die Knoten
+(`RootParser` → `JsonWoodProviderTinker` → `JsonResource.getDefinitionNodes()`),
+und der Writer sammelt über `DefinitionsContext`/`DefinitionsContextObjectRecord`
+Objekte, die referenziert statt inline serialisiert werden. Ein Objekt muss also
+nicht im Baum stehen, um als Link-Ziel zu existieren.
+
+### 1.2 Editor-Core jsonCasted_edit (unfertig, verlustbehaftet)
+
+Der Ist-Zustand bei der Analyse:
+
+| Baustein | Zustand |
+|---|---|
+| `EditLinkingSet` | existiert, ist das 1:1-Analogon zur `LinkingSet` (objectIdMap/linkMap über `EditNodeObject`) — **tot**: `registerObject`/`registerLink` haben null Aufrufstellen |
+| `EditTree` | hält ein `EditLinkingSet` über `getLinkingSet()`/`setLinkingSet()` — wird nie befüllt |
+| `JsonTreeConverter` | **verwirft** `_woodObjectId` und `_woodLink` beim Import (`isMetadataKey` filtert beide; nur `_class` wird als `castName` gerettet) |
+| `EditTreeWriter` | schreibt `_woodModel`, aber keine Wood-Terme — weder woodId noch Link |
+| `EditNodeObject` | kennt `castName` als Metadaten-Seitenkanal-Muster, aber keine `woodObjectId`, kein `linkTarget` |
+
+**Folge**: Ein N-fach verlinktes Objekt erscheint im Editor als das Original plus N leere
+`{}`-Knoten. Speichert man (`JackMainActions.saveActiveFile` → `EditTreeWriter.toJsonFile`),
+sind die Links endgültig verloren. Das ist ein heute existierender Datenverlust-Bug,
+unabhängig vom Object-Pane.
+
+Wichtig für die Architektur: `JsonTreeConverter` baut den Baum, **bevor** das `EditTree`
+existiert (Kommentar im `EditTree`-Konstruktor). Die Link-Registrierung kann daher nicht
+während der Konvertierung ins EditTree schreiben — der bereits existierende
+`setLinkingSet`-Setter ist genau der vorgesehene Übergabepunkt dafür.
+
+---
+
+## 2. Zielbild
+
+1. Der Editor kennt die Identität von Objekten: `EditNodeObject` trägt seine woodId und
+   Referenz-Knoten tragen ihr Link-Ziel. Import und Export sind verlustfrei, Undo/Redo
+   und Clipboard erhalten die Linkstruktur.
+2. Das Object-Pane zeigt zum selektierten Objekt eine Sicht auf das Modell: Kopfzeile mit
+   Json-Typ, eine Zeile pro Feld (Kindknoten) — und bei geparstem Objekt die deklarierten
+   Felder, die das JSON noch nicht trägt, als leere Zeilen (der Edit erzeugt den Kindknoten).
+   Bei Objekt-Feldern bietet eine Combobox nur die passenden Objekt-Instanzen aus der
+   bereits geparsten JSON an — bei Interfacetypen die Menge der implementierenden
+   Objekttypen, was nur eine Zusatzprüfung des Filters ist.
+3. Beide Panes (Attributes und Object) sind Sandbox-Ansichten: sie erlauben Änderungen, wo
+   es Sinn macht (Wertspalte inline, Collection-/Primitive-List-Editor, Detail-Dialog),
+   spielen diese aber nie in den EditNode zurück — unabhängig vom Parse-Modus (soft/hard)
+   des Baums (Details in Kapitel 5.1). Vier Ausnahmen: der Rename der „name"-Zeile im
+   Attributes-Pane schlägt im Soft-Modus als Command im Tree durch (im Hard-Modus editiert
+   eine Combobox der zulässigen Namen), primitive Werte
+   (Text, Zahl, Boolean) schlagen in beiden Modi durch — Primitive sind stets formkonform —,
+   die jsonField-Zeile des Attributes-Panes wird bei geparstem Parent-Objekt zur
+   Combobox der Felder des Parent-Typs (eine Auswahl bindet das Feld in beiden Modi neu),
+   und der Inline-Edit einer fehlenden Feld-Zeile der Object-Pane erzeugt den Kindknoten
+   als Command.
+
+---
+
+## 3. Phase A: Wood-Links in der Editor-Core
+
+### A1 — `EditNodeObject` erhält woodId und Link-Ziel
+
+Symmetrisch zum bewährten `castName`-Muster (Metadaten als Feld, nicht als Kindknoten):
+
+```java
+// EditNodeObject (neu)
+private String woodObjectId;   // Identität des Originals (aus _woodObjectId), null = unverlinkt
+private String linkTarget;     // "provider::id" (aus _woodLink), null = kein Referenz-Knoten
+
+public String getWoodObjectId();
+public void setWoodObjectId(String woodObjectId);   // meldet sich beim EditTree-LinkingSet an/ab
+public String getLinkTarget();
+public void setLinkTarget(String linkTarget);
+public boolean isLinkReference();                   // linkTarget != null
+```
+
+Begleitende Arbeiten:
+
+- `getAttributes()`: zusätzliche Einträge `"|woodId"` und `"|linkTarget"` — der
+  Prefix `|` kennzeichnet im Attributes-Pane bereits read-only Anzeigezeilen
+  (wie `"|cast name"`). Damit sind beide Werte ohne UI-Arbeit sichtbar.
+- `setAttributes(...)`: symmetrisch dazu (damit `SetValueCommand`-artige Pfade greifen).
+- `deepCopy(...)`: `woodObjectId` und `linkTarget` mitkopieren. **Diskussionspunkt**:
+  Eine Kopie des Originals behält zunächst dieselbe Identität — zwei Knoten mit
+  derselben woodId sind danach unterscheidbar, aber noch nicht eindeutig. Variante:
+  `regenerateEditId == true` erzeugt auch eine neue woodObjectId. Empfehlung für
+  Phase A: Identität mitkopieren und den Konfliktfall über A5 als WARNING markieren;
+  das echte Verhalten gehört zur Auswahl-Semantik (Kapitel 6).
+- `computeHash()` und Range-Logik unverändert — die Felder sind reine Metadaten
+  und beeinflussen kein Parsing.
+- Ein Referenz-Knoten (`isLinkReference()`) hat per Definition keine Kindknoten;
+  `canBeParentOf*()` gibt dafür `false` zurück, damit keine Felder unter eine
+  Referenz gehängt werden können.
+
+**Erweiterung `EditLinkingSet`: Reverse-Index.** Zusätzlich zu den vorhandenen
+objectIdMap/linkMap pflegt das Set einen Reverse-Index:
+
+```java
+// EditLinkingSet (neu)
+private final Map<String, List<EditNodeObject>> referencesByTarget; // woodId -> Referenz-Stubs
+
+public List<EditNodeObject> getReferencesTo(String woodObjectId);   // nie null, ggf. leer
+```
+
+Pflege automatisch in `registerLink`/`removeLink`/`removeObject` (Letzteres
+entfernt auch den Eintrag des Ziels samt Referenzliste — Objekt endgültig weg,
+Zeiger mit). Damit wird der UI-Fan-out der Symlink-Anzeige (Kapitel 6.4) vom
+Filtern über die ganze linkMap zu einem einzigen Map-Lookups; dieselbe Methode
+dient dem Validator (A5, "Luft-Objekt ohne Referenzen") und dem Export (A3,
+"referenziert ja/nein"). Die Schleife über Referenzen bleibt reine Anzeige —
+Domäne, Commands und Undo bleiben Einzeltreffer.
+
+### A2 — Import: `JsonTreeConverter` registriert Links
+
+`convertJsonNodeToEditNode` behandelt die beiden Terme wie heute `TERM_CLASS`:
+
+```
+TERM_WOOD_OBJECT_ID -> node.setWoodObjectId(wert), linkingSet.registerObject(id, node)
+TERM_WOOD_LINK      -> node.setLinkTarget(wert),    linkingSet.registerLink(link, node)
+```
+
+Da der Konverter vor dem `EditTree` läuft, baut er selbst ein `EditLinkingSet` und
+übergibt es nach dem Bau des Baums an das `EditTree` (bereits vorhandener Setter):
+
+```java
+// neue Signatur (Vorwärts-kompatibel überladbar)
+public static EditNodeAbstract importFromJsonNode(JsonNode jsonNode, String rootName,
+        EditTimes weightMonitor, EditLinkingSet linkingSet) throws JsonParseException
+```
+
+`EditTree` übernimmt das Set im Konstruktor bzw. direkt danach per `setLinkingSet`.
+Der `providerName` des Sets kommt aus der obersten `_woodProviders`-Angabe bzw. dem
+Dateikontext; Fallback: leeres Set (unverlinkte Dateien verhalten sich wie heute).
+
+Randfälle:
+
+- `_woodLink`-Ziel existiert nicht in derselben Datei (Cross-Provider-Referenz):
+  trotzdem registrieren; Bewertung übernimmt A5.
+- Link-Knoten, die vor ihrem Original im JSON stehen: Reihenfolge egal, da die
+  Maps erst nach dem kompletten Baum ausgewertet werden.
+
+**Systemknoten-Import**: Objekte unter `_woodDefinitions` sind per Definition keine
+Baumknoten. Sie werden als `EditNodeObject` erzeugt (vollständig, mit allen Feldern
+und `woodObjectId`), im `EditLinkingSet` registriert — aber **nicht** als Kind in
+den sichtbaren Baum eingehängt. Das LinkingSet ist damit nicht nur Register,
+sondern Halteraum: ein solches Objekt existiert editorseitig außerhalb des Baums
+und bleibt über seine woodId referenzierbar.
+
+### A3 — Export: `EditTreeWriter` emittiert die Terme
+
+Analog zu `writeWoodModel`:
+
+- `writeObject(EditNodeObject obj, ...)`: hat `obj.getWoodObjectId()`, wird als
+  **erstes** Member `"_woodObjectId": "..."` geschrieben (Reihenfolge an der
+  Erwartung des Parsers/`WoodIdFinder` ausrichten — vor Implementierung prüfen,
+  wie der Writer in jsonCasted die Position hält).
+- Referenz-Knoten (`isLinkReference()`): nur `"_woodLink": "..."` schreiben,
+  keine Felder — das ist die serialisierte Form einer Referenz. Der Knoten hat
+  ohnehin keine Kinder (siehe A1).
+- **Systemknoten-Export**: Objekte, die das `EditLinkingSet` hält, aber nicht im
+  Baum hängen (nach A4 gelöscht, oder aus `_woodDefinitions` importiert), und die
+  noch referenziert werden (`!getReferencesTo(woodId).isEmpty()`), schreibt der
+  Writer in die `_woodDefinitions`-Sektion
+  der Ressource — nicht als Baumknoten. Referenzierte, aber im Baum nicht mehr
+  vorhandene Objekte gehen so nicht verloren. Nicht mehr referenzierte Luft-Objekte
+  werden beim Export weggelassen (ansonsten müllt sich die Datei mit Zombies zu).
+
+### A4 — Commands, Undo/Redo, Clipboard
+
+**Löschen ist ein Baum-Vorgang, kein Identitäts-Vorgang.** Löscht ein Anwender ein
+Original mit `woodObjectId`, wird der Knoten nur aus der Baumstruktur entfernt —
+das `EditLinkingSet` hält weiter eine starke Referenz auf das `EditNodeObject`
+(mit komplettem Unterbaum, der GC kann nichts einsammeln). Das Objekt hängt damit
+"in der Luft": aus der Sicht des Baums weg, aus der Sicht aller `_woodLink`-Referenzen
+weiterhin vorhanden und intakt. Wir müssen beim Editieren keine Referenzen zerstören.
+
+Damit das funktioniert:
+
+- `EditNodeAbstract.removeChild`/`sayOnRemoved`-Ketten dürfen die entfernten
+  Knoten **nicht** entdaten (Prüfung der `onChildObjectDataRemoved`-Hooks: sie
+  sind für den Abriß von Objekt-Daten gedacht, nicht fürs Verschieben ins
+  LinkingSet). Ggf. entfernt `DeleteNodeCommand` für woodId-Originalknoten den
+  Kind-Verweis ohne Abriß-Callbacks.
+- `DeleteNodeCommand` für ein Luft-Objekt endgültig (zweiter Löschen auf das
+  im LinkingSet gehaltene Objekt): erst dann `removeObject` aus dem LinkingSet.
+  Dafür braucht es später eine UI-Sicht auf den Halteraum (siehe Kapitel 6).
+- `AddNodeCommand`/`PasteFromStash`: neu eingefügte Knoten mit woodId oder
+  linkTarget registrieren (`registerObject`/`registerLink`).
+- Undo/Redo: Delete aus dem Baum macht das Objekt zum Luft-Objekt, Undo hängt es
+  wieder ein — Registrierung bleibt durchgehend im LinkingSet, nur die
+  Baumzugehörigkeit wird zurückgerollt. Das ist unkritisch, weil das LinkingSet
+  der stabile Halter ist und der Baum nur eine Sicht.
+- `CopyToStashCommand`: Referenz-Knoten kopieren ist unproblematisch (Ziel zeigt
+  weiter auf dasselbe Original); Original-Kopie siehe A1.
+
+### A5 — Validierung: `DanglingLinkValidator`
+
+Neuer Contributor in `de.jare.jsoncasted.editor.core.validation`, angebunden über die
+bestehende `ValidatorRegistry`/`EditValidationRunner`-Infrastruktur, Vorbild
+`EditNodeRequiredFieldsValidator`:
+
+- Referenz-Knoten, dessen `linkTarget` **weder im Baum noch im LinkingSet**
+  auflöst → **ERROR** (wirklich abgerissen). Ein Ziel, das nur als Luft-Objekt im
+  LinkingSet hängt, ist dagegen **ok** — genau dafür ist der Halteraum da.
+- Zwei Knoten mit derselben woodObjectId (nach Copy eines Originals) → **WARNING**
+  mit beiden Pfaden.
+- Luft-Objekt im LinkingSet, auf das keine Referenz mehr zeigt
+  (`getReferencesTo(woodId).isEmpty()`) → **INFO/Hinweis**
+  (Kandidat fürs Aufräumen; der Export lässt es ohnehin weg).
+
+### A6 — Tests (jsonCasted_edit, `test/de/jare/jsoncasted/editor/`)
+
+1. **Roundtrip**: JSON mit einem Original und N=3 `_woodLink`-Referenzen →
+   Import → Export → byte-genauer Vergleich der Wood-Terme (Original-Id bleibt,
+   alle Links bleiben).
+2. **Konverter**: `_woodObjectId`/`_woodLink` landen als Felder auf dem richtigen
+   `EditNodeObject`, LinkingSet enthält beide Maps korrekt; Reverse-Index
+   konsistent zu linkMap (jede registrierte Referenz erscheint unter ihrem Ziel,
+   `removeObject` räumt den Eintrag mit).
+3. **Commands**: Original aus dem Baum löschen, während N Referenzen existieren →
+   Referenzen bleiben intakt, Objekt hängt im LinkingSet, Export schreibt es nach
+   `_woodDefinitions`; Undo hängt es wieder in den Baum.
+4. **deepCopy**: woodObjectId/linkTarget werden transportiert.
+5. **Systemknoten**: JSON mit Objekt in `_woodDefinitions` → Import registriert es
+   im LinkingSet ohne Baumposition → Export schreibt es zurück in die Sektion.
+
+---
+
+## 4. Phase B: Object-Pane
+
+*Ursprünglich als Fields-Pane geplant und gebaut; umbenannt, weil das Pane das Objekt mit
+seinen Feldern zeigt — Klassen, Tab-Label und Doku folgen dem Namen seither.*
+
+### B1 — `JsonJackObjectTableModel` (neu, `de.jare.tree.ui`)
+
+Direktes Analogon zu `JsonJackAttrTableModel`, implementiert `TreeFocusListener`,
+registriert über `jackmaster.addSelectionListener(...)`:
+
+```
+onNodeSelected(node)
+  -> EditNode bestimmen (userObject des DefaultMutableTreeNode)
+  -> ist es EditNodeProperty (Feld): Parent-Objekt anzeigen (EditNodeAbstract.getParent()),
+     ausgewähltes Feld wird Fokus-Zeile
+  -> ist es EditNodeObject: dieses Objekt anzeigen
+  -> Zeilen: [Kopf "jsonType" = getJsonType()?.getTypeName() oder jsonType-Attribut]
+             [pro Kindknoten: name = child.getName(),
+                             value = child.getValue() (primitiv)
+                                    oder Objektname + Typ (Objekt-Kind)]
+```
+
+Fokus-Zeile wird über `getEditId()` des Kindknotens gesucht (nicht über den Namen —
+bei Arrays/`EditNodePropertyArr` sind Namen mehrdeutig), dann
+`setSelectionInterval(row, row)` + `scrollRectToVisible(...)`.
+
+### B2 — Combobox-Befüllung, dreistufig nach Parsbarkeit
+
+| Zustand des Feldes | Quelle | Combobox-Inhalt |
+|---|---|---|
+| sauber geparst (`EditNodeProperty.getJsonField() != null`), Feldtyp Objekt | `JsonFieldDescriptor.getTypeName()` + `getCollectionType()` | alle Objekt-Instanzen aus der geparsten JSON, deren Typ passt |
+| Interfacetyp als Feldtyp | `JsonTypeDescriptor.getImplementors()`/`containsSuper()` | alle Instanzen implementierender Typen — Zusatzprüfung desselben Filters |
+| nicht geparst, Node-Typ primitiv | `EditNodeProperty.getType()` (`JsonNodeType`) | primitive Alternativen (STRING, NUMBER, LONG, BOOLEAN, NULL) |
+| nicht geparst, Node-Typ OBJECT | — | leer/deaktiviert |
+
+Filterbasis für die Objekt-Instanzen: ein Walk über den aktiven `EditTree` über alle
+`EditNodeObject` mit aufgelöstem `getJsonType()` — **plus** die Einträge der objectIdMap
+des LinkingSets (Phase A): ein aus dem Baum gelöschtes, aber noch referenziertes
+Objekt bleibt damit wählbar, genau wie ein Objekt aus `_woodDefinitions`. Instanzen
+mit woodId werden bevorzugt angezeigt, da nur sie echte Link-Ziele sind.
+Im Combobox wählt man ausschließlich zwischen Objekten.
+
+### B3 — Combobox-Cell-Editor (neu, wiederverwendbar)
+
+`JsonJackAttrTableModel` hat die Modell-Seite (`isComboBoxCell`, `getComboBoxValues`)
+schon — nur ist im `WoodWindow` kein Cell-Editor dafür installiert; die Methoden sind
+derzeit tot. Neuer Editor (~50 Zeilen):
+
+```java
+public class JsonJackComboBoxCellEditor extends AbstractCellEditor implements TableCellEditor {
+    // getTableCellEditorComponent: delegiert an model.isComboBoxCell(row, col),
+    // baut JComboBox(model.getComboBoxValues(row)), sonst DefaultTextField
+}
+```
+
+`installComboBoxEditor` im `WoodWindow` für beide Tabellen — rüstet damit auch den
+Attributes-Pane nach.
+
+### B4 — Asynchroner Refresh bei Typauflösung
+
+Die Feld-Description trifft asynchron ein: `setJsonField` feuert
+`EditTree.notifyTypeDescriptorChanged` und `propagateElementTypeToChildren`. Das
+Object-Modell muss darauf reagieren und die sichtbaren Zeilen aktualisieren, sonst
+stehen leere Comboboxen, obwohl das Modell die Antwort längst kennt. Derselbe
+Refresh-Hook ist ein latenter Bugfix für das `JsonJackAttrTableModel` (refresht
+bisher nur auf `onNodeSelected`).
+
+### B5 — Einbindung in `WoodWindow`
+
+- Konstante `TAB_FIELDS = "Object"` (Name der Konstante historisch, Label „Object");
+  `bottomTabs.addTab(TAB_FIELDS, new JsonJackObjectPane(jackmaster, this))`
+  neben `TAB_ATTRIBUTES`.
+- Pane analog zur Attributes-Pane: Model bauen,
+  `jackmaster.addSelectionListener(...)`, JTable mit `EditStatusCellRenderer`,
+  Combobox-Editor aus B3.
+- Model als **Feld** in `WoodWindow` halten: der Orator des Master-Controls hält
+  Listener nur schwach referenziert, der GC deregistriert sie sonst still
+  (gleiche Falle wie Commit 9de659e — dort für Parse-Listener gefixt).
+- Rückkopplungsschutz: die Tabelle ist reiner Listener. Soll später ein
+  Zeilen-Klick den Baum steuern, ist der `trigger`-Parameter am Orator die
+  Loop-Protection — bereits vorhanden, nicht neu bauen.
+
+---
+
+## 5. Selektions- und Fokus-Semantik
+
+- Klick auf ein Objekt im Baum → Object-Pane zeigt dieses Objekt (jsonType + alle Felder,
+  plus die fehlenden deklarierten als leere Zeilen).
+- Klick auf ein Feld (Property) im Baum → Object-Pane zeigt das **Parent-Objekt**,
+  die Zeile des geklickten Feldes erhält den Fokus (Selection + Scroll).
+- Der Feld-Fokus bleibt auch beim Wechsel zwischen Attributes/Object-Tab erhalten
+  (Model behält seinen Zustand, Tab-Wechsel baut die Tabelle nicht neu).
+
+### 5.1 Sandbox-Semantik der Panes
+
+Beide Panes akzeptieren Änderungen — Wertspalte inline, Collection-/Primitive-List-Editor,
+Detail-Dialog — schreiben sie aber nie in den EditNode zurück. Damit lösen Pane-Edits in
+keinem Parse-Modus einen Parse aus (SOFT: der Hintergrund-Parser schläft, HARD: kein
+synchroner Lauf, keine Validierungsstatus-Änderung).
+
+- **Speicherort**: `JsonJackObjectTableModel` hält lokale Overrides, geschlüsselt nach der
+  editId des Felds (`valueOverrides`, `objectListOverrides`, `primitiveListOverrides`); die
+  synthetische Wertzeile eines primitiven Objekts nutzt die editId des Objekts selbst. Das
+  `JsonJackAttrTableModel` ändert wie bisher nur die lokale PropertyRow.
+- **Lebenszyklus**: Overrides überstehen jeden Refresh desselben Objekts — im Soft-Modus den
+  asynchronen `onParseProblems`-Refresh, im Hard-Modus den `onCommand`-Refresh — und werden
+  bei Auswahl eines anderen Objekts oder einem Editor-Wechsel verworfen.
+- **Refresh-Verkabelung**: Beide Panes lauschen zusätzlich auf die UndoRedo-Events ihres
+  Editors (`addUndoRedoListener`): Execute, Redo und Undo — aus der Pane selbst, vom Tree oder
+  aus der jeweils anderen Pane — frischen die Zeilen des eigenen `JackTreeModel` auf
+  (Identitätsvergleich; ein zweiter Editor daneben löscht nichts). Der `ContentListener`-Pfad
+  (`fireCommand`) ist dagegen nie verkabelt — `fireCommand` hat keinen Aufrufer, `onCommand`
+  bleibt stummes Erbe.
+- **Anzeige**: Die Value-Spalte zeigt die Override-Vorschau (Instanztexte bzw. Werte,
+  kommasepariert); die Dialoge füllen sich über `getCurrentObjectList()`/
+  `getCurrentPrimitiveList()` aus dem Override — ein wieder geöffneter Editor sieht die
+  letzte Sandbox-Wahl. Die Schaltflächen-Spalte unterscheidet UX-seitig: „^" markiert eine
+  editierbare Zeile, „-" eine nur lesbare (deren Dialog öffnet read-only), „?" eine
+  Deskriptor-Zeile (jsonField/jsonType im Attributes-Pane, jsonType-Header im Object-Pane —
+  ihr Dialog zeigt die ausführliche Stringdarstellung des JsonField- bzw.
+  JsonType-Deskriptors; aktiviert nur, wenn der Parser einen aufgelöst hat, sonst bleibt
+  die Schaltfläche leer), leer bleibt der deaktivierte Zustand. Die jsonType-Zeile des
+  Attributes-Panes zeigt dafür nur noch den nackten Typnamen — die Details leben hinter
+  dem „?".
+- **Entfallene Write-back-Pfade**: `applyObjectListResult`/`applyPrimitiveListResult` erzeugen
+  keine Reference-Stubs mehr, registrieren nichts im LinkingSet und ändern keinen
+  `JsonNodeType`. Die Whole-List-Reference-Logik bleibt als lokale Anzeige erhalten (nur der
+  Array-Kandidat zählt, wie gehabt).
+- **Ausnahme Name (Attributes-Pane und Tree-Editor)**: Die „name"-Zeile ist eine Ausnahme
+  der Sandbox. Ein Rename wird im Soft-Modus (und ohne Semantik) als `RenameNodeCommand` über
+  den UndoManager ausgeführt und schlägt im Tree durch — neuer Name, anderes Feld, anderer
+  Typ rückt nach, der Soft-Parser folgt asynchron; Undo greift wie beim Tree-Rename. Im
+  Hard-Modus wird der Namens-Editor (Tree-Editor wie name-Zeile) zur Combobox der zulässigen
+  Namen: ALLE deklarierten Felder des Owner-Typs (Konstruktor-Parameter und Felder, Supertyp-Kette inklusive)
+  (`HardEditAdvisor.permissibleRenames`). Eine Kandidaten-Auswahl führt den Rename auch im
+  Hard-Modus aus (Entscheidung 2 des Parse-Modi-Konzepts — der Name ist modellbekannt, der
+  Parser bewertet den Inhalt); Freitext bleibt verweigert — Ablehnungen hinterlassen eine
+  Notiz im Fast Log. Ein Parse-ERROR nach dem Rename ist transaktional: der synchrone
+  Hard-Parse läuft im Command (`notifyNodeNameChanged` → `parseNow`), ein ERROR auf dem
+  Knoten oder in seinem Teilbaum rollt den Rename als Undo zurück
+  (`JsonJackHardRenameGuard`) — der Tree behält den alten Namen, der Fast Log erklärt
+  die Verweigerung, und das Fast-Log-Message-Fenster zeigt den Eintrag. Der Rename parst
+  den Knoten selbst, nie das Parent: die Kardinalität des Parents prüft der Guard selbst —
+  ein Feldname, den ein Geschwister schon trägt, ist kein Parse-Urteil, aber ein
+  ungültiger Objektzustand und wird genauso zurückgerollt. Der Soft-Modus
+  bleibt unguarded: der Hintergrund-Parser folgt asynchron, seine Probleme trägt der
+  Parse-Walk in den Fast Log. Dasselbe gilt für die jsonField-Kombination im Hard-Modus.
+  Ein leerer Name wird von der Pane abgefangen (der Command-Check existiert, wird vom
+  HistoryManager aber nicht erzwungen). Ein Durchreich-Array-Wrapper (`EditNodePropertyArr`,
+  der anonyme „array"-Knoten) trägt keine eigenen Daten: seine `name`- und `primValue`-Zeilen
+  sind read-only (auch gegen direkte `setValueAt`-Aufrufe), ein benanntes Array-Feld bleibt
+  umbenennbar.
+- **Ausnahme primitive Werte (beide Panes)**: Primitive Werte sind formkonform und werden in
+  BEIDEN Modi als `SetNodeValueCommand` (Typ `SET_VALUE`) über den UndoManager ausgeführt: Soft
+  parst asynchron nach, Hard validiert synchron, der Parser bewertet den Inhalt (ein Text im
+  Zahlenfeld wird markiert). Im Attributes-Pane betrifft das die `primValue` einer Property mit
+  primitivem Node-Typ (STRING, NUMBER, LONG, BOOLEAN, NULL) und den `value` eines primitiven
+  Zeilenobjekts (skalare Array-Zeile: keine Kinder, ein Wert); im Object-Pane die Inline-Wert
+  der synthetischen Zeile und den `setValueAt`-Weg des Detail-Dialogs. Die Listeneditoren und
+  Objektfelder bleiben Sandbox bis zur Auswahl-Semantik. `EditNodeObject` trägt dafür ein
+  echtes `setValue` mit Parse-Notifikation — vorher war es ein NoOp, auch `setAttributes` lief
+  dadurch ins Leere. Nach jedem Command-Ergebnis frischt der JTree zusätzlich die
+  Vorfahren-Kette auf (`JackTreeModel.refreshAncestorRendering`): aggregierte Labels
+  (Array-Vorschauen) und ihre Zeilenbreiten folgen dem neuen Inhalt.
+- **Ausnahme Feldbindung (jsonField, Attributes-Pane)**: Ist das Parent-Objekt des gewählten
+  Felds fertig geparst, kennt seine Description alle Felder des Typs: Die `jsonField`-Zeile
+  wird editierbar und zeigt eine Combobox dieser Felder (statt der bisherigen
+  Deskriptor-ToString zeigt die Zeile den gebundenen Feldnamen). Eine Auswahl bindet die
+  Property als Rename neu — als `RenameNodeCommand` über den UndoManager, in BEIDEN
+  Parse-Modi: Die Kandidaten stammen aus der Model-Description, der neue Name ist also
+  modellbekannt und formkonform; der Parser bewertet den Inhalt (im Hard-Modus synchron —
+  passt der Wert nicht zum neuen Feld, wird der Knoten markiert, der akzeptierte Versuch;
+  im Soft-Modus folgt der Parser asynchron). Ein Wert außerhalb der Kandidatenliste, eine
+  leere Wahl und der Durchreich-Array-Wrapper bleiben lokal (Ablehnung mit Fast-Log-Notiz);
+  ein freitextlicher Feldname bleibt der `name`-Zeile vorbehalten. Ohne geparsten Parent ist
+  die Zeile read-only (keine Kandidaten, kein freitextlicher Fallback).
+- **Ausnahme fehlende Felder (Object-Pane)**: Ein geparstes Objekt zeigt die deklarierten
+  Felder, die das JSON noch nicht trägt, als leere Zeilen unter den vorhandenen — die
+  Vorschläge kommen aus `HardEditAdvisor.permissibleChildren` (dieselbe Quelle wie das
+  Add-Menü des Hard-Modus: Skalare typisiert, Referenzen mit vorbereiteten Wertobjekten,
+  Collections als Array-Properties). Ein Inline-Edit einer skalaren Leerzeile erzeugt den
+  Kindknoten — als undoablem `AddNodeCommand` mit dem getippten Wert; der Parser bewertet
+  den Inhalt wie bei jedem Add. Referenz- und Array-Felder bleiben read-only (ihr Add
+  läuft über das Menü), ein leerer Tipp und das local-only-Modell ohne UndoManager
+  bleiben in der Pane. Nach dem Add verschwindet die Leerzeile: das Feld ist jetzt
+  vorhanden.
+
+---
+
+## 6. Offene Punkte / bewusst vertagt
+
+1. **Auswahl-Semantik der Combobox** (der "später reden"-Punkt): Auswahl eines Objekts
+   setzt das Feld auf eine **Link-Referenz** (Kindknoten wird Referenz-Knoten mit
+   `linkTarget`, Export schreibt `_woodLink`) statt auf eine Kopie — sobald die
+   Auswahl-Semantik steht. Der frühere Write-through der Panes (Stub-Erzeugung und
+   LinkingSet-Registrierung in `applyObjectListResult`, `setType`-Spiegelung, primitive
+   Row-Ersetzung) ist mit der Sandbox-Semantik (Kapitel 5.1) entfernt; die Wahl landet nur
+   noch lokal. Ein späterer Write-back gehört in ein eigenes Command
+   (`SetFieldLinkCommand`), damit Undo greift. Klärungsfragen:
+   Verweisen auf Objekte mit oder ohne woodId? Wird beim Setzen automatisch eine
+   woodId ans Original vergeben?
+2. **woodId-Generierung**: Woher kommen Ids für neu angelegte Objekte? Kandidat ist
+   der bestehende `IdGenerator`; ob woodIds editor-lokal oder provider-global sein
+   müssen, klärt die Auswahl-Semantik.
+3. **UI-Sicht auf den Halteraum**: Luft-Objekte im LinkingSet sind unsichtbar, solange
+   kein Knoten auf sie zeigt. Für das endgültige Löschen und Aufräumen braucht es
+   eine Sicht (z. B. Sektion im Object-Pane oder eigener Baumabschnitt). Design offen.
+4. **Renderer**: Darstellung von Referenz-Knoten im Baum (Icon/Tooltip "ref: name").
+   Assets in `assets/icons/` erweitern. Zwei Varianten mit unterschiedlichem
+   UI-Aufwand:
+   - **Stub-Anzeige** (Standard im Konzept): Der Swing-Baum ist eine zweite
+     Materialisierung des EditNode-Baums (`JackTreeModel.buildSubtree`, userObject
+     = EditNode); Updates laufen positionslokal über
+     `JackEditTree` → `findNodeByIdAndRange` → `buildSubtreeStructureChanged`
+     (`nodeStructureChanged`). Da jeder Referenz-Stub ein eigenes EditNodeObject
+     mit eigenem editId an eigener Position ist, bleibt die 1:1-Positionsmapping
+     erhalten — ein Edit am Original informiert nur die Original-Position, keine
+     Fan-out-Mechanik nötig.
+   - **Symlink-Anzeige** (dereferenziert beim Zeichnen über `findLinkTarget`):
+     Dann hängen N UI-Positionen von einer fremden Position ab, die
+     positionslokalen Events erreichen sie nicht. Fan-out nötig: nach Edit am
+     Original `linkingSet.getReferencesTo(woodId)` (Reverse-Index, A1 — ein
+     Lookup statt Filterung), je Referenz
+     `findNodeById(ref.getEditId())` + `nodeChanged(uiNode)`. Nur-Lesen —
+     expandierbare dereferenzierte Kinder wären wieder Kopie-Synchronisation.
+5. **Multi-Tab**: `EditLinkingSet` ist pro `EditTree` — Cross-Tab-Verweise sind
+   bewusst out of scope; Validator meldet sie als ERROR.
+6. **Enum-Felder**: `JsonTypeDescriptor.getPermittedValues()` liefert fertige
+   Auswahllisten — gratis ausbaufähig, sobald Auswahl-Semantik steht.
+7. **Modellsicht ohne Instanz**: Modell-Felder des Typs ohne Kindknoten als
+   "fehlende" Zeilen anzeigen. Tür steht offen, kein Bestandteil dieses Konzepts.
+
+---
+
+## 7. Aufwand und Reihenfolge
+
+| Phase | Inhalt | Schätzung |
+|---|---|---|
+| A1–A3 | woodId/linkTarget, Import, Export | 1–2 Tage |
+| A4–A5 | Commands/Undo, Validator | 1 Tag |
+| A6 | Tests | 0,5–1 Tag |
+| B1–B5 | Object-Pane (ursprünglich Fields-Pane) inkl. Editor + Refresh-Hook | 1 Tag |
+
+Reihenfolge zwingend A vor B: ohne Link-Trägerfähigkeit kann die Combobox nur
+Stufe 2/3 (primitive Fallbacks) liefern und der Editor verliert weiterhin Links.
+Innerhalb Phase A ist A2+A3 der kritische Pfad (schließen den Datenverlust-Bug),
+A4/A5 sind Härtung.
+
+---
+
+## 8. Risiken
+
+- **Signaturänderung `importFromJsonNode`**: Aufrufer sind `EditTree` und
+  `JackMainActions` — überschaubar, aber Breaking Change innerhalb des Ökosystems.
+  Absicherung über überladene Methode mit Default-LinkingSet.
+- **Parser-Erwartung an Member-Reihenfolge**: Vor A3 klären, wo `_woodObjectId`
+  in der Ausgabe stehen muss, damit der Roundtrip garantiert (Test A6/1 deckt es ab).
+- **Undo-Konsistenz**: Registrierungs-Hooks in Commands müssen in beiden Richtungen
+  (execute/undo) sauber arbeiten — sonst Maps-Drift. Test A6/3 deckt es ab.
+- **Entfernungs-Callbacks**: `removeChild`/`sayOnRemoved`/`onChildObjectDataRemoved`
+  sind auf Abriß ausgelegt. Beim Lösen eines woodId-Originals aus dem Baum dürfen
+  sie die Nutzdaten nicht anfassen, sonst verliert das Luft-Objekt im LinkingSet
+  seinen Inhalt. Test A6/3 deckt es ab.
+- **Export-Müll**: Luft-Objekte, auf die keine Referenz zeigt, müssen beim Export
+  weggelassen werden — sonst sammelt die Datei Zombies aus jedem Löschen+rückgängig.
+- **Kopie-Konflikt**: zwei Knoten mit gleicher woodId nach Copy — bewusst erst
+  WARNING (A5), Endgültigkeit mit der Auswahl-Semantik.
+
+---
+
+## 9. Umsetzungsnotizen (Abweichungen vom Konzept)
+
+Beim Umsetzen haben sich vier Punkte gegenüber dem ursprünglichen Text vereinfacht
+oder verschoben:
+
+1. **woodObjectId = objektId.** `EditNodeObject` trägt bereits ein ungenutztes
+   `objektId`-Feld, und `EditLinkingSet` registriert schon danach — statt eines
+   Zweitfelds wird genau dieses befüllt und angezeigt (Attributzeile
+   `objektId` existiert im Attributes-Pane schon).
+2. **`_woodDefinitions` bleibt sichtbar.** Der Konverter hängt Definitions-
+   Objekte als normalen Array-Knoten in den Baum (heutiges Verhalten), statt
+   sie unsichtbar im LinkingSet zu halten. "Luft-Objekt" ist damit nur, was
+   zur Laufzeit aus dem Baum gelöscht wurde; der Export schreibt genau diese
+   nach `_woodDefinitions` zurück, der Re-Import zeigt sie wieder als Baum-
+   Knoten. Rundtrip-stabil und ehrlich.
+3. **Zombie-Regel verschärft.** Definitions-Einträge werden nur für Objekte
+   geschrieben, auf die auch Stubs zeigen, die selbst noch im exportierten
+   Baum hängen — abgerissene Stubs im Reverse-Index halten kein Ziel mehr am
+   Leben (`EditTreeWriter.isReferencedFromTree`).
+4. **Undo-Rebinding über addChild.** Die Commands fügen Snapshot-Kopien ein,
+   nicht die Originale. Die Wartung von objectIdMap und Reverse-Index hängt
+   deshalb zentral an `EditTree.addChild`/`removeChild`: jede eingefügte Kopie
+   registriert sich neu und überschreibt damit die Identity-Map-Einträge; das
+   Undo einer Löschung bindet die Identität so an die wieder eingefügte Kopie.
+   Gelöschte Stubs verlassen den Reverse-Index, Identitäten bleiben
+   (Halteraum).
+5. **Panes sind Sandboxes.** Beide Panes erlauben Änderungen, spielen sie aber nie in den
+   EditNode zurück (Kapitel 5.1): `JsonJackObjectTableModel.setValueAt`,
+   `applyObjectListResult` und `applyPrimitiveListResult` schreiben ausschließlich lokale
+   Overrides (nach editId), das `JsonJackAttrTableModel` ändert nur die lokale Zeile —
+   Ausnahmen (Kapitel 5.1): der Rename der „name"-Zeile als RenameNodeCommand im Soft-Modus
+   (Attributes-Pane), primitive Werte als SetNodeValueCommand in beiden Modi (beide Panes),
+   die jsonField-Kombination als RenameNodeCommand in beiden Modi (Attributes-Pane) und die
+   Erzeugung fehlender Felder als AddNodeCommand (Object-Pane). Der
+   `JsonJackObjectTableModelNGTest` (26) und der `JsonJackAttrTableModelNGTest` (19) sichern
+   den Vertrag: EditNode unangetastet, Override überlebt die Refreshes beider Parse-Modi,
+   Objektwechsel verwirft, Rename nur im Soft-Modus, primitive Werte, jsonField-Auswahl und
+   fehlende Felder in ihren Modi aus beiden Panes.
+6. **Gemeinsame Basisklasse der Pane-Modelle.** Die Querschnitts-Verkabelung — Editor-Selektion
+   (treeModel/editTree/Deskriptor-Fang), UndoRedo-Refresh mit Identitätsvergleich des eigenen
+   TreeModels, Write-back-Bereitschaft, `isPrimitiveType`/`asText` — lebt in
+   `AbstractJsonJackTableModel`; die Tabellen-Semantik (Zeilen, Sandbox-Overrides, Kandidaten,
+   Write-back-Gates) bleibt je Modell. Ein Tree-Wechsel meldet sich als Hook
+   (`onEditorTreeChanged`) — das Object-Modell verwirft dort seine Sandbox.
+
+Zusätzlich gilt im Validator-Umfeld: der `EditValidationRunner` läuft nur mit
+einem non-null Deskriptor — WoodLink-Diagnosen erscheinen also nur bei
+geladenem Modell (Verhalten aller Validatoren, nicht spezifisch für Wood-Links).
+
+Die Tests der Phase A liegen in jsonCasted_edit
+(`EditLinkingSetNGTest`, `WoodLinkImportNGTest`, `WoodLinkRoundTripNGTest`,
+`WoodLinkCommandNGTest`, `WoodLinkValidatorNGTest` — Suite 139 Tests, 0 Failures),
+die der Phase B in WoodJsonJack (`JsonJackObjectTableModelNGTest`,
+`JsonJackAttrTableModelNGTest` und die UI-Suiten — Stand der Sandbox-Verträge:
+126 Tests, 0 Failures).
+
+## 10. editString: Anzeige-Templates als Annotation (nachgetragen)
+
+editString ist quer durch alle vier Schichten umgesetzt (Detailkonzept:
+`annotationen-konzept.md`, Entscheidung 12, jsonCasted):
+
+- **Modell (jsonCasted):** `JsonAnnotation.EDIT_STRING` ("editString"),
+  deklariert am `descriptType` der Selbstbeschreibung — damit kann jeder
+  Typ-Eintrag einer Description-Datei `@editString` tragen.
+  `JsonTypeDescriptor.editString` ist Laufzeit-Speicher; die Adoption läuft
+  ueber `JsonModelDescriptor.adoptEditStrings(raw)` aus dem ROHEN JsonNode-Baum
+  (der Builder ist @-blind, Entscheidung 3 des Annotations-Konzepts).
+- **Validator (jsonCasted_edit):** `EditStringAnnotationValidator`
+  (`editstring.singleElement`) — `@editString` muss ein ein-elementiges
+  String-Array sein; ein Inline-String zaehlt als sein ein Element.
+- **Editor (jsonCasted_edit):** `EditStringEvaluator` — `${param}` greift auf
+  die Kind-Properties zu (Spezialnamen `woodId`, `jsonType`), Filter `upper`,
+  `lower`, `trim`, `substr:a:b`, `number:pattern`, `default:x`, Escape `$${`.
+  `displayText()` Fallback-Kette: Template → name-Feld → woodId → Knotenname.
+  Die Adoption haengt im `JsonTreeConverter.loadDescrAndConvertRessourceToEditTree`
+  (ein Rohparse bedient Cast und Adoption).
+- **UI (WoodJsonJack):** `JsonJackObjectTableModel` zeigt Kandidaten-Labels
+  (Combobox, Collection-Dialog: text-Spalte) und die Value-Spalte
+  objektwertiger Felder ueber `EditStringEvaluator.displayText`.
+
+Der Baum-Renderer (Hauptbaum-Labels) zeigt weiter den strukturellen Namen —
+editString greift zunaechst nur in Pane, Comboboxen und Dialogen.
+
+**Nachtrag Deklarationswert (Annotations-Konzept, Entscheidung 13, korrigiert):**
+Annotationen duerfen einen Wert auf der Deklaration tragen -
+`profile.addAnnotation(JsonAnnotation.editString("${profile}"))` ist die
+Modell-Welt-Form des Templates, gesprochen im Code-Modell selbst. DIE
+DATEI-FORM IST IMMER DER @-KEY: describe/saveAs emittiert Wert-
+Annotationen als `"@name": [wert]` am Typ- und Feld-Eintrag (Traeger-
+Interface JsonAnnotationCarrier, Zeilen des Werts = Array-Elemente,
+javadoc-artig - @doc darf mehrzeilig sein), die Annotationsliste der
+Datei bleibt art-only. Der Parse spiegelt es:
+`JsonModelDescriptor.adoptAnnotationValues(raw)` setzt die @-Key-Werte auf
+die Deklarationen im Deskriptor (zeilenweise gejoint, fehlende Deklaration
+wird angelegt) - damit round-trippt der Wert durch die Description-Datei
+und eine Regeneration fischt ihn nicht mehr weg. Laufzeit-Speicher ist die
+Annotation selbst (kein Sonderfeld auf JsonTypeDescriptor), der Evaluator
+liest `type.getAnnotation("editString").getValue()`. Der Ein-Element-
+Validator gilt fuer @editString, @doc ist ausgenommen.

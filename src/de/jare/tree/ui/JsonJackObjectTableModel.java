@@ -1,0 +1,1110 @@
+package de.jare.tree.ui;
+
+
+import de.jare.jsoncasted.editor.command.AddNodeCommand;
+import de.jare.jsoncasted.editor.command.SetNodeValueCommand;
+import de.jare.jsoncasted.editor.core.EditLinkingSet;
+import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditNodeAnnotation;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditStringEvaluator;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.HardEditAdvisor;
+import de.jare.jsoncasted.editor.core.HardEditAdvisor.ChildProposal;
+import de.jare.jsoncasted.lang.JsonNodeType;
+import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
+import de.jare.tree.control.JackUndoManager;
+import de.jare.tree.control.listeners.ContentListener;
+import de.jare.tree.control.listeners.ParseProblemsListener;
+import de.jare.tree.control.listeners.TreeFocusComponent;
+
+
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import javax.swing.table.AbstractTableModel;
+import javax.swing.tree.DefaultMutableTreeNode;
+
+
+/**
+ * Table model for the Object pane: a view on the model side of the selected
+ * object. The first row shows the json type of the object, one row per field
+ * (child property) follows with name, value and node type; a trailing "^"
+ * column opens the field editor dialogs. A parsed object appends the declared
+ * fields the JSON does not carry yet as empty rows - an edit creates the child
+ * node (see {@link #setValueAt(Object, int, int)}). Object-typed fields
+ * offer their candidate instances through a combo box as well (see
+ * {@link #isComboBoxCell(int, int)}); the selection semantics of those are a
+ * later step - the base version only displays the candidates.
+ *
+ * <p>When a field is selected in the tree, the pane still shows the owning
+ * object and focuses the field's row (matched by edit id, not by name - array
+ * fields may repeat names).</p>
+ *
+ * <p>The pane is a sandbox: it accepts changes - inline value edits and the results of
+ * the list editors - but writes them back only through the two write-back exceptions:
+ * the primitive value (the inline value of a primitive field and the synthetic value row
+ * of a primitive row object execute a SetNodeValueCommand in BOTH parse modes - primitives
+ * are shape-conform, the parser judges the content) and the missing field row (an edit
+ * creates the prepared child of the model advisor as an undoable AddNodeCommand carrying
+ * the typed value). Everything else - object fields, array fields and their
+ * list editors - lives in local overrides keyed by edit id; they survive refreshes of the
+ * same object (the soft parse mode refreshes asynchronously, the hard mode after every
+ * command) and are dropped when another object or editor is selected.</p>
+ *
+ * @author Janusch Rentenatus
+ */
+public class JsonJackObjectTableModel extends AbstractJsonJackTableModel
+        implements ContentListener, ParseProblemsListener, JsonJackComboCapableModel {
+
+    private static final String[] columnNames = {"Name", "Value", "Type", "JsonType", "^"};
+
+    private List<FieldRow> rows = new ArrayList<>();
+    private EditNodeObject currentObject;
+    private long focusedFieldEditId = -1;
+    // the missing declared fields of a parsed owner: empty rows whose edit creates the child
+    private List<ChildProposal> missingProposals = List.of();
+    private int firstMissingRowIndex = -1;
+
+    /**
+     * Creates a local-only model: no change ever leaves the pane, primitive values included.
+     */
+    public JsonJackObjectTableModel() {
+    }
+
+    /**
+     * Creates the model with the undo manager of the master control. A primitive value edit -
+     * the inline value of a primitive field or the synthetic value row of a primitive row
+     * object - executes a {@link SetNodeValueCommand} through it in BOTH parse modes (see
+     * {@link #setValueAt(Object, int, int)}); the list editors stay sandbox until the
+     * selection semantics exist.
+     *
+     * @param undoMan the undo manager of the master control, may be {@code null}
+     */
+    public JsonJackObjectTableModel(JackUndoManager undoMan) {
+        super(undoMan);
+    }
+
+    /**
+     * Creates the model with the undo manager and the fast log of the master control: refused
+     * write-backs leave a note in the fast log instead of staying silent.
+     *
+     * @param undoMan the undo manager of the master control, may be {@code null}
+     * @param fastLog the fast log of the master control, may be {@code null}
+     */
+    public JsonJackObjectTableModel(JackUndoManager undoMan, de.jare.tree.control.fastlog.FastLog fastLog) {
+        super(undoMan, fastLog);
+    }
+
+    // Local sandbox overrides, keyed by the edit id of the field (the synthetic value row
+    // uses the edit id of the object itself). Never written back into the edit node.
+    private final Map<Long, String> valueOverrides = new HashMap<>();
+    private final Map<Long, List<InstanceCandidate>> objectListOverrides = new HashMap<>();
+    private final Map<Long, List<String>> primitiveListOverrides = new HashMap<>();
+
+    @Override
+    public int getRowCount() {
+        return rows.size();
+    }
+
+    @Override
+    public int getColumnCount() {
+        return columnNames.length;
+    }
+
+    @Override
+    public String getColumnName(int column) {
+        return columnNames[column];
+    }
+
+    @Override
+    public Object getValueAt(int rowIndex, int columnIndex) {
+        FieldRow row = rows.get(rowIndex);
+        return switch (columnIndex) {
+            case 0 ->
+                row.name();
+            case 1 ->
+                row.value();
+            case 2 ->
+                row.type();
+            case 3 ->
+                row.jsonType();
+            case 4 ->
+                isButtonEnabled(rowIndex);
+            default ->
+                null;
+        };
+    }
+
+    @Override
+    public boolean isCellEditable(int rowIndex, int columnIndex) {
+        // A missing field row edits as inline text when the prepared child is a scalar -
+        // the edit creates the child with the typed value. Object, array and reference
+        // fields are created through the add menu, an inline text makes no sense there.
+        if (isMissingFieldRow(rowIndex)) {
+            final EditNodeAbstract child = proposalOfRow(rowIndex).getPreparedChild();
+            return columnIndex == 1 && child instanceof EditNodeProperty property
+                    && isPrimitiveType(property.getType());
+        }
+        // Primitive field values are edited inline; combo box cells (object fields) stay read-only
+        // until the selection semantics exist; array fields (primitive lists, object lists and
+        // array annotations) open their dedicated editor dialog instead.
+        return columnIndex == 1 && rowIndex >= 1
+                && !isComboBoxCell(rowIndex, columnIndex)
+                && !isArrayFieldRow(rowIndex);
+    }
+
+    @Override
+    public Class<?> getColumnClass(int columnIndex) {
+        return columnIndex == 4 ? Boolean.class : String.class;
+    }
+
+    /**
+     * Checks whether the "^" button of the given row can open something: array fields and parsed
+     * single object fields open their dedicated editors, every other row below the jsonType
+     * header opens the detail dialog when its value is neither null nor empty.
+     *
+     * @param rowIndex the row index
+     * @return true when the button should be enabled
+     */
+    public boolean isButtonEnabled(int rowIndex) {
+        if (isDescriptorInfoRow(rowIndex)) {
+            // the descriptor rows open the verbose representation of their descriptor -
+            // the button is enabled exactly when the parser resolved one
+            return descriptorInfoText(rowIndex) != null;
+        }
+        if (rowIndex < 1 || rowIndex >= rows.size()) {
+            return false;
+        }
+        if (isArrayFieldRow(rowIndex) || isSingleObjectFieldRow(rowIndex)) {
+            return true;
+        }
+        Object value = rows.get(rowIndex).value();
+        return value != null && !value.toString().isEmpty();
+    }
+
+    /**
+     * Checks whether the row carries a model descriptor whose verbose representation the
+     * detail dialog shows behind the "?" button: the jsonType header of the shown object.
+     *
+     * @param rowIndex the row index
+     * @return true when the row is a descriptor info row
+     */
+    public boolean isDescriptorInfoRow(int rowIndex) {
+        return rowIndex == 0;
+    }
+
+    /**
+     * The verbose string representation of the descriptor of the row - the
+     * JsonTypeDescriptor of the jsonType header. Null when the parser has not resolved
+     * a descriptor.
+     *
+     * @param rowIndex the row index
+     * @return the verbose representation, or null
+     */
+    public String descriptorInfoText(int rowIndex) {
+        if (rowIndex == 0) {
+            return currentObject != null && currentObject.getJsonType() != null
+                    ? currentObject.getJsonType().toString() : null;
+        }
+        return null;
+    }
+
+    /**
+     * Accepts the change locally only: the new value is kept in the sandbox override of the row
+     * and shown in the pane, but never written back into the edit node - neither as a mutation
+     * nor as a parse trigger, whatever the parse mode of the tree is.
+     */
+    /**
+     * Accepts the change in the pane - and for primitive values as the write-back exception of
+     * the sandbox: the inline value of a primitive field or the synthetic value row of a
+     * primitive row object executes a {@link SetNodeValueCommand} in BOTH parse modes.
+     * Primitives are shape-conform by nature, the parser judges the content (a text in a
+     * number field gets flagged); the tree repaints, undo and redo work. Every other edit -
+     * object fields, array fields and their list editors - stays in the pane until the
+     * selection semantics exist.
+     */
+    @Override
+    public void setValueAt(Object aValue, int row, int col) {
+        if (col != 1 || row < 1 || row >= rows.size()) {
+            return;
+        }
+        if (currentObject == null) {
+            return;
+        }
+        if (isMissingFieldRow(row)) {
+            // the empty row of a missing declared field: the edit creates the child node
+            // (undoable, the pane refreshes through the undo/redo listener). A refused
+            // write-back keeps the choice locally in the row.
+            final boolean created = writeBackMissingField(proposalOfRow(row), asText(aValue));
+            if (!created) {
+                final FieldRow oldRow = rows.get(row);
+                rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(), oldRow.jsonType(),
+                        oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
+                fireTableCellUpdated(row, col);
+            }
+            return;
+        }
+        final long key = overrideKeyOf(row);
+        if (key >= 0L) {
+            valueOverrides.put(key, aValue == null ? null : aValue.toString());
+        }
+        writeBackIfAllowed(row, asText(aValue));
+        final FieldRow oldRow = rows.get(row);
+        rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(), oldRow.jsonType(),
+                oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
+        fireTableCellUpdated(row, col);
+    }
+
+    /**
+     * Executes the write-back exception of the sandbox when one applies: a primitive value
+     * reaches the node as a {@link SetNodeValueCommand} in both parse modes - symmetric to
+     * the Attributes pane. Without a change nothing runs.
+     *
+     * @param row the model row of the edited field
+     * @param newValue the new value
+     */
+    private void writeBackIfAllowed(int row, String newValue) {
+        if (!isWriteBackReady()) {
+            return;
+        }
+        final FieldRow fieldRow = rows.get(row);
+        if (fieldRow.synthetic()) {
+            // the synthetic value row of a primitive row object writes the object value itself
+            if (isPrimitiveRowObject(currentObject)
+                    && !Objects.equals(currentObject.getValue(), newValue)) {
+                getUndoMan().executeCommand(new SetNodeValueCommand(currentObject, newValue));
+            }
+            return;
+        }
+        final EditNodeProperty field = fieldOfRow(row);
+        if (field != null && isPrimitiveType(field.getType())
+                && !Objects.equals(field.getValue(), newValue)) {
+            getUndoMan().executeCommand(new SetNodeValueCommand(field, newValue));
+        }
+    }
+
+    /**
+     * Checks whether the row is editable through the pane: array fields open their list
+     * editors, parsed single object fields open the collection editor, every other field row
+     * is as editable as its value cell inline. The button of the pane shows "^" for these
+     * rows, "-" for read-only rows (their detail dialog opens in read-only mode).
+     *
+     * @param rowIndex the row index
+     * @return true when the user can change the row through the pane
+     */
+    public boolean isEditableRow(int rowIndex) {
+        if (isMissingFieldRow(rowIndex)) {
+            return isCellEditable(rowIndex, 1);
+        }
+        return isArrayFieldRow(rowIndex) || isSingleObjectFieldRow(rowIndex)
+                || isCellEditable(rowIndex, 1);
+    }
+
+    @Override
+    public boolean isComboBoxCell(int rowIndex, int columnIndex) {
+        return columnIndex == 1 && rowIndex >= 1 && rowIndex < rows.size()
+                && rows.get(rowIndex).comboBox();
+    }
+
+    @Override
+    public Object[] getComboBoxValues(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= rows.size()) {
+            return new Object[0];
+        }
+        Object[] values = rows.get(rowIndex).comboValues();
+        return values == null ? new Object[0] : values;
+    }
+
+    // ========== Array field editors ==========
+
+    /**
+     * One selectable instance for the collection editor: its wood identity, its display text, its model type and
+     * the node itself (for identity comparison and for copies of identityless instances). The node is an object
+     * instance, or - for whole list references - an identified array property.
+     */
+    public record InstanceCandidate(String woodId, String text, String jsonType, EditNodeAbstract node) {
+
+    }
+
+    /**
+     * Checks whether the row is a field with an array value: a list of primitives, a list of objects or an array
+     * annotation. Array values are not edited inline - the pane opens the dedicated editor dialog.
+     *
+     * @param rowIndex the row index
+     * @return true when the row holds an array field
+     */
+    public boolean isArrayFieldRow(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        return field != null && field.getType() == JsonNodeType.ARRAY;
+    }
+
+    /**
+     * Checks whether the object counts as a primitive element in a list: a reference stub looks
+     * like a primitive row (no children, the display text as value), but it is an object reference
+     * and belongs to the object side of every list handling.
+     *
+     * @param obj the object node
+     * @return true when the object is a primitive list element
+     */
+    private static boolean isPrimitiveListElement(EditNodeObject obj) {
+        return isPrimitiveRowObject(obj) && !obj.isLinkReference();
+    }
+
+    /**
+     * Checks whether the array field of the row holds primitives. An empty array counts as primitive - an empty
+     * object list has no elements to compare against.
+     *
+     * @param rowIndex the row index
+     * @return true when the elements are primitives (or the array is empty)
+     */
+    public boolean isPrimitiveArrayListRow(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null || field.getType() != JsonNodeType.ARRAY) {
+            return false;
+        }
+        for (int i = 0; i < field.getChildCount(); i++) {
+            if (field.getChildAt(i) instanceof EditNodeObject child) {
+                return isPrimitiveListElement(child);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Checks whether the row is a parsed single object field: a combo box row (the field descriptor
+     * offers instance candidates) whose node type is OBJECT. Those fields open the collection editor
+     * in single mode - the choice replaces the value, an empty choice means null.
+     *
+     * @param rowIndex the row index
+     * @return true when the row is a parsed object reference field
+     */
+    public boolean isSingleObjectFieldRow(int rowIndex) {
+        if (!isComboBoxCell(rowIndex, 1)) {
+            return false;
+        }
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        return field != null && field.getType() == JsonNodeType.OBJECT;
+    }
+
+    /**
+     * Returns the field property of the row, or null for the header row and the synthetic value row.
+     *
+     * @param rowIndex the row index
+     * @return the property of the row, or null
+     */
+    public EditNodeProperty fieldOfRow(int rowIndex) {
+        if (currentObject == null || rowIndex < 1) {
+            return null;
+        }
+        int row = 1 + (isPrimitiveRowObject(currentObject) ? 1 : 0);
+        for (int i = 0; i < currentObject.getChildCount(); i++) {
+            if (currentObject.getChildAt(i) instanceof EditNodeProperty field) {
+                if (rowIndex == row) {
+                    return field;
+                }
+                row++;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The candidate instances for the collection editor of an object list: objects fitting the declared element
+     * type (interface types include the implementors), without a declaration every non-primitive object. The walk
+     * covers the active tree and the identities of the linking set.
+     *
+     * @param rowIndex the row index of the array field
+     * @return the candidates, never null
+     */
+    public List<InstanceCandidate> getInstanceCandidates(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null) {
+            return List.of();
+        }
+        JsonTypeDescriptor declared = null;
+        final JsonFieldDescriptor descriptor = field.getJsonField();
+        if (descriptor != null && getJsonModelDescriptor() != null) {
+            declared = getJsonModelDescriptor().getType(descriptor.getTypeName());
+        }
+        // A whole list reference fits at a list field only: object rows never offer arrays.
+        final boolean rowIsListField = descriptor != null && descriptor.isAsListOrArray();
+        final List<InstanceCandidate> result = new ArrayList<>();
+        final Set<EditNodeAbstract> seen = new HashSet<>();
+        if (getEditTree() != null && getEditTree().getRoot() != null) {
+            collectInstanceCandidates(getEditTree().getRoot(), declared, rowIsListField, result, seen);
+        }
+        final EditLinkingSet linkingSet = getEditTree() == null ? null : getEditTree().getLinkingSet();
+        if (linkingSet != null) {
+            for (EditNodeAbstract held : linkingSet.getAllObjects()) {
+                if (seen.add(held) && candidateFits(held, declared, rowIsListField)) {
+                    result.add(candidateOf(held));
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * The object elements the row currently shows: the sandbox override of the list editor when
+     * one exists, the object elements recorded in the edit node otherwise. The dialog prefills
+     * itself from this list, so a reopened editor sees the last sandbox choice.
+     *
+     * @param rowIndex the row index of the array field
+     * @return the current elements in list order, never null
+     */
+    public List<InstanceCandidate> getCurrentObjectList(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null) {
+            return List.of();
+        }
+        final List<InstanceCandidate> override = objectListOverrides.get(field.getEditId());
+        if (override != null) {
+            return override;
+        }
+        final List<InstanceCandidate> result = new ArrayList<>();
+        for (int i = 0; i < field.getChildCount(); i++) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && !isPrimitiveListElement(child)) {
+                result.add(candidateOf(child));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * The primitive values the row currently shows: the sandbox override of the list editor when
+     * one exists, the primitive rows recorded in the edit node otherwise (primitive lists and
+     * array annotations). The dialog prefills itself from this list, so a reopened editor sees
+     * the last sandbox choice.
+     *
+     * @param rowIndex the row index of the array field
+     * @return the current values in list order, never null
+     */
+    public List<String> getCurrentPrimitiveList(int rowIndex) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null) {
+            return List.of();
+        }
+        final List<String> override = primitiveListOverrides.get(field.getEditId());
+        if (override != null) {
+            return override;
+        }
+        final List<String> result = new ArrayList<>();
+        for (int i = 0; i < field.getChildCount(); i++) {
+            if (field.getChildAt(i) instanceof EditNodeObject child && isPrimitiveListElement(child)) {
+                result.add(child.getValue());
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Applies the result of the collection editor to the sandbox only: the chosen instances replace
+     * the displayed content of the row in the chosen order - a whole list reference (an identified
+     * array candidate) reduces the choice to itself, as before. The edit node is never touched:
+     * no element is detached, no reference stub is created, no parse runs - neither in the soft nor
+     * in the hard parse mode. The override survives refreshes of the same object and is dropped
+     * when another object is selected.
+     *
+     * @param rowIndex the row index of the array field
+     * @param chosen the chosen instances in list order
+     */
+    public void applyObjectListResult(int rowIndex, List<InstanceCandidate> chosen) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null || rowIndex < 1 || rowIndex >= rows.size()) {
+            return;
+        }
+        // a whole list reference replaces the entire content: only the array candidate counts
+        List<InstanceCandidate> effective = chosen;
+        for (InstanceCandidate candidate : chosen) {
+            if (candidate.node() instanceof EditNodeProperty) {
+                effective = List.of(candidate);
+                break;
+            }
+        }
+        objectListOverrides.put(field.getEditId(), List.copyOf(effective));
+        final FieldRow oldRow = rows.get(rowIndex);
+        rows.set(rowIndex, new FieldRow(oldRow.name(), previewTextOf(effective), oldRow.type(),
+                oldRow.jsonType(), oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
+        fireTableCellUpdated(rowIndex, 1);
+    }
+
+    /**
+     * Applies the result of the primitive list editor to the sandbox only: the chosen values
+     * replace the displayed content of the row in the given order. The edit node is never touched
+     * - the primitive rows of the field stay as they are, no parse runs in any parse mode. The
+     * override survives refreshes of the same object and is dropped when another object is
+     * selected.
+     *
+     * @param rowIndex the row index of the array field
+     * @param values the values in list order
+     */
+    public void applyPrimitiveListResult(int rowIndex, List<String> values) {
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        if (field == null || rowIndex < 1 || rowIndex >= rows.size()) {
+            return;
+        }
+        primitiveListOverrides.put(field.getEditId(), List.copyOf(values));
+        final FieldRow oldRow = rows.get(rowIndex);
+        rows.set(rowIndex, new FieldRow(oldRow.name(), String.join(", ", values), oldRow.type(),
+                oldRow.jsonType(), oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
+        fireTableCellUpdated(rowIndex, 1);
+    }
+
+    private static void collectInstanceCandidates(EditNode node, JsonTypeDescriptor declared, boolean rowIsListField,
+            List<InstanceCandidate> result, Set<EditNodeAbstract> seen) {
+        if (node instanceof EditNodeAbstract abs && seen.add(abs) && candidateFits(abs, declared, rowIsListField)) {
+            result.add(candidateOf(abs));
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            if (node.getChildAt(i) instanceof EditNodeAbstract child) {
+                collectInstanceCandidates(child, declared, rowIsListField, result, seen);
+            }
+        }
+    }
+
+    /**
+     * Checks whether the node fits as a candidate for the edited row: an object instance fits when its type matches
+     * the declared element type, an identified array fits as a whole list reference at list fields only.
+     */
+    private static boolean candidateFits(EditNodeAbstract node, JsonTypeDescriptor declared, boolean rowIsListField) {
+        if (node instanceof EditNodeProperty array) {
+            return rowIsListField && arrayCandidateFits(array, declared);
+        }
+        if (!(node instanceof EditNodeObject obj)) {
+            return false;
+        }
+        if (isPrimitiveRowObject(obj) || obj.isLinkReference()) {
+            return false; // primitive rows are no object instances, a stub is only a reference
+        }
+        if (declared == null) {
+            return true;
+        }
+        return typeFits(obj, declared);
+    }
+
+    /**
+     * An array fits as a whole list reference when it carries a wood identity and its element type matches the
+     * declared element type of the edited field.
+     */
+    private static boolean arrayCandidateFits(EditNodeProperty array, JsonTypeDescriptor declaredElement) {
+        if (array.getType() != JsonNodeType.ARRAY || array.getObjektId() == null) {
+            return false; // only identified arrays are referencable as a whole
+        }
+        if (declaredElement == null) {
+            return true;
+        }
+        final JsonFieldDescriptor arrayField = array.getJsonField();
+        return arrayField != null && declaredElement.getTypeName().equals(arrayField.getTypeName());
+    }
+
+    private static InstanceCandidate candidateOf(EditNodeAbstract node) {
+        if (node instanceof EditNodeProperty array) {
+            final JsonFieldDescriptor field = array.getJsonField();
+            final String jsonType = field == null ? "array" : field.getTypeName() + "[]";
+            final String text = array.getName() + " (" + array.getChildCount() + ")";
+            return new InstanceCandidate(array.getObjektId(), text, jsonType, array);
+        }
+        final EditNodeObject obj = (EditNodeObject) node;
+        final String woodId = obj.getObjektId() != null ? obj.getObjektId() : linkTargetId(obj);
+        final String text = EditStringEvaluator.displayText(obj);
+        final String jsonType = obj.getJsonType() == null ? "" : obj.getJsonType().getTypeName();
+        return new InstanceCandidate(woodId, text, jsonType, obj);
+    }
+
+    /**
+     * Extracts the bare target id of a reference stub: the part behind the provider prefix of the link target.
+     */
+    private static String linkTargetId(EditNodeObject obj) {
+        final String target = obj.getLinkTarget();
+        if (target == null || target.isEmpty()) {
+            return null;
+        }
+        final int idx = target.lastIndexOf(de.jare.jsoncasted.lang.JsonTerms.COLONCOLON);
+        return idx < 0 ? target : target.substring(idx + de.jare.jsoncasted.lang.JsonTerms.COLONCOLON.length());
+    }
+
+    // ========== TreeFocusListener ==========
+
+    @Override
+    public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
+        Object actualNode = node == null ? null : node.getUserObject();
+        EditNodeObject owner = null;
+        long focusId = -1;
+
+        if (actualNode instanceof EditNodeProperty prop) {
+            // A clicked field shows its owning object and focuses the field row.
+            owner = findOwningObject(prop);
+            focusId = prop.getEditId();
+        } else if (actualNode instanceof EditNodeObject obj) {
+            owner = obj;
+        } else if (actualNode instanceof EditNodeAbstract abs) {
+            owner = findOwningObject(abs);
+        }
+
+        updateRows(owner, focusId);
+    }
+
+    /**
+     * Another editor works on another edit tree: the sandbox of the previous tree is dropped.
+     */
+    @Override
+    protected void onEditorTreeChanged(EditTree previous, EditTree current) {
+        valueOverrides.clear();
+        objectListOverrides.clear();
+        primitiveListOverrides.clear();
+    }
+
+    /**
+     * Refreshes the rows of the shown object, keeping the sandbox overrides and the focused
+     * field: a command on the pane's own tree - from this pane, the tree or the Attributes
+     * pane - shows its result here.
+     */
+    @Override
+    protected void refreshPane() {
+        refresh();
+    }
+
+    // ========== ContentListener / ParseProblemsListener ==========
+
+    @Override
+    public void onCommand(String commandId, Object trigger) {
+        refresh();
+    }
+
+    @Override
+    public void onParseProblems(TreeFocusComponent source, List<DefaultMutableTreeNode> nodes) {
+        // Types resolve asynchronously: re-read the rows when a parse run finished.
+        refresh();
+    }
+
+    /**
+     * Re-reads the rows of the current object, keeping the focused field.
+     */
+    public void refresh() {
+        updateRows(currentObject, focusedFieldEditId);
+    }
+
+    // ========== Row construction ==========
+
+    private void updateRows(EditNodeObject owner, long focusId) {
+        if (owner != currentObject) {
+            // another object (or none) is shown: the sandbox of the previous object is dropped.
+            // refresh() re-enters with the same object and keeps the overrides - they must
+            // survive the refreshes of both parse modes (soft: asynchronous, hard: after
+            // every command).
+            valueOverrides.clear();
+            objectListOverrides.clear();
+            primitiveListOverrides.clear();
+        }
+        this.currentObject = owner;
+        this.focusedFieldEditId = focusId;
+        missingProposals = List.of();
+        firstMissingRowIndex = -1;
+
+        List<FieldRow> newRows = new ArrayList<>();
+        if (owner != null) {
+            newRows.add(new FieldRow("jsonType", typeNameOf(owner), "header", "", false, null, false));
+            // A primitive object (an array row, for example) has no field children: its value gets a synthetic row.
+            if (isPrimitiveRowObject(owner)) {
+                final String cast = owner.getCastName() == null ? "" : owner.getCastName();
+                final String value = valueOverrides.containsKey(owner.getEditId())
+                        ? valueOverrides.get(owner.getEditId()) : owner.getValue();
+                newRows.add(new FieldRow("value", value, "", cast, false, null, true));
+            }
+            for (int i = 0; i < owner.getChildCount(); i++) {
+                if (!(owner.getChildAt(i) instanceof EditNodeProperty field)) {
+                    continue;
+                }
+                newRows.add(buildFieldRow(field));
+            }
+            // A parsed object shows the declared fields the JSON does not carry yet as
+            // empty rows - an edit creates the child node (see writeBackMissingField).
+            if (getJsonModelDescriptor() != null && !isPrimitiveRowObject(owner)) {
+                missingProposals = HardEditAdvisor.permissibleChildren(owner, getJsonModelDescriptor());
+                for (ChildProposal proposal : missingProposals) {
+                    if (firstMissingRowIndex < 0) {
+                        firstMissingRowIndex = newRows.size();
+                    }
+                    newRows.add(missingFieldRow(proposal));
+                }
+            }
+        }
+        rows = newRows;
+        fireTableDataChanged();
+    }
+
+    /**
+     * Builds the empty row of a missing declared field: the prepared child of the model
+     * advisor carries its name and node type, the JsonType column shows the declared
+     * model type of the field. The empty value marks the field as not present yet.
+     *
+     * @param proposal the missing field proposal of the model advisor
+     * @return the empty field row
+     */
+    private FieldRow missingFieldRow(ChildProposal proposal) {
+        final EditNodeAbstract child = proposal.getPreparedChild();
+        final String name = child.getName() == null ? "." : child.getName();
+        final String type = child instanceof EditNodeProperty property && property.getType() != null
+                ? property.getType().getName() : "";
+        final JsonFieldDescriptor field = currentObject == null
+                || currentObject.getJsonType() == null
+                        ? null : currentObject.getJsonType().getField(name);
+        final String jsonType = field == null ? "" : field.getTypeName();
+        return new FieldRow(name, "", type, jsonType, false, null, false);
+    }
+
+    /**
+     * Checks whether the row is an empty row of a missing declared field - the JSON does
+     * not carry the field yet, the model description proposes it.
+     *
+     * @param rowIndex the row index
+     * @return true when the row is a missing field row
+     */
+    public boolean isMissingFieldRow(int rowIndex) {
+        return firstMissingRowIndex >= 0 && rowIndex >= firstMissingRowIndex
+                && rowIndex < firstMissingRowIndex + missingProposals.size();
+    }
+
+    /**
+     * The missing field proposal of the row - the model advisor has prepared the typed
+     * child node of the field.
+     *
+     * @param rowIndex the row index
+     * @return the proposal, or null when the row is no missing field row
+     */
+    private ChildProposal proposalOfRow(int rowIndex) {
+        if (!isMissingFieldRow(rowIndex)) {
+            return null;
+        }
+        return missingProposals.get(rowIndex - firstMissingRowIndex);
+    }
+
+    /**
+     * Executes the write-back of a missing field row: the model advisor has prepared the
+     * typed child, the edit creates it under the shown object - as an undoable
+     * {@link AddNodeCommand} carrying the typed value (scalar fields; every other field
+     * type is created as prepared, its content is edited on the node afterwards). The
+     * parser judges the content, soft follows asynchronously, hard validates
+     * synchronously. Without an undo manager (the local-only constructor) and for a
+     * blank value nothing runs: the change stays in the pane.
+     *
+     * @param proposal the missing field proposal of the row
+     * @param newValue the typed value of the new field
+     * @return true when the child was created
+     */
+    private boolean writeBackMissingField(ChildProposal proposal, String newValue) {
+        if (proposal == null || !isWriteBackReady() || newValue == null || newValue.isBlank()) {
+            return false;
+        }
+        final EditNodeAbstract child = proposal.getPreparedChild();
+        if (child instanceof EditNodeProperty property && isPrimitiveType(property.getType())) {
+            property.setValue(newValue);
+        }
+        getUndoMan().executeCommand(new AddNodeCommand(currentObject, child));
+        return true;
+    }
+
+    private FieldRow buildFieldRow(EditNodeProperty field) {
+        final String name = field.getName() == null ? "." : field.getName();
+        final String type = field.getType() == null ? "" : field.getType().getName();
+        final Object value = sandboxedDisplayValue(field, field.getEditId());
+        final Object[] candidates = comboBoxCandidates(field);
+        final boolean comboBox = candidates.length > 0;
+        final String jsonType = field instanceof EditNodeAnnotation
+                ? "annotation" : jsonTypeOf(field);
+        return new FieldRow(name, value, type, jsonType, comboBox, candidates, false);
+    }
+
+    /**
+     * The display value of a field: the sandbox override when one exists, the node state otherwise.
+     * A list editor override wins over an inline value override - array rows are not inline
+     * editable.
+     *
+     * @param field the field property
+     * @param editId the edit id of the field, the key of the sandbox overrides
+     * @return the value to show in the Value column
+     */
+    private Object sandboxedDisplayValue(EditNodeProperty field, long editId) {
+        final List<InstanceCandidate> objectList = objectListOverrides.get(editId);
+        if (objectList != null) {
+            return previewTextOf(objectList);
+        }
+        final List<String> primitiveList = primitiveListOverrides.get(editId);
+        if (primitiveList != null) {
+            return String.join(", ", primitiveList);
+        }
+        if (valueOverrides.containsKey(editId)) {
+            return valueOverrides.get(editId);
+        }
+        return displayValueOf(field);
+    }
+
+    /**
+     * The preview text of a chosen instance list: the candidate texts in list order, comma
+     * separated.
+     *
+     * @param candidates the chosen instances
+     * @return the preview text, empty when nothing is chosen
+     */
+    private static String previewTextOf(List<InstanceCandidate> candidates) {
+        final StringBuilder sb = new StringBuilder();
+        for (InstanceCandidate candidate : candidates) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(candidate.text());
+        }
+        return sb.toString();
+    }
+
+    /**
+     * The sandbox key of a row: the edit id of the field of the row, or of the object itself for
+     * the synthetic value row of a primitive object, or -1 when the row carries no sandbox state.
+     *
+     * @param rowIndex the model row index
+     * @return the edit id of the row owner, or -1
+     */
+    private long overrideKeyOf(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= rows.size()) {
+            return -1L;
+        }
+        if (rows.get(rowIndex).synthetic()) {
+            return currentObject.getEditId();
+        }
+        final EditNodeProperty field = fieldOfRow(rowIndex);
+        return field == null ? -1L : field.getEditId();
+    }
+
+    /**
+     * Checks whether the object is a primitive row: a scalar value without field children and without the object
+     * marker of a nested object (the converter creates nested objects with the info "{...}"). Typical case: a
+     * primitive array row.
+     *
+     * @param obj the object node
+     * @return true when the object represents a bare primitive value
+     */
+    private static boolean isPrimitiveRowObject(EditNodeObject obj) {
+        return obj.getChildCount() == 0 && obj.getValue() != null
+                && !"{...}".equals(obj.getObjektInfo());
+    }
+
+    /**
+     * Determines the model side type name of a field:
+ the declared type of the field descriptor when the field is
+     * cleanly parsed, the resolved type of the object child as fallback, otherwise empty.
+     *
+     * @param field the field property
+     * @return the model type name, or an empty string when nothing is known
+     */
+    private static String jsonTypeOf(EditNodeProperty field) {
+        final JsonFieldDescriptor descriptor = field.getJsonField();
+        if (descriptor != null && descriptor.getTypeName() != null && !descriptor.getTypeName().isEmpty()) {
+            return descriptor.getTypeName();
+        }
+        if (field.getType() == JsonNodeType.OBJECT) {
+            for (int i = 0; i < field.getChildCount(); i++) {
+                if (field.getChildAt(i) instanceof EditNodeObject childObject
+                        && childObject.getJsonType() != null) {
+                    return childObject.getJsonType().getTypeName();
+                }
+            }
+        }
+        return "";
+    }
+
+    private static Object displayValueOf(EditNodeProperty field) {
+        // An annotation carries its text in its own primitive value, not in child elements.
+        if (field instanceof EditNodeAnnotation && field.getValue() != null) {
+            return field.getValue();
+        }
+        switch (field.getType()) {
+            case ARRAY -> {
+                int count = 0;
+                for (int i = 0; i < field.getChildCount(); i++) {
+                    if (field.getChildAt(i) instanceof EditNodeAbstract) {
+                        count++;
+                    }
+                }
+                return count + " element(s)";
+            }
+            case OBJECT -> {
+                for (int i = 0; i < field.getChildCount(); i++) {
+                    if (field.getChildAt(i) instanceof EditNodeObject childObject) {
+                        return EditStringEvaluator.displayText(childObject);
+                    }
+                }
+                return "{ }";
+            }
+            default -> {
+                return field.getValue();
+            }
+        }
+    }
+
+    /**
+     * Three-tier candidate logic: a cleanly parsed field offers the object
+     * instances fitting its declared type (interface types include the
+     * implementors), an unparsed primitive falls back to the primitive node
+     * types, an unparsed object offers nothing.
+     */
+    private Object[] comboBoxCandidates(EditNodeProperty field) {
+        final JsonFieldDescriptor descriptor = field.getJsonField();
+        if (descriptor != null && getJsonModelDescriptor() != null) {
+            final JsonTypeDescriptor declared = getJsonModelDescriptor().getType(descriptor.getTypeName());
+            if (declared != null && !declared.isPrimitive()) {
+                return instanceCandidates(declared);
+            }
+        }
+        // No field description: primitives can still be offered from the node type.
+        return switch (field.getType()) {
+            case STRING, NUMBER, LONG, BOOLEAN, NULL ->
+                new Object[]{"STRING", "NUMBER", "LONG", "BOOLEAN", "NULL"};
+            default ->
+                new Object[0];
+        };
+    }
+
+    /**
+     * Collects the object instances of the parsed JSON whose type fits the
+     * declared field type: a walk over the active tree plus the identities of
+     * the linking set (a deleted but referenced object stays selectable).
+     */
+    private Object[] instanceCandidates(JsonTypeDescriptor declared) {
+        List<Object> candidates = new ArrayList<>();
+        Set<EditNodeObject> seen = new HashSet<>();
+        if (getEditTree() != null && getEditTree().getRoot() != null) {
+            collectFittingInstances(getEditTree().getRoot(), declared, candidates, seen);
+        }
+        final EditLinkingSet linkingSet = getEditTree() == null ? null : getEditTree().getLinkingSet();
+        if (linkingSet != null) {
+            for (EditNodeAbstract held : linkingSet.getAllObjects()) {
+                if (held instanceof EditNodeObject obj && seen.add(obj) && typeFits(obj, declared)) {
+                    candidates.add(instanceLabel(obj));
+                }
+            }
+        }
+        return candidates.toArray();
+    }
+
+    private static void collectFittingInstances(EditNode node, JsonTypeDescriptor declared,
+            List<Object> candidates, Set<EditNodeObject> seen) {
+        if (node instanceof EditNodeObject obj && seen.add(obj) && typeFits(obj, declared)) {
+            candidates.add(instanceLabel(obj));
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            if (node.getChildAt(i) instanceof EditNodeAbstract child) {
+                collectFittingInstances(child, declared, candidates, seen);
+            }
+        }
+    }
+
+    private static boolean typeFits(EditNodeObject obj, JsonTypeDescriptor declared) {
+        final JsonTypeDescriptor objType = obj.getJsonType();
+        if (objType == null) {
+            return false;
+        }
+        if (objType.getTypeName().equals(declared.getTypeName())) {
+            return true;
+        }
+        // Interface field: every implementor of the declared type fits.
+        return objType.containsSuper(declared);
+    }
+
+    private static String instanceLabel(EditNodeObject obj) {
+        final JsonTypeDescriptor type = obj.getJsonType();
+        final String id = obj.getObjektId();
+        final StringBuilder sb = new StringBuilder(EditStringEvaluator.displayText(obj));
+        if (sb.isEmpty()) {
+            sb.append('?');
+        }
+        if (type != null) {
+            sb.append(" (").append(type.getTypeName()).append(')');
+        }
+        if (id != null && !id.isEmpty()) {
+            sb.append(" #").append(id);
+        }
+        return sb.toString();
+    }
+
+    private static String typeNameOf(EditNodeObject obj) {
+        if (obj.getJsonType() != null) {
+            return obj.getJsonType().getTypeName();
+        }
+        if (obj.getCastName() != null && !obj.getCastName().isEmpty()) {
+            return obj.getCastName() + "?";
+        }
+        return "-";
+    }
+
+    /**
+     * Walks up from the given node to the next owning EditNodeObject.
+     *
+     * @param start the node to start from
+     * @return the owning object, or null when there is none
+     */
+    private static EditNodeObject findOwningObject(EditNode start) {
+        EditNode current = start;
+        while (current != null) {
+            if (current instanceof EditNodeObject obj) {
+                return obj;
+            }
+            current = current.getParent();
+        }
+        return null;
+    }
+
+    // ========== Accessors for the pane ==========
+
+    /**
+     * Returns the row index of the focused field, or -1 when no field is
+     * focused. Rows are matched by edit id, never by name - array fields may
+     * repeat names.
+     *
+     * @return the model row index of the focused field
+     */
+    public int getFocusedRowIndex() {
+        if (currentObject == null || focusedFieldEditId < 0) {
+            return -1;
+        }
+        // row 0 is the jsonType header, a primitive object adds the synthetic value row after it
+        int row = 1 + (isPrimitiveRowObject(currentObject) ? 1 : 0);
+        for (int i = 0; i < currentObject.getChildCount(); i++) {
+            if (!(currentObject.getChildAt(i) instanceof EditNodeProperty)) {
+                continue;
+            }
+            if (currentObject.getChildAt(i).getEditId() == focusedFieldEditId) {
+                return row;
+            }
+            row++;
+        }
+        return -1;
+    }
+
+    /**
+     * Returns the object currently shown by the pane.
+     *
+     * @return the current object, or null
+     */
+    public EditNodeObject getCurrentObject() {
+        return currentObject;
+    }
+
+    /**
+     * One row of the Fields pane. The combo values are the candidate instances
+     * of an object-typed field; a non-empty array marks the row as combo box.
+     */
+    public record FieldRow(String name, Object value, String type, String jsonType,
+            boolean comboBox, Object[] comboValues, boolean synthetic) {
+
+    }
+}

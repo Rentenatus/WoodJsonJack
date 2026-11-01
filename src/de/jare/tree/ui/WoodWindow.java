@@ -6,8 +6,6 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.JsonWriteException;
@@ -24,8 +22,6 @@ import de.jare.tree.settings.theme.LafCatalog;
 import de.jare.tree.settings.theme.ThemeSuite;
 import de.jare.tree.ui.settings.PreferencesDialog;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,14 +32,12 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.TableCellRenderer;
-import javax.swing.table.TableColumn;
 
 public class WoodWindow extends JFrame {
 
     // Bottom tab constants
     private static final String TAB_ATTRIBUTES = "Attributes";
+    private static final String TAB_FIELDS = "Object";
     private static final String TAB_JACK_UNDO = "Jack Undo";
     private static final String TAB_KI_ASSISTANT = "AI Assistant";
     private static final String TAB_JACK_CLIPBOARD = "Jack Clipboard";
@@ -170,7 +164,8 @@ public class WoodWindow extends JFrame {
 
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
-        bottomTabs.addTab(TAB_ATTRIBUTES, createAttributesPanel());
+        bottomTabs.addTab(TAB_ATTRIBUTES, new JsonJackAttributesPane(jackmaster, this));
+        bottomTabs.addTab(TAB_FIELDS, new JsonJackObjectPane(jackmaster, this));
         bottomTabs.addTab(TAB_FAST_LOG, createFastLogPanel());
         bottomTabs.addTab(TAB_JACK_UNDO, createJackUndoPanel());
         bottomTabs.addTab(TAB_KI_ASSISTANT, createKIAssistant());
@@ -223,173 +218,6 @@ public class WoodWindow extends JFrame {
                 shutdownEditors();
             }
         });
-    }
-
-    private JTable attributesTable;
-    private JsonJackAttrTableModel attributesModel;
-
-    private JPanel createAttributesPanel() {
-        attributesModel = new JsonJackAttrTableModel();
-        jackmaster.addSelectionListener(attributesModel);
-        attributesTable = new JTable(attributesModel);
-        attributesTable.setFillsViewportHeight(true);
-        attributesTable.getTableHeader().setVisible(true);
-
-        // edit status color at WARNING/ERROR for the text columns (Name, Value, Type)
-        attributesTable.setDefaultRenderer(String.class, new EditStatusCellRenderer());
-
-        installAttrDetailButtonColumn();
-
-        JPanel borderedPanel = new JPanel(new BorderLayout());
-        borderedPanel.add(new JScrollPane(attributesTable), BorderLayout.CENTER);
-        return borderedPanel;
-    }
-
-    /**
-     * Installs the "^" column (column 3) of the attribute table: a field
-     * rendered as a button that opens the detail dialog on click when the
-     * attribute value is neither null nor empty.
-     */
-    private void installAttrDetailButtonColumn() {
-        TableColumn buttonCol = attributesTable.getColumnModel().getColumn(3);
-        buttonCol.setCellRenderer(new ButtonRenderer());
-        buttonCol.setPreferredWidth(36);
-        buttonCol.setMaxWidth(36);
-        buttonCol.setMinWidth(28);
-        buttonCol.setResizable(false);
-
-        attributesTable.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                int viewCol = attributesTable.columnAtPoint(e.getPoint());
-                int viewRow = attributesTable.rowAtPoint(e.getPoint());
-                if (viewRow < 0 || viewCol < 0) {
-                    return;
-                }
-                if (attributesTable.convertColumnIndexToModel(viewCol) != 3) {
-                    return;
-                }
-                int modelRow = attributesTable.convertRowIndexToModel(viewRow);
-                if (!attributesModel.isButtonEnabled(modelRow)) {
-                    return;
-                }
-                openAttrDetailDialog(modelRow);
-            }
-        });
-    }
-
-    /**
-     * Opens the attribute detail dialog for the given row.
-     *
-     * @param modelRow the model row index
-     */
-    private void openAttrDetailDialog(int modelRow) {
-        JsonJackAttrTableModel.PropertyRow row = attributesModel.getRow(modelRow);
-        if (row == null) {
-            return;
-        }
-        EditNode node = attributesModel.getCurrentEditNode();
-        String nodeName = (node != null && node.getName() != null) ? node.getName() : "";
-        String nodePath = buildNodePath(node);
-        String value = row.value() == null ? "" : row.value().toString();
-        boolean editable = attributesModel.isAttributeEditable(modelRow);
-        JsonJackAttrDetailDialog dialog = new JsonJackAttrDetailDialog(
-                this, nodeName, nodePath, row.type(), row.name(), value, editable,
-                newValue -> attributesModel.setValueAt(newValue, modelRow, 1));
-        dialog.setVisible(true);
-    }
-
-    /**
-     * Builds the path of a node by concatenating the names upwards from
-     * the node to the roots (format: "a > b > c").
-     *
-     * @param node the node
-     * @return the path, or an empty string when the node is null
-     */
-    private String buildNodePath(EditNode node) {
-        if (node == null) {
-            return "";
-        }
-        List<String> names = new ArrayList<>();
-        EditNode current = node;
-        while (current != null) {
-            String name = current.getName();
-            names.add(name == null ? "" : name);
-            current = current.getParent();
-        }
-        StringBuilder sb = new StringBuilder();
-        for (int i = names.size() - 1; i >= 0; i--) {
-            if (sb.length() > 0) {
-                sb.append(" > ");
-            }
-            sb.append(names.get(i));
-        }
-        return sb.toString();
-    }
-
-    /**
-     * Renderer for the text columns of the attribute table. Overlays the
-     * foreground color with the edit status color of the selected node when
-     * it has status ERROR or WARNING – analogous to the
-     * JsonJackTreeCellRenderer.
-     */
-    private static class EditStatusCellRenderer extends DefaultTableCellRenderer {
-
-        private static final long serialVersionUID = 1L;
-
-        @Override
-        public Component getTableCellRendererComponent(JTable table, Object value,
-                boolean isSelected, boolean hasFocus, int row, int column) {
-            Component c = super.getTableCellRendererComponent(
-                    table, value, isSelected, hasFocus, row, column);
-            c.setForeground(table.getForeground());
-            if (isSelected || !(table.getModel() instanceof JsonJackAttrTableModel model)) {
-                return c;
-            }
-            int modelRow = table.convertRowIndexToModel(row);
-            JsonJackAttrTableModel.PropertyRow attrRow = model.getRow(modelRow);
-            if (attrRow == null || !"|edit status".equals(attrRow.name())) {
-                return c;
-            }
-            EditNode node = model.getCurrentEditNode();
-            if (node == null) {
-                return c;
-            }
-            EditStatus status = node.getEditStatus();
-            Color statusColor = (status == EditStatus.ERROR
-                    || status == EditStatus.WARNING
-                    || status == EditStatus.OKAY)
-                            ? (WoodSettings.INSTANCE.getShownTheme()
-                                    .getColor(WoodSettings.INSTANCE.getColorPrefix()
-                                            + "fore." + status.getLiteral()))
-                            : null;
-            if (statusColor != null) {
-                c.setForeground(statusColor);
-            }
-            return c;
-        }
-    }
-
-    /**
-     * Renderer that shows a JButton in the "^" column. The button is only
-     * enabled when the attribute value is neither null nor empty.
-     */
-    private static class ButtonRenderer extends JButton implements TableCellRenderer {
-
-        private static final long serialVersionUID = 1L;
-
-        @Override
-        public Component getTableCellRendererComponent(JTable table, Object value,
-                boolean isSelected, boolean hasFocus, int row, int column) {
-            setText("^");
-            int modelRow = table.convertRowIndexToModel(row);
-            if (table.getModel() instanceof JsonJackAttrTableModel model) {
-                setEnabled(model.isButtonEnabled(modelRow));
-            } else {
-                setEnabled(false);
-            }
-            return this;
-        }
     }
 
     private JPanel createJackUndoPanel() {

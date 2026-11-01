@@ -6,27 +6,73 @@
  */
 package de.jare.tree.ui;
 
+
+import de.jare.jsoncasted.editor.command.RenameNodeCommand;
+import de.jare.jsoncasted.editor.command.SetNodeValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditNodePropertyArr;
+import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.HardEditAdvisor;
 import de.jare.jsoncasted.editor.core.JackAttribut;
+import de.jare.jsoncasted.editor.core.ParseMode;
+import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
-import de.jare.tree.control.listeners.TreeFocusComponent;
-import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.JackUndoManager;
+
+
+
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 
-public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFocusListener {
+
+public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
+        implements JsonJackComboCapableModel {
 
     private final String[] columnNames = {"Name", "Value", "Type", "^"};
     private List<PropertyRow> rows = new ArrayList<>();
-    private JsonModelDescriptor jsonModelDescriptor;
     private EditNode currentEditNode;
+
+    /**
+     * Creates a local-only model: no change ever leaves the pane, renames included.
+     */
+    public JsonJackAttrTableModel() {
+    }
+
+    /**
+     * Creates the model with the undo manager of the master control. A rename of the "name"
+     * attribute and a primitive value edit are executed as commands through it - provided the
+     * parse mode of the active tree allows them (see {@link #setValueAt(Object, int, int)});
+     * a refused write-back leaves a note in the fast log.
+     *
+     * @param undoMan the undo manager of the master control, may be {@code null}
+     */
+    public JsonJackAttrTableModel(JackUndoManager undoMan) {
+        super(undoMan);
+    }
+
+    /**
+     * Creates the model with the undo manager and the fast log of the master control: refused
+     * write-backs (a rename in the hard parse mode, for example) leave a note in the fast log
+     * instead of staying silent.
+     *
+     * @param undoMan the undo manager of the master control, may be {@code null}
+     * @param fastLog the fast log of the master control, may be {@code null}
+     */
+    public JsonJackAttrTableModel(JackUndoManager undoMan, de.jare.tree.control.fastlog.FastLog fastLog) {
+        super(undoMan, fastLog);
+    }
 
     @Override
     public int getRowCount() {
@@ -55,14 +101,147 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         };
     }
 
+    /**
+     * Accepts the change locally - with two write-back exceptions of the sandbox:
+     * <ul>
+     * <li>the <b>name</b> attribute executes a {@link RenameNodeCommand} in the soft parse
+     * mode and without semantics (a rename re-binds the field: new name - other field -
+     * other type moves in, the soft parser follows asynchronously). In the hard parse
+     * mode the row becomes a combobox of the permissible names of the owning type: a
+     * candidate choice executes the rename too (parse mode concept, decision 2 - the name
+     * is model-known, the parser judges the content); free text stays refused there. A
+     * blank name is guarded by the pane.</li>
+     * <li>a <b>primitive value</b> (text, number, boolean - the primValue of a property or
+     * the value of a primitive row object) executes a {@link SetNodeValueCommand} in BOTH
+     * parse modes: primitives are shape-conform by nature, the parser judges the content
+     * (a text in a number field gets flagged).</li>
+     * <li>the <b>jsonField</b> attribute offers the fields of the parent type as a combo
+     * box once the parent object is parsed (its description knows the fields): a choice
+     * re-binds the property as a rename in BOTH parse modes - the candidates come from
+     * the model description, so the new name is model-known; the parser judges the
+     * content (the hard parse mode may flag the node - the accepted risk of the try). A
+     * value outside the candidate list stays in the pane with a fast log note.</li>
+     * </ul>
+     * Every other attribute never leaves the pane.
+     */
     @Override
     public void setValueAt(Object aValue, int row, int col) {
         if (col == 1 && row < rows.size()) {
             PropertyRow oldRow = rows.get(row);
+            writeBackIfAllowed(oldRow.name(), asText(aValue));
             PropertyRow newRow = new PropertyRow(oldRow.name(), aValue, oldRow.type());
             rows.set(row, newRow);
             fireTableCellUpdated(row, col);
         }
+    }
+
+    /**
+     * Executes the write-back exception of the sandbox for the given attribute, if one applies:
+     * the rename as a command in the soft parse mode and without semantics only, the primitive
+     * value as a command in both parse modes. Without a change nothing runs.
+     *
+     * @param attributeName the attribute being edited
+     * @param newValue the new value
+     */
+    private void writeBackIfAllowed(String attributeName, String newValue) {
+        if (currentEditNode == null || !isWriteBackReady()) {
+            return;
+        }
+        if ("name".equals(attributeName)) {
+            final boolean changed = newValue != null && !newValue.isBlank()
+                    && !Objects.equals(currentEditNode.getName(), newValue);
+            if (!changed) {
+                return;
+            }
+            if (getEditTree() != null && getEditTree().getParseMode() == ParseMode.HARD_PARSE) {
+                // The hard parse mode allows renames only as a choice among the
+                // permissible names of the model (decision 2): a candidate re-binds like
+                // the jsonField exception - the name is model-known, the parser judges
+                // the content. A parse ERROR rolls the rename back with a fast log note.
+                // Free text stays refused - and not silently.
+                if (Arrays.asList(permissibleRenameCandidates()).contains(newValue)
+                        && !isPassThroughArray()) {
+                    JsonJackHardRenameGuard.executeGuarded(getUndoMan(), getFastLog(),
+                            currentEditNode, newValue);
+                    return;
+                }
+                tryLog("editor", "[hard parse] rename of '" + currentEditNode.getName()
+                        + "' to '" + newValue + "' rejected: '" + newValue
+                        + "' is no permissible field of the owning type - pick one of the "
+                        + "offered names instead");
+                return;
+            }
+            // a pass-through array wrapper ("array") carries no data of its own: no rename.
+            // A blank name is no valid rename either - the pane guards it (the command check
+            // exists, but the history manager does not enforce it on execute)
+            if (!isPassThroughArray()) {
+                getUndoMan().executeCommand(new RenameNodeCommand(currentEditNode, newValue));
+            }
+            return;
+        }
+        if ("jsonField".equals(attributeName)) {
+            writeBackFieldBinding(newValue);
+            return;
+        }
+        if (isPrimitiveValueRow(attributeName)
+                && !Objects.equals(currentEditNode.getValue(), newValue)) {
+            getUndoMan().executeCommand(new SetNodeValueCommand(currentEditNode, newValue));
+        }
+    }
+
+    /**
+     * Executes the write-back exception of the jsonField attribute: a choice from the
+     * candidate list of the parent type re-binds the property - as a rename, in BOTH
+     * parse modes. The candidates come from the model description, so the new name is
+     * model-known by construction (shape-conform); the parser judges the content - the
+     * hard parse mode validates synchronously and may flag the node when the value does
+     * not fit the new field, the soft parser follows asynchronously. A value outside the
+     * candidate list and a blank stay in the pane; the refusal leaves a note in the fast
+     * log. A pass-through array wrapper carries no binding of its own: no re-bind.
+     *
+     * @param newValue the chosen field name
+     */
+    private void writeBackFieldBinding(String newValue) {
+        final JsonTypeDescriptor parentType = getParentFieldType();
+        final boolean changed = newValue != null && !newValue.isBlank()
+                && !Objects.equals(currentEditNode.getName(), newValue);
+        if (!changed || parentType == null || isPassThroughArray()) {
+            return;
+        }
+        if (parentType.getField(newValue) == null) {
+            tryLog("editor", "[attributes] field change of '" + currentEditNode.getName()
+                    + "' to '" + newValue + "' rejected: '" + newValue
+                    + "' is no field of the parent type - the change stays in the pane");
+            return;
+        }
+        if (getEditTree() != null && getEditTree().getParseMode() == ParseMode.HARD_PARSE) {
+            // The synchronous hard parse judges the choice: an ERROR rolls the re-bind back
+            // with a fast log note - the soft parser follows asynchronously instead.
+            JsonJackHardRenameGuard.executeGuarded(getUndoMan(), getFastLog(),
+                    currentEditNode, newValue);
+            return;
+        }
+        getUndoMan().executeCommand(new RenameNodeCommand(currentEditNode, newValue));
+    }
+
+    /**
+     * Checks whether the attribute row carries a primitive value: the primValue of a property
+     * with a primitive node type, or the value of a primitive row object (a scalar array row -
+     * no children, a value). Structural attributes (objects with children, arrays, annotations)
+     * never write through.
+     *
+     * @param attributeName the attribute being edited
+     * @return true when the row is a primitive value carrier
+     */
+    private boolean isPrimitiveValueRow(String attributeName) {
+        if ("primValue".equals(attributeName)
+                && currentEditNode instanceof EditNodeProperty property) {
+            return isPrimitiveType(property.getType());
+        }
+        return "value".equals(attributeName)
+                && currentEditNode instanceof EditNodeObject object
+                && object.getChildCount() == 0
+                && object.getValue() != null;
     }
 
     @Override
@@ -76,7 +255,11 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     /**
      * Checks whether the attribute of the given row is editable for now. Only
      * the attributes "value", "name" and "primValue" may be edited; all others
-     * are read-only.
+     * are read-only. A pass-through array wrapper ({@link EditNodePropertyArr},
+     * the anonymous "array" node) carries no data of its own - its name and
+     * primValue are structural defaults that only route the content, so they
+     * stay read-only too. A named array field keeps its editable rows: renaming
+     * it re-binds the field in the soft parse mode.
      *
      * @param rowIndex the row index
      * @return true when the attribute is editable
@@ -85,8 +268,30 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         if (rowIndex < 0 || rowIndex >= rows.size()) {
             return false;
         }
-        String name = rows.get(rowIndex).name();
-        return "value".equals(name) || "name".equals(name) || "primValue".equals(name);
+        final String attributeName = rows.get(rowIndex).name();
+        if (isPassThroughArray()
+                && ("name".equals(attributeName) || "primValue".equals(attributeName)
+                || "jsonField".equals(attributeName))) {
+            return false;
+        }
+        if ("jsonField".equals(attributeName)) {
+            // the field binding is editable only as a combo box of the parent type's
+            // fields - the parent must be parsed for that. A free-text field name is a
+            // rename: the "name" row already carries it.
+            return getParentFieldType() != null;
+        }
+        return "value".equals(attributeName) || "name".equals(attributeName) || "primValue".equals(attributeName);
+    }
+
+    /**
+     * Checks whether the current node is a pass-through array wrapper: an anonymous array
+     * (EditNodePropertyArr) routes its content only, its name ("array") and primValue are
+     * structural defaults.
+     *
+     * @return true when the shown node is a pass-through array
+     */
+    private boolean isPassThroughArray() {
+        return currentEditNode instanceof EditNodePropertyArr;
     }
 
     /**
@@ -121,13 +326,23 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     }
 
     /**
-     * Checks if the given attribute name should be rendered as a combo box.
+     * Checks if the given attribute name should be rendered as a combo box. The jsonType
+     * needs the model descriptor (it lists the types); the jsonField needs a parsed
+     * parent object - its description carries the candidate fields. The name row needs
+     * the hard parse mode with permissible candidates: free text renames stay a soft
+     * mode privilege.
      *
      * @param attributeName the attribute name
      * @return true if this attribute should be a combo box
      */
     private boolean isComboBoxAttribute(String attributeName) {
-        return "jsonType".equals(attributeName) || "jsonField".equals(attributeName);
+        if ("jsonType".equals(attributeName)) {
+            return getJsonModelDescriptor() != null;
+        }
+        if ("jsonField".equals(attributeName)) {
+            return getParentFieldType() != null;
+        }
+        return "name".equals(attributeName) && permissibleRenameCandidates().length > 0;
     }
 
     /**
@@ -137,36 +352,70 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
      * @return array of available values
      */
     private Object[] getComboBoxValuesForAttribute(String attributeName) {
-        if (jsonModelDescriptor == null) {
-            return new Object[0];
-        }
-
         if ("jsonType".equals(attributeName)) {
             // Return all type names from the descriptor
-            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.getTypes();
+            if (getJsonModelDescriptor() == null) {
+                return new Object[0];
+            }
+            Collection<JsonTypeDescriptor> types = getJsonModelDescriptor().getTypes();
             List<Object> typeNames = new ArrayList<>();
             for (JsonTypeDescriptor typeDesc : types) {
                 typeNames.add(typeDesc.getTypeName());
             }
             return typeNames.toArray();
         } else if ("jsonField".equals(attributeName)) {
-            // Return all field names from all types in the descriptor
+            // Candidates: the fields of the parent object's type - the combo exists only
+            // when the parent is parsed (its description knows the fields).
+            final JsonTypeDescriptor parentType = getParentFieldType();
+            if (parentType == null || parentType.getFields() == null) {
+                return new Object[0];
+            }
             List<Object> fieldNames = new ArrayList<>();
-            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.getTypes();
-            for (JsonTypeDescriptor typeDesc : types) {
-                if (typeDesc != null) {
-                    List<JsonFieldDescriptor> fields = typeDesc.getFields();
-                    if (fields != null) {
-                        for (JsonFieldDescriptor field : fields) {
-                            fieldNames.add(field.getFieldName());
-                        }
-                    }
+            for (JsonFieldDescriptor field : parentType.getFields()) {
+                if (field != null && field.getFieldName() != null) {
+                    fieldNames.add(field.getFieldName());
                 }
             }
             return fieldNames.toArray();
+        } else if ("name".equals(attributeName)) {
+            return permissibleRenameCandidates();
         }
 
         return new Object[0];
+    }
+
+    /**
+     * The permissible new names for a rename in the hard parse mode: ALL declared fields
+     * of the owning type - constructor params and fields, the supertype chain included
+     * (the counterpart of the jsonField combo with the bare names). Nothing outside the
+     * hard parse mode, without a typed parent or without a known model - the free text
+     * rename stays a soft mode privilege.
+     *
+     * @return the permissible field names, or an empty array
+     */
+    private Object[] permissibleRenameCandidates() {
+        if (getEditTree() == null || getEditTree().getParseMode() != ParseMode.HARD_PARSE
+                || !(currentEditNode instanceof EditNodeProperty)) {
+            return new Object[0];
+        }
+        return HardEditAdvisor.permissibleRenames((EditNodeProperty) currentEditNode,
+                getJsonModelDescriptor()).toArray();
+    }
+
+    /**
+     * Returns the type descriptor of the parent object that owns the shown property: a
+     * parsed parent object knows its fields, the jsonField attribute offers them as combo
+     * box candidates. An unparsed parent (no type descriptor) or a structural position
+     * offers none.
+     *
+     * @return the parent type descriptor, or null when the parent carries no type
+     */
+    private JsonTypeDescriptor getParentFieldType() {
+        if (currentEditNode instanceof EditNodeProperty
+                && currentEditNode.getParent() instanceof EditNodeObject parent) {
+            return parent.getJsonType();
+        }
+        return null;
     }
 
     @Override
@@ -179,36 +428,18 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         return columnIndex == 3 ? Boolean.class : String.class;
     }
 
-    /**
-     * Sets the JsonModelDescriptor for this model. This is used to populate
-     * combo box values for attributes like jsonType and jsonField.
-     *
-     * @param descriptor the model descriptor to set
-     */
-    public void setJsonModelDescriptor(JsonModelDescriptor descriptor) {
-        this.jsonModelDescriptor = descriptor;
-    }
-
-    /**
-     * Returns the JsonModelDescriptor for this model.
-     *
-     * @return the model descriptor, or null if not set
-     */
-    public JsonModelDescriptor getJsonModelDescriptor() {
-        return jsonModelDescriptor;
-    }
-
     @Override
     public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
         updateProperties(node);
     }
 
+    /**
+     * Refreshes the attribute rows of the selected node: a command on the pane's own tree -
+     * from this pane, the tree or the fields pane - shows its result here.
+     */
     @Override
-    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
-        if (editor == null) {
-            return;
-        }
-        setJsonModelDescriptor(editor.getModel().getJsonModelDescriptor());
+    protected void refreshPane() {
+        updateProperties(currentEditNode);
     }
 
     private void updateProperties(Object node) {
@@ -234,7 +465,18 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
                 for (Map.Entry<String, JackAttribut> entry : attributes.entrySet()) {
                     String name = entry.getKey();
                     JackAttribut jackAttribut = entry.getValue();
-                    newRows.add(new PropertyRow(name, jackAttribut.getValue(), jackAttribut.getType()));
+                    Object attrValue = jackAttribut.getValue();
+                    // the jsonField attribute carries its descriptor: the pane shows the
+                    // bound field name (the combo box preselects it)
+                    if ("jsonField".equals(name) && attrValue instanceof JsonFieldDescriptor field) {
+                        attrValue = field.getFieldName();
+                    }
+                    // the jsonType attribute carries its descriptor as well: the pane shows
+                    // the type name, the "?" button its verbose representation
+                    if ("jsonType".equals(name) && attrValue instanceof JsonTypeDescriptor type) {
+                        attrValue = type.getTypeName();
+                    }
+                    newRows.add(new PropertyRow(name, attrValue, jackAttribut.getType()));
                 }
                 // sort the attributes alphabetically by name
                 newRows.sort(Comparator.comparing(PropertyRow::name));
@@ -275,8 +517,10 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     }
 
     /**
-     * Checks whether the "^" button is enabled for the given row. The button
-     * is only enabled when the attribute value is neither null nor empty.
+     * Checks whether the "^" button is enabled for the given row. Descriptor rows
+     * (jsonField, jsonType) open the verbose representation of their descriptor - the
+     * button is enabled exactly when the parser resolved one. Every other row is only
+     * enabled when the attribute value is neither null nor empty.
      *
      * @param rowIndex the row index
      * @return true when the button should be enabled
@@ -285,12 +529,55 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         if (rowIndex < 0 || rowIndex >= rows.size()) {
             return false;
         }
+        if (isDescriptorInfoRow(rowIndex)) {
+            return descriptorInfoText(rowIndex) != null;
+        }
         Object value = rows.get(rowIndex).value();
         if (value == null) {
             return false;
         }
         String text = value.toString();
         return !text.isEmpty();
+    }
+
+    /**
+     * Checks whether the row carries a model descriptor whose verbose representation the
+     * detail dialog shows behind the "?" button: the jsonField binding of a property, the
+     * jsonType of an object.
+     *
+     * @param rowIndex the row index
+     * @return true when the row is a descriptor info row
+     */
+    public boolean isDescriptorInfoRow(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= rows.size()) {
+            return false;
+        }
+        final String name = rows.get(rowIndex).name();
+        return "jsonField".equals(name) || "jsonType".equals(name);
+    }
+
+    /**
+     * The verbose string representation of the descriptor of the row - the
+     * JsonFieldDescriptor of the jsonField row, the JsonTypeDescriptor of the jsonType
+     * row. Null when the parser has not resolved a descriptor.
+     *
+     * @param rowIndex the row index
+     * @return the verbose representation, or null
+     */
+    public String descriptorInfoText(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= rows.size() || currentEditNode == null) {
+            return null;
+        }
+        final String name = rows.get(rowIndex).name();
+        if ("jsonField".equals(name) && currentEditNode instanceof EditNodeProperty property
+                && property.getJsonField() != null) {
+            return property.getJsonField().toString();
+        }
+        if ("jsonType".equals(name) && currentEditNode instanceof EditNodeObject object
+                && object.getJsonType() != null) {
+            return object.getJsonType().toString();
+        }
+        return null;
     }
 
     /**
