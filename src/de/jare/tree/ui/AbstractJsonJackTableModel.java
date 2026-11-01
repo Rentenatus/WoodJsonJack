@@ -82,6 +82,15 @@ public abstract class AbstractJsonJackTableModel extends AbstractTableModel
     }
 
     /**
+     * Returns the fast log of the master control, or null for a local-only model.
+     *
+     * @return the fast log, or null
+     */
+    protected final FastLog getFastLog() {
+        return fastLog;
+    }
+
+    /**
      * Returns the edit tree of the selected editor, or null before the first selection.
      *
      * @return the edit tree, or null

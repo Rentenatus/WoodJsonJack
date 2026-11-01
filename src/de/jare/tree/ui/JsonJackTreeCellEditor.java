@@ -8,6 +8,8 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.command.RenameNodeCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.HardEditAdvisor;
 import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.fastlog.FastLog;
@@ -16,7 +18,9 @@ import de.jare.tree.settings.WoodSettings;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
+import java.util.List;
 import javax.swing.AbstractCellEditor;
+import javax.swing.JComboBox;
 import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
@@ -28,6 +32,7 @@ import javax.swing.tree.TreeCellEditor;
 public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCellEditor {
 
     private final JTextField textField = new JTextField();
+    private JComboBox<String> comboBox;
     private EditNode currentData;
     private JTree currentTree;
     private final JackUndoManager undoMan;
@@ -84,6 +89,7 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
 
         currentData = null;
         currentTree = tree;
+        comboBox = null;
         String text;
         if (value instanceof DefaultMutableTreeNode dmtn
                 && dmtn.getUserObject() instanceof EditNode data) {
@@ -97,8 +103,35 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
         }
         updateFieldSize(text);
 
+        // The hard parse mode edits names only through the permissible candidates of the
+        // model (combobox) - free text stays refused there (parse mode concept, decision 2).
+        final List<String> candidates = permissibleRenames();
+        if (!candidates.isEmpty()) {
+            comboBox = new JComboBox<>(candidates.toArray(new String[0]));
+            comboBox.setSelectedItem(text);
+            comboBox.addActionListener(e -> stopCellEditing());
+            return comboBox;
+        }
         textField.setEditable(!readonly);
         return textField;
+    }
+
+    /**
+     * The permissible new names for the edited node in the hard parse mode: ALL declared
+     * fields of the owning type - constructor params and fields, the supertype chain
+     * included. Nothing without a typed parent or a known model - the rename stays refused
+     * there (see {@link #updateEditedObject()}).
+     *
+     * @return the permissible field names, empty outside the hard parse mode
+     */
+    private List<String> permissibleRenames() {
+        if (currentData == null || !isHardParseMode()
+                || !(currentTree.getModel() instanceof JackTreeModel model)
+                || !(currentData instanceof EditNodeAbstract)) {
+            return List.of();
+        }
+        return HardEditAdvisor.permissibleRenames((EditNodeAbstract) currentData,
+                model.getJsonModelDescriptor());
     }
 
     private void updateFieldSize(String text) {
@@ -134,20 +167,30 @@ public class JsonJackTreeCellEditor extends AbstractCellEditor implements TreeCe
         if (readonly) {
             return;
         }
-        if (currentData == null || currentData.getName() != null && currentData.getName().equals(textField.getText())) {
+        final String newValue = comboBox != null && comboBox.getSelectedItem() != null
+                ? comboBox.getSelectedItem().toString() : textField.getText();
+        comboBox = null;
+        if (currentData == null || currentData.getName() != null && currentData.getName().equals(newValue)) {
             return;
         }
         if (isHardParseMode()) {
-            // the hard parse mode forbids renames so far (parse mode concept, open decision 2):
-            // no command runs, the tree keeps the old name - the refusal must not be silent
+            // The hard parse mode allows renames only as a choice among the permissible
+            // names of the model (decision 2): a candidate re-binds like the jsonField
+            // exception - the name is model-known, the parser judges the content, a
+            // parse ERROR rolls the rename back with a fast log note. Free text stays
+            // refused - the refusal must not be silent.
+            if (permissibleRenames().contains(newValue)) {
+                JsonJackHardRenameGuard.executeGuarded(undoMan, fastLog, currentData, newValue);
+                return;
+            }
             if (fastLog != null) {
                 fastLog.tryWrite("editor", "[hard parse] rename of '" + currentData.getName()
-                        + "' to '" + textField.getText() + "' rejected: the hard parse mode "
-                        + "forbids renames - delete and add the field instead");
+                        + "' to '" + newValue + "' rejected: '" + newValue + "' is no permissible "
+                        + "field of the owning type - pick one of the offered names instead");
             }
             return;
         }
-        RenameNodeCommand command = new RenameNodeCommand(currentData, textField.getText());
+        RenameNodeCommand command = new RenameNodeCommand(currentData, newValue);
         undoMan.executeCommand(command);
     }
 

@@ -1,6 +1,6 @@
 # Konzept: Wood-Links im Editor-Core und Object-Pane
 
-**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b) — das Fields-Pane heißt seit dem Umbenennen **Object-Pane** (es zeigt das Objekt mit seinen Feldern; Klassen `JsonJackObjectPane`/`JsonJackObjectTableModel`, Tab-Label „Object"). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop. Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit vier Ausnahmen: Renames im Soft-Modus, primitive Werte in beiden Modi, jsonField-Kombination (Feld-Auswahl der Parent-Description) in beiden Modi und die Erzeugung fehlender Felder (AddNodeCommand) in der Object-Pane.
+**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b) — das Fields-Pane heißt seit dem Umbenennen **Object-Pane** (es zeigt das Objekt mit seinen Feldern; Klassen `JsonJackObjectPane`/`JsonJackObjectTableModel`, Tab-Label „Object"). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop. Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit vier Ausnahmen: Renames im Soft-Modus als Freitext bzw. im Hard-Modus über die Kandidaten-Combobox, primitive Werte in beiden Modi, jsonField-Kombination (Feld-Auswahl der Parent-Description) in beiden Modi und die Erzeugung fehlender Felder (AddNodeCommand) in der Object-Pane.
 **Betroffene Projekte**: `jsonCasted_edit` (Phase A, Editor-Core), `WoodJsonJack` (Phase B, Swing-UI)
 **Abhängigkeiten**: `JsonTreeConverter`, `EditTreeWriter`, `EditTree`, `EditNodeObject`, `EditLinkingSet`, `JsonModelDescriptor`, `JsonTerms`
 **Vorbedingung**: Phase A vor Phase B — die Combobox des Object-Pane filtert Objekt-Instanzen, die der Editor heute noch verliert.
@@ -83,7 +83,8 @@ während der Konvertierung ins EditTree schreiben — der bereits existierende
    es Sinn macht (Wertspalte inline, Collection-/Primitive-List-Editor, Detail-Dialog),
    spielen diese aber nie in den EditNode zurück — unabhängig vom Parse-Modus (soft/hard)
    des Baums (Details in Kapitel 5.1). Vier Ausnahmen: der Rename der „name"-Zeile im
-   Attributes-Pane schlägt im Soft-Modus als Command im Tree durch, primitive Werte
+   Attributes-Pane schlägt im Soft-Modus als Command im Tree durch (im Hard-Modus editiert
+   eine Combobox der zulässigen Namen), primitive Werte
    (Text, Zahl, Boolean) schlagen in beiden Modi durch — Primitive sind stets formkonform —,
    die jsonField-Zeile des Attributes-Panes wird bei geparstem Parent-Objekt zur
    Combobox der Felder des Parent-Typs (eine Auswahl bindet das Feld in beiden Modi neu),
@@ -390,13 +391,25 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   keine Reference-Stubs mehr, registrieren nichts im LinkingSet und ändern keinen
   `JsonNodeType`. Die Whole-List-Reference-Logik bleibt als lokale Anzeige erhalten (nur der
   Array-Kandidat zählt, wie gehabt).
-- **Ausnahme Name (Attributes-Pane)**: Die „name"-Zeile ist eine Ausnahme der Sandbox. Ein
-  Rename wird im Soft-Modus (und ohne Semantik) als `RenameNodeCommand` über den UndoManager
-  ausgeführt und schlägt im Tree durch — neuer Name, anderes Feld, anderer Typ rückt nach, der
-  Soft-Parser folgt asynchron; Undo greift wie beim Tree-Rename. Der Hard-Modus verbietet
-  Renames (offene Entscheidung 2 des Parse-Modi-Konzepts, umgesetzte Empfehlung „verbieten"):
-  das Attributes-Pane behält die Änderung lokal, der Tree-Editor verweigert sie ganz — beide
-  Ablehnungen hinterlassen eine Notiz im Fast Log.
+- **Ausnahme Name (Attributes-Pane und Tree-Editor)**: Die „name"-Zeile ist eine Ausnahme
+  der Sandbox. Ein Rename wird im Soft-Modus (und ohne Semantik) als `RenameNodeCommand` über
+  den UndoManager ausgeführt und schlägt im Tree durch — neuer Name, anderes Feld, anderer
+  Typ rückt nach, der Soft-Parser folgt asynchron; Undo greift wie beim Tree-Rename. Im
+  Hard-Modus wird der Namens-Editor (Tree-Editor wie name-Zeile) zur Combobox der zulässigen
+  Namen: ALLE deklarierten Felder des Owner-Typs (Konstruktor-Parameter und Felder, Supertyp-Kette inklusive)
+  (`HardEditAdvisor.permissibleRenames`). Eine Kandidaten-Auswahl führt den Rename auch im
+  Hard-Modus aus (Entscheidung 2 des Parse-Modi-Konzepts — der Name ist modellbekannt, der
+  Parser bewertet den Inhalt); Freitext bleibt verweigert — Ablehnungen hinterlassen eine
+  Notiz im Fast Log. Ein Parse-ERROR nach dem Rename ist transaktional: der synchrone
+  Hard-Parse läuft im Command (`notifyNodeNameChanged` → `parseNow`), ein ERROR auf dem
+  Knoten oder in seinem Teilbaum rollt den Rename als Undo zurück
+  (`JsonJackHardRenameGuard`) — der Tree behält den alten Namen, der Fast Log erklärt
+  die Verweigerung, und das Fast-Log-Message-Fenster zeigt den Eintrag. Der Rename parst
+  den Knoten selbst, nie das Parent: die Kardinalität des Parents prüft der Guard selbst —
+  ein Feldname, den ein Geschwister schon trägt, ist kein Parse-Urteil, aber ein
+  ungültiger Objektzustand und wird genauso zurückgerollt. Der Soft-Modus
+  bleibt unguarded: der Hintergrund-Parser folgt asynchron, seine Probleme trägt der
+  Parse-Walk in den Fast Log. Dasselbe gilt für die jsonField-Kombination im Hard-Modus.
   Ein leerer Name wird von der Pane abgefangen (der Command-Check existiert, wird vom
   HistoryManager aber nicht erzwungen). Ein Durchreich-Array-Wrapper (`EditNodePropertyArr`,
   der anonyme „array"-Knoten) trägt keine eigenen Daten: seine `name`- und `primValue`-Zeilen
@@ -554,7 +567,7 @@ oder verschoben:
    (Attributes-Pane), primitive Werte als SetNodeValueCommand in beiden Modi (beide Panes),
    die jsonField-Kombination als RenameNodeCommand in beiden Modi (Attributes-Pane) und die
    Erzeugung fehlender Felder als AddNodeCommand (Object-Pane). Der
-   `JsonJackObjectTableModelNGTest` (26) und der `JsonJackAttrTableModelNGTest` (17) sichern
+   `JsonJackObjectTableModelNGTest` (26) und der `JsonJackAttrTableModelNGTest` (19) sichern
    den Vertrag: EditNode unangetastet, Override überlebt die Refreshes beider Parse-Modi,
    Objektwechsel verwirft, Rename nur im Soft-Modus, primitive Werte, jsonField-Auswahl und
    fehlende Felder in ihren Modi aus beiden Panes.
@@ -574,7 +587,7 @@ Die Tests der Phase A liegen in jsonCasted_edit
 `WoodLinkCommandNGTest`, `WoodLinkValidatorNGTest` — Suite 139 Tests, 0 Failures),
 die der Phase B in WoodJsonJack (`JsonJackObjectTableModelNGTest`,
 `JsonJackAttrTableModelNGTest` und die UI-Suiten — Stand der Sandbox-Verträge:
-123 Tests, 0 Failures).
+126 Tests, 0 Failures).
 
 ## 10. editString: Anzeige-Templates als Annotation (nachgetragen)
 

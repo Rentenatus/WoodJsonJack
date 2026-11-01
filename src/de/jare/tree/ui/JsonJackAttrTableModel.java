@@ -14,6 +14,7 @@ import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditNodePropertyArr;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.core.HardEditAdvisor;
 import de.jare.jsoncasted.editor.core.JackAttribut;
 import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.jsoncasted.lang.JsonNodeType;
@@ -26,6 +27,7 @@ import de.jare.tree.control.JackUndoManager;
 
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -104,9 +106,11 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
      * <ul>
      * <li>the <b>name</b> attribute executes a {@link RenameNodeCommand} in the soft parse
      * mode and without semantics (a rename re-binds the field: new name - other field -
-     * other type moves in, the soft parser follows asynchronously). The hard parse mode
-     * forbids renames so far (parse mode concept, open decision 2): the change stays in the
-     * pane there. A blank name is guarded by the pane.</li>
+     * other type moves in, the soft parser follows asynchronously). In the hard parse
+     * mode the row becomes a combobox of the permissible names of the owning type: a
+     * candidate choice executes the rename too (parse mode concept, decision 2 - the name
+     * is model-known, the parser judges the content); free text stays refused there. A
+     * blank name is guarded by the pane.</li>
      * <li>a <b>primitive value</b> (text, number, boolean - the primValue of a property or
      * the value of a primitive row object) executes a {@link SetNodeValueCommand} in BOTH
      * parse modes: primitives are shape-conform by nature, the parser judges the content
@@ -150,11 +154,21 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
                 return;
             }
             if (getEditTree() != null && getEditTree().getParseMode() == ParseMode.HARD_PARSE) {
-                // the hard parse mode forbids renames so far (parse mode concept, open
-                // decision 2): the change stays in the pane - the refusal must not be silent
+                // The hard parse mode allows renames only as a choice among the
+                // permissible names of the model (decision 2): a candidate re-binds like
+                // the jsonField exception - the name is model-known, the parser judges
+                // the content. A parse ERROR rolls the rename back with a fast log note.
+                // Free text stays refused - and not silently.
+                if (Arrays.asList(permissibleRenameCandidates()).contains(newValue)
+                        && !isPassThroughArray()) {
+                    JsonJackHardRenameGuard.executeGuarded(getUndoMan(), getFastLog(),
+                            currentEditNode, newValue);
+                    return;
+                }
                 tryLog("editor", "[hard parse] rename of '" + currentEditNode.getName()
-                        + "' to '" + newValue + "' rejected: the hard parse mode forbids "
-                        + "renames - the name change stays in the pane");
+                        + "' to '" + newValue + "' rejected: '" + newValue
+                        + "' is no permissible field of the owning type - pick one of the "
+                        + "offered names instead");
                 return;
             }
             // a pass-through array wrapper ("array") carries no data of its own: no rename.
@@ -198,6 +212,13 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
             tryLog("editor", "[attributes] field change of '" + currentEditNode.getName()
                     + "' to '" + newValue + "' rejected: '" + newValue
                     + "' is no field of the parent type - the change stays in the pane");
+            return;
+        }
+        if (getEditTree() != null && getEditTree().getParseMode() == ParseMode.HARD_PARSE) {
+            // The synchronous hard parse judges the choice: an ERROR rolls the re-bind back
+            // with a fast log note - the soft parser follows asynchronously instead.
+            JsonJackHardRenameGuard.executeGuarded(getUndoMan(), getFastLog(),
+                    currentEditNode, newValue);
             return;
         }
         getUndoMan().executeCommand(new RenameNodeCommand(currentEditNode, newValue));
@@ -307,7 +328,9 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
     /**
      * Checks if the given attribute name should be rendered as a combo box. The jsonType
      * needs the model descriptor (it lists the types); the jsonField needs a parsed
-     * parent object - its description carries the candidate fields.
+     * parent object - its description carries the candidate fields. The name row needs
+     * the hard parse mode with permissible candidates: free text renames stay a soft
+     * mode privilege.
      *
      * @param attributeName the attribute name
      * @return true if this attribute should be a combo box
@@ -316,7 +339,10 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
         if ("jsonType".equals(attributeName)) {
             return getJsonModelDescriptor() != null;
         }
-        return "jsonField".equals(attributeName) && getParentFieldType() != null;
+        if ("jsonField".equals(attributeName)) {
+            return getParentFieldType() != null;
+        }
+        return "name".equals(attributeName) && permissibleRenameCandidates().length > 0;
     }
 
     /**
@@ -351,9 +377,29 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
                 }
             }
             return fieldNames.toArray();
+        } else if ("name".equals(attributeName)) {
+            return permissibleRenameCandidates();
         }
 
         return new Object[0];
+    }
+
+    /**
+     * The permissible new names for a rename in the hard parse mode: ALL declared fields
+     * of the owning type - constructor params and fields, the supertype chain included
+     * (the counterpart of the jsonField combo with the bare names). Nothing outside the
+     * hard parse mode, without a typed parent or without a known model - the free text
+     * rename stays a soft mode privilege.
+     *
+     * @return the permissible field names, or an empty array
+     */
+    private Object[] permissibleRenameCandidates() {
+        if (getEditTree() == null || getEditTree().getParseMode() != ParseMode.HARD_PARSE
+                || !(currentEditNode instanceof EditNodeProperty)) {
+            return new Object[0];
+        }
+        return HardEditAdvisor.permissibleRenames((EditNodeProperty) currentEditNode,
+                getJsonModelDescriptor()).toArray();
     }
 
     /**

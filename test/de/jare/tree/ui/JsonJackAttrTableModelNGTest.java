@@ -82,14 +82,19 @@ public class JsonJackAttrTableModelNGTest {
 
     /**
      * Binds a model to the tree: the root object gets a type descriptor with the fields
-     * "matrix" and "count", and the matrix property carries its bound field descriptor -
-     * the state of a fully parsed parent object.
+     * "matrix" and "count" plus the inherited "baseField" of a supertype, and the matrix
+     * property carries its bound field descriptor - the state of a fully parsed parent
+     * object.
      */
     private static JsonModelDescriptor bindRootType(EditTree tree) {
         final JsonModelDescriptor descriptor = new JsonModelDescriptor("testModel");
+        final JsonTypeDescriptor baseType = new JsonTypeDescriptor("Base");
+        baseType.addField(new JsonFieldDescriptor("baseField", "Text"));
         final JsonTypeDescriptor rootType = new JsonTypeDescriptor("Root");
         rootType.addField(new JsonFieldDescriptor("matrix", "Root"));
         rootType.addField(new JsonFieldDescriptor("count", "Root"));
+        rootType.setParent(baseType);
+        descriptor.addType(baseType);
         descriptor.addType(rootType);
         ((EditNodeObject) tree.getRoot()).setJsonType(rootType);
         matrixField(tree).setJsonField(new JsonFieldDescriptor("matrix", "Root"));
@@ -130,7 +135,7 @@ public class JsonJackAttrTableModelNGTest {
     }
 
     /**
-     * The hard parse mode forbids renames so far (parse mode concept, open decision 2): the
+     * Free text stays refused in the hard parse mode (no permissible candidate): the
      * change stays in the pane.
      */
     @Test
@@ -516,5 +521,66 @@ public class JsonJackAttrTableModelNGTest {
         assertTrue(bareModel.isDescriptorInfoRow(bareRow));
         assertFalse(bareModel.isButtonEnabled(bareRow), "no resolved descriptor, nothing to show");
         assertNull(bareModel.descriptorInfoText(bareRow));
+    }
+
+    /**
+     * In the hard parse mode the name row becomes a combobox of the permissible names:
+     * ALL declared fields of the owning type - constructor params and fields, the
+     * supertype chain included. The soft mode keeps the free text editor.
+     */
+    @Test
+    public void testHardModeNameRowOffersPermissibleNames() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        final JsonModelDescriptor descriptor = bindRootType(tree);
+        tree.getRoot().setEditStatus(EditStatus.OKAY);
+        matrix.setEditStatus(EditStatus.OKAY);
+        assertTrue(tree.setParseMode(ParseMode.HARD_PARSE), "the verified tree may switch to hard mode");
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, undoMan);
+        model.setJsonModelDescriptor(descriptor);
+
+        final int nameRow = rowOf(model, "name");
+        assertTrue(model.isComboBoxCell(nameRow, 1), "the name row becomes a combobox in the hard mode");
+        final Object[] values = model.getComboBoxValues(nameRow);
+        assertEquals(values.length, 3, "matrix, count and the inherited baseField");
+        assertTrue(java.util.Arrays.asList(values).contains("matrix"), "the own name stays selectable");
+        assertTrue(java.util.Arrays.asList(values).contains("count"), "the free declared field is offered");
+        assertTrue(java.util.Arrays.asList(values).contains("baseField"),
+                "the supertype chain contributes its fields");
+
+        // the soft mode keeps the free text editor
+        final EditTree softTree = importTree();
+        bindRootType(softTree);
+        final JsonJackAttrTableModel softModel = selectModel(softTree, matrixField(softTree), null);
+        final int softNameRow = rowOf(softModel, "name");
+        assertFalse(softModel.isComboBoxCell(softNameRow, 1), "the soft mode edits names as free text");
+    }
+
+    /**
+     * A permissible choice in the hard parse mode executes the rename - the counterpart of
+     * the jsonField exception: the name is model-known, the parser judges the content.
+     * Undo restores the old name.
+     */
+    @Test
+    public void testHardModePermissibleRenameReachesTheNode() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        final JsonModelDescriptor descriptor = bindRootType(tree);
+        tree.getRoot().setEditStatus(EditStatus.OKAY);
+        matrix.setEditStatus(EditStatus.OKAY);
+        assertTrue(tree.setParseMode(ParseMode.HARD_PARSE), "the verified tree may switch to hard mode");
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, undoMan);
+        model.setJsonModelDescriptor(descriptor);
+
+        final int nameRow = rowOf(model, "name");
+        model.setValueAt("count", nameRow, 1);
+
+        assertEquals(matrix.getName(), "count", "a permissible choice renames in the hard parse mode");
+        assertEquals(model.getValueAt(nameRow, 1), "count", "the pane shows the new name");
+
+        undoMan.undo();
+        assertEquals(matrix.getName(), "matrix", "the hard mode rename is undoable");
     }
 }

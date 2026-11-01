@@ -12,6 +12,7 @@ import de.jare.jsoncasted.editor.core.EditTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeNode;
+import javax.swing.tree.TreePath;
 
 /**
  *
@@ -48,6 +49,25 @@ public class JackTreeModel extends DefaultTreeModel {
 
     public DefaultMutableTreeNode findNodeByIdAndRange(long id, long left, long times) {
         return findNodeByIdAndRange(id, left, times, (DefaultMutableTreeNode) getRoot(), true);
+    }
+
+    /**
+     * The tree cell editor returns the typed text; the rename itself ran as a command
+     * through the editor (see JsonJackTreeCellEditor). The default implementation of
+     * DefaultTreeModel would plant that String as the user object of the swing node -
+     * the node keeps rendering, but every id-based walk skips or crashes on it until
+     * the next full rebuild (ClassCastException in the fallback of findNodeById). The
+     * swing node keeps its EditNode payload instead; the repaint fires as usual.
+     *
+     * @param path the path of the edited node
+     * @param newValue the editor value, ignored here
+     */
+    @Override
+    public void valueForPathChanged(TreePath path, Object newValue) {
+        if (path != null && path.getLastPathComponent() instanceof DefaultMutableTreeNode dmtn
+                && dmtn.getUserObject() instanceof EditNode) {
+            nodeChanged(dmtn);
+        }
     }
 
     public DefaultMutableTreeNode findNodeByIdAndRange(long id, long left, long times, boolean fallback) {
@@ -125,8 +145,9 @@ public class JackTreeModel extends DefaultTreeModel {
         while (!stack.isEmpty()) {
             DefaultMutableTreeNode node = stack.pop();
 
-            EditNode edNode = (EditNode) node.getUserObject();
-            if (edNode == null) {
+            // foreign payloads (a planted String, for example) are no edit nodes: skip
+            // them instead of crashing the walk - they carry no id to match anyway
+            if (!(node.getUserObject() instanceof EditNode edNode)) {
                 continue;
             }
 
