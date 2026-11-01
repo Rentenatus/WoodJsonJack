@@ -51,12 +51,25 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
     /**
      * Creates the model with the undo manager of the master control. A rename of the "name"
      * attribute and a primitive value edit are executed as commands through it - provided the
-     * parse mode of the active tree allows them (see {@link #setValueAt(Object, int, int)}).
+     * parse mode of the active tree allows them (see {@link #setValueAt(Object, int, int)});
+     * a refused write-back leaves a note in the fast log.
      *
      * @param undoMan the undo manager of the master control, may be {@code null}
      */
     public JsonJackAttrTableModel(JackUndoManager undoMan) {
         super(undoMan);
+    }
+
+    /**
+     * Creates the model with the undo manager and the fast log of the master control: refused
+     * write-backs (a rename in the hard parse mode, for example) leave a note in the fast log
+     * instead of staying silent.
+     *
+     * @param undoMan the undo manager of the master control, may be {@code null}
+     * @param fastLog the fast log of the master control, may be {@code null}
+     */
+    public JsonJackAttrTableModel(JackUndoManager undoMan, de.jare.tree.control.fastlog.FastLog fastLog) {
+        super(undoMan, fastLog);
     }
 
     @Override
@@ -125,14 +138,23 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
             return;
         }
         if ("name".equals(attributeName)) {
+            final boolean changed = newValue != null && !newValue.isBlank()
+                    && !Objects.equals(currentEditNode.getName(), newValue);
+            if (!changed) {
+                return;
+            }
+            if (getEditTree() != null && getEditTree().getParseMode() == ParseMode.HARD_PARSE) {
+                // the hard parse mode forbids renames so far (parse mode concept, open
+                // decision 2): the change stays in the pane - the refusal must not be silent
+                tryLog("editor", "[hard parse] rename of '" + currentEditNode.getName()
+                        + "' to '" + newValue + "' rejected: the hard parse mode forbids "
+                        + "renames - the name change stays in the pane");
+                return;
+            }
             // a pass-through array wrapper ("array") carries no data of its own: no rename.
-            // The hard parse mode forbids renames so far; a blank name is no valid rename either -
-            // the pane guards it (the command check exists, but the history manager does not
-            // enforce it on execute)
-            if (!isPassThroughArray()
-                    && getEditTree().getParseMode() != ParseMode.HARD_PARSE
-                    && newValue != null && !newValue.isBlank()
-                    && !Objects.equals(currentEditNode.getName(), newValue)) {
+            // A blank name is no valid rename either - the pane guards it (the command check
+            // exists, but the history manager does not enforce it on execute)
+            if (!isPassThroughArray()) {
                 getUndoMan().executeCommand(new RenameNodeCommand(currentEditNode, newValue));
             }
             return;

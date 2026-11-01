@@ -11,6 +11,7 @@ import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.tree.control.JackUndoManager;
+import de.jare.tree.control.fastlog.FastLog;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
 import de.jare.tree.control.listeners.UndoRedoListener;
@@ -38,13 +39,14 @@ public abstract class AbstractJsonJackTableModel extends AbstractTableModel
     private EditTree editTree;
     private JsonModelDescriptor jsonModelDescriptor;
     private final JackUndoManager undoMan;
+    private final FastLog fastLog;
 
     /**
      * Creates a local-only model: no change ever leaves the pane, the write-back exceptions
      * included.
      */
     protected AbstractJsonJackTableModel() {
-        this(null);
+        this(null, null);
     }
 
     /**
@@ -54,7 +56,20 @@ public abstract class AbstractJsonJackTableModel extends AbstractTableModel
      * @param undoMan the undo manager of the master control, may be {@code null}
      */
     protected AbstractJsonJackTableModel(JackUndoManager undoMan) {
+        this(undoMan, null);
+    }
+
+    /**
+     * Creates the model with the undo manager and the fast log of the master control: the
+     * write-back exceptions execute their commands through the undo manager, refused
+     * write-backs leave a note in the fast log.
+     *
+     * @param undoMan the undo manager of the master control, may be {@code null}
+     * @param fastLog the fast log of the master control, may be {@code null}
+     */
+    protected AbstractJsonJackTableModel(JackUndoManager undoMan, FastLog fastLog) {
         this.undoMan = undoMan;
+        this.fastLog = fastLog;
     }
 
     /**
@@ -160,6 +175,19 @@ public abstract class AbstractJsonJackTableModel extends AbstractTableModel
     protected abstract void refreshPane();
 
     // ========== Write-back helpers ==========
+
+    /**
+     * Writes a note into the fast log of the master control. A refused write-back must not
+     * stay silent - the user changed something and nothing happened. Without a fast log
+     * (the local-only constructors) the note is dropped.
+     *
+     * @param typeId the fast log type id, e.g. "editor"
+     * @param message the message
+     * @return true when the note was written
+     */
+    protected final boolean tryLog(String typeId, String message) {
+        return fastLog != null && fastLog.tryWrite(typeId, message);
+    }
 
     /**
      * Checks whether a write-back of the pane is wired at all: the undo manager must be set

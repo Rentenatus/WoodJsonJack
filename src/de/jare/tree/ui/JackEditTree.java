@@ -68,6 +68,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
     private Timer parseRefreshTimer;
     private final Map<Long, ParseState> lastParseStates = new HashMap<>();
+    private final Map<Long, String> lastProblemSignatures = new HashMap<>();
 
     public JackEditTree(String rootName, String... propNames) {
         this(null, rootName, propNames);
@@ -112,7 +113,8 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         jtree.setCellRenderer(new JsonJackTreeCellRenderer());
         jtree.setEditable(true);
         final JackUndoManager undoMan = master != null ? master.getUndoManager() : null;
-        jtree.setCellEditor(new JsonJackTreeCellEditor(undoMan));
+        jtree.setCellEditor(new JsonJackTreeCellEditor(undoMan,
+                master != null ? master.getFastLog() : null));
 
         // selection listener for the tree
         jtree.addTreeSelectionListener(e -> {
@@ -322,6 +324,15 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             for (EditNode editNode : result.getAffectedNodes()) {
                 getModel().refreshAncestorRendering(editNode);
             }
+
+            // The hard parse validated synchronously with the command: report the problems of
+            // the affected nodes at once. The 200ms walk stays the safety net for the soft mode,
+            // where the background parser finishes asynchronously.
+            for (EditNode editNode : result.getAffectedNodes()) {
+                if (editNode instanceof EditNodeAbstract absNode) {
+                    logParseProblemIfChanged(absNode, absNode.getEditId());
+                }
+            }
         }
 
         private boolean handleRebuildAffected(CommandResult result) {
@@ -511,10 +522,48 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                 model.nodeChanged(swingNode);
             }
         }
+        logParseProblemIfChanged(node, id);
         for (EditNode child : node.getChildren()) {
             if (child instanceof EditNodeAbstract absChild) {
                 checkNodeChanged(absChild, model);
             }
+        }
+    }
+
+    /**
+     * Writes a parse problem of a node into the Fast Log ("parser" type) whenever its problem
+     * signature - the edit status plus the edit message - changes: the parse rejections would
+     * otherwise stay silent, the node label shows only the status color, nothing tells the user
+     * what went wrong (an invalid field name in the hard parse mode, for example). Two call
+     * sites cover both parse modes: the command result (the hard parse validates synchronously,
+     * the problem is known the moment the command finishes) and the 200ms refresh walk, the
+     * safety net for the soft mode, where the background parser finishes asynchronously.
+     * Unchanged problems are logged once - the signature memory deduplicates across both
+     * sites - and solved problems reset the signature silently. The message names the parse
+     * mode, the node and the edit message of the parser.
+     *
+     * @param node the node to check
+     * @param id the edit id of the node, the key of the signature memory
+     */
+    private void logParseProblemIfChanged(EditNodeAbstract node, Long id) {
+        final EditStatus status = node.getEditStatus();
+        final boolean problem = status == EditStatus.ERROR || status == EditStatus.WARNING;
+        final String message = node.getEditMessage() == null ? "" : node.getEditMessage();
+        final String signature = problem ? status.getLiteral() + ": " + message : "";
+        if (signature.equals(lastProblemSignatures.get(id))) {
+            return;
+        }
+        lastProblemSignatures.put(id, signature);
+        if (!problem) {
+            return;
+        }
+        final EditTree editTree = getModel() != null ? getModel().getEditTree() : null;
+        final String modePrefix = editTree != null
+                ? "[" + editTree.getParseMode() + "] " : "";
+        final String name = node.getName() == null ? "?" : node.getName();
+        if (master != null) {
+            master.getFastLog().tryWrite("parser",
+                    modePrefix + "parse problem at '" + name + "': " + status.getLiteral() + " - " + message);
         }
     }
 

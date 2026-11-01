@@ -40,7 +40,7 @@ public class JsonJackAttributesPane extends JPanel {
     public JsonJackAttributesPane(JackMasterControl jackmaster, Frame owner) {
         super(new BorderLayout());
         this.owner = owner;
-        attributesModel = new JsonJackAttrTableModel(jackmaster.getUndoManager());
+        attributesModel = new JsonJackAttrTableModel(jackmaster.getUndoManager(), jackmaster.getFastLog());
         jackmaster.addSelectionListener(attributesModel);
         jackmaster.addUndoRedoListener(attributesModel);
         attributesTable = new JTable(attributesModel);
@@ -55,7 +55,26 @@ public class JsonJackAttributesPane extends JPanel {
 
         installAttrDetailButtonColumn();
 
+        // A node switch rebuilds the rows underneath an open cell editor: the stale editor
+        // keeps its row index and would write into the wrong node on commit - cancel it on
+        // every whole-table rebuild (fireTableDataChanged: firstRow 0, lastRow MAX_VALUE).
+        attributesTable.getModel().addTableModelListener(e -> {
+            if (e.getFirstRow() == 0 && e.getLastRow() == Integer.MAX_VALUE
+                    && attributesTable.isEditing()) {
+                attributesTable.removeEditor();
+            }
+        });
+
         add(new JScrollPane(attributesTable), BorderLayout.CENTER);
+    }
+
+    /**
+     * Returns the table of the pane - test access to the editor guard.
+     *
+     * @return the attribute table
+     */
+    javax.swing.JTable getTable() {
+        return attributesTable;
     }
 
     /**

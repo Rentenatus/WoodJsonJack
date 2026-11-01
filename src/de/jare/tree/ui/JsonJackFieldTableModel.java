@@ -84,6 +84,17 @@ public class JsonJackFieldTableModel extends AbstractJsonJackTableModel
         super(undoMan);
     }
 
+    /**
+     * Creates the model with the undo manager and the fast log of the master control: refused
+     * write-backs leave a note in the fast log instead of staying silent.
+     *
+     * @param undoMan the undo manager of the master control, may be {@code null}
+     * @param fastLog the fast log of the master control, may be {@code null}
+     */
+    public JsonJackFieldTableModel(JackUndoManager undoMan, de.jare.tree.control.fastlog.FastLog fastLog) {
+        super(undoMan, fastLog);
+    }
+
     // Local sandbox overrides, keyed by the edit id of the field (the synthetic value row
     // uses the edit id of the object itself). Never written back into the edit node.
     private final Map<Long, String> valueOverrides = new HashMap<>();

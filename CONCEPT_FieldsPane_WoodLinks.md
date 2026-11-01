@@ -378,7 +378,9 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   Rename wird im Soft-Modus (und ohne Semantik) als `RenameNodeCommand` über den UndoManager
   ausgeführt und schlägt im Tree durch — neuer Name, anderes Feld, anderer Typ rückt nach, der
   Soft-Parser folgt asynchron; Undo greift wie beim Tree-Rename. Der Hard-Modus verbietet
-  Renames bislang (Parse-Modi-Konzept, offene Entscheidung 2): dort bleibt die Änderung lokal.
+  Renames (offene Entscheidung 2 des Parse-Modi-Konzepts, umgesetzte Empfehlung „verbieten"):
+  das Attributes-Pane behält die Änderung lokal, der Tree-Editor verweigert sie ganz — beide
+  Ablehnungen hinterlassen eine Notiz im Fast Log.
   Ein leerer Name wird von der Pane abgefangen (der Command-Check existiert, wird vom
   HistoryManager aber nicht erzwungen). Ein Durchreich-Array-Wrapper (`EditNodePropertyArr`,
   der anonyme „array"-Knoten) trägt keine eigenen Daten: seine `name`- und `primValue`-Zeilen

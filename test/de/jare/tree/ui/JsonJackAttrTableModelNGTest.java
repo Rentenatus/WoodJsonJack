@@ -127,6 +127,19 @@ public class JsonJackAttrTableModelNGTest {
 
         assertEquals(matrix.getName(), "matrix", "the hard parse mode forbids the rename");
         assertEquals(model.getValueAt(nameRow, 1), "matrix99", "the pane still shows the change");
+
+        // with a fast log the refusal is not silent
+        final de.jare.tree.control.fastlog.FastLog fastLog = new de.jare.tree.control.fastlog.FastLog();
+        fastLog.registerType(new de.jare.tree.control.fastlog.FastLogType("editor", "Editor", true));
+        final JsonJackAttrTableModel loggingModel
+                = new JsonJackAttrTableModel(undoMan, fastLog);
+        undoMan.setActiveModel(new JackTreeModel(tree));
+        loggingModel.onEditorSelected(componentOf(new JackTreeModel(tree)), null);
+        loggingModel.onNodeSelected(new DefaultMutableTreeNode(matrix), null, false);
+        loggingModel.setValueAt("matrix99", rowOf(loggingModel, "name"), 1);
+        assertEquals(matrix.getName(), "matrix", "the hard parse mode forbids the rename");
+        assertEquals(fastLog.getEntries("editor").size(), 1,
+                "the refused rename leaves a note in the fast log: " + fastLog.getEntries("editor"));
     }
 
     /**

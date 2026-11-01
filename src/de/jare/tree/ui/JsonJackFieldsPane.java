@@ -38,7 +38,7 @@ public class JsonJackFieldsPane extends JPanel {
     public JsonJackFieldsPane(JackMasterControl jackmaster, Frame owner) {
         super(new BorderLayout());
         this.owner = owner;
-        fieldsModel = new JsonJackFieldTableModel(jackmaster.getUndoManager());
+        fieldsModel = new JsonJackFieldTableModel(jackmaster.getUndoManager(), jackmaster.getFastLog());
         jackmaster.addSelectionListener(fieldsModel);
         jackmaster.addContentListener(fieldsModel);
         jackmaster.addParseProblemsListener(fieldsModel);
@@ -51,6 +51,16 @@ public class JsonJackFieldsPane extends JPanel {
 
         // After every model refresh: focus the row of the field clicked in the tree.
         fieldsTable.getModel().addTableModelListener(e -> applyFocusedField());
+
+        // A node switch rebuilds the rows underneath an open cell editor: the stale editor
+        // keeps its row index and would write into the wrong node on commit - cancel it on
+        // every whole-table rebuild (fireTableDataChanged: firstRow 0, lastRow MAX_VALUE).
+        fieldsTable.getModel().addTableModelListener(e -> {
+            if (e.getFirstRow() == 0 && e.getLastRow() == Integer.MAX_VALUE
+                    && fieldsTable.isEditing()) {
+                fieldsTable.removeEditor();
+            }
+        });
 
         // Array fields are not edited inline: clicking the value cell opens the collection editor
         // (object lists) or the primitive list editor (primitive lists and array annotations).
@@ -83,6 +93,15 @@ public class JsonJackFieldsPane extends JPanel {
         });
 
         add(new JScrollPane(fieldsTable), BorderLayout.CENTER);
+    }
+
+    /**
+     * Returns the table of the pane - test access to the editor guard.
+     *
+     * @return the fields table
+     */
+    javax.swing.JTable getTable() {
+        return fieldsTable;
     }
 
     /**
