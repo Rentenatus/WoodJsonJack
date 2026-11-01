@@ -1,5 +1,6 @@
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.core.EditLinkingSet;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
@@ -16,6 +17,7 @@ import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.ParseProblemsListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.listeners.UndoRedoListener;
 import de.jare.tree.control.model.JackTreeModel;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreeModel;
 
 /**
  * Table model for the Fields pane: a view on the model side of the selected
@@ -49,13 +52,15 @@ import javax.swing.tree.DefaultMutableTreeNode;
  * @author Janusch Rentenatus
  */
 public class JsonJackFieldTableModel extends AbstractTableModel
-        implements TreeFocusListener, ContentListener, ParseProblemsListener, JsonJackComboCapableModel {
+        implements TreeFocusListener, ContentListener, ParseProblemsListener,
+        UndoRedoListener, JsonJackComboCapableModel {
 
     private static final String[] columnNames = {"Name", "Value", "Type", "JsonType", "^"};
 
     private List<FieldRow> rows = new ArrayList<>();
     private JsonModelDescriptor jsonModelDescriptor;
     private EditTree editTree;
+    private JackTreeModel treeModel;
     private EditNodeObject currentObject;
     private long focusedFieldEditId = -1;
 
@@ -154,6 +159,20 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(), oldRow.jsonType(),
                 oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
         fireTableCellUpdated(row, col);
+    }
+
+    /**
+     * Checks whether the row is editable through the pane: array fields open their list
+     * editors, parsed single object fields open the collection editor, every other field row
+     * is as editable as its value cell inline. The button of the pane shows "^" for these
+     * rows, "-" for read-only rows (their detail dialog opens in read-only mode).
+     *
+     * @param rowIndex the row index
+     * @return true when the user can change the row through the pane
+     */
+    public boolean isEditableRow(int rowIndex) {
+        return isArrayFieldRow(rowIndex) || isSingleObjectFieldRow(rowIndex)
+                || isCellEditable(rowIndex, 1);
     }
 
     @Override
@@ -514,7 +533,38 @@ public class JsonJackFieldTableModel extends AbstractTableModel
                 primitiveListOverrides.clear();
             }
             this.editTree = newTree;
+            this.treeModel = treeModel;
             setJsonModelDescriptor(treeModel.getJsonModelDescriptor());
+        }
+    }
+
+    // ========== UndoRedoListener ==========
+
+    /**
+     * Refreshes the rows when a command runs on the pane's own tree: a rename or a value
+     * change - from this pane, the tree or the Attributes pane - must show its result here,
+     * on execute, redo and undo alike. The sandbox overrides of the shown object survive the
+     * refresh (see updateRows), the event carries the tree model of the executing editor, so a
+     * second editor side by side never clears this view.
+     */
+    @Override
+    public void onExecute(Integer level, TreeModel model, CommandResult historyEvent) {
+        refreshIfOwnModel(model);
+    }
+
+    @Override
+    public void onUndo(Integer level, TreeModel model, CommandResult historyEvent) {
+        refreshIfOwnModel(model);
+    }
+
+    @Override
+    public void onSkipped(Integer level, TreeModel model, de.jare.jsoncasted.editor.command.EditCommand command) {
+        // NoOp - a skipped command changes nothing
+    }
+
+    private void refreshIfOwnModel(TreeModel model) {
+        if (model != null && model == this.treeModel) {
+            refresh();
         }
     }
 

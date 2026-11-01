@@ -42,6 +42,7 @@ public class JsonJackAttributesPane extends JPanel {
         this.owner = owner;
         attributesModel = new JsonJackAttrTableModel(jackmaster.getUndoManager());
         jackmaster.addSelectionListener(attributesModel);
+        jackmaster.addUndoRedoListener(attributesModel);
         attributesTable = new JTable(attributesModel);
         attributesTable.setFillsViewportHeight(true);
         attributesTable.getTableHeader().setVisible(true);
@@ -58,13 +59,15 @@ public class JsonJackAttributesPane extends JPanel {
     }
 
     /**
-     * Installs the "^" column (column 3) of the attribute table: a field
-     * rendered as a button that opens the detail dialog on click when the
-     * attribute value is neither null nor empty.
+     * Installs the button column (column 3) of the attribute table: a field rendered as a
+     * button that opens the detail dialog on click when the attribute value is neither null
+     * nor empty. The button shows "^" for an editable attribute row (value, name, primValue)
+     * and "-" for a read-only row whose dialog opens in read-only mode.
      */
     private void installAttrDetailButtonColumn() {
         TableColumn buttonCol = attributesTable.getColumnModel().getColumn(3);
-        buttonCol.setCellRenderer(new JsonJackTableButtonRenderer(attributesModel::isButtonEnabled));
+        buttonCol.setCellRenderer(new JsonJackTableButtonRenderer(
+                attributesModel::isButtonEnabled, attributesModel::isAttributeEditable));
         buttonCol.setPreferredWidth(36);
         buttonCol.setMaxWidth(36);
         buttonCol.setMinWidth(28);

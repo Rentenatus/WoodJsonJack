@@ -358,10 +358,18 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
 - **Lebenszyklus**: Overrides überstehen jeden Refresh desselben Objekts — im Soft-Modus den
   asynchronen `onParseProblems`-Refresh, im Hard-Modus den `onCommand`-Refresh — und werden
   bei Auswahl eines anderen Objekts oder einem Editor-Wechsel verworfen.
+- **Refresh-Verkabelung**: Beide Panes lauschen zusätzlich auf die UndoRedo-Events ihres
+  Editors (`addUndoRedoListener`): Execute, Redo und Undo — aus der Pane selbst, vom Tree oder
+  aus der jeweils anderen Pane — frischen die Zeilen des eigenen `JackTreeModel` auf
+  (Identitätsvergleich; ein zweiter Editor daneben löscht nichts). Der `ContentListener`-Pfad
+  (`fireCommand`) ist dagegen nie verkabelt — `fireCommand` hat keinen Aufrufer, `onCommand`
+  bleibt stummes Erbe.
 - **Anzeige**: Die Value-Spalte zeigt die Override-Vorschau (Instanztexte bzw. Werte,
   kommasepariert); die Dialoge füllen sich über `getCurrentObjectList()`/
   `getCurrentPrimitiveList()` aus dem Override — ein wieder geöffneter Editor sieht die
-  letzte Sandbox-Wahl.
+  letzte Sandbox-Wahl. Die Schaltflächen-Spalte unterscheidet UX-seitig: „^" markiert eine
+  editierbare Zeile, „-" eine nur lesbare (deren Dialog öffnet read-only), leer bleibt der
+  deaktivierte Zustand.
 - **Entfallene Write-back-Pfade**: `applyObjectListResult`/`applyPrimitiveListResult` erzeugen
   keine Reference-Stubs mehr, registrieren nichts im LinkingSet und ändern keinen
   `JsonNodeType`. Die Whole-List-Reference-Logik bleibt als lokale Anzeige erhalten (nur der
@@ -372,7 +380,10 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   Soft-Parser folgt asynchron; Undo greift wie beim Tree-Rename. Der Hard-Modus verbietet
   Renames bislang (Parse-Modi-Konzept, offene Entscheidung 2): dort bleibt die Änderung lokal.
   Ein leerer Name wird von der Pane abgefangen (der Command-Check existiert, wird vom
-  HistoryManager aber nicht erzwungen).
+  HistoryManager aber nicht erzwungen). Ein Durchreich-Array-Wrapper (`EditNodePropertyArr`,
+  der anonyme „array"-Knoten) trägt keine eigenen Daten: seine `name`- und `primValue`-Zeilen
+  sind read-only (auch gegen direkte `setValueAt`-Aufrufe), ein benanntes Array-Feld bleibt
+  umbenennbar.
 - **Ausnahme primitive Werte (Attributes-Pane)**: Primitive Werte — die `primValue` einer
   Property mit primitivem Node-Typ (STRING, NUMBER, LONG, BOOLEAN, NULL) oder der `value` eines
   primitiven Zeilenobjekts (skalare Array-Zeile: keine Kinder, ein Wert) — sind formkonform und

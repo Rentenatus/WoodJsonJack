@@ -9,6 +9,7 @@ import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
+import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.model.JackTreeModel;
 import de.jare.debug.JsonDebugLevel;
@@ -596,6 +597,53 @@ public class JsonJackFieldTableModelNGTest {
         final List<JsonJackFieldTableModel.InstanceCandidate> current = model.getCurrentObjectList(2);
         assertEquals(current.size(), 1);
         assertEquals(current.get(0).woodId(), "7", "the whole list reference shows the target id");
+    }
+
+    /**
+     * Minimal focus component bound to an existing tree model: the refresh checks the model
+     * identity, so editor selection and undo manager must carry the SAME instance.
+     */
+    private static TreeFocusComponent componentOf(final JackTreeModel treeModel) {
+        return new TreeFocusComponent() {
+            @Override
+            public JTree getTree() {
+                return null;
+            }
+
+            @Override
+            public JackTreeModel getModel() {
+                return treeModel;
+            }
+
+            @Override
+            public de.jare.tree.control.JackMasterControl getJackMaster() {
+                return null;
+            }
+        };
+    }
+
+    /**
+     * A value command executed outside the pane - the Attributes pane writes a primitive value
+     * through, for example - refreshes the rows: the pane follows execute and undo of its own
+     * editor, the sandbox overrides of the shown object survive the refresh.
+     */
+    @Test
+    public void testAttrSideValueCommandRefreshesThePane() throws Exception {
+        EditTree tree = importTree();
+        final JackTreeModel treeModel = new JackTreeModel(tree);
+        JackUndoManager undoMan = new JackUndoManager();
+        undoMan.setActiveModel(treeModel);
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        undoMan.addUndoRedoListener(5, model);
+        model.onEditorSelected(componentOf(treeModel), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertEquals(model.getValueAt(3, 1), "5", "the count row shows the current value");
+        undoMan.executeCommand(
+                new de.jare.jsoncasted.editor.command.SetNodeValueCommand(findProperty(tree, "count"), "42"));
+        assertEquals(model.getValueAt(3, 1), "42", "the pane follows a value command from outside");
+        undoMan.undo();
+        assertEquals(model.getValueAt(3, 1), "5", "the pane follows the undo");
     }
 
     /**

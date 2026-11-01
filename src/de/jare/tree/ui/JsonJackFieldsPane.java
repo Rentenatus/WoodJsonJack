@@ -42,6 +42,7 @@ public class JsonJackFieldsPane extends JPanel {
         jackmaster.addSelectionListener(fieldsModel);
         jackmaster.addContentListener(fieldsModel);
         jackmaster.addParseProblemsListener(fieldsModel);
+        jackmaster.addUndoRedoListener(fieldsModel);
         fieldsTable = new JTable(fieldsModel);
         fieldsTable.setFillsViewportHeight(true);
         fieldsTable.getTableHeader().setVisible(true);
@@ -156,14 +157,17 @@ public class JsonJackFieldsPane extends JPanel {
     }
 
     /**
-     * Installs the "^" column (column 4) of the fields table: a field rendered as a button that
-     * opens the editor of the row on click - the list editors for array fields, the single mode
-     * collection editor for parsed object reference fields, the detail dialog for every other
-     * row with a value.
+     * Installs the button column (column 4) of the fields table: a field rendered as a button
+     * that opens the editor of the row on click - the list editors for array fields, the single
+     * mode collection editor for parsed object reference fields, the detail dialog for every
+     * other row with a value. The button shows "^" for an editable row (see
+     * {@link JsonJackFieldTableModel#isEditableRow(int)}) and "-" for a read-only row whose
+     * dialog opens in read-only mode.
      */
     private void installFieldsDetailButtonColumn() {
         TableColumn buttonCol = fieldsTable.getColumnModel().getColumn(4);
-        buttonCol.setCellRenderer(new JsonJackTableButtonRenderer(fieldsModel::isButtonEnabled));
+        buttonCol.setCellRenderer(new JsonJackTableButtonRenderer(
+                fieldsModel::isButtonEnabled, fieldsModel::isEditableRow));
         buttonCol.setPreferredWidth(36);
         buttonCol.setMaxWidth(36);
         buttonCol.setMinWidth(28);

@@ -251,6 +251,67 @@ public class JsonJackAttrTableModelNGTest {
     }
 
     /**
+     * A command executed outside the pane - the tree's own rename path, for example -
+     * refreshes the rows: the pane follows execute and undo of its own editor.
+     */
+    @Test
+    public void testTreeSideCommandRefreshesThePane() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, undoMan);
+        undoMan.addUndoRedoListener(5, model);
+
+        // a rename from outside - the tree cell editor path
+        undoMan.executeCommand(
+                new de.jare.jsoncasted.editor.command.RenameNodeCommand(matrix, "matrix99"));
+        assertEquals(model.getValueAt(rowOf(model, "name"), 1), "matrix99",
+                "the pane follows a tree-side rename");
+
+        undoMan.undo();
+        assertEquals(model.getValueAt(rowOf(model, "name"), 1), "matrix",
+                "the pane follows the undo");
+    }
+
+    /**
+     * A pass-through array wrapper (the anonymous "array" node, EditNodePropertyArr) carries no
+     * data of its own: its name and primValue rows stay read-only, no rename leaks through a
+     * direct setValueAt. A named array field keeps its editable rows - renaming it re-binds the
+     * field.
+     */
+    @Test
+    public void testPassThroughArrayRowsStayReadOnly() throws Exception {
+        final de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ [ \"alpha\" ] ] }", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        final EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+        assertTrue(tree.getRoot().getChildAt(0) instanceof EditNodeProperty);
+        final EditNodeProperty values = (EditNodeProperty) tree.getRoot().getChildAt(0);
+        assertTrue(values.getChildAt(0) instanceof de.jare.jsoncasted.editor.core.EditNodePropertyArr,
+                "an inner anonymous array is a pass-through wrapper");
+        final de.jare.jsoncasted.editor.core.EditNodePropertyArr inner
+                = (de.jare.jsoncasted.editor.core.EditNodePropertyArr) values.getChildAt(0);
+
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, inner, undoMan);
+
+        assertFalse(model.isCellEditable(rowOf(model, "name"), 1),
+                "the array wrapper name is read-only");
+        assertFalse(model.isCellEditable(rowOf(model, "primValue"), 1),
+                "the array wrapper primValue is read-only");
+
+        model.setValueAt("renamed", rowOf(model, "name"), 1);
+        assertEquals(inner.getName(), "array", "no rename reaches a pass-through array");
+        assertEquals(model.getValueAt(rowOf(model, "name"), 1), "renamed",
+                "the pane shows the input locally");
+
+        // the named array field keeps its editable rows
+        final JsonJackAttrTableModel fieldModel = selectModel(tree, values, undoMan);
+        assertTrue(fieldModel.isCellEditable(rowOf(fieldModel, "name"), 1),
+                "a named array field is renamable");
+    }
+
+    /**
      * Without an undo manager (the local-only constructor) renames stay in the pane too.
      */
     @Test

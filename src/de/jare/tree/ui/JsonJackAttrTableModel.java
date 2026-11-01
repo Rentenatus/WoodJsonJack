@@ -6,11 +6,13 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.command.CommandResult;
 import de.jare.jsoncasted.editor.command.RenameNodeCommand;
 import de.jare.jsoncasted.editor.command.SetNodeValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
+import de.jare.jsoncasted.editor.core.EditNodePropertyArr;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.JackAttribut;
 import de.jare.jsoncasted.editor.core.ParseMode;
@@ -21,6 +23,7 @@ import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
+import de.jare.tree.control.listeners.UndoRedoListener;
 import de.jare.tree.control.model.JackTreeModel;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,14 +33,17 @@ import java.util.Map;
 import java.util.Objects;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreeModel;
 
-public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFocusListener, JsonJackComboCapableModel {
+public class JsonJackAttrTableModel extends AbstractTableModel
+        implements TreeFocusListener, UndoRedoListener, JsonJackComboCapableModel {
 
     private final String[] columnNames = {"Name", "Value", "Type", "^"};
     private List<PropertyRow> rows = new ArrayList<>();
     private JsonModelDescriptor jsonModelDescriptor;
     private EditNode currentEditNode;
     private EditTree editTree;
+    private JackTreeModel treeModel;
     private final JackUndoManager undoMan;
 
     /**
@@ -124,10 +130,12 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
             return;
         }
         if ("name".equals(attributeName)) {
-            // the hard parse mode forbids renames so far; a blank name is no valid rename either -
+            // a pass-through array wrapper ("array") carries no data of its own: no rename.
+            // The hard parse mode forbids renames so far; a blank name is no valid rename either -
             // the pane guards it (the command check exists, but the history manager does not
             // enforce it on execute)
-            if (editTree.getParseMode() != ParseMode.HARD_PARSE
+            if (!isPassThroughArray()
+                    && editTree.getParseMode() != ParseMode.HARD_PARSE
                     && newValue != null && !newValue.isBlank()
                     && !Objects.equals(currentEditNode.getName(), newValue)) {
                 undoMan.executeCommand(new RenameNodeCommand(currentEditNode, newValue));
@@ -184,7 +192,11 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     /**
      * Checks whether the attribute of the given row is editable for now. Only
      * the attributes "value", "name" and "primValue" may be edited; all others
-     * are read-only.
+     * are read-only. A pass-through array wrapper ({@link EditNodePropertyArr},
+     * the anonymous "array" node) carries no data of its own - its name and
+     * primValue are structural defaults that only route the content, so they
+     * stay read-only too. A named array field keeps its editable rows: renaming
+     * it re-binds the field in the soft parse mode.
      *
      * @param rowIndex the row index
      * @return true when the attribute is editable
@@ -193,8 +205,23 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         if (rowIndex < 0 || rowIndex >= rows.size()) {
             return false;
         }
-        String name = rows.get(rowIndex).name();
-        return "value".equals(name) || "name".equals(name) || "primValue".equals(name);
+        final String attributeName = rows.get(rowIndex).name();
+        if (isPassThroughArray()
+                && ("name".equals(attributeName) || "primValue".equals(attributeName))) {
+            return false;
+        }
+        return "value".equals(attributeName) || "name".equals(attributeName) || "primValue".equals(attributeName);
+    }
+
+    /**
+     * Checks whether the current node is a pass-through array wrapper: an anonymous array
+     * (EditNodePropertyArr) routes its content only, its name ("array") and primValue are
+     * structural defaults.
+     *
+     * @return true when the shown node is a pass-through array
+     */
+    private boolean isPassThroughArray() {
+        return currentEditNode instanceof EditNodePropertyArr;
     }
 
     /**
@@ -318,7 +345,37 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
         }
         if (editor.getModel() instanceof JackTreeModel treeModel) {
             this.editTree = treeModel.getEditTree();
+            this.treeModel = treeModel;
             setJsonModelDescriptor(treeModel.getJsonModelDescriptor());
+        }
+    }
+
+    // ========== UndoRedoListener ==========
+
+    /**
+     * Refreshes the rows when a command runs on the pane's own tree: a rename or a value
+     * change - from this pane, the tree or the Fields pane - must show its result here, on
+     * execute, redo and undo alike. The event carries the tree model of the executing editor,
+     * so a second editor side by side never clears this view.
+     */
+    @Override
+    public void onExecute(Integer level, TreeModel model, CommandResult historyEvent) {
+        refreshIfOwnModel(model);
+    }
+
+    @Override
+    public void onUndo(Integer level, TreeModel model, CommandResult historyEvent) {
+        refreshIfOwnModel(model);
+    }
+
+    @Override
+    public void onSkipped(Integer level, TreeModel model, de.jare.jsoncasted.editor.command.EditCommand command) {
+        // NoOp - a skipped command changes nothing
+    }
+
+    private void refreshIfOwnModel(TreeModel model) {
+        if (model != null && model == this.treeModel) {
+            updateProperties(currentEditNode);
         }
     }
 
