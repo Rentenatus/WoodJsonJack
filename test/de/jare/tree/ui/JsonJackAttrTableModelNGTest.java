@@ -1,5 +1,6 @@
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
@@ -16,10 +17,11 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.*;
 
 /**
- * Sandbox contract of the Attributes pane: attribute values never leave the pane, with the one
- * exception of the "name" attribute - a rename reaches the node as a RenameNodeCommand when the
- * parse mode allows renaming (soft parse mode, without semantics), stays local in the hard parse
- * mode and without an undo manager.
+ * Sandbox contract of the Attributes pane: attribute values leave the pane only through the
+ * two write-back exceptions - a rename reaches the node as a RenameNodeCommand in the soft
+ * parse mode and without semantics, a primitive value reaches the node as a
+ * SetNodeValueCommand in BOTH parse modes (primitives are shape-conform, the parser judges
+ * the content). Everything else, and both exceptions in their forbidden mode, stay local.
  *
  * @author Janusch Rentenatus
  */
@@ -54,7 +56,7 @@ public class JsonJackAttrTableModelNGTest {
         };
     }
 
-    private static JsonJackAttrTableModel selectModel(EditTree tree, EditNodeProperty field,
+    private static JsonJackAttrTableModel selectModel(EditTree tree, EditNode node,
             JackUndoManager undoMan) {
         final JackTreeModel treeModel = new JackTreeModel(tree);
         final JsonJackAttrTableModel model = new JsonJackAttrTableModel(undoMan);
@@ -62,7 +64,7 @@ public class JsonJackAttrTableModelNGTest {
             undoMan.setActiveModel(treeModel);
         }
         model.onEditorSelected(componentOf(treeModel), null);
-        model.onNodeSelected(new DefaultMutableTreeNode(field), null, false);
+        model.onNodeSelected(new DefaultMutableTreeNode(node), null, false);
         return model;
     }
 
@@ -146,10 +148,11 @@ public class JsonJackAttrTableModelNGTest {
     }
 
     /**
-     * Value edits never leave the pane, whatever the attribute and the parse mode are.
+     * A primitive value is shape-conform in every parse mode: the change reaches the node as
+     * a command in the soft mode too, and undo restores the old value.
      */
     @Test
-    public void testValueEditStaysLocal() throws Exception {
+    public void testPrimitiveValueReachesTheNodeInSoftMode() throws Exception {
         final EditTree tree = importTree();
         final EditNodeProperty matrix = matrixField(tree);
         final JackUndoManager undoMan = new JackUndoManager();
@@ -159,8 +162,92 @@ public class JsonJackAttrTableModelNGTest {
         assertTrue(model.isCellEditable(valueRow, 1), "the primValue attribute is editable");
         model.setValueAt("42", valueRow, 1);
 
-        assertEquals(matrix.getValue(), "5", "value edits never leave the pane");
+        assertEquals(matrix.getValue(), "42", "a primitive value edit reaches the node in soft mode");
         assertEquals(model.getValueAt(valueRow, 1), "42", "the pane shows the change");
+
+        undoMan.undo();
+        assertEquals(matrix.getValue(), "5", "the value edit is undoable");
+    }
+
+    /**
+     * Unlike a rename, a primitive value reaches the node in the hard parse mode as well -
+     * the parser judges the content, the shape is always conform.
+     */
+    @Test
+    public void testPrimitiveValueReachesTheNodeInHardMode() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        // the hard mode accepts only a fully verified tree
+        tree.getRoot().setEditStatus(EditStatus.OKAY);
+        matrix.setEditStatus(EditStatus.OKAY);
+        assertTrue(tree.setParseMode(ParseMode.HARD_PARSE), "the verified tree may switch to hard mode");
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, undoMan);
+
+        final int valueRow = rowOf(model, "primValue");
+        model.setValueAt("42", valueRow, 1);
+
+        assertEquals(matrix.getValue(), "42", "a primitive value edit reaches the node in hard mode");
+        assertEquals(model.getValueAt(valueRow, 1), "42", "the pane shows the change");
+    }
+
+    /**
+     * The value of a primitive row object (a scalar array row) reaches the node too: the
+     * object carries its text in the value attribute.
+     */
+    @Test
+    public void testPrimitiveRowObjectValueReachesTheNode() throws Exception {
+        final de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ \"alpha\" ] }", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        final EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+        final EditNodeProperty values = (EditNodeProperty) tree.getRoot().getChildAt(0);
+        assertTrue(values.getChildAt(0) instanceof de.jare.jsoncasted.editor.core.EditNodeObject);
+        final de.jare.jsoncasted.editor.core.EditNodeObject rowObject
+                = (de.jare.jsoncasted.editor.core.EditNodeObject) values.getChildAt(0);
+
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, rowObject, undoMan);
+
+        final int valueRow = rowOf(model, "value");
+        assertTrue(model.isCellEditable(valueRow, 1), "the value of a primitive row object is editable");
+        model.setValueAt("beta", valueRow, 1);
+
+        assertEquals(rowObject.getValue(), "beta", "the value of the primitive row object reaches the node");
+    }
+
+    /**
+     * A structural object (the root carries its name as value but has children): editing its
+     * value attribute is no primitive edit and stays in the pane.
+     */
+    @Test
+    public void testStructuralObjectValueStaysLocal() throws Exception {
+        final EditTree tree = importTree();
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, tree.getRoot(), undoMan);
+
+        final int valueRow = rowOf(model, "value");
+        model.setValueAt("sandbox", valueRow, 1);
+
+        assertEquals(((de.jare.jsoncasted.editor.core.EditNodeObject) tree.getRoot()).getValue(),
+                "root", "the structural object keeps its value");
+        assertEquals(model.getValueAt(valueRow, 1), "sandbox", "the pane still shows the change");
+    }
+
+    /**
+     * Without an undo manager (the local-only constructor) value edits stay in the pane too.
+     */
+    @Test
+    public void testValueEditWithoutUndoManagerStaysLocal() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, null);
+
+        final int valueRow = rowOf(model, "primValue");
+        model.setValueAt("42", valueRow, 1);
+
+        assertEquals(matrix.getValue(), "5", "no undo manager, no write-through");
+        assertEquals(model.getValueAt(valueRow, 1), "42", "the pane still shows the change");
     }
 
     /**

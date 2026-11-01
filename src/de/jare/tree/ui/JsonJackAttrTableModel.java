@@ -7,10 +7,14 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.command.RenameNodeCommand;
+import de.jare.jsoncasted.editor.command.SetNodeValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
+import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.JackAttribut;
 import de.jare.jsoncasted.editor.core.ParseMode;
+import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
@@ -82,27 +86,25 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     }
 
     /**
-     * Accepts the change locally - and for the "name" attribute as the one exception of the
-     * sandbox: renaming is allowed in the soft parse mode (a rename re-binds the field: new
-     * name - other field - other type moves in, the soft parser follows asynchronously) and
-     * without semantics (no model, plain tree editing). In both modes the rename is executed
-     * as a {@link RenameNodeCommand} through the undo manager, so the tree shows it and undo
-     * works. The hard parse mode forbids renames so far (parse mode concept, open decision 2):
-     * the change stays in the pane there. Every other attribute never leaves the pane.
+     * Accepts the change locally - with two write-back exceptions of the sandbox:
+     * <ul>
+     * <li>the <b>name</b> attribute executes a {@link RenameNodeCommand} in the soft parse
+     * mode and without semantics (a rename re-binds the field: new name - other field -
+     * other type moves in, the soft parser follows asynchronously). The hard parse mode
+     * forbids renames so far (parse mode concept, open decision 2): the change stays in the
+     * pane there. A blank name is guarded by the pane.</li>
+     * <li>a <b>primitive value</b> (text, number, boolean - the primValue of a property or
+     * the value of a primitive row object) executes a {@link SetNodeValueCommand} in BOTH
+     * parse modes: primitives are shape-conform by nature, the parser judges the content
+     * (a text in a number field gets flagged).</li>
+     * </ul>
+     * Every other attribute never leaves the pane.
      */
     @Override
     public void setValueAt(Object aValue, int row, int col) {
         if (col == 1 && row < rows.size()) {
             PropertyRow oldRow = rows.get(row);
-            if ("name".equals(oldRow.name()) && renameReachesTree()) {
-                final String newName = asText(aValue);
-                // a blank name is no valid rename - the pane guards it (the command check exists,
-                // but the history manager does not enforce it on execute)
-                if (newName != null && !newName.isBlank()
-                        && !Objects.equals(currentEditNode.getName(), newName)) {
-                    undoMan.executeCommand(new RenameNodeCommand(currentEditNode, newName));
-                }
-            }
+            writeBackIfAllowed(oldRow.name(), asText(aValue));
             PropertyRow newRow = new PropertyRow(oldRow.name(), aValue, oldRow.type());
             rows.set(row, newRow);
             fireTableCellUpdated(row, col);
@@ -110,15 +112,61 @@ public class JsonJackAttrTableModel extends AbstractTableModel implements TreeFo
     }
 
     /**
-     * Checks whether a rename of the current node may reach the tree: the undo manager must be
-     * wired, the active tree must be known, and its parse mode must allow renaming - the hard
-     * parse mode forbids renames until the hard edit concept implements its re-type path.
+     * Executes the write-back exception of the sandbox for the given attribute, if one applies:
+     * the rename as a command in the soft parse mode and without semantics only, the primitive
+     * value as a command in both parse modes. Without a change nothing runs.
      *
-     * @return true when a rename is written through as a command
+     * @param attributeName the attribute being edited
+     * @param newValue the new value
      */
-    private boolean renameReachesTree() {
-        return undoMan != null && currentEditNode != null && editTree != null
-                && editTree.getParseMode() != ParseMode.HARD_PARSE;
+    private void writeBackIfAllowed(String attributeName, String newValue) {
+        if (undoMan == null || currentEditNode == null || editTree == null) {
+            return;
+        }
+        if ("name".equals(attributeName)) {
+            // the hard parse mode forbids renames so far; a blank name is no valid rename either -
+            // the pane guards it (the command check exists, but the history manager does not
+            // enforce it on execute)
+            if (editTree.getParseMode() != ParseMode.HARD_PARSE
+                    && newValue != null && !newValue.isBlank()
+                    && !Objects.equals(currentEditNode.getName(), newValue)) {
+                undoMan.executeCommand(new RenameNodeCommand(currentEditNode, newValue));
+            }
+            return;
+        }
+        if (isPrimitiveValueRow(attributeName)
+                && !Objects.equals(currentEditNode.getValue(), newValue)) {
+            undoMan.executeCommand(new SetNodeValueCommand(currentEditNode, newValue));
+        }
+    }
+
+    /**
+     * Checks whether the attribute row carries a primitive value: the primValue of a property
+     * with a primitive node type, or the value of a primitive row object (a scalar array row -
+     * no children, a value). Structural attributes (objects with children, arrays, annotations)
+     * never write through.
+     *
+     * @param attributeName the attribute being edited
+     * @return true when the row is a primitive value carrier
+     */
+    private boolean isPrimitiveValueRow(String attributeName) {
+        if ("primValue".equals(attributeName)
+                && currentEditNode instanceof EditNodeProperty property) {
+            return isPrimitiveType(property.getType());
+        }
+        return "value".equals(attributeName)
+                && currentEditNode instanceof EditNodeObject object
+                && object.getChildCount() == 0
+                && object.getValue() != null;
+    }
+
+    private static boolean isPrimitiveType(JsonNodeType type) {
+        return switch (type) {
+            case STRING, NUMBER, LONG, BOOLEAN, NULL ->
+                true;
+            default ->
+                false;
+        };
     }
 
     private static String asText(Object value) {
