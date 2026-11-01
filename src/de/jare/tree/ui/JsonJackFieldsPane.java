@@ -38,7 +38,7 @@ public class JsonJackFieldsPane extends JPanel {
     public JsonJackFieldsPane(JackMasterControl jackmaster, Frame owner) {
         super(new BorderLayout());
         this.owner = owner;
-        fieldsModel = new JsonJackFieldTableModel();
+        fieldsModel = new JsonJackFieldTableModel(jackmaster.getUndoManager());
         jackmaster.addSelectionListener(fieldsModel);
         jackmaster.addContentListener(fieldsModel);
         jackmaster.addParseProblemsListener(fieldsModel);

@@ -1,6 +1,7 @@
 package de.jare.tree.ui;
 
-import de.jare.jsoncasted.editor.command.CommandResult;
+
+import de.jare.jsoncasted.editor.command.SetNodeValueCommand;
 import de.jare.jsoncasted.editor.core.EditLinkingSet;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
@@ -13,21 +14,23 @@ import de.jare.jsoncasted.lang.JsonNodeType;
 import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
+import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.ContentListener;
 import de.jare.tree.control.listeners.ParseProblemsListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
-import de.jare.tree.control.listeners.TreeFocusListener;
-import de.jare.tree.control.listeners.UndoRedoListener;
-import de.jare.tree.control.model.JackTreeModel;
+
+
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.TreeModel;
+
 
 /**
  * Table model for the Fields pane: a view on the model side of the selected
@@ -42,27 +45,44 @@ import javax.swing.tree.TreeModel;
  * object and focuses the field's row (matched by edit id, not by name - array
  * fields may repeat names).</p>
  *
- * <p>The pane is a sandbox: it accepts changes - inline value edits and the
- * results of the list editors - but never writes them back into the edit node,
- * whatever the parse mode of the tree is. The changes live in local overrides
- * keyed by edit id; they survive refreshes of the same object (the soft parse
- * mode refreshes asynchronously, the hard mode after every command) and are
- * dropped when another object or editor is selected.</p>
+ * <p>The pane is a sandbox: it accepts changes - inline value edits and the results of
+ * the list editors - but writes them back only through the primitive value exception: the
+ * inline value of a primitive field and the synthetic value row of a primitive row object
+ * execute a SetNodeValueCommand in BOTH parse modes (primitives are shape-conform, the
+ * parser judges the content). Everything else - object fields, array fields and their
+ * list editors - lives in local overrides keyed by edit id; they survive refreshes of the
+ * same object (the soft parse mode refreshes asynchronously, the hard mode after every
+ * command) and are dropped when another object or editor is selected.</p>
  *
  * @author Janusch Rentenatus
  */
-public class JsonJackFieldTableModel extends AbstractTableModel
-        implements TreeFocusListener, ContentListener, ParseProblemsListener,
-        UndoRedoListener, JsonJackComboCapableModel {
+public class JsonJackFieldTableModel extends AbstractJsonJackTableModel
+        implements ContentListener, ParseProblemsListener, JsonJackComboCapableModel {
 
     private static final String[] columnNames = {"Name", "Value", "Type", "JsonType", "^"};
 
     private List<FieldRow> rows = new ArrayList<>();
-    private JsonModelDescriptor jsonModelDescriptor;
-    private EditTree editTree;
-    private JackTreeModel treeModel;
     private EditNodeObject currentObject;
     private long focusedFieldEditId = -1;
+
+    /**
+     * Creates a local-only model: no change ever leaves the pane, primitive values included.
+     */
+    public JsonJackFieldTableModel() {
+    }
+
+    /**
+     * Creates the model with the undo manager of the master control. A primitive value edit -
+     * the inline value of a primitive field or the synthetic value row of a primitive row
+     * object - executes a {@link SetNodeValueCommand} through it in BOTH parse modes (see
+     * {@link #setValueAt(Object, int, int)}); the list editors stay sandbox until the
+     * selection semantics exist.
+     *
+     * @param undoMan the undo manager of the master control, may be {@code null}
+     */
+    public JsonJackFieldTableModel(JackUndoManager undoMan) {
+        super(undoMan);
+    }
 
     // Local sandbox overrides, keyed by the edit id of the field (the synthetic value row
     // uses the edit id of the object itself). Never written back into the edit node.
@@ -143,6 +163,15 @@ public class JsonJackFieldTableModel extends AbstractTableModel
      * and shown in the pane, but never written back into the edit node - neither as a mutation
      * nor as a parse trigger, whatever the parse mode of the tree is.
      */
+    /**
+     * Accepts the change in the pane - and for primitive values as the write-back exception of
+     * the sandbox: the inline value of a primitive field or the synthetic value row of a
+     * primitive row object executes a {@link SetNodeValueCommand} in BOTH parse modes.
+     * Primitives are shape-conform by nature, the parser judges the content (a text in a
+     * number field gets flagged); the tree repaints, undo and redo work. Every other edit -
+     * object fields, array fields and their list editors - stays in the pane until the
+     * selection semantics exist.
+     */
     @Override
     public void setValueAt(Object aValue, int row, int col) {
         if (col != 1 || row < 1 || row >= rows.size()) {
@@ -155,10 +184,39 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         if (key >= 0L) {
             valueOverrides.put(key, aValue == null ? null : aValue.toString());
         }
+        writeBackIfAllowed(row, asText(aValue));
         final FieldRow oldRow = rows.get(row);
         rows.set(row, new FieldRow(oldRow.name(), aValue, oldRow.type(), oldRow.jsonType(),
                 oldRow.comboBox(), oldRow.comboValues(), oldRow.synthetic()));
         fireTableCellUpdated(row, col);
+    }
+
+    /**
+     * Executes the write-back exception of the sandbox when one applies: a primitive value
+     * reaches the node as a {@link SetNodeValueCommand} in both parse modes - symmetric to
+     * the Attributes pane. Without a change nothing runs.
+     *
+     * @param row the model row of the edited field
+     * @param newValue the new value
+     */
+    private void writeBackIfAllowed(int row, String newValue) {
+        if (!isWriteBackReady()) {
+            return;
+        }
+        final FieldRow fieldRow = rows.get(row);
+        if (fieldRow.synthetic()) {
+            // the synthetic value row of a primitive row object writes the object value itself
+            if (isPrimitiveRowObject(currentObject)
+                    && !Objects.equals(currentObject.getValue(), newValue)) {
+                getUndoMan().executeCommand(new SetNodeValueCommand(currentObject, newValue));
+            }
+            return;
+        }
+        final EditNodeProperty field = fieldOfRow(row);
+        if (field != null && isPrimitiveType(field.getType())
+                && !Objects.equals(field.getValue(), newValue)) {
+            getUndoMan().executeCommand(new SetNodeValueCommand(field, newValue));
+        }
     }
 
     /**
@@ -298,17 +356,17 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         }
         JsonTypeDescriptor declared = null;
         final JsonFieldDescriptor descriptor = field.getJsonField();
-        if (descriptor != null && jsonModelDescriptor != null) {
-            declared = jsonModelDescriptor.getType(descriptor.getTypeName());
+        if (descriptor != null && getJsonModelDescriptor() != null) {
+            declared = getJsonModelDescriptor().getType(descriptor.getTypeName());
         }
         // A whole list reference fits at a list field only: object rows never offer arrays.
         final boolean rowIsListField = descriptor != null && descriptor.isAsListOrArray();
         final List<InstanceCandidate> result = new ArrayList<>();
         final Set<EditNodeAbstract> seen = new HashSet<>();
-        if (editTree != null && editTree.getRoot() != null) {
-            collectInstanceCandidates(editTree.getRoot(), declared, rowIsListField, result, seen);
+        if (getEditTree() != null && getEditTree().getRoot() != null) {
+            collectInstanceCandidates(getEditTree().getRoot(), declared, rowIsListField, result, seen);
         }
-        final EditLinkingSet linkingSet = editTree == null ? null : editTree.getLinkingSet();
+        final EditLinkingSet linkingSet = getEditTree() == null ? null : getEditTree().getLinkingSet();
         if (linkingSet != null) {
             for (EditNodeAbstract held : linkingSet.getAllObjects()) {
                 if (seen.add(held) && candidateFits(held, declared, rowIsListField)) {
@@ -519,53 +577,24 @@ public class JsonJackFieldTableModel extends AbstractTableModel
         updateRows(owner, focusId);
     }
 
-    @Override
-    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
-        if (editor == null) {
-            return;
-        }
-        if (editor.getModel() instanceof JackTreeModel treeModel) {
-            final EditTree newTree = treeModel.getEditTree();
-            if (newTree != this.editTree) {
-                // another editor: the sandbox of the previous tree is dropped
-                valueOverrides.clear();
-                objectListOverrides.clear();
-                primitiveListOverrides.clear();
-            }
-            this.editTree = newTree;
-            this.treeModel = treeModel;
-            setJsonModelDescriptor(treeModel.getJsonModelDescriptor());
-        }
-    }
-
-    // ========== UndoRedoListener ==========
-
     /**
-     * Refreshes the rows when a command runs on the pane's own tree: a rename or a value
-     * change - from this pane, the tree or the Attributes pane - must show its result here,
-     * on execute, redo and undo alike. The sandbox overrides of the shown object survive the
-     * refresh (see updateRows), the event carries the tree model of the executing editor, so a
-     * second editor side by side never clears this view.
+     * Another editor works on another edit tree: the sandbox of the previous tree is dropped.
      */
     @Override
-    public void onExecute(Integer level, TreeModel model, CommandResult historyEvent) {
-        refreshIfOwnModel(model);
+    protected void onEditorTreeChanged(EditTree previous, EditTree current) {
+        valueOverrides.clear();
+        objectListOverrides.clear();
+        primitiveListOverrides.clear();
     }
 
+    /**
+     * Refreshes the rows of the shown object, keeping the sandbox overrides and the focused
+     * field: a command on the pane's own tree - from this pane, the tree or the Attributes
+     * pane - shows its result here.
+     */
     @Override
-    public void onUndo(Integer level, TreeModel model, CommandResult historyEvent) {
-        refreshIfOwnModel(model);
-    }
-
-    @Override
-    public void onSkipped(Integer level, TreeModel model, de.jare.jsoncasted.editor.command.EditCommand command) {
-        // NoOp - a skipped command changes nothing
-    }
-
-    private void refreshIfOwnModel(TreeModel model) {
-        if (model != null && model == this.treeModel) {
-            refresh();
-        }
+    protected void refreshPane() {
+        refresh();
     }
 
     // ========== ContentListener / ParseProblemsListener ==========
@@ -769,8 +798,8 @@ public class JsonJackFieldTableModel extends AbstractTableModel
      */
     private Object[] comboBoxCandidates(EditNodeProperty field) {
         final JsonFieldDescriptor descriptor = field.getJsonField();
-        if (descriptor != null && jsonModelDescriptor != null) {
-            final JsonTypeDescriptor declared = jsonModelDescriptor.getType(descriptor.getTypeName());
+        if (descriptor != null && getJsonModelDescriptor() != null) {
+            final JsonTypeDescriptor declared = getJsonModelDescriptor().getType(descriptor.getTypeName());
             if (declared != null && !declared.isPrimitive()) {
                 return instanceCandidates(declared);
             }
@@ -792,10 +821,10 @@ public class JsonJackFieldTableModel extends AbstractTableModel
     private Object[] instanceCandidates(JsonTypeDescriptor declared) {
         List<Object> candidates = new ArrayList<>();
         Set<EditNodeObject> seen = new HashSet<>();
-        if (editTree != null && editTree.getRoot() != null) {
-            collectFittingInstances(editTree.getRoot(), declared, candidates, seen);
+        if (getEditTree() != null && getEditTree().getRoot() != null) {
+            collectFittingInstances(getEditTree().getRoot(), declared, candidates, seen);
         }
-        final EditLinkingSet linkingSet = editTree == null ? null : editTree.getLinkingSet();
+        final EditLinkingSet linkingSet = getEditTree() == null ? null : getEditTree().getLinkingSet();
         if (linkingSet != null) {
             for (EditNodeAbstract held : linkingSet.getAllObjects()) {
                 if (held instanceof EditNodeObject obj && seen.add(obj) && typeFits(obj, declared)) {
@@ -907,10 +936,6 @@ public class JsonJackFieldTableModel extends AbstractTableModel
      */
     public EditNodeObject getCurrentObject() {
         return currentObject;
-    }
-
-    void setJsonModelDescriptor(JsonModelDescriptor descriptor) {
-        this.jsonModelDescriptor = descriptor;
     }
 
     /**

@@ -384,17 +384,18 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   der anonyme „array"-Knoten) trägt keine eigenen Daten: seine `name`- und `primValue`-Zeilen
   sind read-only (auch gegen direkte `setValueAt`-Aufrufe), ein benanntes Array-Feld bleibt
   umbenennbar.
-- **Ausnahme primitive Werte (Attributes-Pane)**: Primitive Werte — die `primValue` einer
-  Property mit primitivem Node-Typ (STRING, NUMBER, LONG, BOOLEAN, NULL) oder der `value` eines
-  primitiven Zeilenobjekts (skalare Array-Zeile: keine Kinder, ein Wert) — sind formkonform und
-  werden in BEIDEN Modi als `SetNodeValueCommand` (Typ `SET_VALUE`) über den UndoManager
-  ausgeführt: Soft parst asynchron nach, Hard validiert synchron, der Parser bewertet den Inhalt
-  (ein Text im Zahlenfeld wird markiert). Strukturelle Attribute (Objekte mit Kindern, Arrays,
-  Annotationen) bleiben Sandbox. `EditNodeObject` trägt dafür jetzt ein echtes `setValue` mit
-  Parse-Notifikation — vorher war es ein NoOp, auch `setAttributes` lief dadurch ins Leere.
-  Nach jedem Command-Ergebnis frischt der JTree zusätzlich die Vorfahren-Kette auf
-  (`JackTreeModel.refreshAncestorRendering`): aggregierte Labels (Array-Vorschauen) und ihre
-  Zeilenbreiten folgen dem neuen Inhalt.
+- **Ausnahme primitive Werte (beide Panes)**: Primitive Werte sind formkonform und werden in
+  BEIDEN Modi als `SetNodeValueCommand` (Typ `SET_VALUE`) über den UndoManager ausgeführt: Soft
+  parst asynchron nach, Hard validiert synchron, der Parser bewertet den Inhalt (ein Text im
+  Zahlenfeld wird markiert). Im Attributes-Pane betrifft das die `primValue` einer Property mit
+  primitivem Node-Typ (STRING, NUMBER, LONG, BOOLEAN, NULL) und den `value` eines primitiven
+  Zeilenobjekts (skalare Array-Zeile: keine Kinder, ein Wert); im Fields-Pane die Inline-Wert
+  der synthetischen Zeile und den `setValueAt`-Weg des Detail-Dialogs. Die Listeneditoren und
+  Objektfelder bleiben Sandbox bis zur Auswahl-Semantik. `EditNodeObject` trägt dafür ein
+  echtes `setValue` mit Parse-Notifikation — vorher war es ein NoOp, auch `setAttributes` lief
+  dadurch ins Leere. Nach jedem Command-Ergebnis frischt der JTree zusätzlich die
+  Vorfahren-Kette auf (`JackTreeModel.refreshAncestorRendering`): aggregierte Labels
+  (Array-Vorschauen) und ihre Zeilenbreiten folgen dem neuen Inhalt.
 
 ---
 
@@ -509,11 +510,18 @@ oder verschoben:
    EditNode zurück (Kapitel 5.1): `JsonJackFieldTableModel.setValueAt`,
    `applyObjectListResult` und `applyPrimitiveListResult` schreiben ausschließlich lokale
    Overrides (nach editId), das `JsonJackAttrTableModel` ändert nur die lokale Zeile —
-   Ausnahmen: der Rename der „name"-Zeile als RenameNodeCommand im Soft-Modus und primitive
-   Werte als SetNodeValueCommand in beiden Modi (Kapitel 5.1). Der
-   `JsonJackFieldTableModelNGTest` (18) und der `JsonJackAttrTableModelNGTest` (9) sichern
+   Ausnahmen: der Rename der „name"-Zeile als RenameNodeCommand im Soft-Modus (Attributes-Pane)
+   und primitive Werte als SetNodeValueCommand in beiden Modi (beide Panes, Kapitel 5.1). Der
+   `JsonJackFieldTableModelNGTest` (21) und der `JsonJackAttrTableModelNGTest` (11) sichern
    den Vertrag: EditNode unangetastet, Override überlebt die Refreshes beider Parse-Modi,
-   Objektwechsel verwirft, Rename nur im Soft-Modus, primitive Werte in beiden Modi.
+   Objektwechsel verwirft, Rename nur im Soft-Modus, primitive Werte in beiden Modi aus beiden
+   Panes.
+6. **Gemeinsame Basisklasse der Pane-Modelle.** Die Querschnitts-Verkabelung — Editor-Selektion
+   (treeModel/editTree/Deskriptor-Fang), UndoRedo-Refresh mit Identitätsvergleich des eigenen
+   TreeModels, Write-back-Bereitschaft, `isPrimitiveType`/`asText` — lebt in
+   `AbstractJsonJackTableModel`; die Tabellen-Semantik (Zeilen, Sandbox-Overrides, Kandidaten,
+   Write-back-Gates) bleibt je Modell. Ein Tree-Wechsel meldet sich als Hook
+   (`onEditorTreeChanged`) — das Fields-Modell verwirft dort seine Sandbox.
 
 Zusätzlich gilt im Validator-Umfeld: der `EditValidationRunner` läuft nur mit
 einem non-null Deskriptor — WoodLink-Diagnosen erscheinen also nur bei

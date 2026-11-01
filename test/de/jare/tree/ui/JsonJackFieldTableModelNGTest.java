@@ -245,9 +245,11 @@ public class JsonJackFieldTableModelNGTest {
         assertEquals(model.getValueAt(1, 1), "alpha");
         assertTrue(model.isCellEditable(1, 1), "the synthetic value row is editable");
 
+        // the local-only constructor (no undo manager) keeps the change in the pane
         model.setValueAt("gamma", 1, 1);
         assertEquals(model.getValueAt(1, 1), "gamma");
-        assertEquals(rowObject.getValue(), "alpha", "the pane never writes back into the edit node");
+        assertEquals(rowObject.getValue(), "alpha",
+                "without an undo manager the change never leaves the pane");
 
         // the sandbox survives refreshes of the same object (soft parse refreshes asynchronously)
         model.refresh();
@@ -644,6 +646,68 @@ public class JsonJackFieldTableModelNGTest {
         assertEquals(model.getValueAt(3, 1), "42", "the pane follows a value command from outside");
         undoMan.undo();
         assertEquals(model.getValueAt(3, 1), "5", "the pane follows the undo");
+    }
+
+    /**
+     * The write-back exception, symmetric to the Attributes pane: a primitive value reaches the
+     * node as a command in both parse modes, undo works. Object fields stay sandbox.
+     */
+    @Test
+    public void testPrimitiveValueReachesTheNodeFromTheFieldsPane() throws Exception {
+        EditTree tree = importTree();
+        final JackTreeModel treeModel = new JackTreeModel(tree);
+        JackUndoManager undoMan = new JackUndoManager();
+        undoMan.setActiveModel(treeModel);
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel(undoMan);
+        undoMan.addUndoRedoListener(5, model);
+        model.onEditorSelected(componentOf(treeModel), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        // the count field is a LONG primitive: a value edit through setValueAt (the detail
+        // dialog path) runs through. The row shows the primitive fallback combo - inline
+        // editing stays blocked for combo cells, the value write is the model contract.
+        model.setValueAt("42", 3, 1);
+        assertEquals(findProperty(tree, "count").getValue(), "42",
+                "a primitive value edit reaches the node from the fields pane");
+        assertEquals(model.getValueAt(3, 1), "42", "the pane shows the change");
+
+        undoMan.undo();
+        assertEquals(findProperty(tree, "count").getValue(), "5", "the value edit is undoable");
+
+        // an object field stays sandbox: its edit never leaves the pane
+        model.setValueAt("sandbox", 2, 1);
+        assertEquals(model.getValueAt(2, 1), "sandbox", "the pane shows the object edit locally");
+        assertEquals(findProperty(tree, "a").getChildCount(), 1,
+                "the object field node is untouched");
+    }
+
+    /**
+     * The synthetic value row of a primitive row object writes the object value itself - as a
+     * command, symmetric to the Attributes pane.
+     */
+    @Test
+    public void testPrimitiveRowObjectValueReachesTheNodeFromTheFieldsPane() throws Exception {
+        de.jare.jsoncasted.lang.JsonResource resource
+                = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }", JsonDebugLevel.SIMPLE);
+        assertNotNull(resource);
+        EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
+        EditNodeProperty values = findProperty(tree, "values");
+        EditNodeObject rowObject = (EditNodeObject) values.getChildAt(0);
+
+        final JackTreeModel treeModel = new JackTreeModel(tree);
+        JackUndoManager undoMan = new JackUndoManager();
+        undoMan.setActiveModel(treeModel);
+        JsonJackFieldTableModel model = new JsonJackFieldTableModel(undoMan);
+        undoMan.addUndoRedoListener(5, model);
+        model.onEditorSelected(componentOf(treeModel), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(rowObject), null, false);
+
+        model.setValueAt("gamma", 1, 1);
+        assertEquals(rowObject.getValue(), "gamma",
+                "the synthetic value row reaches the row object as a command");
+
+        undoMan.undo();
+        assertEquals(rowObject.getValue(), "alpha", "the row object edit is undoable");
     }
 
     /**

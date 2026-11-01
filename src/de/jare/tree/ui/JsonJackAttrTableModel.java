@@ -6,7 +6,7 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.jsoncasted.editor.command.CommandResult;
+
 import de.jare.jsoncasted.editor.command.RenameNodeCommand;
 import de.jare.jsoncasted.editor.command.SetNodeValueCommand;
 import de.jare.jsoncasted.editor.core.EditNode;
@@ -21,10 +21,10 @@ import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import de.jare.tree.control.JackUndoManager;
-import de.jare.tree.control.listeners.TreeFocusComponent;
-import de.jare.tree.control.listeners.TreeFocusListener;
-import de.jare.tree.control.listeners.UndoRedoListener;
-import de.jare.tree.control.model.JackTreeModel;
+
+
+
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -33,35 +33,30 @@ import java.util.Map;
 import java.util.Objects;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.TreeModel;
 
-public class JsonJackAttrTableModel extends AbstractTableModel
-        implements TreeFocusListener, UndoRedoListener, JsonJackComboCapableModel {
+
+public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
+        implements JsonJackComboCapableModel {
 
     private final String[] columnNames = {"Name", "Value", "Type", "^"};
     private List<PropertyRow> rows = new ArrayList<>();
-    private JsonModelDescriptor jsonModelDescriptor;
     private EditNode currentEditNode;
-    private EditTree editTree;
-    private JackTreeModel treeModel;
-    private final JackUndoManager undoMan;
 
     /**
      * Creates a local-only model: no change ever leaves the pane, renames included.
      */
     public JsonJackAttrTableModel() {
-        this(null);
     }
 
     /**
      * Creates the model with the undo manager of the master control. A rename of the "name"
-     * attribute is executed as a {@link RenameNodeCommand} through it - provided the parse
-     * mode of the active tree allows renaming (see {@link #setValueAt(Object, int, int)}).
+     * attribute and a primitive value edit are executed as commands through it - provided the
+     * parse mode of the active tree allows them (see {@link #setValueAt(Object, int, int)}).
      *
      * @param undoMan the undo manager of the master control, may be {@code null}
      */
     public JsonJackAttrTableModel(JackUndoManager undoMan) {
-        this.undoMan = undoMan;
+        super(undoMan);
     }
 
     @Override
@@ -126,7 +121,7 @@ public class JsonJackAttrTableModel extends AbstractTableModel
      * @param newValue the new value
      */
     private void writeBackIfAllowed(String attributeName, String newValue) {
-        if (undoMan == null || currentEditNode == null || editTree == null) {
+        if (currentEditNode == null || !isWriteBackReady()) {
             return;
         }
         if ("name".equals(attributeName)) {
@@ -135,16 +130,16 @@ public class JsonJackAttrTableModel extends AbstractTableModel
             // the pane guards it (the command check exists, but the history manager does not
             // enforce it on execute)
             if (!isPassThroughArray()
-                    && editTree.getParseMode() != ParseMode.HARD_PARSE
+                    && getEditTree().getParseMode() != ParseMode.HARD_PARSE
                     && newValue != null && !newValue.isBlank()
                     && !Objects.equals(currentEditNode.getName(), newValue)) {
-                undoMan.executeCommand(new RenameNodeCommand(currentEditNode, newValue));
+                getUndoMan().executeCommand(new RenameNodeCommand(currentEditNode, newValue));
             }
             return;
         }
         if (isPrimitiveValueRow(attributeName)
                 && !Objects.equals(currentEditNode.getValue(), newValue)) {
-            undoMan.executeCommand(new SetNodeValueCommand(currentEditNode, newValue));
+            getUndoMan().executeCommand(new SetNodeValueCommand(currentEditNode, newValue));
         }
     }
 
@@ -166,19 +161,6 @@ public class JsonJackAttrTableModel extends AbstractTableModel
                 && currentEditNode instanceof EditNodeObject object
                 && object.getChildCount() == 0
                 && object.getValue() != null;
-    }
-
-    private static boolean isPrimitiveType(JsonNodeType type) {
-        return switch (type) {
-            case STRING, NUMBER, LONG, BOOLEAN, NULL ->
-                true;
-            default ->
-                false;
-        };
-    }
-
-    private static String asText(Object value) {
-        return value == null ? null : value.toString();
     }
 
     @Override
@@ -272,13 +254,13 @@ public class JsonJackAttrTableModel extends AbstractTableModel
      * @return array of available values
      */
     private Object[] getComboBoxValuesForAttribute(String attributeName) {
-        if (jsonModelDescriptor == null) {
+        if (getJsonModelDescriptor() == null) {
             return new Object[0];
         }
 
         if ("jsonType".equals(attributeName)) {
             // Return all type names from the descriptor
-            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.getTypes();
+            Collection<JsonTypeDescriptor> types = getJsonModelDescriptor().getTypes();
             List<Object> typeNames = new ArrayList<>();
             for (JsonTypeDescriptor typeDesc : types) {
                 typeNames.add(typeDesc.getTypeName());
@@ -287,7 +269,7 @@ public class JsonJackAttrTableModel extends AbstractTableModel
         } else if ("jsonField".equals(attributeName)) {
             // Return all field names from all types in the descriptor
             List<Object> fieldNames = new ArrayList<>();
-            Collection<JsonTypeDescriptor> types = jsonModelDescriptor.getTypes();
+            Collection<JsonTypeDescriptor> types = getJsonModelDescriptor().getTypes();
             for (JsonTypeDescriptor typeDesc : types) {
                 if (typeDesc != null) {
                     List<JsonFieldDescriptor> fields = typeDesc.getFields();
@@ -314,69 +296,18 @@ public class JsonJackAttrTableModel extends AbstractTableModel
         return columnIndex == 3 ? Boolean.class : String.class;
     }
 
-    /**
-     * Sets the JsonModelDescriptor for this model. This is used to populate
-     * combo box values for attributes like jsonType and jsonField.
-     *
-     * @param descriptor the model descriptor to set
-     */
-    public void setJsonModelDescriptor(JsonModelDescriptor descriptor) {
-        this.jsonModelDescriptor = descriptor;
-    }
-
-    /**
-     * Returns the JsonModelDescriptor for this model.
-     *
-     * @return the model descriptor, or null if not set
-     */
-    public JsonModelDescriptor getJsonModelDescriptor() {
-        return jsonModelDescriptor;
-    }
-
     @Override
     public void onNodeSelected(DefaultMutableTreeNode node, Object trigger, boolean rootSelected) {
         updateProperties(node);
     }
 
-    @Override
-    public void onEditorSelected(TreeFocusComponent editor, Object trigger) {
-        if (editor == null) {
-            return;
-        }
-        if (editor.getModel() instanceof JackTreeModel treeModel) {
-            this.editTree = treeModel.getEditTree();
-            this.treeModel = treeModel;
-            setJsonModelDescriptor(treeModel.getJsonModelDescriptor());
-        }
-    }
-
-    // ========== UndoRedoListener ==========
-
     /**
-     * Refreshes the rows when a command runs on the pane's own tree: a rename or a value
-     * change - from this pane, the tree or the Fields pane - must show its result here, on
-     * execute, redo and undo alike. The event carries the tree model of the executing editor,
-     * so a second editor side by side never clears this view.
+     * Refreshes the attribute rows of the selected node: a command on the pane's own tree -
+     * from this pane, the tree or the fields pane - shows its result here.
      */
     @Override
-    public void onExecute(Integer level, TreeModel model, CommandResult historyEvent) {
-        refreshIfOwnModel(model);
-    }
-
-    @Override
-    public void onUndo(Integer level, TreeModel model, CommandResult historyEvent) {
-        refreshIfOwnModel(model);
-    }
-
-    @Override
-    public void onSkipped(Integer level, TreeModel model, de.jare.jsoncasted.editor.command.EditCommand command) {
-        // NoOp - a skipped command changes nothing
-    }
-
-    private void refreshIfOwnModel(TreeModel model) {
-        if (model != null && model == this.treeModel) {
-            updateProperties(currentEditNode);
-        }
+    protected void refreshPane() {
+        updateProperties(currentEditNode);
     }
 
     private void updateProperties(Object node) {
