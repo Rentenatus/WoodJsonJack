@@ -150,6 +150,29 @@ public class JackTreeModel extends DefaultTreeModel {
         nodeStructureChanged(mutableTreeNode);
     }
 
+    /**
+     * Refreshes the rendering of every ancestor of the given node, up to the root: the label of
+     * an edited node feeds the labels of its ancestors (an array property, for example, shows
+     * the live summary of its children), and JTree recomputes the row bounds only for nodes it
+     * hears about - a repainted ancestor follows the new content with the right width. The node
+     * itself and its subtree are not touched. The root carries no parent, so DefaultTreeModel
+     * fires no change event for it; no object label aggregates children, there is nothing to
+     * refresh.
+     *
+     * @param editNode the node whose ancestors are refreshed, may be {@code null}
+     */
+    public void refreshAncestorRendering(EditNode editNode) {
+        EditNode parent = editNode == null ? null : editNode.getParent();
+        while (parent != null) {
+            DefaultMutableTreeNode swingNode = findNodeByIdAndRange(
+                    parent.getEditId(), parent.getLeftRange(), parent.getTimesRange());
+            if (swingNode != null) {
+                nodeChanged(swingNode);
+            }
+            parent = parent.getParent();
+        }
+    }
+
     private DefaultMutableTreeNode buildSubtree(DefaultMutableTreeNode rootNode, EditNode editNode) {
         rootNode.setUserObject(editNode);
 

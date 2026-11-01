@@ -381,6 +381,9 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   (ein Text im Zahlenfeld wird markiert). Strukturelle Attribute (Objekte mit Kindern, Arrays,
   Annotationen) bleiben Sandbox. `EditNodeObject` trägt dafür jetzt ein echtes `setValue` mit
   Parse-Notifikation — vorher war es ein NoOp, auch `setAttributes` lief dadurch ins Leere.
+  Nach jedem Command-Ergebnis frischt der JTree zusätzlich die Vorfahren-Kette auf
+  (`JackTreeModel.refreshAncestorRendering`): aggregierte Labels (Array-Vorschauen) und ihre
+  Zeilenbreiten folgen dem neuen Inhalt.
 
 ---
 

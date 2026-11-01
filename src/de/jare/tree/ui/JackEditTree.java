@@ -313,6 +313,14 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
                 getModel().rebuildFromDomain();
                 revalidate();
                 repaint();
+                return;
+            }
+
+            // The label of an edited node feeds the labels of its ancestors (value summaries,
+            // array contents): refresh the whole ancestor chain, so a changed parent re-renders
+            // with the right width. JTree recomputes the row bounds only for nodes it hears about.
+            for (EditNode editNode : result.getAffectedNodes()) {
+                getModel().refreshAncestorRendering(editNode);
             }
         }
 
