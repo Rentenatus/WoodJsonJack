@@ -69,8 +69,8 @@ public class JsonJackCollectionEditorDialog extends JDialog {
 
     private static final String[] COLUMNS = {"woodId", "text", "jsonType"};
 
-    private final List<JsonJackFieldTableModel.InstanceCandidate> candidates;
-    private final List<JsonJackFieldTableModel.InstanceCandidate> chosen;
+    private final List<JsonJackObjectTableModel.InstanceCandidate> candidates;
+    private final List<JsonJackObjectTableModel.InstanceCandidate> chosen;
     private final Cardinality cardinality;
 
     private JTextField filterField;
@@ -90,8 +90,8 @@ public class JsonJackCollectionEditorDialog extends JDialog {
      * @param cardinality the target cardinality of the edited field
      */
     public JsonJackCollectionEditorDialog(Window owner, String fieldLabel,
-            List<JsonJackFieldTableModel.InstanceCandidate> candidates,
-            List<JsonJackFieldTableModel.InstanceCandidate> current,
+            List<JsonJackObjectTableModel.InstanceCandidate> candidates,
+            List<JsonJackObjectTableModel.InstanceCandidate> current,
             Cardinality cardinality) {
         super(owner, (cardinality == Cardinality.SINGLE ? "Reference: " : "Collection: ") + fieldLabel,
                 ModalityType.APPLICATION_MODAL);
@@ -256,7 +256,7 @@ public class JsonJackCollectionEditorDialog extends JDialog {
      *
      * @return the result, never null
      */
-    public List<JsonJackFieldTableModel.InstanceCandidate> getResult() {
+    public List<JsonJackObjectTableModel.InstanceCandidate> getResult() {
         return new ArrayList<>(chosen);
     }
 
@@ -274,7 +274,7 @@ public class JsonJackCollectionEditorDialog extends JDialog {
         }
         final int[] selected = candidatesTable.getSelectedRows();
         for (int viewRow : selected) {
-            final JsonJackFieldTableModel.InstanceCandidate candidate
+            final JsonJackObjectTableModel.InstanceCandidate candidate
                     = candidates.get(candidatesTable.convertRowIndexToModel(viewRow));
             if (!duplicatesBox.isSelected() && chosen.contains(candidate)) {
                 continue; // without duplicates an entry exists at most once
@@ -300,7 +300,7 @@ public class JsonJackCollectionEditorDialog extends JDialog {
             return;
         }
         int index = chosenTable.convertRowIndexToModel(viewRow);
-        final JsonJackFieldTableModel.InstanceCandidate entry = chosen.remove(index);
+        final JsonJackObjectTableModel.InstanceCandidate entry = chosen.remove(index);
         if (direction == Integer.MIN_VALUE) {
             chosen.add(0, entry);
             index = 0;
@@ -319,7 +319,7 @@ public class JsonJackCollectionEditorDialog extends JDialog {
         final String needle = filterField.getText() == null ? "" : filterField.getText().trim().toLowerCase(Locale.ROOT);
         final DefaultTableModel model = candidatesModel;
         model.setRowCount(0);
-        for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
+        for (JsonJackObjectTableModel.InstanceCandidate candidate : candidates) {
             if (!duplicatesBox.isSelected() && chosen.contains(candidate)) {
                 continue;
             }
@@ -330,7 +330,7 @@ public class JsonJackCollectionEditorDialog extends JDialog {
         }
     }
 
-    private static boolean matches(JsonJackFieldTableModel.InstanceCandidate candidate, String needle) {
+    private static boolean matches(JsonJackObjectTableModel.InstanceCandidate candidate, String needle) {
         return containsIgnoreCase(candidate.woodId(), needle)
                 || containsIgnoreCase(candidate.text(), needle)
                 || containsIgnoreCase(candidate.jsonType(), needle);
@@ -342,7 +342,7 @@ public class JsonJackCollectionEditorDialog extends JDialog {
 
     private void refreshChosen() {
         chosenModel.setRowCount(0);
-        for (JsonJackFieldTableModel.InstanceCandidate candidate : chosen) {
+        for (JsonJackObjectTableModel.InstanceCandidate candidate : chosen) {
             chosenModel.addRow(new Object[]{candidate.woodId(), candidate.text(), candidate.jsonType()});
         }
     }

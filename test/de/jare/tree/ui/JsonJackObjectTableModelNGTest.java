@@ -27,7 +27,7 @@ import static org.testng.Assert.*;
  *
  * @author Janusch Rentenatus
  */
-public class JsonJackFieldTableModelNGTest {
+public class JsonJackObjectTableModelNGTest {
 
     private static final String LINKED_JSON = "{\n"
             + "  \"_woodObjectId\": \"1\",\n"
@@ -84,7 +84,7 @@ public class JsonJackFieldTableModelNGTest {
     @Test
     public void testObjectSelectionBuildsRows() throws Exception {
         EditTree tree = importTree();
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
@@ -100,7 +100,7 @@ public class JsonJackFieldTableModelNGTest {
     @Test
     public void testFieldClickShowsParentAndFocusesRow() throws Exception {
         EditTree tree = importTree();
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
 
         EditNodeProperty fieldA = findProperty(tree, "a");
@@ -115,7 +115,7 @@ public class JsonJackFieldTableModelNGTest {
     @Test
     public void testPrimitiveFallbackOffersNodeTypes() throws Exception {
         EditTree tree = importTree();
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
@@ -129,7 +129,7 @@ public class JsonJackFieldTableModelNGTest {
     @Test
     public void testUnparsedObjectFieldHasNoCandidates() throws Exception {
         EditTree tree = importTree();
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
@@ -147,7 +147,7 @@ public class JsonJackFieldTableModelNGTest {
         EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
         targetObject.setJsonType(sceneType);
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.setJsonModelDescriptor(descriptor);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
@@ -167,7 +167,7 @@ public class JsonJackFieldTableModelNGTest {
     @Test
     public void testFocusedRowSelectionSurvivesModelRebuilds() throws Exception {
         EditTree tree = importTree();
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
 
         javax.swing.JTable table = new javax.swing.JTable(model);
@@ -209,7 +209,7 @@ public class JsonJackFieldTableModelNGTest {
         assertNotNull(resource);
         EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
@@ -236,7 +236,7 @@ public class JsonJackFieldTableModelNGTest {
         assertTrue(values.getChildAt(0) instanceof EditNodeObject);
         EditNodeObject rowObject = (EditNodeObject) values.getChildAt(0);
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(rowObject), null, false);
 
@@ -265,7 +265,7 @@ public class JsonJackFieldTableModelNGTest {
     public void testPrimitiveArrayIsNotInlineEditable() throws Exception {
         EditTree tree = importTree();
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
@@ -277,7 +277,7 @@ public class JsonJackFieldTableModelNGTest {
                 = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }\n", JsonDebugLevel.SIMPLE);
         assertNotNull(resource);
         EditTree listTree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
-        JsonJackFieldTableModel listModel = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel listModel = new JsonJackObjectTableModel();
         listModel.onEditorSelected(componentOf(listTree), null);
         listModel.onNodeSelected(new DefaultMutableTreeNode(listTree.getRoot()), null, false);
 
@@ -290,7 +290,7 @@ public class JsonJackFieldTableModelNGTest {
     @Test
     public void testDetailButtonEnablement() throws Exception {
         EditTree tree = importTree();
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
@@ -304,7 +304,7 @@ public class JsonJackFieldTableModelNGTest {
                 = JsonParserService.parse("{ \"values\": [ \"alpha\", \"beta\" ] }\n", JsonDebugLevel.SIMPLE);
         assertNotNull(resource);
         EditTree listTree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
-        JsonJackFieldTableModel listModel = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel listModel = new JsonJackObjectTableModel();
         listModel.onEditorSelected(componentOf(listTree), null);
         listModel.onNodeSelected(new DefaultMutableTreeNode(listTree.getRoot()), null, false);
 
@@ -318,7 +318,7 @@ public class JsonJackFieldTableModelNGTest {
         assertNotNull(resource);
         EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
@@ -333,7 +333,7 @@ public class JsonJackFieldTableModelNGTest {
         assertNotNull(resource);
         EditTree tree = JsonTreeConverter.convertRessourceToEditTree(resource, "root");
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
@@ -381,7 +381,7 @@ public class JsonJackFieldTableModelNGTest {
         inList.setJsonType(sceneType);
         spare.setJsonType(sceneType);
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.setJsonModelDescriptor(descriptor);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
@@ -393,16 +393,16 @@ public class JsonJackFieldTableModelNGTest {
         assertTrue(model.isSingleObjectFieldRow(2), "the spare row is a parsed single object field");
         assertTrue(model.isButtonEnabled(2), "a single object field opens the reference editor");
 
-        final List<JsonJackFieldTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(1);
+        final List<JsonJackObjectTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(1);
         assertEquals(candidates.size(), 2, "both Scene instances fit the declared element type");
 
-        final List<JsonJackFieldTableModel.InstanceCandidate> current = model.getCurrentObjectList(1);
+        final List<JsonJackObjectTableModel.InstanceCandidate> current = model.getCurrentObjectList(1);
         assertEquals(current.size(), 1, "one element is in the list");
         assertSame(current.get(0).node(), inList);
 
         // accept: the spare instance first, the own element second - both land in the sandbox only
-        JsonJackFieldTableModel.InstanceCandidate spareCandidate = null;
-        for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
+        JsonJackObjectTableModel.InstanceCandidate spareCandidate = null;
+        for (JsonJackObjectTableModel.InstanceCandidate candidate : candidates) {
             if (candidate.node() == spare) {
                 spareCandidate = candidate;
             }
@@ -418,7 +418,7 @@ public class JsonJackFieldTableModelNGTest {
         assertFalse(tree.getLinkingSet().hasReferencesTo("this::5"),
                 "nothing is registered in the reverse index");
 
-        final List<JsonJackFieldTableModel.InstanceCandidate> shown = model.getCurrentObjectList(1);
+        final List<JsonJackObjectTableModel.InstanceCandidate> shown = model.getCurrentObjectList(1);
         assertEquals(shown.size(), 2, "the pane shows the chosen elements in the chosen order");
         assertSame(shown.get(0).node(), spare);
         assertSame(shown.get(1).node(), inList);
@@ -453,7 +453,7 @@ public class JsonJackFieldTableModelNGTest {
         ((EditNodeObject) linkField.getChildAt(0)).setJsonType(sceneType);
         ((EditNodeObject) refField.getChildAt(0)).setJsonType(sceneType);
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.setJsonModelDescriptor(descriptor);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
@@ -461,9 +461,9 @@ public class JsonJackFieldTableModelNGTest {
         assertTrue(model.isSingleObjectFieldRow(2), "the ref row is a parsed single object field");
 
         // choose the link instance for the ref field: lands in the sandbox only
-        final List<JsonJackFieldTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(2);
-        JsonJackFieldTableModel.InstanceCandidate linkCandidate = null;
-        for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
+        final List<JsonJackObjectTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(2);
+        JsonJackObjectTableModel.InstanceCandidate linkCandidate = null;
+        for (JsonJackObjectTableModel.InstanceCandidate candidate : candidates) {
             if ("4".equals(candidate.woodId())) {
                 linkCandidate = candidate;
             }
@@ -476,7 +476,7 @@ public class JsonJackFieldTableModelNGTest {
         final EditNodeObject value = (EditNodeObject) refAfter.getChildAt(0);
         assertFalse(value.isLinkReference(), "the pane never creates a reference stub");
 
-        final List<JsonJackFieldTableModel.InstanceCandidate> shown = model.getCurrentObjectList(2);
+        final List<JsonJackObjectTableModel.InstanceCandidate> shown = model.getCurrentObjectList(2);
         assertEquals(shown.size(), 1, "the pane shows the chosen entry");
         assertEquals(shown.get(0).woodId(), "4", "the choice names the chosen instance");
 
@@ -497,7 +497,7 @@ public class JsonJackFieldTableModelNGTest {
         EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
         targetObject.setJsonType(sceneType);
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.setJsonModelDescriptor(descriptor);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
@@ -521,7 +521,7 @@ public class JsonJackFieldTableModelNGTest {
         EditNodeObject targetObject = (EditNodeObject) findProperty(tree, "target").getChildAt(0);
         targetObject.setJsonType(sceneType);
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.setJsonModelDescriptor(descriptor);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
@@ -564,17 +564,17 @@ public class JsonJackFieldTableModelNGTest {
         ((EditNodeObject) leftField.getChildAt(0)).setJsonType(sceneType);
         ((EditNodeObject) rightField.getChildAt(0)).setJsonType(sceneType);
 
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.setJsonModelDescriptor(descriptor);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
         assertTrue(model.isArrayFieldRow(1), "the left row is an array field");
 
-        final List<JsonJackFieldTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(2);
-        JsonJackFieldTableModel.InstanceCandidate arrayCandidate = null;
-        JsonJackFieldTableModel.InstanceCandidate objectCandidate = null;
-        for (JsonJackFieldTableModel.InstanceCandidate candidate : candidates) {
+        final List<JsonJackObjectTableModel.InstanceCandidate> candidates = model.getInstanceCandidates(2);
+        JsonJackObjectTableModel.InstanceCandidate arrayCandidate = null;
+        JsonJackObjectTableModel.InstanceCandidate objectCandidate = null;
+        for (JsonJackObjectTableModel.InstanceCandidate candidate : candidates) {
             if ("7".equals(candidate.woodId())) {
                 arrayCandidate = candidate;
             } else if ("4".equals(candidate.woodId())) {
@@ -596,7 +596,7 @@ public class JsonJackFieldTableModelNGTest {
         assertFalse(element.isLinkReference(), "the pane never creates a reference stub");
 
         // reopening shows the referenced array as the current sandbox content
-        final List<JsonJackFieldTableModel.InstanceCandidate> current = model.getCurrentObjectList(2);
+        final List<JsonJackObjectTableModel.InstanceCandidate> current = model.getCurrentObjectList(2);
         assertEquals(current.size(), 1);
         assertEquals(current.get(0).woodId(), "7", "the whole list reference shows the target id");
     }
@@ -635,7 +635,7 @@ public class JsonJackFieldTableModelNGTest {
         final JackTreeModel treeModel = new JackTreeModel(tree);
         JackUndoManager undoMan = new JackUndoManager();
         undoMan.setActiveModel(treeModel);
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         undoMan.addUndoRedoListener(5, model);
         model.onEditorSelected(componentOf(treeModel), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
@@ -658,7 +658,7 @@ public class JsonJackFieldTableModelNGTest {
         final JackTreeModel treeModel = new JackTreeModel(tree);
         JackUndoManager undoMan = new JackUndoManager();
         undoMan.setActiveModel(treeModel);
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel(undoMan);
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel(undoMan);
         undoMan.addUndoRedoListener(5, model);
         model.onEditorSelected(componentOf(treeModel), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
@@ -697,7 +697,7 @@ public class JsonJackFieldTableModelNGTest {
         final JackTreeModel treeModel = new JackTreeModel(tree);
         JackUndoManager undoMan = new JackUndoManager();
         undoMan.setActiveModel(treeModel);
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel(undoMan);
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel(undoMan);
         undoMan.addUndoRedoListener(5, model);
         model.onEditorSelected(componentOf(treeModel), null);
         model.onNodeSelected(new DefaultMutableTreeNode(rowObject), null, false);
@@ -718,7 +718,7 @@ public class JsonJackFieldTableModelNGTest {
     @Test
     public void testInlineEditStaysLocalAndSurvivesRefreshes() throws Exception {
         EditTree tree = importTree();
-        JsonJackFieldTableModel model = new JsonJackFieldTableModel();
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
         model.onEditorSelected(componentOf(tree), null);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
 
@@ -744,5 +744,48 @@ public class JsonJackFieldTableModelNGTest {
         model.onNodeSelected(new DefaultMutableTreeNode(targetObject), null, false);
         model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
         assertNotEquals(model.getValueAt(2, 1), "sandbox", "another object selection drops the sandbox");
+    }
+
+    /**
+     * Binds a parsed model to the tree: the root object gets a type descriptor with the
+     * fields of the LINKED_JSON document - the state of a fully parsed owner.
+     */
+    private static JsonModelDescriptor bindRootType(EditTree tree) {
+        final JsonModelDescriptor descriptor = new JsonModelDescriptor("fieldModel");
+        final JsonTypeDescriptor rootType = new JsonTypeDescriptor("Root");
+        rootType.addField(new JsonFieldDescriptor("_woodObjectId", "Root"));
+        rootType.addField(new JsonFieldDescriptor("target", "Root"));
+        rootType.addField(new JsonFieldDescriptor("a", "Root"));
+        rootType.addField(new JsonFieldDescriptor("count", "Root"));
+        descriptor.addType(rootType);
+        ((EditNodeObject) tree.getRoot()).setJsonType(rootType);
+        return descriptor;
+    }
+
+    /**
+     * The jsonType header is a descriptor info row: enabled when the owner is typed, the
+     * info text carries the verbose string representation of the JsonTypeDescriptor.
+     */
+    @Test
+    public void testJsonTypeHeaderOpensVerboseTypeDescriptor() throws Exception {
+        EditTree tree = importTree();
+        bindRootType(tree);
+        JsonJackObjectTableModel model = new JsonJackObjectTableModel();
+        model.onEditorSelected(componentOf(tree), null);
+        model.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+
+        assertTrue(model.isDescriptorInfoRow(0), "the jsonType header is a descriptor row");
+        assertTrue(model.isButtonEnabled(0), "a parsed owner has a type descriptor to show");
+        assertTrue(model.descriptorInfoText(0).contains("typeName=Root"),
+                "the verbose text names the type: " + model.descriptorInfoText(0));
+
+        // an unparsed owner has no type descriptor: the button stays blank
+        EditTree bareTree = importTree();
+        JsonJackObjectTableModel bareModel = new JsonJackObjectTableModel();
+        bareModel.onEditorSelected(componentOf(bareTree), null);
+        bareModel.onNodeSelected(new DefaultMutableTreeNode(bareTree.getRoot()), null, false);
+        assertTrue(bareModel.isDescriptorInfoRow(0));
+        assertFalse(bareModel.isButtonEnabled(0), "no resolved type, nothing to show");
+        assertNull(bareModel.descriptorInfoText(0));
     }
 }

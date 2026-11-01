@@ -21,24 +21,26 @@ import javax.swing.table.TableColumn;
  * Fields pane: a view on the model side of the selected object. The first row
  * shows the json type, one row per field follows. A clicked field still shows
  * the owning object and focuses the field's row. The pane is a sandbox: it
- * accepts changes (inline value edits and the results of the list editors),
- * but never writes them back into the edit node, whatever the parse mode of
- * the tree is. The model is held in a field on purpose: the orator of the
- * master control keeps its listeners via weak references only, the garbage
- * collector would silently deregister a local model.
+ * accepts changes (inline value edits and the results of the list editors)
+ * and writes them back only through the exception of the sandbox contract -
+ * primitive values reach the node as a command in both parse modes,
+ * everything else stays in the pane. The model is held in a field on
+ * purpose: the orator of the master control keeps its listeners via weak
+ * references only, the garbage collector would silently deregister a local
+ * model.
  */
-public class JsonJackFieldsPane extends JPanel {
+public class JsonJackObjectPane extends JPanel {
 
     private static final long serialVersionUID = 1L;
 
-    private final JsonJackFieldTableModel fieldsModel;
+    private final JsonJackObjectTableModel fieldsModel;
     private final JTable fieldsTable;
     private final Frame owner;
 
-    public JsonJackFieldsPane(JackMasterControl jackmaster, Frame owner) {
+    public JsonJackObjectPane(JackMasterControl jackmaster, Frame owner) {
         super(new BorderLayout());
         this.owner = owner;
-        fieldsModel = new JsonJackFieldTableModel(jackmaster.getUndoManager(), jackmaster.getFastLog());
+        fieldsModel = new JsonJackObjectTableModel(jackmaster.getUndoManager(), jackmaster.getFastLog());
         jackmaster.addSelectionListener(fieldsModel);
         jackmaster.addContentListener(fieldsModel);
         jackmaster.addParseProblemsListener(fieldsModel);
@@ -76,7 +78,9 @@ public class JsonJackFieldsPane extends JPanel {
                 final int row = fieldsTable.convertRowIndexToModel(viewRow);
                 if (fieldsTable.convertColumnIndexToModel(viewCol) == 4) {
                     if (fieldsModel.isButtonEnabled(row)) {
-                        if (fieldsModel.isArrayFieldRow(row)) {
+                        if (fieldsModel.isDescriptorInfoRow(row)) {
+                            openDescriptorInfoDialog(row);
+                        } else if (fieldsModel.isArrayFieldRow(row)) {
                             openArrayFieldEditor(row);
                         } else if (fieldsModel.isSingleObjectFieldRow(row)) {
                             openSingleObjectFieldEditor(row);
@@ -179,18 +183,36 @@ public class JsonJackFieldsPane extends JPanel {
      * Installs the button column (column 4) of the fields table: a field rendered as a button
      * that opens the editor of the row on click - the list editors for array fields, the single
      * mode collection editor for parsed object reference fields, the detail dialog for every
-     * other row with a value. The button shows "^" for an editable row (see
-     * {@link JsonJackFieldTableModel#isEditableRow(int)}) and "-" for a read-only row whose
-     * dialog opens in read-only mode.
+     * other row with a value.The button shows "^" for an editable row (see
+    {@link JsonJackObjectTableModel#isEditableRow(int)}) and "-" for a read-only row whose
+ dialog opens in read-only mode.
      */
     private void installFieldsDetailButtonColumn() {
         TableColumn buttonCol = fieldsTable.getColumnModel().getColumn(4);
         buttonCol.setCellRenderer(new JsonJackTableButtonRenderer(
-                fieldsModel::isButtonEnabled, fieldsModel::isEditableRow));
+                fieldsModel::isButtonEnabled, fieldsModel::isEditableRow,
+                fieldsModel::isDescriptorInfoRow));
         buttonCol.setPreferredWidth(36);
         buttonCol.setMaxWidth(36);
         buttonCol.setMinWidth(28);
         buttonCol.setResizable(false);
+    }
+
+    /**
+     * Opens the descriptor info dialog of the row: the verbose string representation of
+     * the JsonTypeDescriptor of the jsonType header, read-only.
+     *
+     * @param modelRow the model row index
+     */
+    private void openDescriptorInfoDialog(int modelRow) {
+        EditNode node = fieldsModel.getCurrentObject();
+        String nodeName = (node != null && node.getName() != null) ? node.getName() : "";
+        String nodePath = JsonJackNodePaths.buildNodePath(node);
+        String text = fieldsModel.descriptorInfoText(modelRow);
+        JsonJackAttrDetailDialog dialog = new JsonJackAttrDetailDialog(
+                owner, nodeName, nodePath, "", String.valueOf(fieldsModel.getValueAt(modelRow, 0)),
+                text == null ? "" : text, false, null);
+        dialog.setVisible(true);
     }
 
     /**

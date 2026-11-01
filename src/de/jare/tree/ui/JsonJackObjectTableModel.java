@@ -37,9 +37,9 @@ import javax.swing.tree.DefaultMutableTreeNode;
  * object. The first row shows the json type of the object, one row per field
  * (child property) follows with name, value and node type; a trailing "^"
  * column opens the field editor dialogs. Object-typed fields
- * offer their candidate instances through a combo box (see
- * {@link #isComboBoxCell(int, int)}); the selection semantics are a later
- * step - the base version only displays the candidates.
+ * offer their candidate instances through a combo box as well (see
+ * {@link #isComboBoxCell(int, int)}); the selection semantics of those are a
+ * later step - the base version only displays the candidates.
  *
  * <p>When a field is selected in the tree, the pane still shows the owning
  * object and focuses the field's row (matched by edit id, not by name - array
@@ -56,7 +56,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
  *
  * @author Janusch Rentenatus
  */
-public class JsonJackFieldTableModel extends AbstractJsonJackTableModel
+public class JsonJackObjectTableModel extends AbstractJsonJackTableModel
         implements ContentListener, ParseProblemsListener, JsonJackComboCapableModel {
 
     private static final String[] columnNames = {"Name", "Value", "Type", "JsonType", "^"};
@@ -68,7 +68,7 @@ public class JsonJackFieldTableModel extends AbstractJsonJackTableModel
     /**
      * Creates a local-only model: no change ever leaves the pane, primitive values included.
      */
-    public JsonJackFieldTableModel() {
+    public JsonJackObjectTableModel() {
     }
 
     /**
@@ -80,7 +80,7 @@ public class JsonJackFieldTableModel extends AbstractJsonJackTableModel
      *
      * @param undoMan the undo manager of the master control, may be {@code null}
      */
-    public JsonJackFieldTableModel(JackUndoManager undoMan) {
+    public JsonJackObjectTableModel(JackUndoManager undoMan) {
         super(undoMan);
     }
 
@@ -91,7 +91,7 @@ public class JsonJackFieldTableModel extends AbstractJsonJackTableModel
      * @param undoMan the undo manager of the master control, may be {@code null}
      * @param fastLog the fast log of the master control, may be {@code null}
      */
-    public JsonJackFieldTableModel(JackUndoManager undoMan, de.jare.tree.control.fastlog.FastLog fastLog) {
+    public JsonJackObjectTableModel(JackUndoManager undoMan, de.jare.tree.control.fastlog.FastLog fastLog) {
         super(undoMan, fastLog);
     }
 
@@ -159,6 +159,11 @@ public class JsonJackFieldTableModel extends AbstractJsonJackTableModel
      * @return true when the button should be enabled
      */
     public boolean isButtonEnabled(int rowIndex) {
+        if (isDescriptorInfoRow(rowIndex)) {
+            // the descriptor rows open the verbose representation of their descriptor -
+            // the button is enabled exactly when the parser resolved one
+            return descriptorInfoText(rowIndex) != null;
+        }
         if (rowIndex < 1 || rowIndex >= rows.size()) {
             return false;
         }
@@ -167,6 +172,33 @@ public class JsonJackFieldTableModel extends AbstractJsonJackTableModel
         }
         Object value = rows.get(rowIndex).value();
         return value != null && !value.toString().isEmpty();
+    }
+
+    /**
+     * Checks whether the row carries a model descriptor whose verbose representation the
+     * detail dialog shows behind the "?" button: the jsonType header of the shown object.
+     *
+     * @param rowIndex the row index
+     * @return true when the row is a descriptor info row
+     */
+    public boolean isDescriptorInfoRow(int rowIndex) {
+        return rowIndex == 0;
+    }
+
+    /**
+     * The verbose string representation of the descriptor of the row - the
+     * JsonTypeDescriptor of the jsonType header. Null when the parser has not resolved
+     * a descriptor.
+     *
+     * @param rowIndex the row index
+     * @return the verbose representation, or null
+     */
+    public String descriptorInfoText(int rowIndex) {
+        if (rowIndex == 0) {
+            return currentObject != null && currentObject.getJsonType() != null
+                    ? currentObject.getJsonType().toString() : null;
+        }
+        return null;
     }
 
     /**

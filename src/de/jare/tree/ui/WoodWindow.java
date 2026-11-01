@@ -37,7 +37,7 @@ public class WoodWindow extends JFrame {
 
     // Bottom tab constants
     private static final String TAB_ATTRIBUTES = "Attributes";
-    private static final String TAB_FIELDS = "Fields";
+    private static final String TAB_FIELDS = "Object";
     private static final String TAB_JACK_UNDO = "Jack Undo";
     private static final String TAB_KI_ASSISTANT = "AI Assistant";
     private static final String TAB_JACK_CLIPBOARD = "Jack Clipboard";
@@ -165,7 +165,7 @@ public class WoodWindow extends JFrame {
         // Bottom: tabs + bottom toolbar
         JTabbedPane bottomTabs = new JTabbedPane();
         bottomTabs.addTab(TAB_ATTRIBUTES, new JsonJackAttributesPane(jackmaster, this));
-        bottomTabs.addTab(TAB_FIELDS, new JsonJackFieldsPane(jackmaster, this));
+        bottomTabs.addTab(TAB_FIELDS, new JsonJackObjectPane(jackmaster, this));
         bottomTabs.addTab(TAB_FAST_LOG, createFastLogPanel());
         bottomTabs.addTab(TAB_JACK_UNDO, createJackUndoPanel());
         bottomTabs.addTab(TAB_KI_ASSISTANT, createKIAssistant());

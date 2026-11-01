@@ -1,12 +1,16 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditNodeObject;
 import de.jare.jsoncasted.editor.core.EditNodeProperty;
 import de.jare.jsoncasted.editor.core.EditStatus;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.JsonTreeConverter;
 import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.jsoncasted.io.parserservice.JsonParserService;
+import de.jare.jsoncasted.model.descriptor.JsonFieldDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import de.jare.debug.JsonDebugLevel;
 import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.TreeFocusComponent;
@@ -18,10 +22,13 @@ import static org.testng.Assert.*;
 
 /**
  * Sandbox contract of the Attributes pane: attribute values leave the pane only through the
- * two write-back exceptions - a rename reaches the node as a RenameNodeCommand in the soft
+ * three write-back exceptions - a rename reaches the node as a RenameNodeCommand in the soft
  * parse mode and without semantics, a primitive value reaches the node as a
  * SetNodeValueCommand in BOTH parse modes (primitives are shape-conform, the parser judges
- * the content). Everything else, and both exceptions in their forbidden mode, stay local.
+ * the content), and a jsonField choice from the candidate list of the parsed parent type
+ * re-binds the property as a rename in BOTH parse modes (the candidates come from the
+ * model description). Everything else, and both exceptions in their forbidden mode, stay
+ * local.
  *
  * @author Janusch Rentenatus
  */
@@ -71,6 +78,22 @@ public class JsonJackAttrTableModelNGTest {
     private static EditNodeProperty matrixField(EditTree tree) {
         assertTrue(tree.getRoot().getChildAt(0) instanceof EditNodeProperty);
         return (EditNodeProperty) tree.getRoot().getChildAt(0);
+    }
+
+    /**
+     * Binds a model to the tree: the root object gets a type descriptor with the fields
+     * "matrix" and "count", and the matrix property carries its bound field descriptor -
+     * the state of a fully parsed parent object.
+     */
+    private static JsonModelDescriptor bindRootType(EditTree tree) {
+        final JsonModelDescriptor descriptor = new JsonModelDescriptor("testModel");
+        final JsonTypeDescriptor rootType = new JsonTypeDescriptor("Root");
+        rootType.addField(new JsonFieldDescriptor("matrix", "Root"));
+        rootType.addField(new JsonFieldDescriptor("count", "Root"));
+        descriptor.addType(rootType);
+        ((EditNodeObject) tree.getRoot()).setJsonType(rootType);
+        matrixField(tree).setJsonField(new JsonFieldDescriptor("matrix", "Root"));
+        return descriptor;
     }
 
     private static int rowOf(JsonJackAttrTableModel model, String name) {
@@ -338,5 +361,160 @@ public class JsonJackAttrTableModelNGTest {
 
         assertEquals(matrix.getName(), "matrix", "no undo manager, no write-through");
         assertEquals(model.getValueAt(nameRow, 1), "matrix99", "the pane still shows the change");
+    }
+
+    /**
+     * The jsonField row shows the bound field name - not the toString of the descriptor -
+     * so the combo box preselects the current binding.
+     */
+    @Test
+    public void testJsonFieldRowShowsTheBoundFieldName() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        bindRootType(tree);
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, null);
+
+        final int fieldRow = rowOf(model, "jsonField");
+        assertEquals(model.getValueAt(fieldRow, 1), "matrix",
+                "the jsonField row shows the field name, not the descriptor");
+    }
+
+    /**
+     * A parsed parent object turns the jsonField attribute into a combo box: the candidates
+     * are the fields of the parent type, and the row is editable. An unparsed parent keeps
+     * the row read-only (no candidates, no free-text fallback - a free-text field name is a
+     * rename, the "name" row already carries it).
+     */
+    @Test
+    public void testParsedParentOffersItsFieldsAsCombo() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        final JsonModelDescriptor descriptor = bindRootType(tree);
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, null);
+        model.setJsonModelDescriptor(descriptor);
+
+        final int fieldRow = rowOf(model, "jsonField");
+        assertTrue(model.isComboBoxCell(fieldRow, 1), "a parsed parent offers its fields");
+        assertTrue(model.isAttributeEditable(fieldRow), "the jsonField row is editable as combo");
+        final Object[] values = model.getComboBoxValues(fieldRow);
+        assertEquals(values.length, 2, "matrix and count are the fields of the root type");
+        assertTrue(java.util.Arrays.asList(values).contains("matrix"));
+        assertTrue(java.util.Arrays.asList(values).contains("count"));
+
+        // without a parsed parent the row stays read-only
+        final EditTree bareTree = importTree();
+        final EditNodeProperty bareMatrix = matrixField(bareTree);
+        final JsonJackAttrTableModel bareModel = selectModel(bareTree, bareMatrix, null);
+        final int bareRow = rowOf(bareModel, "jsonField");
+        assertFalse(bareModel.isComboBoxCell(bareRow, 1), "no parsed parent, no candidates");
+        assertEquals(bareModel.getComboBoxValues(bareRow).length, 0);
+        assertFalse(bareModel.isAttributeEditable(bareRow), "the jsonField row stays read-only");
+    }
+
+    /**
+     * A choice from the candidate list re-binds the property as a rename in the soft parse
+     * mode - undo restores the old binding.
+     */
+    @Test
+    public void testJsonFieldChoiceRebindsInSoftMode() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        bindRootType(tree);
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, undoMan);
+
+        final int fieldRow = rowOf(model, "jsonField");
+        model.setValueAt("count", fieldRow, 1);
+
+        assertEquals(matrix.getName(), "count", "the field choice re-binds the property as a rename");
+        assertEquals(model.getValueAt(fieldRow, 1), "count", "the pane shows the choice");
+
+        undoMan.undo();
+        assertEquals(matrix.getName(), "matrix", "the re-bind is undoable like a rename");
+    }
+
+    /**
+     * Unlike a free-text rename, a jsonField choice reaches the node in the hard parse mode
+     * too: the candidates come from the model description, so the new name is model-known -
+     * the parser judges the content (the accepted risk of the try).
+     */
+    @Test
+    public void testJsonFieldChoiceRebindsInHardMode() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        bindRootType(tree);
+        // the hard mode accepts only a fully verified tree
+        tree.getRoot().setEditStatus(EditStatus.OKAY);
+        matrix.setEditStatus(EditStatus.OKAY);
+        assertTrue(tree.setParseMode(ParseMode.HARD_PARSE), "the verified tree may switch to hard mode");
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, undoMan);
+
+        final int fieldRow = rowOf(model, "jsonField");
+        model.setValueAt("count", fieldRow, 1);
+
+        assertEquals(matrix.getName(), "count",
+                "a candidate field choice re-binds the property in the hard parse mode too");
+    }
+
+    /**
+     * A value outside the candidate list stays in the pane - the fast log carries the
+     * refusal (the free-text rename path of the "name" row is the explicit alternative).
+     */
+    @Test
+    public void testJsonFieldOutsideCandidatesStaysLocal() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        bindRootType(tree);
+        final JackUndoManager undoMan = new JackUndoManager();
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, undoMan);
+
+        final int fieldRow = rowOf(model, "jsonField");
+        model.setValueAt("phantom", fieldRow, 1);
+
+        assertEquals(matrix.getName(), "matrix",
+                "a name outside the parent type's fields never reaches the node");
+        assertEquals(model.getValueAt(fieldRow, 1), "phantom", "the pane still shows the choice");
+    }
+
+    /**
+     * The descriptor rows jsonField and jsonType show the "?" button: enabled exactly when
+     * the parser resolved a descriptor, the info text carries the verbose string
+     * representation of it. The jsonType row displays the bare type name - the details
+     * live behind the "?".
+     */
+    @Test
+    public void testDescriptorInfoRowsShowVerboseRepresentation() throws Exception {
+        final EditTree tree = importTree();
+        final EditNodeProperty matrix = matrixField(tree);
+        bindRootType(tree);
+
+        // the jsonField row of the bound property
+        final JsonJackAttrTableModel model = selectModel(tree, matrix, null);
+        final int fieldRow = rowOf(model, "jsonField");
+        assertTrue(model.isDescriptorInfoRow(fieldRow), "the jsonField row is a descriptor row");
+        assertTrue(model.isButtonEnabled(fieldRow), "the bound property has a descriptor to show");
+        assertTrue(model.descriptorInfoText(fieldRow).contains("jsonName=matrix"),
+                "the verbose text names the field: " + model.descriptorInfoText(fieldRow));
+
+        // the jsonType row of the typed object
+        final JsonJackAttrTableModel objectModel = new JsonJackAttrTableModel();
+        objectModel.onEditorSelected(componentOf(new JackTreeModel(tree)), null);
+        objectModel.onNodeSelected(new DefaultMutableTreeNode(tree.getRoot()), null, false);
+        final int typeRow = rowOf(objectModel, "jsonType");
+        assertTrue(objectModel.isDescriptorInfoRow(typeRow), "the jsonType row is a descriptor row");
+        assertEquals(objectModel.getValueAt(typeRow, 1), "Root", "the row shows the bare type name");
+        assertTrue(objectModel.isButtonEnabled(typeRow), "the typed object has a descriptor to show");
+        assertTrue(objectModel.descriptorInfoText(typeRow).contains("typeName=Root"),
+                "the verbose text names the type: " + objectModel.descriptorInfoText(typeRow));
+
+        // without a resolved descriptor the button stays blank
+        final EditTree bareTree = importTree();
+        final EditNodeProperty bareMatrix = matrixField(bareTree);
+        final JsonJackAttrTableModel bareModel = selectModel(bareTree, bareMatrix, null);
+        final int bareRow = rowOf(bareModel, "jsonField");
+        assertTrue(bareModel.isDescriptorInfoRow(bareRow));
+        assertFalse(bareModel.isButtonEnabled(bareRow), "no resolved descriptor, nothing to show");
+        assertNull(bareModel.descriptorInfoText(bareRow));
     }
 }

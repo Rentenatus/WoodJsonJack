@@ -7,7 +7,8 @@ import static org.testng.Assert.*;
 
 /**
  * Tests for the button column renderer: "^" marks an editable row, "-" a read-only row (its
- * dialog opens in read-only mode), a disabled button shows a blank label.
+ * dialog opens in read-only mode), "?" a descriptor row (its dialog shows the verbose
+ * representation of the descriptor), a disabled button shows a blank label.
  *
  * @author Janusch Rentenatus
  */
@@ -41,5 +42,24 @@ public class JsonJackTableButtonRendererNGTest {
                 table, null, false, false, 2, 3);
         assertFalse(empty.isEnabled(), "a row without value opens nothing");
         assertEquals(empty.getText(), " ", "a disabled button shows a blank label");
+    }
+
+    /**
+     * The descriptor info rows show the "?" label - it wins over the editability marks
+     * "^" and "-", even on an editable row.
+     */
+    @Test
+    public void infoRowsShowQuestionMark() {
+        final JsonJackTableButtonRenderer renderer = new JsonJackTableButtonRenderer(
+                row -> true, row -> true, row -> row == 1);
+        final JTable table = new JTable(2, 1);
+
+        final JButton plain = (JButton) renderer.getTableCellRendererComponent(
+                table, null, false, false, 0, 0);
+        assertEquals(plain.getText(), "^", "an editable row without info shows the caret");
+
+        final JButton info = (JButton) renderer.getTableCellRendererComponent(
+                table, null, false, false, 1, 0);
+        assertEquals(info.getText(), "?", "the descriptor row shows the question mark");
     }
 }

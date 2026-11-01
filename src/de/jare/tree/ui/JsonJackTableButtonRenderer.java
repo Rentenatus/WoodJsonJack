@@ -15,18 +15,21 @@ import javax.swing.table.TableCellRenderer;
 /**
  * Renderer that shows a JButton in the "^" column of the attribute and fields tables: "^"
  * marks an editable row (inline or through its editor dialog), "-" a read-only row (the
- * detail dialog opens in read-only mode). A disabled button shows a blank label when the row
- * offers nothing to open.
+ * detail dialog opens in read-only mode), "?" a descriptor row (jsonField, jsonType) -
+ * the detail dialog shows the verbose string representation of the descriptor. A disabled
+ * button shows a blank label when the row offers nothing to open.
  */
 public class JsonJackTableButtonRenderer extends JButton implements TableCellRenderer {
 
     private static final String EDITABLE_TEXT = "^";
     private static final String READONLY_TEXT = "-";
+    private static final String INFO_TEXT = "?";
 
     private static final long serialVersionUID = 1L;
 
     private final transient IntPredicate buttonEnabled;
     private final transient IntPredicate rowEditable;
+    private final transient IntPredicate infoRow;
 
     /**
      * Creates the renderer.
@@ -35,8 +38,23 @@ public class JsonJackTableButtonRenderer extends JButton implements TableCellRen
      * @param rowEditable tells for a model row whether the row is editable
      */
     public JsonJackTableButtonRenderer(IntPredicate buttonEnabled, IntPredicate rowEditable) {
+        this(buttonEnabled, rowEditable, row -> false);
+    }
+
+    /**
+     * Creates the renderer with the descriptor info predicate: an info row shows the
+     * "?" label (instead of "^" and "-") and opens the verbose representation of its
+     * descriptor in the detail dialog.
+     *
+     * @param buttonEnabled tells for a model row whether its button is enabled
+     * @param rowEditable tells for a model row whether the row is editable
+     * @param infoRow tells for a model row whether it is a descriptor info row
+     */
+    public JsonJackTableButtonRenderer(IntPredicate buttonEnabled, IntPredicate rowEditable,
+            IntPredicate infoRow) {
         this.buttonEnabled = buttonEnabled;
         this.rowEditable = rowEditable;
+        this.infoRow = infoRow;
     }
 
     @Override
@@ -47,6 +65,8 @@ public class JsonJackTableButtonRenderer extends JButton implements TableCellRen
         setEnabled(enabled);
         if (!enabled) {
             setText(" ");
+        } else if (infoRow.test(modelRow)) {
+            setText(INFO_TEXT);
         } else {
             setText(rowEditable.test(modelRow) ? EDITABLE_TEXT : READONLY_TEXT);
         }

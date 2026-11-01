@@ -1,6 +1,6 @@
 # Konzept: Wood-Links im Editor-Core und Fields-Pane
 
-**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop. Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit zwei Ausnahmen: Renames im Soft-Modus und primitive Werte in beiden Modi.
+**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop. Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit drei Ausnahmen: Renames im Soft-Modus, primitive Werte in beiden Modi und jsonField-Kombination (Feld-Auswahl der Parent-Description) in beiden Modi.
 **Betroffene Projekte**: `jsonCasted_edit` (Phase A, Editor-Core), `WoodJsonJack` (Phase B, Swing-UI)
 **Abhängigkeiten**: `JsonTreeConverter`, `EditTreeWriter`, `EditTree`, `EditNodeObject`, `EditLinkingSet`, `JsonModelDescriptor`, `JsonTerms`
 **Vorbedingung**: Phase A vor Phase B — die Combobox des Fields-Pane filtert Objekt-Instanzen, die der Editor heute noch verliert.
@@ -80,9 +80,11 @@ während der Konvertierung ins EditTree schreiben — der bereits existierende
 3. Beide Panes (Attributes und Fields) sind Sandbox-Ansichten: sie erlauben Änderungen, wo
    es Sinn macht (Wertspalte inline, Collection-/Primitive-List-Editor, Detail-Dialog),
    spielen diese aber nie in den EditNode zurück — unabhängig vom Parse-Modus (soft/hard)
-   des Baums (Details in Kapitel 5.1). Zwei Ausnahmen: der Rename der „name"-Zeile im
-   Attributes-Pane schlägt im Soft-Modus als Command im Tree durch, und primitive Werte
-   (Text, Zahl, Boolean) schlagen in beiden Modi durch — Primitive sind stets formkonform.
+   des Baums (Details in Kapitel 5.1). Drei Ausnahmen: der Rename der „name"-Zeile im
+   Attributes-Pane schlägt im Soft-Modus als Command im Tree durch, primitive Werte
+   (Text, Zahl, Boolean) schlagen in beiden Modi durch — Primitive sind stets formkonform —
+   und die jsonField-Zeile des Attributes-Panes wird bei geparstem Parent-Objekt zur
+   Combobox der Felder des Parent-Typs; eine Auswahl bindet das Feld in beiden Modi neu.
 
 ---
 
@@ -368,8 +370,13 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   kommasepariert); die Dialoge füllen sich über `getCurrentObjectList()`/
   `getCurrentPrimitiveList()` aus dem Override — ein wieder geöffneter Editor sieht die
   letzte Sandbox-Wahl. Die Schaltflächen-Spalte unterscheidet UX-seitig: „^" markiert eine
-  editierbare Zeile, „-" eine nur lesbare (deren Dialog öffnet read-only), leer bleibt der
-  deaktivierte Zustand.
+  editierbare Zeile, „-" eine nur lesbare (deren Dialog öffnet read-only), „?" eine
+  Deskriptor-Zeile (jsonField/jsonType im Attributes-Pane, jsonType-Header im Fields-Pane —
+  ihr Dialog zeigt die ausführliche Stringdarstellung des JsonField- bzw.
+  JsonType-Deskriptors; aktiviert nur, wenn der Parser einen aufgelöst hat, sonst bleibt
+  die Schaltfläche leer), leer bleibt der deaktivierte Zustand. Die jsonType-Zeile des
+  Attributes-Panes zeigt dafür nur noch den nackten Typnamen — die Details leben hinter
+  dem „?".
 - **Entfallene Write-back-Pfade**: `applyObjectListResult`/`applyPrimitiveListResult` erzeugen
   keine Reference-Stubs mehr, registrieren nichts im LinkingSet und ändern keinen
   `JsonNodeType`. Die Whole-List-Reference-Logik bleibt als lokale Anzeige erhalten (nur der
@@ -398,6 +405,18 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
   dadurch ins Leere. Nach jedem Command-Ergebnis frischt der JTree zusätzlich die
   Vorfahren-Kette auf (`JackTreeModel.refreshAncestorRendering`): aggregierte Labels
   (Array-Vorschauen) und ihre Zeilenbreiten folgen dem neuen Inhalt.
+- **Ausnahme Feldbindung (jsonField, Attributes-Pane)**: Ist das Parent-Objekt des gewählten
+  Felds fertig geparst, kennt seine Description alle Felder des Typs: Die `jsonField`-Zeile
+  wird editierbar und zeigt eine Combobox dieser Felder (statt der bisherigen
+  Deskriptor-ToString zeigt die Zeile den gebundenen Feldnamen). Eine Auswahl bindet die
+  Property als Rename neu — als `RenameNodeCommand` über den UndoManager, in BEIDEN
+  Parse-Modi: Die Kandidaten stammen aus der Model-Description, der neue Name ist also
+  modellbekannt und formkonform; der Parser bewertet den Inhalt (im Hard-Modus synchron —
+  passt der Wert nicht zum neuen Feld, wird der Knoten markiert, der akzeptierte Versuch;
+  im Soft-Modus folgt der Parser asynchron). Ein Wert außerhalb der Kandidatenliste, eine
+  leere Wahl und der Durchreich-Array-Wrapper bleiben lokal (Ablehnung mit Fast-Log-Notiz);
+  ein freitextlicher Feldname bleibt der `name`-Zeile vorbehalten. Ohne geparsten Parent ist
+  die Zeile read-only (keine Kandidaten, kein freitextlicher Fallback).
 
 ---
 

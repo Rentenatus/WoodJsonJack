@@ -111,6 +111,12 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
      * the value of a primitive row object) executes a {@link SetNodeValueCommand} in BOTH
      * parse modes: primitives are shape-conform by nature, the parser judges the content
      * (a text in a number field gets flagged).</li>
+     * <li>the <b>jsonField</b> attribute offers the fields of the parent type as a combo
+     * box once the parent object is parsed (its description knows the fields): a choice
+     * re-binds the property as a rename in BOTH parse modes - the candidates come from
+     * the model description, so the new name is model-known; the parser judges the
+     * content (the hard parse mode may flag the node - the accepted risk of the try). A
+     * value outside the candidate list stays in the pane with a fast log note.</li>
      * </ul>
      * Every other attribute never leaves the pane.
      */
@@ -159,10 +165,42 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
             }
             return;
         }
+        if ("jsonField".equals(attributeName)) {
+            writeBackFieldBinding(newValue);
+            return;
+        }
         if (isPrimitiveValueRow(attributeName)
                 && !Objects.equals(currentEditNode.getValue(), newValue)) {
             getUndoMan().executeCommand(new SetNodeValueCommand(currentEditNode, newValue));
         }
+    }
+
+    /**
+     * Executes the write-back exception of the jsonField attribute: a choice from the
+     * candidate list of the parent type re-binds the property - as a rename, in BOTH
+     * parse modes. The candidates come from the model description, so the new name is
+     * model-known by construction (shape-conform); the parser judges the content - the
+     * hard parse mode validates synchronously and may flag the node when the value does
+     * not fit the new field, the soft parser follows asynchronously. A value outside the
+     * candidate list and a blank stay in the pane; the refusal leaves a note in the fast
+     * log. A pass-through array wrapper carries no binding of its own: no re-bind.
+     *
+     * @param newValue the chosen field name
+     */
+    private void writeBackFieldBinding(String newValue) {
+        final JsonTypeDescriptor parentType = getParentFieldType();
+        final boolean changed = newValue != null && !newValue.isBlank()
+                && !Objects.equals(currentEditNode.getName(), newValue);
+        if (!changed || parentType == null || isPassThroughArray()) {
+            return;
+        }
+        if (parentType.getField(newValue) == null) {
+            tryLog("editor", "[attributes] field change of '" + currentEditNode.getName()
+                    + "' to '" + newValue + "' rejected: '" + newValue
+                    + "' is no field of the parent type - the change stays in the pane");
+            return;
+        }
+        getUndoMan().executeCommand(new RenameNodeCommand(currentEditNode, newValue));
     }
 
     /**
@@ -211,8 +249,15 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
         }
         final String attributeName = rows.get(rowIndex).name();
         if (isPassThroughArray()
-                && ("name".equals(attributeName) || "primValue".equals(attributeName))) {
+                && ("name".equals(attributeName) || "primValue".equals(attributeName)
+                || "jsonField".equals(attributeName))) {
             return false;
+        }
+        if ("jsonField".equals(attributeName)) {
+            // the field binding is editable only as a combo box of the parent type's
+            // fields - the parent must be parsed for that. A free-text field name is a
+            // rename: the "name" row already carries it.
+            return getParentFieldType() != null;
         }
         return "value".equals(attributeName) || "name".equals(attributeName) || "primValue".equals(attributeName);
     }
@@ -260,13 +305,18 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
     }
 
     /**
-     * Checks if the given attribute name should be rendered as a combo box.
+     * Checks if the given attribute name should be rendered as a combo box. The jsonType
+     * needs the model descriptor (it lists the types); the jsonField needs a parsed
+     * parent object - its description carries the candidate fields.
      *
      * @param attributeName the attribute name
      * @return true if this attribute should be a combo box
      */
     private boolean isComboBoxAttribute(String attributeName) {
-        return "jsonType".equals(attributeName) || "jsonField".equals(attributeName);
+        if ("jsonType".equals(attributeName)) {
+            return getJsonModelDescriptor() != null;
+        }
+        return "jsonField".equals(attributeName) && getParentFieldType() != null;
     }
 
     /**
@@ -276,12 +326,11 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
      * @return array of available values
      */
     private Object[] getComboBoxValuesForAttribute(String attributeName) {
-        if (getJsonModelDescriptor() == null) {
-            return new Object[0];
-        }
-
         if ("jsonType".equals(attributeName)) {
             // Return all type names from the descriptor
+            if (getJsonModelDescriptor() == null) {
+                return new Object[0];
+            }
             Collection<JsonTypeDescriptor> types = getJsonModelDescriptor().getTypes();
             List<Object> typeNames = new ArrayList<>();
             for (JsonTypeDescriptor typeDesc : types) {
@@ -289,23 +338,38 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
             }
             return typeNames.toArray();
         } else if ("jsonField".equals(attributeName)) {
-            // Return all field names from all types in the descriptor
+            // Candidates: the fields of the parent object's type - the combo exists only
+            // when the parent is parsed (its description knows the fields).
+            final JsonTypeDescriptor parentType = getParentFieldType();
+            if (parentType == null || parentType.getFields() == null) {
+                return new Object[0];
+            }
             List<Object> fieldNames = new ArrayList<>();
-            Collection<JsonTypeDescriptor> types = getJsonModelDescriptor().getTypes();
-            for (JsonTypeDescriptor typeDesc : types) {
-                if (typeDesc != null) {
-                    List<JsonFieldDescriptor> fields = typeDesc.getFields();
-                    if (fields != null) {
-                        for (JsonFieldDescriptor field : fields) {
-                            fieldNames.add(field.getFieldName());
-                        }
-                    }
+            for (JsonFieldDescriptor field : parentType.getFields()) {
+                if (field != null && field.getFieldName() != null) {
+                    fieldNames.add(field.getFieldName());
                 }
             }
             return fieldNames.toArray();
         }
 
         return new Object[0];
+    }
+
+    /**
+     * Returns the type descriptor of the parent object that owns the shown property: a
+     * parsed parent object knows its fields, the jsonField attribute offers them as combo
+     * box candidates. An unparsed parent (no type descriptor) or a structural position
+     * offers none.
+     *
+     * @return the parent type descriptor, or null when the parent carries no type
+     */
+    private JsonTypeDescriptor getParentFieldType() {
+        if (currentEditNode instanceof EditNodeProperty
+                && currentEditNode.getParent() instanceof EditNodeObject parent) {
+            return parent.getJsonType();
+        }
+        return null;
     }
 
     @Override
@@ -355,7 +419,18 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
                 for (Map.Entry<String, JackAttribut> entry : attributes.entrySet()) {
                     String name = entry.getKey();
                     JackAttribut jackAttribut = entry.getValue();
-                    newRows.add(new PropertyRow(name, jackAttribut.getValue(), jackAttribut.getType()));
+                    Object attrValue = jackAttribut.getValue();
+                    // the jsonField attribute carries its descriptor: the pane shows the
+                    // bound field name (the combo box preselects it)
+                    if ("jsonField".equals(name) && attrValue instanceof JsonFieldDescriptor field) {
+                        attrValue = field.getFieldName();
+                    }
+                    // the jsonType attribute carries its descriptor as well: the pane shows
+                    // the type name, the "?" button its verbose representation
+                    if ("jsonType".equals(name) && attrValue instanceof JsonTypeDescriptor type) {
+                        attrValue = type.getTypeName();
+                    }
+                    newRows.add(new PropertyRow(name, attrValue, jackAttribut.getType()));
                 }
                 // sort the attributes alphabetically by name
                 newRows.sort(Comparator.comparing(PropertyRow::name));
@@ -396,8 +471,10 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
     }
 
     /**
-     * Checks whether the "^" button is enabled for the given row. The button
-     * is only enabled when the attribute value is neither null nor empty.
+     * Checks whether the "^" button is enabled for the given row. Descriptor rows
+     * (jsonField, jsonType) open the verbose representation of their descriptor - the
+     * button is enabled exactly when the parser resolved one. Every other row is only
+     * enabled when the attribute value is neither null nor empty.
      *
      * @param rowIndex the row index
      * @return true when the button should be enabled
@@ -406,12 +483,55 @@ public class JsonJackAttrTableModel extends AbstractJsonJackTableModel
         if (rowIndex < 0 || rowIndex >= rows.size()) {
             return false;
         }
+        if (isDescriptorInfoRow(rowIndex)) {
+            return descriptorInfoText(rowIndex) != null;
+        }
         Object value = rows.get(rowIndex).value();
         if (value == null) {
             return false;
         }
         String text = value.toString();
         return !text.isEmpty();
+    }
+
+    /**
+     * Checks whether the row carries a model descriptor whose verbose representation the
+     * detail dialog shows behind the "?" button: the jsonField binding of a property, the
+     * jsonType of an object.
+     *
+     * @param rowIndex the row index
+     * @return true when the row is a descriptor info row
+     */
+    public boolean isDescriptorInfoRow(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= rows.size()) {
+            return false;
+        }
+        final String name = rows.get(rowIndex).name();
+        return "jsonField".equals(name) || "jsonType".equals(name);
+    }
+
+    /**
+     * The verbose string representation of the descriptor of the row - the
+     * JsonFieldDescriptor of the jsonField row, the JsonTypeDescriptor of the jsonType
+     * row. Null when the parser has not resolved a descriptor.
+     *
+     * @param rowIndex the row index
+     * @return the verbose representation, or null
+     */
+    public String descriptorInfoText(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= rows.size() || currentEditNode == null) {
+            return null;
+        }
+        final String name = rows.get(rowIndex).name();
+        if ("jsonField".equals(name) && currentEditNode instanceof EditNodeProperty property
+                && property.getJsonField() != null) {
+            return property.getJsonField().toString();
+        }
+        if ("jsonType".equals(name) && currentEditNode instanceof EditNodeObject object
+                && object.getJsonType() != null) {
+            return object.getJsonType().toString();
+        }
+        return null;
     }
 
     /**

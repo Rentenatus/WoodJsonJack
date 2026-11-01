@@ -63,7 +63,7 @@ public class JsonJackPaneEditorGuardNGTest {
     public void testFieldsCancelsEditorOnNodeSwitch() throws Exception {
         final EditTree tree = importTree();
         final JackMasterControl master = new JackMasterControl();
-        final JsonJackFieldsPane pane = new JsonJackFieldsPane(master, null);
+        final JsonJackObjectPane pane = new JsonJackObjectPane(master, null);
         final JTable table = pane.getTable();
 
         master.fireSelection(new DefaultMutableTreeNode(tree.getRoot()), null, false);

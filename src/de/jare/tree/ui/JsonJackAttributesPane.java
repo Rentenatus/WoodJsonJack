@@ -80,13 +80,16 @@ public class JsonJackAttributesPane extends JPanel {
     /**
      * Installs the button column (column 3) of the attribute table: a field rendered as a
      * button that opens the detail dialog on click when the attribute value is neither null
-     * nor empty. The button shows "^" for an editable attribute row (value, name, primValue)
-     * and "-" for a read-only row whose dialog opens in read-only mode.
+     * nor empty. The button shows "^" for an editable attribute row (value, name, primValue),
+     * "-" for a read-only row whose dialog opens in read-only mode, and "?" for the
+     * descriptor rows (jsonField, jsonType) - their dialog shows the verbose string
+     * representation of the descriptor.
      */
     private void installAttrDetailButtonColumn() {
         TableColumn buttonCol = attributesTable.getColumnModel().getColumn(3);
         buttonCol.setCellRenderer(new JsonJackTableButtonRenderer(
-                attributesModel::isButtonEnabled, attributesModel::isAttributeEditable));
+                attributesModel::isButtonEnabled, attributesModel::isAttributeEditable,
+                attributesModel::isDescriptorInfoRow));
         buttonCol.setPreferredWidth(36);
         buttonCol.setMaxWidth(36);
         buttonCol.setMinWidth(28);
@@ -107,9 +110,31 @@ public class JsonJackAttributesPane extends JPanel {
                 if (!attributesModel.isButtonEnabled(modelRow)) {
                     return;
                 }
-                openAttrDetailDialog(modelRow);
+                if (attributesModel.isDescriptorInfoRow(modelRow)) {
+                    openDescriptorInfoDialog(modelRow);
+                } else {
+                    openAttrDetailDialog(modelRow);
+                }
             }
         });
+    }
+
+    /**
+     * Opens the descriptor info dialog of the row: the verbose string representation of
+     * the JsonFieldDescriptor (jsonField row) or the JsonTypeDescriptor (jsonType row),
+     * read-only.
+     *
+     * @param modelRow the model row index
+     */
+    private void openDescriptorInfoDialog(int modelRow) {
+        EditNode node = attributesModel.getCurrentEditNode();
+        String nodeName = (node != null && node.getName() != null) ? node.getName() : "";
+        String nodePath = JsonJackNodePaths.buildNodePath(node);
+        String text = attributesModel.descriptorInfoText(modelRow);
+        JsonJackAttrDetailDialog dialog = new JsonJackAttrDetailDialog(
+                owner, nodeName, nodePath, "", String.valueOf(attributesModel.getValueAt(modelRow, 0)),
+                text == null ? "" : text, false, null);
+        dialog.setVisible(true);
     }
 
     /**
