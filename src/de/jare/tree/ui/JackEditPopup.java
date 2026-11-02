@@ -188,21 +188,23 @@ public class JackEditPopup extends JPopupMenu {
         EditMenuEnablementLogger.logAddMenus(master, "edit popup", hard, isReadonly, nodeExists,
                 enableAddRename, parentAnnotation, editTree, selected);
 
-        updateDiffItems(rootSelected, selected);
+        updateDiffItems();
 
         updatePasteEnabled();
     }
 
     /**
-     * Refreshes the tree diff items: marking is offered on the root only (always exactly one tree carries the LEFT
-     * or RIGHT flag); when a side is marked, "W2 Diff" compares the two live trees immediately and "W3 Diff" runs
-     * the 3-way analysis against the ours side's import state.
-     *
-     * @param rootSelected whether the root is selected
-     * @param selected the selected node data, or null
+     * Refreshes the tree diff items. The target comes from the tree the popup opened on (the invoker), not from the
+     * broadcast selection: the active editor is usually the left tree of the tab, so a click into the right tree
+     * never reaches the selection listeners and the broadcast state stays stale — the diff items would be disabled
+     * although the user just clicked a root.
      */
-    private void updateDiffItems(boolean rootSelected, EditNodeAbstract selected) {
-        final boolean atRoot = rootSelected && selected != null;
+    private void updateDiffItems() {
+        final EditNodeAbstract clicked = invokerNode();
+        final EditNodeAbstract selected = clicked != null ? clicked : selectedData();
+        final boolean atRoot = clicked != null
+                ? invokerRootSelected()
+                : lastRootSelected && selected != null;
         diffLeftItem.setEnabled(atRoot);
         diffRightItem.setEnabled(atRoot);
         diffLeftItem.setText("Diff: mark as left side");
@@ -233,16 +235,79 @@ public class JackEditPopup extends JPopupMenu {
     }
 
     /**
+     * Returns the node the popup was opened on, derived from the invoker tree's selection — installOn selects the
+     * clicked path before showing the popup, so this is exactly the right-clicked node.
+     *
+     * @return the clicked node, or null when the invoker is unknown.
+     */
+    private EditNodeAbstract invokerNode() {
+        if (lastInvoker instanceof JTree tree
+                && tree.getLastSelectedPathComponent() instanceof DefaultMutableTreeNode dmtn
+                && dmtn.getUserObject() instanceof EditNodeAbstract data) {
+            return data;
+        }
+        return null;
+    }
+
+    /**
+     * Tells whether the node the popup was opened on is the root of its tree.
+     *
+     * @return true when the clicked node is a root.
+     */
+    private boolean invokerRootSelected() {
+        if (lastInvoker instanceof JTree tree
+                && tree.getLastSelectedPathComponent() instanceof DefaultMutableTreeNode dmtn) {
+            return dmtn.getParent() == null;
+        }
+        return false;
+    }
+
+    /**
+     * Returns the edit tree of the popup invoker — the tree the user actually clicked, which may differ from the
+     * active editor (the left tree of the tab).
+     *
+     * @return the clicked tree, or null when unknown.
+     */
+    private EditTree invokerEditTree() {
+        if (lastInvoker == null) {
+            return null;
+        }
+        final java.awt.Container ancestor
+                = javax.swing.SwingUtilities.getAncestorOfClass(JackEditTree.class, lastInvoker);
+        return ancestor instanceof JackEditTree editTree ? editTree.getModel().getEditTree() : null;
+    }
+
+    /**
+     * The diff actions act on the tree the popup opened on; the broadcast state is only the fallback.
+     *
+     * @return the clicked node, or the last selected node.
+     */
+    private EditNodeAbstract diffTargetNode() {
+        final EditNodeAbstract clicked = invokerNode();
+        return clicked != null ? clicked : selectedData();
+    }
+
+    /**
+     * The diff actions act on the tree the popup opened on; the broadcast state is only the fallback.
+     *
+     * @return the clicked tree, or the active editor's tree.
+     */
+    private EditTree diffTargetTree() {
+        final EditTree clickedTree = invokerEditTree();
+        return clickedTree != null ? clickedTree : activeEditTree();
+    }
+
+    /**
      * Marks the selected root as one diff side, replacing any previously marked side.
      *
      * @param asLeft true for the LEFT flag (the ours role), false for the RIGHT flag (the theirs role)
      */
     private void rememberDiffSide(boolean asLeft) {
-        final EditNodeAbstract selected = selectedData();
+        final EditNodeAbstract selected = diffTargetNode();
         if (selected == null) {
             return;
         }
-        TreeDiffSides.remember(selected, activeEditTree(), asLeft);
+        TreeDiffSides.remember(selected, diffTargetTree(), asLeft);
         updateMenuEnabledState(lastRootSelected, lastSelectedNode != null);
     }
 
@@ -252,7 +317,7 @@ public class JackEditPopup extends JPopupMenu {
      */
     private void runDiff() {
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
-        final EditNodeAbstract current = selectedData();
+        final EditNodeAbstract current = diffTargetNode();
         if (marked == null || current == null || marked == current) {
             return;
         }
@@ -269,12 +334,12 @@ public class JackEditPopup extends JPopupMenu {
      */
     private void runThreeWayDiff() {
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
-        final EditNodeAbstract clicked = selectedData();
+        final EditNodeAbstract clicked = diffTargetNode();
         if (marked == null || clicked == null || marked == clicked || !threeWayBaseAvailable()) {
             return;
         }
         final EditTree oursTree = TreeDiffSides.isRememberedAsLeft()
-                ? TreeDiffSides.getRememberedTree() : activeEditTree();
+                ? TreeDiffSides.getRememberedTree() : diffTargetTree();
         final EditNodeAbstract theirsRoot = TreeDiffSides.isRememberedAsLeft() ? clicked : marked;
         final MergePlan plan = EditTreeMerger.analyze(oursTree, theirsRoot);
         final Window owner = lastInvoker != null
@@ -289,7 +354,7 @@ public class JackEditPopup extends JPopupMenu {
      */
     private boolean threeWayBaseAvailable() {
         final EditTree oursTree = TreeDiffSides.isRememberedAsLeft()
-                ? TreeDiffSides.getRememberedTree() : activeEditTree();
+                ? TreeDiffSides.getRememberedTree() : diffTargetTree();
         return oursTree != null && oursTree.getBaseSnapshot() != null;
     }
 
