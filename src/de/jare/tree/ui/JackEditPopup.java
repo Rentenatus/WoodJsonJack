@@ -23,6 +23,8 @@ import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
 import de.jare.tree.control.listeners.ParseModeListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
+import java.awt.Component;
+import java.awt.Window;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.*;
@@ -40,7 +42,11 @@ public class JackEditPopup extends JPopupMenu {
     private final JMenuItem addNodeItem;
     private final JMenuItem addAnnotationItem;
     private final JMenuItem renameNodeItem;
+    private final JMenuItem diffLeftItem;
+    private final JMenuItem diffRightItem;
+    private final JMenuItem diffRunItem;
     private boolean lastRootSelected;
+    private Component lastInvoker;
     private final JackMasterControl master;
     private Object lastSelectedNode;
     private TreeFocusComponent lastSelectedEditor;
@@ -77,6 +83,7 @@ public class JackEditPopup extends JPopupMenu {
         addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
             @Override
             public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                lastInvoker = getInvoker();
                 updateMenuEnabledState(lastRootSelected, lastSelectedNode != null);
             }
 
@@ -106,6 +113,18 @@ public class JackEditPopup extends JPopupMenu {
         add(cutItem);
         add(pasteItem);
         add(pasteUnderneathItem);
+
+        // Tree diff (U4 debug feature, see doc/TREE_DIFF.md in jsonCasted): mark two roots, then compare them.
+        addSeparator();
+        diffLeftItem = new JMenuItem("Diff: mark as left side");
+        diffRightItem = new JMenuItem("Diff: mark as right side");
+        diffRunItem = new JMenuItem("Diff left \u2194 right");
+        diffLeftItem.addActionListener(e -> rememberDiffSide(true));
+        diffRightItem.addActionListener(e -> rememberDiffSide(false));
+        diffRunItem.addActionListener(e -> runDiff());
+        add(diffLeftItem);
+        add(diffRightItem);
+        add(diffRunItem);
 
         selectionListener = new TreeFocusListener() {
             @Override
@@ -161,7 +180,66 @@ public class JackEditPopup extends JPopupMenu {
         EditMenuEnablementLogger.logAddMenus(master, "edit popup", hard, isReadonly, nodeExists,
                 enableAddRename, parentAnnotation, editTree, selected);
 
+        updateDiffItems(rootSelected, selected);
+
         updatePasteEnabled();
+    }
+
+    /**
+     * Refreshes the tree diff items: marking is offered on the root only; the run item needs both sides and shows
+     * what it will compare.
+     *
+     * @param rootSelected whether the root is selected
+     * @param selected the selected node data, or null
+     */
+    private void updateDiffItems(boolean rootSelected, EditNodeAbstract selected) {
+        final boolean atRoot = rootSelected && selected != null;
+        diffLeftItem.setEnabled(atRoot);
+        diffRightItem.setEnabled(atRoot);
+        diffLeftItem.setText(TreeDiffSides.hasLeft()
+                ? "Diff: replace left side (" + TreeDiffSides.describe(TreeDiffSides.getLeft()) + ")"
+                : "Diff: mark as left side");
+        diffRightItem.setText(TreeDiffSides.hasRight()
+                ? "Diff: replace right side (" + TreeDiffSides.describe(TreeDiffSides.getRight()) + ")"
+                : "Diff: mark as right side");
+        final boolean ready = TreeDiffSides.hasLeft() && TreeDiffSides.hasRight();
+        diffRunItem.setEnabled(ready);
+        diffRunItem.setText(ready
+                ? "Diff: " + TreeDiffSides.describe(TreeDiffSides.getLeft())
+                + " \u2194 " + TreeDiffSides.describe(TreeDiffSides.getRight())
+                : "Diff left \u2194 right (both sides must be marked)");
+    }
+
+    /**
+     * Marks the selected root as one diff side.
+     *
+     * @param asLeft true for the left side, false for the right side
+     */
+    private void rememberDiffSide(boolean asLeft) {
+        final EditNodeAbstract selected = selectedData();
+        if (selected == null) {
+            return;
+        }
+        if (asLeft) {
+            TreeDiffSides.rememberLeft(selected);
+        } else {
+            TreeDiffSides.rememberRight(selected);
+        }
+        updateMenuEnabledState(lastRootSelected, lastSelectedNode != null);
+    }
+
+    /**
+     * Runs the diff of the two marked sides and shows the report dialog.
+     */
+    private void runDiff() {
+        final EditNodeAbstract left = TreeDiffSides.getLeft();
+        final EditNodeAbstract right = TreeDiffSides.getRight();
+        if (left == null || right == null) {
+            return;
+        }
+        final Window owner = lastInvoker != null
+                ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
+        new TreeDiffDialog(owner, left, right).setVisible(true);
     }
 
     /**
