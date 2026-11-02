@@ -9,10 +9,12 @@ package de.jare.tree.ui;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 
 /**
- * Remembers the two sides of the interactive tree diff (use case U4 of doc/TREE_DIFF.md in jsonCasted): the user
- * marks the root of one editor as the left side, the root of another editor as the right side, then runs the diff.
- * The sides are held live, not as snapshots — a diff after further edits shows the current state, which is exactly
- * what the debug feature is for (it also proves the Merkle invalidation chain in action).
+ * Remembers one side of the interactive tree diff (use case U4 of doc/TREE_DIFF.md in jsonCasted): the user marks
+ * the root of one editor as LEFT or RIGHT — there is always at most one tree carrying the flag. On any other root,
+ * "Diff: with &lt;marked&gt;" runs the diff immediately: the marked side plus the clicked root as the missing
+ * counterpart. The marked side survives the run, so one root can be compared against several editors in a row.
+ * The side is held live, not as a snapshot — a diff after further edits shows the current state, which also proves
+ * the Merkle invalidation chain in action.
  *
  * <p>
  * Deliberately static: the popup that marks a side belongs to one editor tab, while the run-diff popup can belong to
@@ -24,69 +26,54 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
  */
 public final class TreeDiffSides {
 
-    private static EditNodeAbstract left;
-    private static EditNodeAbstract right;
+    private static EditNodeAbstract remembered;
+    private static boolean rememberedAsLeft;
 
     private TreeDiffSides() {
         // utility class, no instances
     }
 
     /**
-     * Marks the given root as the left diff side.
+     * Marks the given root as one diff side, replacing any previously marked side — there is never more than one
+     * flagged tree.
      *
      * @param root the root to remember, not null.
+     * @param asLeft true for the LEFT flag, false for the RIGHT flag.
      */
-    public static void rememberLeft(EditNodeAbstract root) {
-        left = root;
+    public static void remember(EditNodeAbstract root, boolean asLeft) {
+        remembered = root;
+        rememberedAsLeft = asLeft;
     }
 
     /**
-     * Marks the given root as the right diff side.
+     * Tells whether a side is marked.
      *
-     * @param root the root to remember, not null.
+     * @return true when a side exists.
      */
-    public static void rememberRight(EditNodeAbstract root) {
-        right = root;
+    public static boolean hasRemembered() {
+        return remembered != null;
     }
 
     /**
-     * Tells whether a left side is marked.
+     * Returns the marked side.
      *
-     * @return true when a left side exists.
+     * @return the marked root, or null.
      */
-    public static boolean hasLeft() {
-        return left != null;
+    public static EditNodeAbstract getRemembered() {
+        return remembered;
     }
 
     /**
-     * Tells whether a right side is marked.
+     * Tells which flag the marked side carries.
      *
-     * @return true when a right side exists.
+     * @return true when the marked side is LEFT, false for RIGHT.
      */
-    public static boolean hasRight() {
-        return right != null;
+    public static boolean isRememberedAsLeft() {
+        return rememberedAsLeft;
     }
 
     /**
-     * Returns the marked left side.
-     *
-     * @return the left root, or null.
-     */
-    public static EditNodeAbstract getLeft() {
-        return left;
-    }
-
-    /**
-     * Returns the marked right side.
-     *
-     * @return the right root, or null.
-     */
-    public static EditNodeAbstract getRight() {
-        return right;
-    }
-
-    /**
-     * Describes a marked side for menu texts and dialog titles: root name and edit id, so two tabs with the same
+     * Describes the marked side for menu texts and dialog titles: root name and edit id, so two tabs with the same
      * file stay distinguishable.
      *
      * @param node the marked root, may be null.
