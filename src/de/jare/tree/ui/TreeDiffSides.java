@@ -8,15 +8,16 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.tree.control.model.JackTreeModel;
 
 /**
  * Remembers one side of the interactive tree diff (use case U4 of doc/TREE_DIFF.md in jsonCasted): the user marks
  * the root of one editor as LEFT or RIGHT — there is always at most one tree carrying the flag. On any other root,
  * "W2 Diff: with &lt;marked&gt;" compares the two live trees, "W3 Diff: with &lt;marked&gt;" runs the 3-way analysis
- * (base = import state of the ours side, the LEFT role, plus ours and theirs) and shows the merge plan. The marked
- * side survives the run, so one root can be compared against several editors in a row. Sides are held live, not as
- * snapshots — a diff after further edits shows the current state, which also proves the Merkle invalidation chain
- * in action.
+ * (base = import state of the ours side, the LEFT role, plus ours and theirs) and shows the merge plan, "W3 Merge"
+ * applies it. The marked side survives the run, so one root can be compared against several editors in a row.
+ * Sides are held live, not as snapshots — a diff after further edits shows the current state, which also proves
+ * the Merkle invalidation chain in action.
  *
  * <p>
  * Deliberately static: the popup that marks a side belongs to one editor tab, while the run-diff popup can belong
@@ -29,7 +30,7 @@ import de.jare.jsoncasted.editor.core.EditTree;
 public final class TreeDiffSides {
 
     private static EditNodeAbstract remembered;
-    private static EditTree rememberedTree;
+    private static JackTreeModel rememberedModel;
     private static boolean rememberedAsLeft;
 
     private TreeDiffSides() {
@@ -38,16 +39,16 @@ public final class TreeDiffSides {
 
     /**
      * Marks the given root as one diff side, replacing any previously marked side — there is never more than one
-     * flagged tree. The marked root's tree is remembered with it: the W3 diff needs the ours side's import state
-     * (base) for the 3-way analysis.
+     * flagged tree. The marked root's tree model is remembered with it: the W3 diff takes the base (import state)
+     * from the ours side, and the W3 merge books its transaction on the ours side's undo history.
      *
      * @param root the root to remember, not null.
-     * @param tree the tree the root belongs to, or null when unknown.
+     * @param model the tree model the root belongs to, or null when unknown.
      * @param asLeft true for the LEFT flag (the ours role), false for the RIGHT flag (the theirs role).
      */
-    public static void remember(EditNodeAbstract root, EditTree tree, boolean asLeft) {
+    public static void remember(EditNodeAbstract root, JackTreeModel model, boolean asLeft) {
         remembered = root;
-        rememberedTree = tree;
+        rememberedModel = model;
         rememberedAsLeft = asLeft;
     }
 
@@ -70,12 +71,22 @@ public final class TreeDiffSides {
     }
 
     /**
-     * Returns the tree of the marked side — the W3 diff takes the base (import state) from the ours side.
+     * Returns the tree model of the marked side — the W3 diff takes the base (import state) from the ours side and
+     * the W3 merge books its undo history there.
+     *
+     * @return the marked root's tree model, or null when unknown.
+     */
+    public static JackTreeModel getRememberedModel() {
+        return rememberedModel;
+    }
+
+    /**
+     * Returns the edit tree of the marked side.
      *
      * @return the marked root's tree, or null when unknown.
      */
     public static EditTree getRememberedTree() {
-        return rememberedTree;
+        return rememberedModel == null ? null : rememberedModel.getEditTree();
     }
 
     /**

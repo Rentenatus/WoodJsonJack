@@ -10,7 +10,10 @@ import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.EditTreeWriter;
 import de.jare.jsoncasted.editor.core.JsonTreeConverter;
+import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.io.JsonParseException;
+import de.jare.jsoncasted.io.parserservice.JsonParserService;
+import de.jare.jsoncasted.lang.JsonResource;
 import de.jare.tree.control.JackMasterControl;
 import java.io.File;
 import java.io.IOException;
@@ -124,12 +127,31 @@ public class JackMainActions {
         }
         try {
             EditTreeWriter.toJsonFile(target, tree);
+            refreshMergeBaseAfterSave(tree, target);
             master.getFastLog().tryWrite("io", "Saved " + target.getName());
             return true;
         } catch (IOException e) {
             master.getFastLog().tryWrite("io", "Save failed: " + target.getName() + " - " + e.getMessage());
             woodWindow.showErrorDialog("Error saving file: " + e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * R4 of the tree diff concept (doc/TREE_DIFF.md in jsonCasted): the saved file is the new merge base, so the
+     * next 3-way analysis runs against what is on disk. A failed refresh is logged, never fatal — the old base
+     * stays.
+     *
+     * @param tree the tree that was just written
+     * @param target the file it was written to
+     */
+    private void refreshMergeBaseAfterSave(EditTree tree, File target) {
+        try {
+            final JsonResource saved = JsonParserService.parse(target, JsonDebugLevel.SIMPLE);
+            tree.adoptSavedBase(saved);
+        } catch (IOException | JsonParseException e) {
+            master.getFastLog().tryWrite("io",
+                    "Merge base refresh failed: " + target.getName() + " - " + e.getMessage());
         }
     }
 

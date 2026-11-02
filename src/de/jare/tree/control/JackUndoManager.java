@@ -220,6 +220,17 @@ public class JackUndoManager implements TreeFocusListener, HistoryListener {
         return newManager;
     }
 
+    /**
+     * Returns the undo manager of a specific tree model, regardless of which editor is currently active — a merge
+     * transaction must land on the history of the tree it modifies.
+     *
+     * @param model the tree model, not {@code null}.
+     * @return the model's manager, created on first use.
+     */
+    public JackUndoManagerModel getManagerFor(JackTreeModel model) {
+        return getManager(model);
+    }
+
     public List<String> getUndoLabels(int max) {
         if (canUndo()) {
             return activeManager.getUndoLabels(max);

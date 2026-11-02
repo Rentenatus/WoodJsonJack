@@ -44,4 +44,14 @@ public class JackUndoManagerModel extends TreeEditorAbstract {
         return historyManager == source;
     }
 
+    /**
+     * Returns the history of this tree model — commands executed here are undoable through the editor's undo
+     * controls.
+     *
+     * @return the history manager, never {@code null}.
+     */
+    public HistoryManager getHistory() {
+        return historyManager;
+    }
+
 }
