@@ -7,19 +7,21 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
+import de.jare.jsoncasted.editor.core.EditTree;
 
 /**
  * Remembers one side of the interactive tree diff (use case U4 of doc/TREE_DIFF.md in jsonCasted): the user marks
  * the root of one editor as LEFT or RIGHT — there is always at most one tree carrying the flag. On any other root,
- * "Diff: with &lt;marked&gt;" runs the diff immediately: the marked side plus the clicked root as the missing
- * counterpart. The marked side survives the run, so one root can be compared against several editors in a row.
- * The side is held live, not as a snapshot — a diff after further edits shows the current state, which also proves
- * the Merkle invalidation chain in action.
+ * "W2 Diff: with &lt;marked&gt;" compares the two live trees, "W3 Diff: with &lt;marked&gt;" runs the 3-way analysis
+ * (base = import state of the ours side, the LEFT role, plus ours and theirs) and shows the merge plan. The marked
+ * side survives the run, so one root can be compared against several editors in a row. Sides are held live, not as
+ * snapshots — a diff after further edits shows the current state, which also proves the Merkle invalidation chain
+ * in action.
  *
  * <p>
- * Deliberately static: the popup that marks a side belongs to one editor tab, while the run-diff popup can belong to
- * another tab — the memory must span tabs. WoodJsonJack runs one main window, so the static state is global to the
- * application.
+ * Deliberately static: the popup that marks a side belongs to one editor tab, while the run-diff popup can belong
+ * to another tab — the memory must span tabs. WoodJsonJack runs one main window, so the static state is global to
+ * the application.
  * </p>
  *
  * @author Janusch Rentenatus
@@ -27,6 +29,7 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 public final class TreeDiffSides {
 
     private static EditNodeAbstract remembered;
+    private static EditTree rememberedTree;
     private static boolean rememberedAsLeft;
 
     private TreeDiffSides() {
@@ -35,13 +38,16 @@ public final class TreeDiffSides {
 
     /**
      * Marks the given root as one diff side, replacing any previously marked side — there is never more than one
-     * flagged tree.
+     * flagged tree. The marked root's tree is remembered with it: the W3 diff needs the ours side's import state
+     * (base) for the 3-way analysis.
      *
      * @param root the root to remember, not null.
-     * @param asLeft true for the LEFT flag, false for the RIGHT flag.
+     * @param tree the tree the root belongs to, or null when unknown.
+     * @param asLeft true for the LEFT flag (the ours role), false for the RIGHT flag (the theirs role).
      */
-    public static void remember(EditNodeAbstract root, boolean asLeft) {
+    public static void remember(EditNodeAbstract root, EditTree tree, boolean asLeft) {
         remembered = root;
+        rememberedTree = tree;
         rememberedAsLeft = asLeft;
     }
 
@@ -64,9 +70,18 @@ public final class TreeDiffSides {
     }
 
     /**
+     * Returns the tree of the marked side — the W3 diff takes the base (import state) from the ours side.
+     *
+     * @return the marked root's tree, or null when unknown.
+     */
+    public static EditTree getRememberedTree() {
+        return rememberedTree;
+    }
+
+    /**
      * Tells which flag the marked side carries.
      *
-     * @return true when the marked side is LEFT, false for RIGHT.
+     * @return true when the marked side is LEFT (the ours role), false for RIGHT (the theirs role).
      */
     public static boolean isRememberedAsLeft() {
         return rememberedAsLeft;

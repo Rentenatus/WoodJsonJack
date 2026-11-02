@@ -6,11 +6,13 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.diff.MergePlan;
 import de.jare.jsoncasted.editor.clipboard.ClipboardManager;
 import de.jare.jsoncasted.editor.core.EditNode;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.ParseMode;
+import de.jare.jsoncasted.editor.merge.EditTreeMerger;
 import de.jare.tree.control.JackMasterControl;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_ANNOTATION;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
@@ -45,6 +47,7 @@ public class JackEditPopup extends JPopupMenu {
     private final JMenuItem diffLeftItem;
     private final JMenuItem diffRightItem;
     private final JMenuItem diffRunItem;
+    private final JMenuItem diffRun3Item;
     private boolean lastRootSelected;
     private Component lastInvoker;
     private final JackMasterControl master;
@@ -114,18 +117,22 @@ public class JackEditPopup extends JPopupMenu {
         add(pasteItem);
         add(pasteUnderneathItem);
 
-        // Tree diff (U4 debug feature, see doc/TREE_DIFF.md in jsonCasted): mark one root as LEFT or RIGHT, then
-        // "Diff: with ..." on any other root runs the diff immediately.
+        // Tree diff (U1/U4 debug feature, see doc/TREE_DIFF.md in jsonCasted): mark one root as LEFT or RIGHT, then
+        // "W2 Diff" compares the two live trees, "W3 Diff" runs the 3-way analysis (base = import state of ours,
+        // the LEFT role) and shows the merge plan.
         addSeparator();
         diffLeftItem = new JMenuItem("Diff: mark as left side");
         diffRightItem = new JMenuItem("Diff: mark as right side");
-        diffRunItem = new JMenuItem("Diff (mark a side first)");
+        diffRunItem = new JMenuItem("W2 Diff (mark a side first)");
+        diffRun3Item = new JMenuItem("W3 Diff (mark a side first)");
         diffLeftItem.addActionListener(e -> rememberDiffSide(true));
         diffRightItem.addActionListener(e -> rememberDiffSide(false));
         diffRunItem.addActionListener(e -> runDiff());
+        diffRun3Item.addActionListener(e -> runThreeWayDiff());
         add(diffLeftItem);
         add(diffRightItem);
         add(diffRunItem);
+        add(diffRun3Item);
 
         selectionListener = new TreeFocusListener() {
             @Override
@@ -188,7 +195,8 @@ public class JackEditPopup extends JPopupMenu {
 
     /**
      * Refreshes the tree diff items: marking is offered on the root only (always exactly one tree carries the LEFT
-     * or RIGHT flag); when a side is marked, "Diff: with ..." runs immediately against the clicked root.
+     * or RIGHT flag); when a side is marked, "W2 Diff" compares the two live trees immediately and "W3 Diff" runs
+     * the 3-way analysis against the ours side's import state.
      *
      * @param rootSelected whether the root is selected
      * @param selected the selected node data, or null
@@ -201,36 +209,46 @@ public class JackEditPopup extends JPopupMenu {
         diffRightItem.setText("Diff: mark as right side");
 
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
-        final boolean ready = TreeDiffSides.hasRemembered() && atRoot && marked != selected;
+        final boolean hasMarked = TreeDiffSides.hasRemembered();
+        final boolean ready = hasMarked && atRoot && marked != selected;
         diffRunItem.setEnabled(ready);
-        if (!TreeDiffSides.hasRemembered()) {
-            diffRunItem.setText("Diff (mark a side first)");
+        diffRun3Item.setEnabled(ready && threeWayBaseAvailable());
+        if (!hasMarked) {
+            diffRunItem.setText("W2 Diff (mark a side first)");
+            diffRun3Item.setText("W3 Diff (mark a side first)");
         } else {
             final String desc = TreeDiffSides.describe(marked)
                     + (TreeDiffSides.isRememberedAsLeft() ? " (as left)" : " (as right)");
             diffRunItem.setText(marked == selected
-                    ? "Diff: with " + desc + " — this is the marked side"
-                    : "Diff: with " + desc);
+                    ? "W2 Diff: with " + desc + " — this is the marked side"
+                    : "W2 Diff: with " + desc);
+            if (marked == selected) {
+                diffRun3Item.setText("W3 Diff: with " + desc + " — this is the marked side");
+            } else if (!threeWayBaseAvailable()) {
+                diffRun3Item.setText("W3 Diff: with " + desc + " (ours side has no import state)");
+            } else {
+                diffRun3Item.setText("W3 Diff: with " + desc);
+            }
         }
     }
 
     /**
      * Marks the selected root as one diff side, replacing any previously marked side.
      *
-     * @param asLeft true for the LEFT flag, false for the RIGHT flag
+     * @param asLeft true for the LEFT flag (the ours role), false for the RIGHT flag (the theirs role)
      */
     private void rememberDiffSide(boolean asLeft) {
         final EditNodeAbstract selected = selectedData();
         if (selected == null) {
             return;
         }
-        TreeDiffSides.remember(selected, asLeft);
+        TreeDiffSides.remember(selected, activeEditTree(), asLeft);
         updateMenuEnabledState(lastRootSelected, lastSelectedNode != null);
     }
 
     /**
-     * Runs the diff of the marked side and the clicked root immediately and shows the report dialog. The marked
-     * side keeps its flag, so it can be compared against several editors in a row.
+     * Runs the two-tree diff of the marked side and the clicked root immediately and shows the report dialog. The
+     * marked side keeps its flag, so it can be compared against several editors in a row.
      */
     private void runDiff() {
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
@@ -243,6 +261,36 @@ public class JackEditPopup extends JPopupMenu {
         final Window owner = lastInvoker != null
                 ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
         new TreeDiffDialog(owner, left, right).setVisible(true);
+    }
+
+    /**
+     * Runs the 3-way analysis (U1): the LEFT role is ours — its tree carries the base (the import state); the
+     * other side is theirs. Nothing is applied, the dialog shows the merge plan.
+     */
+    private void runThreeWayDiff() {
+        final EditNodeAbstract marked = TreeDiffSides.getRemembered();
+        final EditNodeAbstract clicked = selectedData();
+        if (marked == null || clicked == null || marked == clicked || !threeWayBaseAvailable()) {
+            return;
+        }
+        final EditTree oursTree = TreeDiffSides.isRememberedAsLeft()
+                ? TreeDiffSides.getRememberedTree() : activeEditTree();
+        final EditNodeAbstract theirsRoot = TreeDiffSides.isRememberedAsLeft() ? clicked : marked;
+        final MergePlan plan = EditTreeMerger.analyze(oursTree, theirsRoot);
+        final Window owner = lastInvoker != null
+                ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
+        new MergePlanDialog(owner, plan, oursTree.getRoot(), theirsRoot).setVisible(true);
+    }
+
+    /**
+     * Tells whether the 3-way diff can run: the ours side (the LEFT role) must carry an import state as base.
+     *
+     * @return true when the base is available
+     */
+    private boolean threeWayBaseAvailable() {
+        final EditTree oursTree = TreeDiffSides.isRememberedAsLeft()
+                ? TreeDiffSides.getRememberedTree() : activeEditTree();
+        return oursTree != null && oursTree.getBaseSnapshot() != null;
     }
 
     /**
