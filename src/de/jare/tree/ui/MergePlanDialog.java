@@ -56,12 +56,15 @@ public class MergePlanDialog extends JDialog {
 
         final long radiating = plan.getConflicts().stream().filter(ConflictRecord::isRadiating).count()
                 + plan.getApplyOps().stream().filter(DeltaOp::isRadiating).count();
-        final String summary = plan + (radiating > 0 ? ", " + radiating + " radiating." : ".");
+        final String summary = plan.getOursReport().getOps().size() + " own change(s), " + plan
+                + (radiating > 0 ? ", " + radiating + " radiating." : ".");
         final JLabel summaryLabel = new JLabel("  " + summary);
         summaryLabel.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
         add(summaryLabel, BorderLayout.NORTH);
 
         final List<String> lines = new ArrayList<>();
+        section(lines, "Ours (own changes vs base, already in this tree)",
+                plan.getOursReport().getOps().stream().map(DeltaOp::toString).toList());
         section(lines, "Apply (theirs changes not touching ours)",
                 plan.getApplyOps().stream().map(DeltaOp::toString).toList());
         section(lines, "No-op (both sides did the same)",
