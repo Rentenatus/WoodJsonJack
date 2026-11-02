@@ -64,6 +64,19 @@ public class FontSettings implements AScheme {
         fontMap.put(DARK_FORE_ARRAY, font);
         fontMap.put(DARK_FORE_OBJECT, font);
         fontMap.put(DARK_FORE_ANNOTATION, font);
+        // change-state family of the tree diff view
+        fontMap.put(LIGHT_FORE_DIFF_ADD, font);
+        fontMap.put(LIGHT_FORE_DIFF_REMOVE, font);
+        fontMap.put(LIGHT_FORE_DIFF_MODIFY, font);
+        fontMap.put(LIGHT_FORE_DIFF_MOVE, font);
+        fontMap.put(LIGHT_FORE_DIFF_CONFLICT, font);
+        fontMap.put(LIGHT_FORE_DIFF_RADIATING, font);
+        fontMap.put(DARK_FORE_DIFF_ADD, font);
+        fontMap.put(DARK_FORE_DIFF_REMOVE, font);
+        fontMap.put(DARK_FORE_DIFF_MODIFY, font);
+        fontMap.put(DARK_FORE_DIFF_MOVE, font);
+        fontMap.put(DARK_FORE_DIFF_CONFLICT, font);
+        fontMap.put(DARK_FORE_DIFF_RADIATING, font);
     }
 
     // scales all fonts by the given factor
