@@ -18,6 +18,7 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.merge.EditPathResolver;
 import de.jare.jsoncasted.editor.merge.EditTreeMerger;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,7 +109,7 @@ final class DiffMarkBuilder {
                 put(marksRight, resolve(copyRoot, theirPathOf(op)), markOf(op, op.toString()));
             }
             case REORDER ->
-                markReorderChildren(op, oursRoot, copyRoot, marksLeft, marksRight, op.toString());
+                markReorderChildren(op, oursRoot, copyRoot, marksLeft, marksRight, op.toString(), false);
             default -> {
                 // no other delta types exist today
             }
@@ -135,7 +136,7 @@ final class DiffMarkBuilder {
                 put(marksRight, resolve(copyRoot, theirPathOf(op)), markOf(op, tooltip));
             }
             case REORDER ->
-                markReorderChildren(op, oursRoot, copyRoot, marksLeft, marksRight, tooltip);
+                markReorderChildren(op, oursRoot, copyRoot, marksLeft, marksRight, tooltip, false);
             default -> {
                 // no other delta types exist today
             }
@@ -143,17 +144,22 @@ final class DiffMarkBuilder {
     }
 
     /**
-     * Marks the MOVED children of a REORDER, not the parent: the review sees which nodes traveled, in both panes.
-     * The children pair like the engine's array matcher - wood id first, then unique content hash (duplicates
-     * are copies, not moves) - and a pair with different positions is a move. Without a resolvable pairing the
-     * parent falls back to carrying the whole reorder.
+     * Marks the MOVED children of a REORDER and the parent as modified: the children show WHO traveled (lila, move
+     * family, "position i -> j"), the parent shows THAT the array changed (orange, modify family - the order is
+     * the value of an array, like the characters are the value of a string) with the order transition in the
+     * tooltip. The children pair like the engine's array matcher - wood id first, then unique content hash
+     * (duplicates are copies, not moves) - and a pair with different positions is a move.
+     *
+     * @param oursIsNew true when OURS reordered (ours delta: the copy pane holds the old order); false when theirs
+     * or the pair diff reordered (the ours pane holds the old order).
      */
     private static void markReorderChildren(DeltaOp op, EditNodeAbstract oursRoot, EditNodeAbstract copyRoot,
-            Map<EditNodeAbstract, DiffMark> marksLeft, Map<EditNodeAbstract, DiffMark> marksRight, String tooltip) {
+            Map<EditNodeAbstract, DiffMark> marksLeft, Map<EditNodeAbstract, DiffMark> marksRight,
+            String tooltip, boolean oursIsNew) {
         final EditNodeAbstract oursParent = resolve(oursRoot, op.getParentKey());
         final EditNodeAbstract copyParent = resolve(copyRoot, op.getParentKey());
         if (oursParent == null || copyParent == null) {
-            return; // drifted structure - the parent mark of the old behavior is not a good fallback either
+            return; // drifted structure - nothing to mark honestly
         }
         final List<DifferableNode> oursKids = oursParent.children();
         final List<DifferableNode> copyKids = copyParent.children();
@@ -164,7 +170,6 @@ final class DiffMarkBuilder {
                 copyById.putIfAbsent(id, j);
             }
         }
-        boolean anyMoved = false;
         for (int i = 0; i < oursKids.size(); i++) {
             final DifferableNode oursKid = oursKids.get(i);
             Integer j = oursKid.getObjektId() != null ? copyById.get(oursKid.getObjektId()) : null;
@@ -178,14 +183,55 @@ final class DiffMarkBuilder {
                     && copyKids.get(j) instanceof EditNodeAbstract copyChild) {
                 put(marksLeft, oursChild, markOf(op, tooltip + "  \u2014  position " + i + " \u2192 " + j));
                 put(marksRight, copyChild, markOf(op, tooltip + "  \u2014  position " + i + " \u2192 " + j));
-                anyMoved = true;
             }
         }
-        if (!anyMoved) {
-            // fallback: the parent carries the whole reorder (the order labels ride in the op's toString)
-            put(marksLeft, oursParent, markOf(op, tooltip));
-            put(marksRight, copyParent, markOf(op, tooltip));
+
+        // the parent carries the whole order change like a value change of the array (the string analogy):
+        // modify color, with the old -> new order in the tooltip. The old order comes from the pane that kept it,
+        // the new order rides in the op (renderer-mirrored labels, as the dialogs show them too).
+        final List<DifferableNode> oldKids = (oursIsNew ? copyParent : oursParent).children();
+        final String oldOrder = String.join(", ", orderLabels(oldKids));
+        final String newOrder = String.join(", ", op.getNewOrder());
+        final DiffMark parentMark = new DiffMark(op, DiffMark.MarkType.MODIFY,
+                tooltip + "  \u2014  [" + oldOrder + "] \u2192 [" + newOrder + "]");
+        put(marksLeft, oursParent, parentMark);
+        put(marksRight, copyParent, parentMark);
+    }
+
+    /**
+     * Returns the visible identity of the children in their pane order - the same mirroring the engine's reorder
+     * labels use: member key, wood id, name (the value for primitive rows), with "#index" when a label occurs
+     * twice.
+     */
+    private static List<String> orderLabels(List<DifferableNode> kids) {
+        final Map<String, Integer> counts = new HashMap<>();
+        for (DifferableNode kid : kids) {
+            counts.merge(childLabel(kid), 1, Integer::sum);
         }
+        final List<String> labels = new ArrayList<>(kids.size());
+        for (int i = 0; i < kids.size(); i++) {
+            final String raw = childLabel(kids.get(i));
+            labels.add(counts.get(raw) > 1 ? raw + "#" + i : raw);
+        }
+        return labels;
+    }
+
+    /**
+     * The visible identity of one child, mirroring the engine's label rule.
+     */
+    private static String childLabel(DifferableNode node) {
+        if (node.getMemberKey() != null) {
+            return node.getMemberKey();
+        }
+        if (node.getObjektId() != null) {
+            return node.getObjektId();
+        }
+        final String name = node.getName();
+        if (name != null && !name.isEmpty()) {
+            return name; // edit layer: a primitive row renders its value as the node name
+        }
+        final String value = node.getValue();
+        return value != null && !value.isEmpty() ? value : "?";
     }
 
     /**
@@ -222,7 +268,7 @@ final class DiffMarkBuilder {
                 put(marksRight, resolve(copyRoot, op.getKey()), markOf(op, tooltip));
             }
             case REORDER ->
-                markReorderChildren(op, oursRoot, copyRoot, marksLeft, marksRight, tooltip);
+                markReorderChildren(op, oursRoot, copyRoot, marksLeft, marksRight, tooltip, true);
             default -> {
                 // no other delta types exist today
             }
