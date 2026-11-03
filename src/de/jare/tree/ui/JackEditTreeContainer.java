@@ -41,10 +41,10 @@ public class JackEditTreeContainer extends JPanel {
         this.rightTree.setReadonly(true);
 
         this.leftTree.getLinkCheckBox().addActionListener(
-                e -> toggleLinkView(this.leftTree.getLinkCheckBox().isSelected())
+                e -> { if (!syncingToggles) toggleLinkView(this.leftTree.getLinkCheckBox().isSelected()); }
         );
         this.rightTree.getLinkCheckBox().addActionListener(
-                e -> toggleLinkView(this.rightTree.getLinkCheckBox().isSelected())
+                e -> { if (!syncingToggles) toggleLinkView(this.rightTree.getLinkCheckBox().isSelected()); }
         );
 
         // The diff segment of the right pane mode (concept CONCEPT_TreeDiffView.md): geometry is the role, this
@@ -198,10 +198,15 @@ public class JackEditTreeContainer extends JPanel {
     }
 
     /**
-     * Expands the right pane for the diff view without touching the mode checkboxes: the diff mode shows the pane
-     * like the dependents view does.
+     * Expands the right pane for the diff view without firing a mode switch: the diff mode shows the pane like the
+     * dependents view does. The link checkbox means "right pane visible" (either mode), so it is checked here -
+     * under the sync guard, otherwise its listener would treat the open diff as a switch back to dependents.
      */
     void showDiffPane() {
+        syncingToggles = true;
+        leftTree.getLinkCheckBox().setSelected(true);
+        rightTree.getLinkCheckBox().setSelected(true);
+        syncingToggles = false;
         rightTree.setVisible(true);
         rightTree.setMinimumSize(EXPANDED_MIN_SIZE);
         splitPane.setDividerSize(EXPANDED_DIVIDER_SIZE);
@@ -220,8 +225,8 @@ public class JackEditTreeContainer extends JPanel {
      * @param enabled when true, the right instance is shown.
      */
     private void toggleLinkView(boolean enabled) {
-        // selecting the dependents view is a mode switch: an open diff view closes first
-        if (enabled && diffController != null && diffController.isOpen()) {
+        // the checkbox state means "right pane visible" - any mode switch closes an open diff view first
+        if (diffController != null && diffController.isOpen()) {
             diffController.close();
         }
         leftTree.getLinkCheckBox().setSelected(enabled);
