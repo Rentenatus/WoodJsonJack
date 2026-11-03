@@ -230,7 +230,11 @@ public class JackEditPopup extends JPopupMenu {
 
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
         final boolean hasMarked = TreeDiffSides.hasRemembered();
-        final boolean ready = hasMarked && atRoot && marked != selected;
+        // The pair counterpart: normally the marked side; on the marked side itself the last partner - a diff,
+        // view or merge that ran before makes the same pair runnable again from the marked tab too.
+        final boolean onMarked = hasMarked && selected == marked;
+        final EditNodeAbstract counterpart = onMarked ? TreeDiffSides.getPartner() : marked;
+        final boolean ready = hasMarked && atRoot && counterpart != null;
         final boolean baseReady = ready && threeWayBaseAvailable();
         diffRunItem.setEnabled(ready);
         diffRun3Item.setEnabled(baseReady);
@@ -243,20 +247,19 @@ public class JackEditPopup extends JPopupMenu {
             diffMergeItem.setText("W3 Merge (mark a side first)");
             diffView2Item.setText("W2 View (mark a side first)");
             diffView3Item.setText("W3 View (mark a side first)");
+        } else if (counterpart == null) {
+            diffRunItem.setText("W2 Diff: this is the marked side (run from another tab first)");
+            diffRun3Item.setText("W3 Diff: this is the marked side (run from another tab first)");
+            diffMergeItem.setText("W3 Merge: this is the marked side (run from another tab first)");
+            diffView2Item.setText("W2 View: this is the marked side (run from another tab first)");
+            diffView3Item.setText("W3 View: this is the marked side (run from another tab first)");
         } else {
-            final String desc = TreeDiffSides.describe(marked)
-                    + (TreeDiffSides.isRememberedAsLeft() ? " (as left)" : " (as right)");
-            diffRunItem.setText(marked == selected
-                    ? "W2 Diff: with " + desc + " — this is the marked side"
-                    : "W2 Diff: with " + desc);
-            diffView2Item.setText(marked == selected
-                    ? "W2 View: with " + desc + " — this is the marked side"
-                    : "W2 View: with " + desc);
-            if (marked == selected) {
-                diffRun3Item.setText("W3 Diff: with " + desc + " — this is the marked side");
-                diffMergeItem.setText("W3 Merge: with " + desc + " — this is the marked side");
-                diffView3Item.setText("W3 View: with " + desc + " — this is the marked side");
-            } else if (!threeWayBaseAvailable()) {
+            // the counterpart's role is the opposite of the marked side's flag
+            final String desc = TreeDiffSides.describe(counterpart)
+                    + ((TreeDiffSides.isRememberedAsLeft() != onMarked) ? " (as left)" : " (as right)");
+            diffRunItem.setText("W2 Diff: with " + desc);
+            diffView2Item.setText("W2 View: with " + desc);
+            if (!threeWayBaseAvailable()) {
                 diffRun3Item.setText("W3 Diff: with " + desc + " (ours side has no import state)");
                 diffMergeItem.setText("W3 Merge: with " + desc + " (ours side has no import state)");
                 diffView3Item.setText("W3 View: with " + desc + " (ours side has no import state)");
@@ -429,20 +432,58 @@ public class JackEditPopup extends JPopupMenu {
     }
 
     /**
-     * Runs the two-tree diff of the marked side and the clicked root immediately and shows the report dialog. The
-     * marked side keeps its flag, so it can be compared against several editors in a row.
+     * Runs the two-tree diff of the pair immediately and shows the report dialog. The pair: the clicked root and
+     * the marked side — or, when the popup opened on the marked root, the marked side and its last partner (the
+     * same pair again, runnable from the marked tab too). The marks keep their flags.
      */
     private void runDiff() {
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
         final EditNodeAbstract current = diffTargetNode();
-        if (marked == null || current == null || marked == current) {
+        final EditNodeAbstract other = pairRoot();
+        if (marked == null || current == null || other == null) {
             return;
         }
-        final EditNodeAbstract left = TreeDiffSides.isRememberedAsLeft() ? marked : current;
-        final EditNodeAbstract right = TreeDiffSides.isRememberedAsLeft() ? current : marked;
+        final EditNodeAbstract left = TreeDiffSides.isRememberedAsLeft() ? marked : other;
+        final EditNodeAbstract right = TreeDiffSides.isRememberedAsLeft() ? other : marked;
+        if (current != marked) {
+            TreeDiffSides.rememberPartner(current, invokerModel());
+        }
         final Window owner = lastInvoker != null
                 ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
         new TreeDiffDialog(owner, lastInvoker, left, right).setVisible(true);
+    }
+
+    /**
+     * Returns the pair root of the clicked root: the clicked root itself, or — when the popup opened on the marked
+     * root — the marked side's last partner. Null when the pair does not exist.
+     *
+     * @return the pair root, or null.
+     */
+    private EditNodeAbstract pairRoot() {
+        final EditNodeAbstract marked = TreeDiffSides.getRemembered();
+        final EditNodeAbstract current = diffTargetNode();
+        if (marked == null || current == null) {
+            return null;
+        }
+        return current == marked ? TreeDiffSides.getPartner() : current;
+    }
+
+    /**
+     * Returns the ours tree of the 3-way pair (the LEFT role): the marked side's tree when the flag is LEFT, else
+     * the counterpart's tree — the clicked tab normally, the last partner on the marked tab itself.
+     *
+     * @return the ours tree, or null when the pair does not exist.
+     */
+    private EditTree threeWayOursTree() {
+        final EditNodeAbstract marked = TreeDiffSides.getRemembered();
+        final EditNodeAbstract clicked = diffTargetNode();
+        if (marked == null || clicked == null) {
+            return null;
+        }
+        if (TreeDiffSides.isRememberedAsLeft()) {
+            return TreeDiffSides.getRememberedTree();
+        }
+        return clicked == marked ? TreeDiffSides.getPartnerTree() : diffTargetTree();
     }
 
     /**
@@ -452,12 +493,18 @@ public class JackEditPopup extends JPopupMenu {
     private void runThreeWayDiff() {
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
         final EditNodeAbstract clicked = diffTargetNode();
-        if (marked == null || clicked == null || marked == clicked || !threeWayBaseAvailable()) {
+        final EditNodeAbstract other = pairRoot();
+        if (marked == null || clicked == null || other == null || !threeWayBaseAvailable()) {
             return;
         }
-        final EditTree oursTree = TreeDiffSides.isRememberedAsLeft()
-                ? TreeDiffSides.getRememberedTree() : diffTargetTree();
-        final EditNodeAbstract theirsRoot = TreeDiffSides.isRememberedAsLeft() ? clicked : marked;
+        final EditTree oursTree = threeWayOursTree();
+        final EditNodeAbstract theirsRoot = TreeDiffSides.isRememberedAsLeft() ? other : marked;
+        if (oursTree == null) {
+            return;
+        }
+        if (clicked != marked) {
+            TreeDiffSides.rememberPartner(clicked, invokerModel());
+        }
         final MergePlan plan = EditTreeMerger.analyze(oursTree, theirsRoot);
         final Window owner = lastInvoker != null
                 ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
@@ -474,17 +521,20 @@ public class JackEditPopup extends JPopupMenu {
     private void runDiffView(boolean threeWay) {
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
         final EditNodeAbstract clicked = diffTargetNode();
-        if (marked == null || clicked == null || marked == clicked) {
+        final EditNodeAbstract other = pairRoot();
+        if (marked == null || clicked == null || other == null) {
             return;
         }
         if (threeWay && !threeWayBaseAvailable()) {
             return;
         }
-        final EditTree oursTree = TreeDiffSides.isRememberedAsLeft()
-                ? TreeDiffSides.getRememberedTree() : diffTargetTree();
-        final EditNodeAbstract theirsRoot = TreeDiffSides.isRememberedAsLeft() ? clicked : marked;
+        final EditTree oursTree = threeWayOursTree();
+        final EditNodeAbstract theirsRoot = TreeDiffSides.isRememberedAsLeft() ? other : marked;
         if (oursTree == null || oursTree.getRoot() == null || lastInvoker == null) {
             return;
+        }
+        if (clicked != marked) {
+            TreeDiffSides.rememberPartner(clicked, invokerModel());
         }
         final JackEditTreeContainer oursContainer
                 = DiffViewController.findOursContainer(oursTree.getRoot(), lastInvoker);
@@ -502,8 +552,7 @@ public class JackEditPopup extends JPopupMenu {
      * @return true when the base is available
      */
     private boolean threeWayBaseAvailable() {
-        final EditTree oursTree = TreeDiffSides.isRememberedAsLeft()
-                ? TreeDiffSides.getRememberedTree() : diffTargetTree();
+        final EditTree oursTree = threeWayOursTree();
         return oursTree != null && oursTree.getBaseSnapshot() != null;
     }
 
@@ -515,15 +564,21 @@ public class JackEditPopup extends JPopupMenu {
     private void runThreeWayMerge() {
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
         final EditNodeAbstract clicked = diffTargetNode();
-        if (marked == null || clicked == null || marked == clicked || !threeWayBaseAvailable()) {
+        final EditNodeAbstract other = pairRoot();
+        if (marked == null || clicked == null || other == null || !threeWayBaseAvailable()) {
             return;
         }
         final boolean oursIsMarked = TreeDiffSides.isRememberedAsLeft();
-        final EditTree oursTree = oursIsMarked ? TreeDiffSides.getRememberedTree() : diffTargetTree();
-        final JackTreeModel oursModel = oursIsMarked ? TreeDiffSides.getRememberedModel() : invokerModel();
-        final EditNodeAbstract theirsRoot = oursIsMarked ? clicked : marked;
+        final EditTree oursTree = threeWayOursTree();
+        final JackTreeModel oursModel = oursIsMarked
+                ? TreeDiffSides.getRememberedModel()
+                : (clicked == marked ? TreeDiffSides.getPartnerModel() : invokerModel());
+        final EditNodeAbstract theirsRoot = oursIsMarked ? other : marked;
         if (oursTree == null || oursModel == null) {
             return;
+        }
+        if (clicked != marked) {
+            TreeDiffSides.rememberPartner(clicked, invokerModel());
         }
         final MergePlan plan = EditTreeMerger.analyze(oursTree, theirsRoot);
         final HistoryManager history = master.getUndoManager().getManagerFor(oursModel).getHistory();

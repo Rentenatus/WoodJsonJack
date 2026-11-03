@@ -20,6 +20,12 @@ import de.jare.tree.control.model.JackTreeModel;
  * the Merkle invalidation chain in action.
  *
  * <p>
+ * The pair chaining: every run also remembers the counterpart as the marked side's <em>partner</em> — so the same
+ * pair stays runnable from the marked tab too (diff, view, merge in any order). Marking a new side drops the
+ * partner of the old one.
+ * </p>
+ *
+ * <p>
  * Deliberately static: the popup that marks a side belongs to one editor tab, while the run-diff popup can belong
  * to another tab — the memory must span tabs. WoodJsonJack runs one main window, so the static state is global to
  * the application.
@@ -32,6 +38,8 @@ public final class TreeDiffSides {
     private static EditNodeAbstract remembered;
     private static JackTreeModel rememberedModel;
     private static boolean rememberedAsLeft;
+    private static EditNodeAbstract partner;
+    private static JackTreeModel partnerModel;
     private static final java.util.List<Runnable> changeListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     private TreeDiffSides() {
@@ -66,7 +74,8 @@ public final class TreeDiffSides {
     /**
      * Marks the given root as one diff side, replacing any previously marked side — there is never more than one
      * flagged tree. The marked root's tree model is remembered with it: the W3 diff takes the base (import state)
-     * from the ours side, and the W3 merge books its transaction on the ours side's undo history.
+     * from the ours side, and the W3 merge books its transaction on the ours side's undo history. The partner of
+     * the previous marked side does not belong to the new one — it is dropped.
      *
      * @param root the root to remember, not null.
      * @param model the tree model the root belongs to, or null when unknown.
@@ -76,6 +85,22 @@ public final class TreeDiffSides {
         remembered = root;
         rememberedModel = model;
         rememberedAsLeft = asLeft;
+        partner = null;
+        partnerModel = null;
+        fireChanged();
+    }
+
+    /**
+     * Remembers the counterpart the marked side ran against — the last pair partner. After a diff, view or merge,
+     * the same pair can run again from BOTH sides: the other tab compares against the marked side as before, the
+     * marked tab compares against this partner.
+     *
+     * @param root the counterpart root, not null.
+     * @param model the counterpart's tree model, or null when unknown.
+     */
+    public static void rememberPartner(EditNodeAbstract root, JackTreeModel model) {
+        partner = root;
+        partnerModel = model;
         fireChanged();
     }
 
@@ -123,6 +148,44 @@ public final class TreeDiffSides {
      */
     public static boolean isRememberedAsLeft() {
         return rememberedAsLeft;
+    }
+
+    /**
+     * Tells whether a pair partner exists — the marked side ran against it, so the same pair can run again from the
+     * marked tab too.
+     *
+     * @return true when a partner is remembered.
+     */
+    public static boolean hasPartner() {
+        return partner != null;
+    }
+
+    /**
+     * Returns the last counterpart the marked side ran against.
+     *
+     * @return the partner root, or null.
+     */
+    public static EditNodeAbstract getPartner() {
+        return partner;
+    }
+
+    /**
+     * Returns the tree model of the partner.
+     *
+     * @return the partner's tree model, or null when unknown.
+     */
+    public static JackTreeModel getPartnerModel() {
+        return partnerModel;
+    }
+
+    /**
+     * Returns the edit tree of the partner — needed when the marked tab itself runs the W3 pair (the ours side is
+     * the partner when the marked side carries the RIGHT flag).
+     *
+     * @return the partner's tree, or null when unknown.
+     */
+    public static EditTree getPartnerTree() {
+        return partnerModel == null ? null : partnerModel.getEditTree();
     }
 
     /**

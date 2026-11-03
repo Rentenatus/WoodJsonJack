@@ -115,6 +115,10 @@ public class JackEditTreeContainer extends JPanel {
             getDiffController().close();
         }
         getDiffController().open(oursTree, theirs, kind);
+        if (getDiffController().isOpen()) {
+            // this container just paired with the marked side: the marked side can run the same pair again
+            TreeDiffSides.rememberPartner(oursTree.getRoot(), leftTree.getModel());
+        }
         return getDiffController().isOpen();
     }
 
