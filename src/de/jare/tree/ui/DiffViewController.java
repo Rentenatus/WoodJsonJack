@@ -140,7 +140,6 @@ public final class DiffViewController {
         marksRight.clear();
         container.getLeftTree().setDiffMarks(null);
         container.getRightTree().setDiffMarks(null);
-        container.getRightTree().setDiffInfo(null);
         if (savedRightModel != null) {
             container.getRightTree().getTree().setModel(savedRightModel);
             savedRightModel = null;
@@ -177,7 +176,6 @@ public final class DiffViewController {
         pairText = kind.getLabel() + ": "
                 + TreeDiffSides.describe(oursTree.getRoot()) + " \u2194 "
                 + TreeDiffSides.describe(theirsCopy);
-        container.getRightTree().setDiffInfo(pairText);
 
         open = true;
         container.showDiffPane();

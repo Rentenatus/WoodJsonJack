@@ -58,9 +58,6 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     private final JComboBox<ParseMode> parseModeBox;
     private final JCheckBox linkCheckBox;
     private final JCheckBox diffCheckBox;
-    private final JLabel diffInfoLabel;
-    private final JButton rediffButton;
-    private final JButton takeAllButton;
 
     private Map<EditNodeAbstract, DiffMark> diffMarks;
 
@@ -116,23 +113,6 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         diffCheckBox = new JCheckBox("Diff");
         diffCheckBox.setToolTipText("Show the tree diff view in this tab (mark a side in the root popup first)");
         rightPanel.add(diffCheckBox);
-
-        // label for the pair description in diff mode, hidden outside the diff view
-        diffInfoLabel = new JLabel();
-        diffInfoLabel.setVisible(false);
-        leftPanel.add(diffInfoLabel);
-
-        // re-diff of the open view (concept CONCEPT_TreeDiffView.md section 5), visible only in diff mode
-        rediffButton = new JButton("Re-diff");
-        rediffButton.setToolTipText("Run the same pair again with a fresh copy and fresh marks");
-        rediffButton.setVisible(false);
-        rightPanel.add(rediffButton);
-
-        // cherry-pick batch of the W3 view (concept section 7), visible only in diff mode
-        takeAllButton = new JButton("Take all incoming");
-        takeAllButton.setToolTipText("Apply all incoming theirs changes as one undo step");
-        takeAllButton.setVisible(false);
-        rightPanel.add(takeAllButton);
 
         // JTree initialisieren 
         final JackTreeModel jackTreeModel = new JackTreeModel(rootName);
@@ -492,35 +472,6 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
      */
     public Map<EditNodeAbstract, DiffMark> getDiffMarks() {
         return diffMarks;
-    }
-
-    /**
-     * Shows the pair description of the diff view in this tree's header, or hides the label again.
-     *
-     * @param text the description, or null to hide.
-     */
-    public void setDiffInfo(String text) {
-        if (text == null) {
-            diffInfoLabel.setText("");
-            diffInfoLabel.setVisible(false);
-            rediffButton.setVisible(false);
-            takeAllButton.setVisible(false);
-        } else {
-            diffInfoLabel.setText(text);
-            diffInfoLabel.setVisible(true);
-            rediffButton.setVisible(true);
-            takeAllButton.setVisible(true);
-        }
-        revalidate();
-        repaint();
-    }
-
-    JButton getRediffButton() {
-        return rediffButton;
-    }
-
-    JButton getTakeAllButton() {
-        return takeAllButton;
     }
 
     @Override

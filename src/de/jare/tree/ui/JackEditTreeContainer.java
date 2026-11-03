@@ -7,6 +7,8 @@
 package de.jare.tree.ui;
 
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.settings.WoodSettings;
+import de.jare.tree.settings.theme.AScheme;
 import java.awt.*;
 import javax.swing.*;
 
@@ -15,17 +17,26 @@ import javax.swing.*;
  * The checkbox controls whether the right instance is shown.
  */
 public class JackEditTreeContainer extends JPanel {
-    
+
     private static final int COLLAPSED_DIVIDER_SIZE = 1;
     private static final int EXPANDED_DIVIDER_SIZE = 8;
+    /** The split divider in diff mode: the pair reads as ONE merged view, not two glued trees. */
+    private static final int DIFF_DIVIDER_SIZE = 2;
     private static final Dimension COLLAPSED_MIN_SIZE = new Dimension(0, 0);
     private static final Dimension EXPANDED_MIN_SIZE = new Dimension(50, 50);
-    
+
     private final JackEditTree leftTree;
     private final JackEditTree rightTree;
     private final JSplitPane splitPane;
+    private final JPanel diffBanner;
+    private final JLabel bannerKindLabel;
+    private final JLabel bannerPairLabel;
+    private final JButton bannerTakeAllButton;
+    private final JButton bannerRediffButton;
+    private final JButton bannerCloseButton;
     private DiffViewController diffController;
     private boolean syncingToggles;
+    private String lastStalenessText;
 
     /**
      * Creates a container with two JackEditTree instances.
@@ -52,11 +63,40 @@ public class JackEditTreeContainer extends JPanel {
         // deselecting Diff closes the diff view.
         this.leftTree.getDiffCheckBox().addActionListener(e -> onDiffToggle(this.leftTree.getDiffCheckBox().isSelected()));
         this.rightTree.getDiffCheckBox().addActionListener(e -> onDiffToggle(this.rightTree.getDiffCheckBox().isSelected()));
-        this.leftTree.getRediffButton().addActionListener(e -> getDiffController().rediff());
-        this.rightTree.getRediffButton().addActionListener(e -> getDiffController().rediff());
-        this.leftTree.getTakeAllButton().addActionListener(e -> takeAllIncoming());
-        this.rightTree.getTakeAllButton().addActionListener(e -> takeAllIncoming());
         TreeDiffSides.addChangeListener(this::refreshDiffSegments);
+
+        // The cherry red banner of the diff view (concept section 6/7): the mode surface above the split pane -
+        // kind badge, pair description with staleness summary and the diff actions (re-diff, take-all, close)
+        // live here while the view is open; the tree headers keep only what is per-tree.
+        bannerKindLabel = new JLabel();
+        bannerKindLabel.setFont(bannerKindLabel.getFont().deriveFont(Font.BOLD));
+        bannerPairLabel = new JLabel();
+        bannerPairLabel.setFont(bannerPairLabel.getFont().deriveFont(Font.BOLD));
+        bannerTakeAllButton = new JButton("Take all incoming");
+        bannerTakeAllButton.setToolTipText("Apply all incoming theirs changes as one undo step");
+        bannerRediffButton = new JButton("Re-diff");
+        bannerRediffButton.setToolTipText("Run the same pair again with a fresh copy and fresh marks");
+        bannerCloseButton = new JButton("Close");
+        bannerCloseButton.setToolTipText("Close the diff view and switch back to the dependents view");
+        bannerTakeAllButton.addActionListener(e -> takeAllIncoming());
+        bannerRediffButton.addActionListener(e -> getDiffController().rediff());
+        bannerCloseButton.addActionListener(e -> {
+            getDiffController().close();
+            toggleLinkView(true);
+        });
+        final JPanel bannerWest = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+        bannerWest.setOpaque(false);
+        bannerWest.add(bannerKindLabel);
+        bannerWest.add(bannerPairLabel);
+        final JPanel bannerEast = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 2));
+        bannerEast.setOpaque(false);
+        bannerEast.add(bannerTakeAllButton);
+        bannerEast.add(bannerRediffButton);
+        bannerEast.add(bannerCloseButton);
+        diffBanner = new JPanel(new BorderLayout());
+        diffBanner.add(bannerWest, BorderLayout.WEST);
+        diffBanner.add(bannerEast, BorderLayout.EAST);
+        diffBanner.setVisible(false);
 
         this.splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftTree, rightTree);
         this.splitPane.setResizeWeight(0.5);
@@ -67,6 +107,7 @@ public class JackEditTreeContainer extends JPanel {
         this.rightTree.setMinimumSize(COLLAPSED_MIN_SIZE);
 
         setLayout(new BorderLayout());
+        add(diffBanner, BorderLayout.NORTH);
         add(splitPane, BorderLayout.CENTER);
 
         toggleLinkView(false);
@@ -145,7 +186,6 @@ public class JackEditTreeContainer extends JPanel {
         final boolean enabled = theirs != null && oursTree != null && theirs != oursTree.getRoot();
         final DiffViewController controller = getDiffController();
         final boolean open = controller.isOpen();
-        final boolean w3 = open && controller.getKind() == DiffViewController.Kind.W3;
         String tooltip = "Show the tree diff view in this tab (mark a side in the root popup first)";
         if (enabled) {
             final DiffViewController.Kind kind = oursTree.getBaseSnapshot() != null
@@ -158,32 +198,69 @@ public class JackEditTreeContainer extends JPanel {
             tree.getDiffCheckBox().setEnabled(enabled);
             tree.getDiffCheckBox().setSelected(open);
             tree.getDiffCheckBox().setToolTipText(tooltip);
-            tree.getTakeAllButton().setEnabled(w3);
         }
         syncingToggles = false;
+        refreshDiffBanner();
     }
 
     /**
-     * Updates the staleness summary of the open view's header (concept CONCEPT_TreeDiffView.md section 5): the
-     * left tree's tick counts its stale marks and hands the numbers over; the right pane header shows the pair
-     * description plus "N of M marks outdated" once marks go stale. Re-diff clears the line by itself (fresh marks).
+     * Refreshes the cherry red banner from the controller: visible while the diff view is open, with the kind
+     * badge, the pair description plus staleness summary and the diff actions (take-all only in W3).
+     */
+    private void refreshDiffBanner() {
+        final DiffViewController controller = getDiffController();
+        if (!controller.isOpen()) {
+            diffBanner.setVisible(false);
+            revalidate();
+            return;
+        }
+        applyBannerColors();
+        bannerKindLabel.setText(" " + controller.getKind().getLabel() + " ");
+        final int stale = controller.countStaleLeftMarks();
+        final String suffix = stale > 0
+                ? "  \u2014  " + stale + " of " + controller.getLeftMarkCount() + " marks outdated" : "";
+        final String text = (controller.getPairText() == null ? "" : controller.getPairText()) + suffix;
+        if (!text.equals(lastStalenessText)) {
+            lastStalenessText = text;
+            bannerPairLabel.setText(text);
+        }
+        bannerTakeAllButton.setEnabled(controller.getKind() == DiffViewController.Kind.W3);
+        if (!diffBanner.isVisible()) {
+            diffBanner.setVisible(true);
+            revalidate();
+        }
+    }
+
+    /**
+     * Applies the banner theme colors: dark cherry red with white text in BOTH schemes - the banner does not
+     * follow the system colors (theme keys back.diff.banner / fore.diff.banner.text carry identical values).
+     */
+    private void applyBannerColors() {
+        final String prefix = WoodSettings.INSTANCE.getColorPrefix();
+        final Color back = WoodSettings.INSTANCE.getShownTheme().getColor(prefix + AScheme.BACK_DIFF_BANNER);
+        final Color text = WoodSettings.INSTANCE.getShownTheme().getColor(prefix + AScheme.FORE_DIFF_BANNER_TEXT);
+        if (back != null) {
+            diffBanner.setBackground(back);
+        }
+        if (text != null) {
+            bannerKindLabel.setForeground(text);
+            bannerPairLabel.setForeground(text);
+        }
+    }
+
+    /**
+     * Updates the staleness summary of the open view's banner (concept CONCEPT_TreeDiffView.md section 5): the
+     * left tree's tick counts its stale marks and hands the numbers over; the banner recomputes its line from the
+     * controller state. Re-diff clears the line by itself (fresh marks).
      *
      * @param stale the number of left marks whose node changed since the diff.
      * @param total the total number of left marks.
      */
     void updateDiffStaleness(int stale, int total) {
-        if (!getDiffController().isOpen() || getDiffController().getPairText() == null) {
-            return;
-        }
-        final String suffix = stale > 0 ? "  \u2014  " + stale + " of " + total + " marks outdated" : "";
-        final String text = getDiffController().getPairText() + suffix;
-        if (!text.equals(lastStalenessText)) {
-            lastStalenessText = text;
-            rightTree.setDiffInfo(text);
+        if (getDiffController().isOpen()) {
+            refreshDiffBanner();
         }
     }
-
-    private String lastStalenessText;
 
     /**
      * Returns the diff view controller of this container, created lazily.
@@ -199,8 +276,9 @@ public class JackEditTreeContainer extends JPanel {
 
     /**
      * Expands the right pane for the diff view without firing a mode switch: the diff mode shows the pane like the
-     * dependents view does. The link checkbox means "right pane visible" (either mode), so it is checked here -
-     * under the sync guard, otherwise its listener would treat the open diff as a switch back to dependents.
+     * dependents view does, but with the merged thin divider - the pair reads as ONE view. The link checkbox means
+     * "right pane visible" (either mode), so it is checked here - under the sync guard, otherwise its listener
+     * would treat the open diff as a switch back to dependents.
      */
     void showDiffPane() {
         syncingToggles = true;
@@ -209,7 +287,7 @@ public class JackEditTreeContainer extends JPanel {
         syncingToggles = false;
         rightTree.setVisible(true);
         rightTree.setMinimumSize(EXPANDED_MIN_SIZE);
-        splitPane.setDividerSize(EXPANDED_DIVIDER_SIZE);
+        splitPane.setDividerSize(DIFF_DIVIDER_SIZE);
         splitPane.setEnabled(true);
         SwingUtilities.invokeLater(() -> {
             splitPane.setResizeWeight(0.5);

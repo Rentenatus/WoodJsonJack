@@ -73,6 +73,9 @@ public class ColorScheme implements AScheme {
         colorMap.put(LIGHT_FORE_DIFF_CONFLICT, new Color(200, 0, 200));
         colorMap.put(LIGHT_FORE_DIFF_RADIATING, new Color(255, 128, 0));
         colorMap.put(LIGHT_FORE_DIFF_EDITED, new Color(140, 110, 70));
+        // the banner is dark cherry red with white text in BOTH schemes - it does not follow the system colors
+        colorMap.put(LIGHT_FORE_DIFF_BANNER_TEXT, new Color(255, 255, 255));
+        colorMap.put(LIGHT_BACK_DIFF_BANNER, new Color(122, 28, 45));
         colorMap.put(DARK_FORE_DIFF_ADD, new Color(120, 255, 160));
         colorMap.put(DARK_FORE_DIFF_REMOVE, new Color(255, 120, 120));
         colorMap.put(DARK_FORE_DIFF_MODIFY, new Color(255, 210, 100));
@@ -80,6 +83,8 @@ public class ColorScheme implements AScheme {
         colorMap.put(DARK_FORE_DIFF_CONFLICT, new Color(255, 120, 255));
         colorMap.put(DARK_FORE_DIFF_RADIATING, new Color(255, 180, 100));
         colorMap.put(DARK_FORE_DIFF_EDITED, new Color(215, 200, 170));
+        colorMap.put(DARK_FORE_DIFF_BANNER_TEXT, new Color(255, 255, 255));
+        colorMap.put(DARK_BACK_DIFF_BANNER, new Color(122, 28, 45));
     }
 
     public ColorScheme deepCopy() {
