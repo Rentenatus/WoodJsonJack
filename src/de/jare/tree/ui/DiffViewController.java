@@ -10,6 +10,7 @@ import de.jare.jsoncasted.diff.DeltaOp;
 import de.jare.jsoncasted.diff.DeltaType;
 import de.jare.jsoncasted.diff.DifferableNode;
 import de.jare.jsoncasted.diff.MergePlan;
+import de.jare.jsoncasted.diff.NodeValidator;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.events.HistoryManager;
@@ -220,10 +221,12 @@ public final class DiffViewController {
     }
 
     /**
-     * Builds the node correspondence of the two panes with the match semantics of the diff projection (the same
-     * rules the {@code EditPathResolver} walks): object members pair by member key, data and array children pair
-     * positionally. Nodes without a counterpart (added or removed) stay unmapped - clicking them selects nothing
-     * on the other side.
+     * Builds the node correspondence of the two panes with the match semantics of the engine's array matcher:
+     * keyed members pair by member key, anonymous children pair by wood id first, then by unique content hash
+     * (duplicates are copies, not moves), the remainder pairs in order (the positional semantics of the diff
+     * paths - data children and unidentifiable anonymous children). A REORDERED array therefore pairs each object
+     * with ITSELF on the other side, not with its slot. Nodes without a counterpart (added or removed) stay
+     * unmapped - clicking them selects nothing on the other side.
      *
      * @param oursNode a node of the live ours tree, may be null.
      * @param theirsNode the counterpart node in the frozen copy, may be null.
@@ -237,23 +240,98 @@ public final class DiffViewController {
 
         final List<DifferableNode> oursChildren = oursNode.children();
         final List<DifferableNode> theirsChildren = theirsNode.children();
-        final Map<String, DifferableNode> theirsByKey = new HashMap<>();
-        for (DifferableNode child : theirsChildren) {
-            if (child.getMemberKey() != null && !child.getMemberKey().startsWith("#")) {
-                theirsByKey.putIfAbsent(child.getMemberKey(), child);
+        if (oursChildren.isEmpty() || theirsChildren.isEmpty()) {
+            return;
+        }
+
+        final Map<String, Integer> theirsByKey = new HashMap<>();
+        final Map<String, Integer> theirsById = new HashMap<>();
+        for (int j = 0; j < theirsChildren.size(); j++) {
+            final String key = theirsChildren.get(j).getMemberKey();
+            if (key != null && !key.startsWith("#")) {
+                theirsByKey.putIfAbsent(key, j);
+            }
+            final String id = theirsChildren.get(j).getObjektId();
+            if (id != null) {
+                theirsById.putIfAbsent(id, j);
             }
         }
+
+        final boolean[] oursMatched = new boolean[oursChildren.size()];
+        final boolean[] theirsMatched = new boolean[theirsChildren.size()];
+
+        // pass 1: keyed members by member key, anonymous children by wood id
         for (int i = 0; i < oursChildren.size(); i++) {
             final DifferableNode oursChild = oursChildren.get(i);
             final String key = oursChild.getMemberKey();
-            final DifferableNode theirsChild
-                    = key != null && !key.startsWith("#") ? theirsByKey.get(key)
-                    : (i < theirsChildren.size() ? theirsChildren.get(i) : null);
-            if (theirsChild instanceof EditNodeAbstract theirsChildNode
-                    && oursChild instanceof EditNodeAbstract oursChildNode) {
-                buildCounterparts(oursChildNode, theirsChildNode);
+            Integer j = key != null && !key.startsWith("#") ? theirsByKey.get(key) : null;
+            if (j == null && key == null && oursChild.getObjektId() != null) {
+                j = theirsById.get(oursChild.getObjektId());
+            }
+            if (j != null) {
+                oursMatched[i] = true;
+                theirsMatched[j] = true;
+                buildCounterparts((EditNodeAbstract) oursChild, (EditNodeAbstract) theirsChildren.get(j));
             }
         }
+
+        // pass 2: anonymous children with a unique content twin (duplicates are copies, not moves)
+        for (int i = 0; i < oursChildren.size(); i++) {
+            if (oursMatched[i] || oursChildren.get(i).getMemberKey() != null) {
+                continue;
+            }
+            final Integer j = uniqueHashMatch(oursChildren.get(i), theirsChildren, theirsMatched);
+            if (j != null) {
+                oursMatched[i] = true;
+                theirsMatched[j] = true;
+                buildCounterparts((EditNodeAbstract) oursChildren.get(i), (EditNodeAbstract) theirsChildren.get(j));
+            }
+        }
+
+        // pass 3: the remainders pair in order - data children ('#n') and unidentifiable anonymous children
+        // follow the positional semantics of the diff paths. Keyed members that did not match stay unmatched:
+        // the other side does not have them.
+        int theirsCursor = 0;
+        for (int i = 0; i < oursChildren.size(); i++) {
+            if (oursMatched[i]) {
+                continue;
+            }
+            while (theirsCursor < theirsChildren.size()
+                    && (theirsMatched[theirsCursor]
+                    || (oursChildren.get(i).getMemberKey() != null
+                    && oursChildren.get(i).getMemberKey().startsWith("#")) != (theirsChildren.get(theirsCursor).getMemberKey() != null))) {
+                theirsCursor++;
+            }
+            if (theirsCursor >= theirsChildren.size()) {
+                continue;
+            }
+            oursMatched[i] = true;
+            theirsMatched[theirsCursor] = true;
+            buildCounterparts((EditNodeAbstract) oursChildren.get(i),
+                    (EditNodeAbstract) theirsChildren.get(theirsCursor));
+            theirsCursor++;
+        }
+    }
+
+    /**
+     * Returns the not-yet-taken theirs child that is the unique content twin of the given ours child (equal
+     * Merkle hash, validated equal, no duplicate on the other side) - the engine's second pairing step.
+     */
+    private static Integer uniqueHashMatch(DifferableNode oursKid, List<DifferableNode> theirsKids,
+            boolean[] theirsTaken) {
+        Integer match = null;
+        int hits = 0;
+        for (int j = 0; j < theirsKids.size(); j++) {
+            if (theirsTaken[j]) {
+                continue;
+            }
+            if (theirsKids.get(j).getMerkleHash() == oursKid.getMerkleHash()
+                    && NodeValidator.isEqual(theirsKids.get(j), oursKid)) {
+                match = j;
+                hits++;
+            }
+        }
+        return hits == 1 ? match : null;
     }
 
     /**
