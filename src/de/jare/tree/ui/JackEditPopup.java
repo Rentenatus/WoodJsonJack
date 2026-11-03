@@ -223,10 +223,15 @@ public class JackEditPopup extends JPopupMenu {
         final boolean atRoot = clicked != null
                 ? invokerRootSelected()
                 : lastRootSelected && selected != null;
-        diffLeftItem.setEnabled(atRoot);
-        diffRightItem.setEnabled(atRoot);
+        final boolean onFrozenCopy = invokerIsFrozenCopy();
+        diffLeftItem.setEnabled(atRoot && !onFrozenCopy);
+        diffRightItem.setEnabled(atRoot && !onFrozenCopy);
         diffLeftItem.setText("Diff: mark as left side");
         diffRightItem.setText("Diff: mark as right side");
+        diffLeftItem.setToolTipText(onFrozenCopy
+                ? "The frozen copy of the diff view cannot be a diff side" : null);
+        diffRightItem.setToolTipText(onFrozenCopy
+                ? "The frozen copy of the diff view cannot be a diff side" : null);
 
         final EditNodeAbstract marked = TreeDiffSides.getRemembered();
         final boolean hasMarked = TreeDiffSides.hasRemembered();
@@ -234,7 +239,7 @@ public class JackEditPopup extends JPopupMenu {
         // view or merge that ran before makes the same pair runnable again from the marked tab too.
         final boolean onMarked = hasMarked && selected == marked;
         final EditNodeAbstract counterpart = onMarked ? TreeDiffSides.getPartner() : marked;
-        final boolean ready = hasMarked && atRoot && counterpart != null;
+        final boolean ready = hasMarked && atRoot && counterpart != null && !onFrozenCopy;
         final boolean baseReady = ready && threeWayBaseAvailable();
         diffRunItem.setEnabled(ready);
         diffRun3Item.setEnabled(baseReady);
@@ -341,6 +346,28 @@ public class JackEditPopup extends JPopupMenu {
             JOptionPane.showMessageDialog(owner, result, "Diff view: take this change",
                     JOptionPane.WARNING_MESSAGE);
         }
+    }
+
+    /**
+     * Tells whether the popup was opened on the frozen copy of an open diff view (the right pane of the ours
+     * tab). The copy is a snapshot, not a live tree - it must not become a diff side, its roots would pair a
+     * detached state and later degenerate into comparing a tree with its own copy.
+     *
+     * @return true when the invoker is the frozen theirs copy.
+     */
+    private boolean invokerIsFrozenCopy() {
+        if (lastInvoker == null) {
+            return false;
+        }
+        final Object containerAncestor = javax.swing.SwingUtilities.getAncestorOfClass(
+                JackEditTreeContainer.class, lastInvoker);
+        if (!(containerAncestor instanceof JackEditTreeContainer container)
+                || !container.getDiffController().isOpen()) {
+            return false;
+        }
+        final Object treeAncestor = javax.swing.SwingUtilities.getAncestorOfClass(
+                JackEditTree.class, lastInvoker);
+        return treeAncestor == container.getRightTree();
     }
 
     /**

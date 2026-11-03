@@ -10,12 +10,16 @@ import de.jare.jsoncasted.diff.ConflictRecord;
 import de.jare.jsoncasted.diff.DiffReport;
 import de.jare.jsoncasted.diff.DeltaOp;
 import de.jare.jsoncasted.diff.DeltaType;
+import de.jare.jsoncasted.diff.DifferableNode;
 import de.jare.jsoncasted.diff.MergePlan;
+import de.jare.jsoncasted.diff.NodeValidator;
 import de.jare.jsoncasted.diff.TreeDiffer;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.merge.EditPathResolver;
 import de.jare.jsoncasted.editor.merge.EditTreeMerger;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -103,11 +107,8 @@ final class DiffMarkBuilder {
                 put(marksLeft, resolve(oursRoot, op.getKey()), markOf(op, op.toString()));
                 put(marksRight, resolve(copyRoot, theirPathOf(op)), markOf(op, op.toString()));
             }
-            case REORDER -> {
-                // the parent carries the order change; the order labels ride in the op's toString
-                put(marksLeft, resolve(oursRoot, op.getParentKey()), markOf(op, op.toString()));
-                put(marksRight, resolve(copyRoot, op.getParentKey()), markOf(op, op.toString()));
-            }
+            case REORDER ->
+                markReorderChildren(op, oursRoot, copyRoot, marksLeft, marksRight, op.toString());
             default -> {
                 // no other delta types exist today
             }
@@ -133,16 +134,76 @@ final class DiffMarkBuilder {
                 put(marksLeft, resolve(oursRoot, op.getKey()), markOf(op, tooltip));
                 put(marksRight, resolve(copyRoot, theirPathOf(op)), markOf(op, tooltip));
             }
-            case REORDER -> {
-                put(marksLeft, resolve(oursRoot, op.getParentKey()), markOf(op, tooltip));
-                put(marksRight, resolve(copyRoot, op.getParentKey()), markOf(op, tooltip));
-            }
+            case REORDER ->
+                markReorderChildren(op, oursRoot, copyRoot, marksLeft, marksRight, tooltip);
             default -> {
                 // no other delta types exist today
             }
         }
     }
 
+    /**
+     * Marks the MOVED children of a REORDER, not the parent: the review sees which nodes traveled, in both panes.
+     * The children pair like the engine's array matcher - wood id first, then unique content hash (duplicates
+     * are copies, not moves) - and a pair with different positions is a move. Without a resolvable pairing the
+     * parent falls back to carrying the whole reorder.
+     */
+    private static void markReorderChildren(DeltaOp op, EditNodeAbstract oursRoot, EditNodeAbstract copyRoot,
+            Map<EditNodeAbstract, DiffMark> marksLeft, Map<EditNodeAbstract, DiffMark> marksRight, String tooltip) {
+        final EditNodeAbstract oursParent = resolve(oursRoot, op.getParentKey());
+        final EditNodeAbstract copyParent = resolve(copyRoot, op.getParentKey());
+        if (oursParent == null || copyParent == null) {
+            return; // drifted structure - the parent mark of the old behavior is not a good fallback either
+        }
+        final List<DifferableNode> oursKids = oursParent.children();
+        final List<DifferableNode> copyKids = copyParent.children();
+        final Map<String, Integer> copyById = new HashMap<>();
+        for (int j = 0; j < copyKids.size(); j++) {
+            final String id = copyKids.get(j).getObjektId();
+            if (id != null) {
+                copyById.putIfAbsent(id, j);
+            }
+        }
+        boolean anyMoved = false;
+        for (int i = 0; i < oursKids.size(); i++) {
+            final DifferableNode oursKid = oursKids.get(i);
+            Integer j = oursKid.getObjektId() != null ? copyById.get(oursKid.getObjektId()) : null;
+            if (j == null) {
+                j = uniqueHashMatch(oursKid, copyKids);
+            }
+            if (j == null || j == i) {
+                continue; // no counterpart or unchanged position
+            }
+            if (oursKid instanceof EditNodeAbstract oursChild
+                    && copyKids.get(j) instanceof EditNodeAbstract copyChild) {
+                put(marksLeft, oursChild, markOf(op, tooltip + "  \u2014  position " + i + " \u2192 " + j));
+                put(marksRight, copyChild, markOf(op, tooltip + "  \u2014  position " + i + " \u2192 " + j));
+                anyMoved = true;
+            }
+        }
+        if (!anyMoved) {
+            // fallback: the parent carries the whole reorder (the order labels ride in the op's toString)
+            put(marksLeft, oursParent, markOf(op, tooltip));
+            put(marksRight, copyParent, markOf(op, tooltip));
+        }
+    }
+
+    /**
+     * Returns the copy child that is the unique content twin of the given ours child (equal Merkle hash, no
+     * duplicate on the other side) - the engine's second pairing step for arrays.
+     */
+    private static Integer uniqueHashMatch(DifferableNode oursKid, List<DifferableNode> copyKids) {
+        Integer match = null;
+        int hits = 0;
+        for (int j = 0; j < copyKids.size(); j++) {
+            if (copyKids.get(j).getMerkleHash() == oursKid.getMerkleHash()
+                    && NodeValidator.isEqual(copyKids.get(j), oursKid)) {
+                match = j;
+                hits++;
+            }
+        }
+        return hits == 1 ? match : null;
+    }
     /**
      * W3 ours deltas: the user's own edits against the base. ADD and MODIFY live in ours; a REMOVE lives only in
      * the copy (theirs still has the node) - the mark says so in its tooltip.
@@ -160,10 +221,8 @@ final class DiffMarkBuilder {
                 put(marksLeft, resolve(oursRoot, theirPathOf(op)), markOf(op, tooltip));
                 put(marksRight, resolve(copyRoot, op.getKey()), markOf(op, tooltip));
             }
-            case REORDER -> {
-                put(marksLeft, resolve(oursRoot, op.getParentKey()), markOf(op, tooltip));
-                put(marksRight, resolve(copyRoot, op.getParentKey()), markOf(op, tooltip));
-            }
+            case REORDER ->
+                markReorderChildren(op, oursRoot, copyRoot, marksLeft, marksRight, tooltip);
             default -> {
                 // no other delta types exist today
             }
