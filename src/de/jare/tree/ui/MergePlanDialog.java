@@ -39,7 +39,8 @@ public class MergePlanDialog extends JDialog {
 
     /**
      * Runs the 3-way analysis and shows the plan. Base is the import state of the ours tree, ours is the ours side,
-     * theirs the external version.
+     * theirs the external version. The plan is the list counterpart of the W3 diff view: opened from the cherry
+     * banner's Report button while the view is already open (concept CONCEPT_TreeDiffView.md section 9).
      *
      * @param owner the owner window, may be null.
      * @param plan the merge plan to show, never {@code null}.
@@ -47,22 +48,6 @@ public class MergePlanDialog extends JDialog {
      * @param theirsRoot the theirs side root, may be null (label only).
      */
     public MergePlanDialog(Window owner, MergePlan plan, EditNodeAbstract oursRoot, EditNodeAbstract theirsRoot) {
-        this(owner, null, plan, oursRoot, theirsRoot);
-    }
-
-    /**
-     * Runs the 3-way analysis and shows the plan. Base is the import state of the ours tree, ours is the ours side,
-     * theirs the external version. The "Show in trees" button opens the W3 diff view in the editor tabs (concept
-     * CONCEPT_TreeDiffView.md); it needs an anchor component inside the main window to find them.
-     *
-     * @param owner the owner window, may be null.
-     * @param anchor a component inside the main window for the view handover, or null (button disabled).
-     * @param plan the merge plan to show, never {@code null}.
-     * @param oursRoot the ours side root, may be null (label only).
-     * @param theirsRoot the theirs side root, may be null (label only).
-     */
-    public MergePlanDialog(Window owner, java.awt.Component anchor, MergePlan plan,
-            EditNodeAbstract oursRoot, EditNodeAbstract theirsRoot) {
         super(owner, "W3 Diff: ours " + TreeDiffSides.describe(oursRoot)
                 + " / theirs " + TreeDiffSides.describe(theirsRoot)
                 + " (base: import state of ours)");
@@ -102,15 +87,6 @@ public class MergePlanDialog extends JDialog {
         add(scroll, BorderLayout.CENTER);
 
         final JPanel buttons = new JPanel();
-        final JButton showInTrees = new JButton("Show in trees");
-        showInTrees.setToolTipText("Open the W3 diff view in the editor tabs (marks, cherry-picking)");
-        showInTrees.setEnabled(anchor != null && oursRoot != null && theirsRoot != null);
-        showInTrees.addActionListener(e -> {
-            if (DiffViewController.openW3View(anchor, oursRoot, theirsRoot)) {
-                dispose();
-            }
-        });
-        buttons.add(showInTrees);
         final JButton close = new JButton("Close");
         close.addActionListener(e -> dispose());
         buttons.add(close);

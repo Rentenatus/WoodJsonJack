@@ -37,6 +37,7 @@ public class JackEditTreeContainer extends JPanel {
     private final JPanel diffBanner;
     private final JLabel bannerKindLabel;
     private final JLabel bannerPairLabel;
+    private final JButton bannerReportButton;
     private final JButton bannerTakeAllButton;
     private final JButton bannerRediffButton;
     private final JButton bannerCloseButton;
@@ -72,18 +73,23 @@ public class JackEditTreeContainer extends JPanel {
         TreeDiffSides.addChangeListener(this::refreshDiffSegments);
 
         // The cherry red banner of the diff view (concept section 6/7): the mode surface above the split pane -
-        // kind badge, pair description with staleness summary and the diff actions (re-diff, take-all, close)
-        // live here while the view is open; the tree headers keep only what is per-tree.
+        // kind badge, pair description with staleness summary and the diff actions (report, take-all, re-diff,
+        // close) live here while the view is open; the tree headers keep only what is per-tree. The Report button
+        // is the one entry to the list dialogs: the popup opens the view directly, the dialogs are its list side.
         bannerKindLabel = new JLabel();
         bannerKindLabel.setFont(bannerKindLabel.getFont().deriveFont(Font.BOLD));
         bannerPairLabel = new JLabel();
         bannerPairLabel.setFont(bannerPairLabel.getFont().deriveFont(Font.BOLD));
+        bannerReportButton = new JButton("Report...");
+        bannerReportButton.setToolTipText("Show the delta ops of this pair as a precise list (report dialog)");
         bannerTakeAllButton = new JButton("Take all incoming");
         bannerTakeAllButton.setToolTipText("Apply all incoming theirs changes as one undo step");
         bannerRediffButton = new JButton("Re-diff");
         bannerRediffButton.setToolTipText("Run the same pair again with a fresh copy and fresh marks");
         bannerCloseButton = new JButton("x");
         bannerCloseButton.setToolTipText("Close the diff view and switch back to the dependents view");
+        bannerReportButton.addActionListener(e -> getDiffController().showReport(
+                SwingUtilities.getWindowAncestor(this)));
         bannerTakeAllButton.addActionListener(e -> takeAllIncoming());
         bannerRediffButton.addActionListener(e -> getDiffController().rediff());
         bannerCloseButton.addActionListener(e -> {
@@ -96,6 +102,7 @@ public class JackEditTreeContainer extends JPanel {
         bannerWest.add(bannerPairLabel);
         final JPanel bannerEast = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 2));
         bannerEast.setOpaque(false);
+        bannerEast.add(bannerReportButton);
         bannerEast.add(bannerTakeAllButton);
         bannerEast.add(bannerRediffButton);
         bannerEast.add(bannerCloseButton);
@@ -211,7 +218,8 @@ public class JackEditTreeContainer extends JPanel {
 
     /**
      * Refreshes the cherry red banner from the controller: visible while the diff view is open, with the kind
-     * badge, the pair description plus staleness summary and the diff actions (take-all only in W3).
+     * badge, the pair description plus staleness summary and the diff actions (report in both kinds, take-all
+     * only in W3).
      */
     private void refreshDiffBanner() {
         final DiffViewController controller = getDiffController();

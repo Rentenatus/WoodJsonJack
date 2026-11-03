@@ -18,6 +18,7 @@ import de.jare.jsoncasted.editor.merge.EditTreeMerger;
 import de.jare.jsoncasted.editor.merge.MergeOutcome;
 import de.jare.tree.control.model.JackTreeModel;
 import java.awt.Component;
+import java.awt.Window;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -564,6 +565,27 @@ public final class DiffViewController {
     }
 
     /**
+     * Opens the report dialog of the open view (the banner's Report button, concept section 9): the precise op
+     * list as the list counterpart of the spatial view. W2 shows the delta ops of ours against the frozen copy,
+     * W3 the fresh merge plan of ours against the frozen copy. The report recomputes from the trees, so it shows
+     * the CURRENT state - not the state the marks were built from (stale marks say so themselves).
+     *
+     * @param owner the owner window, may be null.
+     */
+    public void showReport(Window owner) {
+        if (!open || oursTree == null || oursTree.getRoot() == null
+                || theirsCopyTree == null || theirsCopyTree.getRoot() == null) {
+            return;
+        }
+        if (kind == Kind.W3) {
+            final MergePlan current = EditTreeMerger.analyze(oursTree, theirsCopyTree.getRoot());
+            new MergePlanDialog(owner, current, oursTree.getRoot(), theirsCopyTree.getRoot()).setVisible(true);
+        } else {
+            new TreeDiffDialog(owner, oursTree.getRoot(), theirsCopyTree.getRoot()).setVisible(true);
+        }
+    }
+
+    /**
      * Applies the deltas as one transaction and flags the taken marks of the right pane (identity match on the
      * delta - the builder mapped the plan's own instances).
      */
@@ -656,78 +678,5 @@ public final class DiffViewController {
         final Component c = (tabComponent instanceof JScrollPane scrollPane)
                 ? scrollPane.getViewport().getView() : tabComponent;
         return c instanceof JackEditTreeContainer container ? container : null;
-    }
-
-    /**
-     * Opens the W2 view of two roots (the "Show in trees" action of the diff dialogs): ours is the left root's
-     * editor tab, theirs is the right root.
-     *
-     * @param anchor any component inside the main window, may be null (the call is a no-op then).
-     * @param left the ours root, not null.
-     * @param right the theirs root, not null.
-     * @return true when the view opened.
-     */
-    public static boolean openW2View(Component anchor, EditNodeAbstract left, EditNodeAbstract right) {
-        if (anchor == null || left == null || right == null) {
-            return false;
-        }
-        final JackEditTreeContainer container = findOursContainer(left, anchor);
-        if (container == null) {
-            return false;
-        }
-        showContainerTab(container);
-        return openIn(container, container.getLeftTree().getModel().getEditTree(), right, Kind.W2);
-    }
-
-    /**
-     * Opens the W3 view of an ours tree against a theirs root (the "Show in trees" action of the merge dialogs):
-     * the view opens in the ours tab and classifies per merge plan.
-     *
-     * @param anchor any component inside the main window, may be null (the call is a no-op then).
-     * @param oursTree the ours tree, not null.
-     * @param theirsRoot the theirs root, not null.
-     * @return true when the view opened.
-     */
-    public static boolean openW3View(Component anchor, EditTree oursTree, EditNodeAbstract theirsRoot) {
-        if (anchor == null || oursTree == null || oursTree.getRoot() == null || theirsRoot == null) {
-            return false;
-        }
-        final JackEditTreeContainer container = findOursContainer(oursTree.getRoot(), anchor);
-        if (container == null) {
-            return false;
-        }
-        showContainerTab(container);
-        return openIn(container, oursTree, theirsRoot, Kind.W3);
-    }
-
-    /**
-     * Opens the W3 view of an ours root against a theirs root: the ours tree is the editor tab that carries the
-     * root (its import state is the base).
-     *
-     * @param anchor any component inside the main window, may be null (the call is a no-op then).
-     * @param oursRoot the ours root, not null.
-     * @param theirsRoot the theirs root, not null.
-     * @return true when the view opened.
-     */
-    public static boolean openW3View(Component anchor, EditNodeAbstract oursRoot, EditNodeAbstract theirsRoot) {
-        if (anchor == null || oursRoot == null || theirsRoot == null) {
-            return false;
-        }
-        final JackEditTreeContainer container = findOursContainer(oursRoot, anchor);
-        if (container == null) {
-            return false;
-        }
-        showContainerTab(container);
-        return openIn(container, container.getLeftTree().getModel().getEditTree(), theirsRoot, Kind.W3);
-    }
-
-    private static boolean openIn(JackEditTreeContainer container, EditTree oursTree,
-            EditNodeAbstract theirsRoot, Kind kind) {
-        final DiffViewController controller = container.getDiffController();
-        if (controller.isOpen()) {
-            controller.close();
-        }
-        controller.open(oursTree, theirsRoot, kind);
-        return controller.isOpen();
     }
 }
