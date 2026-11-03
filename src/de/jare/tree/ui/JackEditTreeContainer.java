@@ -24,6 +24,12 @@ public class JackEditTreeContainer extends JPanel {
     private static final int DIFF_DIVIDER_SIZE = 2;
     private static final Dimension COLLAPSED_MIN_SIZE = new Dimension(0, 0);
     private static final Dimension EXPANDED_MIN_SIZE = new Dimension(50, 50);
+    /**
+     * The size this container may demand before the tab scroll pane switches on its fallback scroll bars: the
+     * trees scroll in their own panes, the outer bar is only for genuinely small windows. The natural preferred
+     * size would be driven by the widest tree row and ALL rows together - the bar would never go away.
+     */
+    private static final Dimension PREFERRED_TAB_SIZE = new Dimension(1000, 620);
 
     private final JackEditTree leftTree;
     private final JackEditTree rightTree;
@@ -334,6 +340,20 @@ public class JackEditTreeContainer extends JPanel {
         
         revalidate();
         repaint();
+    }
+
+    /**
+     * Caps the demanded size at {@link #PREFERRED_TAB_SIZE}: the tab scroll pane compares this with its viewport -
+     * above the cap the fallback scroll bars appear, below the container simply fills the window.
+     *
+     * @return the capped preferred size, never null.
+     */
+    @Override
+    public Dimension getPreferredSize() {
+        final Dimension natural = super.getPreferredSize();
+        return new Dimension(
+                Math.min(natural.width, PREFERRED_TAB_SIZE.width),
+                Math.min(natural.height, PREFERRED_TAB_SIZE.height));
     }
 
     /**
