@@ -34,6 +34,8 @@ public interface AScheme {
     public static final String FORE_DIFF_MOVE = "fore.diff.move";
     public static final String FORE_DIFF_CONFLICT = "fore.diff.conflict";
     public static final String FORE_DIFF_RADIATING = "fore.diff.radiating";
+    /** A marked node that changed after the diff ran (stale mark) - desaturated, aged tone. */
+    public static final String FORE_DIFF_EDITED = "fore.diff.edited";
 
     public static final String LIGHT_FORE_DIFF_ADD = "light." + FORE_DIFF_ADD;
     public static final String LIGHT_FORE_DIFF_REMOVE = "light." + FORE_DIFF_REMOVE;
@@ -41,6 +43,7 @@ public interface AScheme {
     public static final String LIGHT_FORE_DIFF_MOVE = "light." + FORE_DIFF_MOVE;
     public static final String LIGHT_FORE_DIFF_CONFLICT = "light." + FORE_DIFF_CONFLICT;
     public static final String LIGHT_FORE_DIFF_RADIATING = "light." + FORE_DIFF_RADIATING;
+    public static final String LIGHT_FORE_DIFF_EDITED = "light." + FORE_DIFF_EDITED;
 
     public static final String DARK_FORE_OKAY = "dark.fore." + EditStatus.OKAY.getLiteral();
     public static final String DARK_FORE_WARNING = "dark.fore." + EditStatus.WARNING.getLiteral();
@@ -57,6 +60,7 @@ public interface AScheme {
     public static final String DARK_FORE_DIFF_MOVE = "dark." + FORE_DIFF_MOVE;
     public static final String DARK_FORE_DIFF_CONFLICT = "dark." + FORE_DIFF_CONFLICT;
     public static final String DARK_FORE_DIFF_RADIATING = "dark." + FORE_DIFF_RADIATING;
+    public static final String DARK_FORE_DIFF_EDITED = "dark." + FORE_DIFF_EDITED;
 
     final public static String[] SCHEME_LIST = new String[]{
         LIGHT_FORE_OKAY, LIGHT_FORE_WARNING, LIGHT_FORE_ERROR, LIGHT_FORE_OBJECT, LIGHT_FORE_PROPERTY,
