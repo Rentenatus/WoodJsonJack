@@ -82,7 +82,7 @@ public class JackEditTreeContainer extends JPanel {
         bannerTakeAllButton.setToolTipText("Apply all incoming theirs changes as one undo step");
         bannerRediffButton = new JButton("Re-diff");
         bannerRediffButton.setToolTipText("Run the same pair again with a fresh copy and fresh marks");
-        bannerCloseButton = new JButton("Close");
+        bannerCloseButton = new JButton("x");
         bannerCloseButton.setToolTipText("Close the diff view and switch back to the dependents view");
         bannerTakeAllButton.addActionListener(e -> takeAllIncoming());
         bannerRediffButton.addActionListener(e -> getDiffController().rediff());
@@ -304,42 +304,58 @@ public class JackEditTreeContainer extends JPanel {
     }
 
     /**
-     * Enables or disables the side by side view of the two trees.
+     * Enables or disables the side by side view of the two trees. The checkbox is pure visibility: while a diff
+     * view is open, unchecking only hides the right pane - the diff (copy, marks, banner) survives and comes back
+     * unchanged on re-check. The diff itself ends only through the Diff checkbox or the banner's x.
      *
      * @param enabled when true, the right instance is shown.
      */
     private void toggleLinkView(boolean enabled) {
-        // the checkbox state means "right pane visible" - any mode switch closes an open diff view first
-        if (diffController != null && diffController.isOpen()) {
-            diffController.close();
-        }
         leftTree.getLinkCheckBox().setSelected(enabled);
         rightTree.getLinkCheckBox().setSelected(enabled);
-        
+
+        if (diffController != null && diffController.isOpen()) {
+            if (enabled) {
+                // the right pane reappears with the frozen copy, the thin divider included
+                showDiffPane();
+            } else {
+                collapseRightPane();
+            }
+            revalidate();
+            repaint();
+            return;
+        }
+
         if (enabled) {
             rightTree.setVisible(true);
             rightTree.setMinimumSize(EXPANDED_MIN_SIZE);
             splitPane.setDividerSize(EXPANDED_DIVIDER_SIZE);
             splitPane.setEnabled(true);
-            
+
             SwingUtilities.invokeLater(() -> {
                 splitPane.setResizeWeight(0.5);
                 splitPane.setDividerLocation(0.5);
             });
         } else {
-            rightTree.setMinimumSize(COLLAPSED_MIN_SIZE);
-            splitPane.setDividerSize(COLLAPSED_DIVIDER_SIZE);
-            splitPane.setEnabled(false);
-            
-            SwingUtilities.invokeLater(() -> {
-                splitPane.setDividerLocation(1.0);
-                splitPane.setResizeWeight(1.0);
-            });
-            
+            collapseRightPane();
         }
-        
+
         revalidate();
         repaint();
+    }
+
+    /**
+     * Collapses the right pane: minimum size zero, the thin dead divider, all width to the left tree.
+     */
+    private void collapseRightPane() {
+        rightTree.setMinimumSize(COLLAPSED_MIN_SIZE);
+        splitPane.setDividerSize(COLLAPSED_DIVIDER_SIZE);
+        splitPane.setEnabled(false);
+
+        SwingUtilities.invokeLater(() -> {
+            splitPane.setDividerLocation(1.0);
+            splitPane.setResizeWeight(1.0);
+        });
     }
 
     /**
