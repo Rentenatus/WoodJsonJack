@@ -18,6 +18,7 @@ import de.jare.jsoncasted.model.descriptor.JsonTypeDescriptor;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -53,6 +54,14 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
             data = d;
         }
 
+        // the mode signal of this tree: no marks map = edit mode (parse status colors show), a map = diff mode
+        // (only the diff colors show, concept CONCEPT_TreeDiffView.md)
+        final Map<EditNodeAbstract, DiffMark> treeDiffMarks = diffMarksOfTree(tree);
+        final DiffMark mark = data instanceof EditNodeAbstract
+                && treeDiffMarks != null ? treeDiffMarks.get(data) : null;
+        final boolean stale = mark != null
+                && mark.getMerkleHashAtDiff() != ((EditNodeAbstract) data).getMerkleHash();
+
         if (data != null) {
             editLabel.setText(data.getName());
             String foreKey = WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey();
@@ -83,8 +92,9 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
                     ? WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey() : null;
             editLabel.setForeground(data != null ? WoodSettings.INSTANCE.getShownTheme().getColor(foreKey) : fg);
 
-            // the edit status color at WARNING/ERROR overlays the type key color
-            if (data != null) {
+            // the edit status color at WARNING/ERROR overlays the type key color - but only in edit mode: a tree
+            // in diff mode shows ONLY the diff colors, a parse red would read as a REMOVE mark
+            if (data != null && treeDiffMarks == null) {
                 EditStatus status = data.getEditStatus();
                 if (status == EditStatus.ERROR || status == EditStatus.WARNING) {
                     String statusKey = WoodSettings.INSTANCE.getColorPrefix()
@@ -102,12 +112,9 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
                 ? fg
                 : UIManager.getColor("Label.disabledForeground"));
 
-        // tree diff view marks (concept CONCEPT_TreeDiffView.md sections 4 and 5): the marks live on the
-        // JackEditTree this tree belongs to; a tree without marks renders exactly as before. The mark color
-        // overlays the type and status colors and stays visible when selected - the mark is the point of the view.
-        final DiffMark mark = diffMarkOf(tree, data);
-        final boolean stale = mark != null && data instanceof EditNodeAbstract absNode
-                && mark.getMerkleHashAtDiff() != absNode.getMerkleHash();
+        // tree diff view marks (concept CONCEPT_TreeDiffView.md sections 4 and 5): a tree without marks renders
+        // exactly as before. The mark color overlays the type and status colors and stays visible when selected -
+        // the mark is the point of the view.
         if (mark != null) {
             if (mark.isRadiating()) {
                 editLabel.setText(editLabel.getText() + " \u21bb");
@@ -135,22 +142,18 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
     }
 
     /**
-     * Returns the diff mark of the rendered node: the map lives on the JackEditTree the rendered tree belongs to,
-     * the node identity is the key. Trees without a diff view have no map and render unchanged.
+     * Returns the diff marks map of the rendered tree's JackEditTree - the mode signal for the color rules: null
+     * means edit mode (parse status colors show), a non-null map means diff mode (only diff colors show).
      *
      * @param tree the rendered tree.
-     * @param data the rendered edit node.
-     * @return the mark, or null when this node carries none.
+     * @return the marks map, or null when this tree shows no diff view.
      */
-    private DiffMark diffMarkOf(JTree tree, EditNode data) {
-        if (tree == null || !(data instanceof EditNodeAbstract)) {
+    private Map<EditNodeAbstract, DiffMark> diffMarksOfTree(JTree tree) {
+        if (tree == null) {
             return null;
         }
         final Object ancestor = SwingUtilities.getAncestorOfClass(JackEditTree.class, tree);
-        if (!(ancestor instanceof JackEditTree editor) || editor.getDiffMarks() == null) {
-            return null;
-        }
-        return editor.getDiffMarks().get(data);
+        return ancestor instanceof JackEditTree editor ? editor.getDiffMarks() : null;
     }
 
     private String buildTooltip(EditNode data, DiffMark mark, boolean stale) {
