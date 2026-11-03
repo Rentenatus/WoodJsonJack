@@ -8,6 +8,7 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.diff.DeltaOp;
 import de.jare.jsoncasted.diff.DeltaType;
+import de.jare.jsoncasted.diff.DifferableNode;
 import de.jare.jsoncasted.diff.MergePlan;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
@@ -22,8 +23,12 @@ import java.util.List;
 import java.util.Map;
 import javax.swing.JTabbedPane;
 import javax.swing.JScrollPane;
+import javax.swing.JTree;
 import javax.swing.SwingUtilities;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeModel;
+import javax.swing.tree.TreePath;
 
 /**
  * The diff mode of an editor container's right pane (concept CONCEPT_TreeDiffView.md): the pane shows a frozen deep
@@ -85,6 +90,11 @@ public final class DiffViewController {
     private boolean open;
     private final Map<EditNodeAbstract, DiffMark> marksLeft = new HashMap<>();
     private final Map<EditNodeAbstract, DiffMark> marksRight = new HashMap<>();
+    /** The selection coupling: ours node -> its copy counterpart, and back. */
+    private final Map<EditNodeAbstract, EditNodeAbstract> counterpartToTheirs = new HashMap<>();
+    private final Map<EditNodeAbstract, EditNodeAbstract> counterpartToOurs = new HashMap<>();
+    private TreeSelectionListener selectionCoupler;
+    private boolean syncingSelection;
 
     /**
      * Creates the controller of one container.
@@ -150,6 +160,9 @@ public final class DiffViewController {
         }
         marksLeft.clear();
         marksRight.clear();
+        counterpartToTheirs.clear();
+        counterpartToOurs.clear();
+        uninstallSelectionCoupler();
         container.getLeftTree().setDiffMarks(null);
         container.getRightTree().setDiffMarks(null);
         if (savedRightModel != null) {
@@ -179,7 +192,11 @@ public final class DiffViewController {
 
         marksLeft.clear();
         marksRight.clear();
+        counterpartToTheirs.clear();
+        counterpartToOurs.clear();
         plan = DiffMarkBuilder.build(kind, oursTree, theirsSourceRoot, theirsCopyTree, marksLeft, marksRight);
+        buildCounterparts(oursTree.getRoot(), theirsCopyTree.getRoot());
+        installSelectionCoupler();
 
         container.getRightTree().getTree().setModel(new JackTreeModel(theirsCopyTree));
         container.getRightTree().refreshResourceInfo();
@@ -200,6 +217,121 @@ public final class DiffViewController {
      */
     public EditTree getTheirsCopyTree() {
         return theirsCopyTree;
+    }
+
+    /**
+     * Builds the node correspondence of the two panes with the match semantics of the diff projection (the same
+     * rules the {@code EditPathResolver} walks): object members pair by member key, data and array children pair
+     * positionally. Nodes without a counterpart (added or removed) stay unmapped - clicking them selects nothing
+     * on the other side.
+     *
+     * @param oursNode a node of the live ours tree, may be null.
+     * @param theirsNode the counterpart node in the frozen copy, may be null.
+     */
+    private void buildCounterparts(EditNodeAbstract oursNode, EditNodeAbstract theirsNode) {
+        if (oursNode == null || theirsNode == null) {
+            return;
+        }
+        counterpartToTheirs.put(oursNode, theirsNode);
+        counterpartToOurs.put(theirsNode, oursNode);
+
+        final List<DifferableNode> oursChildren = oursNode.children();
+        final List<DifferableNode> theirsChildren = theirsNode.children();
+        final Map<String, DifferableNode> theirsByKey = new HashMap<>();
+        for (DifferableNode child : theirsChildren) {
+            if (child.getMemberKey() != null && !child.getMemberKey().startsWith("#")) {
+                theirsByKey.putIfAbsent(child.getMemberKey(), child);
+            }
+        }
+        for (int i = 0; i < oursChildren.size(); i++) {
+            final DifferableNode oursChild = oursChildren.get(i);
+            final String key = oursChild.getMemberKey();
+            final DifferableNode theirsChild
+                    = key != null && !key.startsWith("#") ? theirsByKey.get(key)
+                    : (i < theirsChildren.size() ? theirsChildren.get(i) : null);
+            if (theirsChild instanceof EditNodeAbstract theirsChildNode
+                    && oursChild instanceof EditNodeAbstract oursChildNode) {
+                buildCounterparts(oursChildNode, theirsChildNode);
+            }
+        }
+    }
+
+    /**
+     * Registers the selection coupler on both trees - once per container, the listener reads the open view state.
+     */
+    private void installSelectionCoupler() {
+        if (selectionCoupler != null) {
+            return;
+        }
+        selectionCoupler = e -> {
+            if (!open || syncingSelection) {
+                return;
+            }
+            final JTree from = e.getSource() instanceof JTree jtree ? jtree : null;
+            if (from == null) {
+                return;
+            }
+            final boolean fromOurs = from == container.getLeftTree().getTree();
+            final JackEditTree toTree = fromOurs ? container.getRightTree() : container.getLeftTree();
+            final JTree to = toTree.getTree();
+            final Map<EditNodeAbstract, EditNodeAbstract> map
+                    = fromOurs ? counterpartToTheirs : counterpartToOurs;
+
+            final List<TreePath> counterparts = new ArrayList<>();
+            final TreePath[] selected = from.getSelectionPaths();
+            if (selected != null) {
+                for (TreePath path : selected) {
+                    if (path.getLastPathComponent() instanceof DefaultMutableTreeNode dmtn
+                            && dmtn.getUserObject() instanceof EditNodeAbstract node) {
+                        final EditNodeAbstract counterpart = map.get(node);
+                        final TreePath counterpartPath = counterpart == null
+                                ? null : pathOf(toTree, counterpart);
+                        if (counterpartPath != null) {
+                            counterparts.add(counterpartPath);
+                        }
+                    }
+                }
+            }
+            syncingSelection = true;
+            try {
+                if (counterparts.isEmpty()) {
+                    to.setSelectionPath(null);
+                } else {
+                    to.setSelectionPaths(counterparts.toArray(new TreePath[0]));
+                    to.scrollPathToVisible(counterparts.get(0));
+                }
+            } finally {
+                syncingSelection = false;
+            }
+        };
+        container.getLeftTree().getTree().addTreeSelectionListener(selectionCoupler);
+        container.getRightTree().getTree().addTreeSelectionListener(selectionCoupler);
+    }
+
+    /**
+     * Removes the selection coupler - the trees select independently again.
+     */
+    private void uninstallSelectionCoupler() {
+        if (selectionCoupler == null) {
+            return;
+        }
+        container.getLeftTree().getTree().removeTreeSelectionListener(selectionCoupler);
+        container.getRightTree().getTree().removeTreeSelectionListener(selectionCoupler);
+        selectionCoupler = null;
+    }
+
+    /**
+     * Returns the swing tree path of an edit node in the given tree - the same id/range lookup the selection
+     * handling of {@code JackEditTree} uses.
+     *
+     * @param tree the rendered JackEditTree, not null.
+     * @param node the edit node to find, not null.
+     * @return the path, or null when the tree does not show the node.
+     */
+    private TreePath pathOf(JackEditTree tree, EditNodeAbstract node) {
+        final DefaultMutableTreeNode swingNode = tree.getModel().findNodeByIdAndRange(
+                node.getEditId(), node.getLeftRange(), node.getTimesRange());
+        return swingNode == null ? null : new TreePath(swingNode.getPath());
     }
 
     /**
