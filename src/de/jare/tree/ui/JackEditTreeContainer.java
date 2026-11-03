@@ -15,8 +15,14 @@ import javax.swing.*;
 /**
  * Container for two JackEditTree instances that can be shown side by side.
  * The checkbox controls whether the right instance is shown.
+ *
+ * <p>
+ * The container is {@link Scrollable} and always tracks the tab viewport size: the trees scroll in their own
+ * panes, so their (doubled, in dual view) preferred widths must never sum up into the outer tab scroll bar -
+ * that bar is dead weight over trees that already scroll.
+ * </p>
  */
-public class JackEditTreeContainer extends JPanel {
+public class JackEditTreeContainer extends JPanel implements Scrollable {
 
     private static final int COLLAPSED_DIVIDER_SIZE = 1;
     private static final int EXPANDED_DIVIDER_SIZE = 8;
@@ -354,6 +360,45 @@ public class JackEditTreeContainer extends JPanel {
         return new Dimension(
                 Math.min(natural.width, PREFERRED_TAB_SIZE.width),
                 Math.min(natural.height, PREFERRED_TAB_SIZE.height));
+    }
+
+    // ========== Scrollable: the container fills the tab, never the outer scroll bar ==========
+
+    @Override
+    public Dimension getPreferredScrollableViewportSize() {
+        return getPreferredSize();
+    }
+
+    @Override
+    public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+        return 16;
+    }
+
+    @Override
+    public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+        return orientation == SwingConstants.VERTICAL ? visibleRect.height : visibleRect.width;
+    }
+
+    /**
+     * The container always fills the tab window horizontally: the trees scroll in their own panes, and the JTree
+     * widths - doubled in the dual view - must never produce an outer horizontal scroll bar.
+     *
+     * @return always true.
+     */
+    @Override
+    public boolean getScrollableTracksViewportWidth() {
+        return true;
+    }
+
+    /**
+     * The container always fills the tab window vertically too: banner and tree headers stay visible, the trees
+     * scroll inside.
+     *
+     * @return always true.
+     */
+    @Override
+    public boolean getScrollableTracksViewportHeight() {
+        return true;
     }
 
     /**
