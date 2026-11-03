@@ -54,8 +54,8 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
             data = d;
         }
 
-        // the mode signal of this tree: no marks map = edit mode (parse status colors show), a map = diff mode
-        // (only the diff colors show, concept CONCEPT_TreeDiffView.md)
+        // the mode signal of this tree: no marks map = edit mode (type and parse status colors show), a map =
+        // diff mode (neutral base, only the diff colors show, concept CONCEPT_TreeDiffView.md)
         final Map<EditNodeAbstract, DiffMark> treeDiffMarks = diffMarksOfTree(tree);
         final DiffMark mark = data instanceof EditNodeAbstract
                 && treeDiffMarks != null ? treeDiffMarks.get(data) : null;
@@ -64,8 +64,10 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
         if (data != null) {
             editLabel.setText(data.getName());
-            String foreKey = WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey();
-            editLabel.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
+            if (treeDiffMarks == null) {
+                String foreKey = WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey();
+                editLabel.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
+            }
             infoLabel.setText(data.rightString() + " ");
         } else {
             editLabel.setText(String.valueOf(value));
@@ -88,9 +90,15 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
         // for readability the edit label gets the same base color as the tree
         if (!selected) {
-            String foreKey = data != null
-                    ? WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey() : null;
-            editLabel.setForeground(data != null ? WoodSettings.INSTANCE.getShownTheme().getColor(foreKey) : fg);
+            // edit mode: type key colors (object/property/array/annotation); diff mode: a neutral base - the type
+            // colors stay out of the diff view, ONLY the diff marks color their nodes
+            if (treeDiffMarks == null) {
+                String foreKey = data != null
+                        ? WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey() : null;
+                editLabel.setForeground(data != null ? WoodSettings.INSTANCE.getShownTheme().getColor(foreKey) : fg);
+            } else {
+                editLabel.setForeground(fg);
+            }
 
             // the edit status color at WARNING/ERROR overlays the type key color - but only in edit mode: a tree
             // in diff mode shows ONLY the diff colors, a parse red would read as a REMOVE mark
