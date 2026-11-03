@@ -63,6 +63,23 @@ public class MergeDecisionDialog extends JDialog {
      */
     public MergeDecisionDialog(Window owner, EditTree oursTree, EditNodeAbstract theirsRoot,
             MergePlan plan, HistoryManager history) {
+        this(owner, null, oursTree, theirsRoot, plan, history);
+    }
+
+    /**
+     * Shows the decision dialog for the given merge plan. The "Show in trees" button opens the W3 diff view in the
+     * editor tabs (concept CONCEPT_TreeDiffView.md); it needs an anchor component inside the main window to find
+     * them.
+     *
+     * @param owner the owner window, may be null.
+     * @param anchor a component inside the main window for the view handover, or null (button disabled).
+     * @param oursTree the tree to merge into, never {@code null}.
+     * @param theirsRoot the root of the external version, never {@code null}.
+     * @param plan the analysis plan, never {@code null}.
+     * @param history the history to book the merge transaction on, or {@code null}.
+     */
+    public MergeDecisionDialog(Window owner, java.awt.Component anchor, EditTree oursTree,
+            EditNodeAbstract theirsRoot, MergePlan plan, HistoryManager history) {
         super(owner, "W3 Merge: ours " + TreeDiffSides.describe(oursTree.getRoot())
                 + " \u2190 theirs " + TreeDiffSides.describe(theirsRoot));
         this.oursTree = oursTree;
@@ -103,6 +120,15 @@ public class MergeDecisionDialog extends JDialog {
         add(scroll, BorderLayout.CENTER);
 
         final JPanel buttons = new JPanel();
+        final JButton showInTrees = new JButton("Show in trees");
+        showInTrees.setToolTipText("Open the W3 diff view in the editor tabs (marks, cherry-picking)");
+        showInTrees.setEnabled(anchor != null);
+        showInTrees.addActionListener(e -> {
+            if (DiffViewController.openW3View(anchor, oursTree, theirsRoot)) {
+                dispose();
+            }
+        });
+        buttons.add(showInTrees);
         final JButton merge = new JButton(plan.getConflicts().isEmpty() ? "Merge" : "Merge with decisions");
         merge.addActionListener(e -> apply());
         final JButton cancel = new JButton("Cancel");

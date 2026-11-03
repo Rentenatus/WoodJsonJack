@@ -51,6 +51,8 @@ public class JackEditPopup extends JPopupMenu {
     private final JMenuItem diffRunItem;
     private final JMenuItem diffRun3Item;
     private final JMenuItem diffMergeItem;
+    private final JMenuItem diffView2Item;
+    private final JMenuItem diffView3Item;
     private boolean lastRootSelected;
     private Component lastInvoker;
     private final JackMasterControl master;
@@ -129,16 +131,22 @@ public class JackEditPopup extends JPopupMenu {
         diffRunItem = new JMenuItem("W2 Diff (mark a side first)");
         diffRun3Item = new JMenuItem("W3 Diff (mark a side first)");
         diffMergeItem = new JMenuItem("W3 Merge (mark a side first)");
+        diffView2Item = new JMenuItem("W2 View (mark a side first)");
+        diffView3Item = new JMenuItem("W3 View (mark a side first)");
         diffLeftItem.addActionListener(e -> rememberDiffSide(true));
         diffRightItem.addActionListener(e -> rememberDiffSide(false));
         diffRunItem.addActionListener(e -> runDiff());
         diffRun3Item.addActionListener(e -> runThreeWayDiff());
         diffMergeItem.addActionListener(e -> runThreeWayMerge());
+        diffView2Item.addActionListener(e -> runDiffView(false));
+        diffView3Item.addActionListener(e -> runDiffView(true));
         add(diffLeftItem);
         add(diffRightItem);
         add(diffRunItem);
         add(diffRun3Item);
         add(diffMergeItem);
+        add(diffView2Item);
+        add(diffView3Item);
 
         selectionListener = new TreeFocusListener() {
             @Override
@@ -223,25 +231,35 @@ public class JackEditPopup extends JPopupMenu {
         diffRunItem.setEnabled(ready);
         diffRun3Item.setEnabled(baseReady);
         diffMergeItem.setEnabled(baseReady);
+        diffView2Item.setEnabled(ready);
+        diffView3Item.setEnabled(baseReady);
         if (!hasMarked) {
             diffRunItem.setText("W2 Diff (mark a side first)");
             diffRun3Item.setText("W3 Diff (mark a side first)");
             diffMergeItem.setText("W3 Merge (mark a side first)");
+            diffView2Item.setText("W2 View (mark a side first)");
+            diffView3Item.setText("W3 View (mark a side first)");
         } else {
             final String desc = TreeDiffSides.describe(marked)
                     + (TreeDiffSides.isRememberedAsLeft() ? " (as left)" : " (as right)");
             diffRunItem.setText(marked == selected
                     ? "W2 Diff: with " + desc + " — this is the marked side"
                     : "W2 Diff: with " + desc);
+            diffView2Item.setText(marked == selected
+                    ? "W2 View: with " + desc + " — this is the marked side"
+                    : "W2 View: with " + desc);
             if (marked == selected) {
                 diffRun3Item.setText("W3 Diff: with " + desc + " — this is the marked side");
                 diffMergeItem.setText("W3 Merge: with " + desc + " — this is the marked side");
+                diffView3Item.setText("W3 View: with " + desc + " — this is the marked side");
             } else if (!threeWayBaseAvailable()) {
                 diffRun3Item.setText("W3 Diff: with " + desc + " (ours side has no import state)");
                 diffMergeItem.setText("W3 Merge: with " + desc + " (ours side has no import state)");
+                diffView3Item.setText("W3 View: with " + desc + " (ours side has no import state)");
             } else {
                 diffRun3Item.setText("W3 Diff: with " + desc);
                 diffMergeItem.setText("W3 Merge: with " + desc);
+                diffView3Item.setText("W3 View: with " + desc);
             }
         }
     }
@@ -348,7 +366,7 @@ public class JackEditPopup extends JPopupMenu {
         final EditNodeAbstract right = TreeDiffSides.isRememberedAsLeft() ? current : marked;
         final Window owner = lastInvoker != null
                 ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
-        new TreeDiffDialog(owner, left, right).setVisible(true);
+        new TreeDiffDialog(owner, lastInvoker, left, right).setVisible(true);
     }
 
     /**
@@ -367,7 +385,39 @@ public class JackEditPopup extends JPopupMenu {
         final MergePlan plan = EditTreeMerger.analyze(oursTree, theirsRoot);
         final Window owner = lastInvoker != null
                 ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
-        new MergePlanDialog(owner, plan, oursTree.getRoot(), theirsRoot).setVisible(true);
+        new MergePlanDialog(owner, lastInvoker, plan, oursTree.getRoot(), theirsRoot).setVisible(true);
+    }
+
+    /**
+     * Opens the tree diff view (concept CONCEPT_TreeDiffView.md) instead of the report dialog: the view opens in
+     * the ours tab, the right pane of that tab freezes theirs as a deep copy and both panes carry marks. The roles
+     * follow the flag: the LEFT flag is ours, the RIGHT flag freezes as theirs.
+     *
+     * @param threeWay true for the W3 view (merge plan marks, cherry-pickable), false for W2 (comparison marks).
+     */
+    private void runDiffView(boolean threeWay) {
+        final EditNodeAbstract marked = TreeDiffSides.getRemembered();
+        final EditNodeAbstract clicked = diffTargetNode();
+        if (marked == null || clicked == null || marked == clicked) {
+            return;
+        }
+        if (threeWay && !threeWayBaseAvailable()) {
+            return;
+        }
+        final EditTree oursTree = TreeDiffSides.isRememberedAsLeft()
+                ? TreeDiffSides.getRememberedTree() : diffTargetTree();
+        final EditNodeAbstract theirsRoot = TreeDiffSides.isRememberedAsLeft() ? clicked : marked;
+        if (oursTree == null || oursTree.getRoot() == null || lastInvoker == null) {
+            return;
+        }
+        final JackEditTreeContainer oursContainer
+                = DiffViewController.findOursContainer(oursTree.getRoot(), lastInvoker);
+        if (oursContainer == null) {
+            return;
+        }
+        DiffViewController.showContainerTab(oursContainer);
+        oursContainer.getDiffController().open(oursTree, theirsRoot,
+                threeWay ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2);
     }
 
     /**
@@ -403,7 +453,7 @@ public class JackEditPopup extends JPopupMenu {
         final HistoryManager history = master.getUndoManager().getManagerFor(oursModel).getHistory();
         final Window owner = lastInvoker != null
                 ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
-        new MergeDecisionDialog(owner, oursTree, theirsRoot, plan, history).setVisible(true);
+        new MergeDecisionDialog(owner, lastInvoker, oursTree, theirsRoot, plan, history).setVisible(true);
     }
 
     /**

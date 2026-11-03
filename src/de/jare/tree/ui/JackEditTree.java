@@ -59,6 +59,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     private final JCheckBox linkCheckBox;
     private final JCheckBox diffCheckBox;
     private final JLabel diffInfoLabel;
+    private final JButton rediffButton;
 
     private Map<EditNodeAbstract, DiffMark> diffMarks;
 
@@ -119,6 +120,12 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         diffInfoLabel = new JLabel();
         diffInfoLabel.setVisible(false);
         leftPanel.add(diffInfoLabel);
+
+        // re-diff of the open view (concept CONCEPT_TreeDiffView.md section 5), visible only in diff mode
+        rediffButton = new JButton("Re-diff");
+        rediffButton.setToolTipText("Run the same pair again with a fresh copy and fresh marks");
+        rediffButton.setVisible(false);
+        rightPanel.add(rediffButton);
 
         // JTree initialisieren 
         final JackTreeModel jackTreeModel = new JackTreeModel(rootName);
@@ -489,12 +496,18 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         if (text == null) {
             diffInfoLabel.setText("");
             diffInfoLabel.setVisible(false);
+            rediffButton.setVisible(false);
         } else {
             diffInfoLabel.setText(text);
             diffInfoLabel.setVisible(true);
+            rediffButton.setVisible(true);
         }
         revalidate();
         repaint();
+    }
+
+    JButton getRediffButton() {
+        return rediffButton;
     }
 
     @Override
@@ -556,6 +569,28 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             return;
         }
         checkNodeChanged(root, model);
+        reportDiffStaleness();
+    }
+
+    /**
+     * Feeds the staleness of the diff marks into the container's header summary (concept CONCEPT_TreeDiffView.md
+     * section 5): the marks self-validate per node at paint time; this walk only aggregates the count for the
+     * "N of M marks outdated" line, riding the existing 200ms tick of the parse refresh.
+     */
+    private void reportDiffStaleness() {
+        if (diffMarks == null || diffMarks.isEmpty()) {
+            return;
+        }
+        int stale = 0;
+        for (Map.Entry<EditNodeAbstract, DiffMark> entry : diffMarks.entrySet()) {
+            if (entry.getKey().getMerkleHash() != entry.getValue().getMerkleHashAtDiff()) {
+                stale++;
+            }
+        }
+        if (javax.swing.SwingUtilities.getAncestorOfClass(JackEditTreeContainer.class, this)
+                instanceof JackEditTreeContainer container) {
+            container.updateDiffStaleness(stale, diffMarks.size());
+        }
     }
 
     /**

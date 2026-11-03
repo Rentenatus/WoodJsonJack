@@ -60,6 +60,7 @@ public final class DiffViewController {
     private EditNodeAbstract theirsSourceRoot;
     private EditTree theirsCopyTree;
     private TreeModel savedRightModel;
+    private String pairText;
     private boolean open;
     private final Map<EditNodeAbstract, DiffMark> marksLeft = new HashMap<>();
     private final Map<EditNodeAbstract, DiffMark> marksRight = new HashMap<>();
@@ -139,6 +140,7 @@ public final class DiffViewController {
         oursTree = null;
         theirsSourceRoot = null;
         kind = null;
+        pairText = null;
         open = false;
         container.refreshDiffSegments();
     }
@@ -162,9 +164,10 @@ public final class DiffViewController {
         container.getRightTree().refreshResourceInfo();
         container.getLeftTree().setDiffMarks(marksLeft);
         container.getRightTree().setDiffMarks(marksRight);
-        container.getRightTree().setDiffInfo(kind.getLabel() + ": "
+        pairText = kind.getLabel() + ": "
                 + TreeDiffSides.describe(oursTree.getRoot()) + " \u2194 "
-                + TreeDiffSides.describe(theirsCopy));
+                + TreeDiffSides.describe(theirsCopy);
+        container.getRightTree().setDiffInfo(pairText);
 
         open = true;
         container.showDiffPane();
@@ -178,6 +181,41 @@ public final class DiffViewController {
      */
     public EditTree getTheirsCopyTree() {
         return theirsCopyTree;
+    }
+
+    /**
+     * Returns the pair description of the open view (kind and both roots), shown in the right pane header.
+     *
+     * @return the pair text, or null when closed.
+     */
+    public String getPairText() {
+        return pairText;
+    }
+
+    /**
+     * Counts the stale marks of the left pane: ours nodes whose Merkle hash no longer equals the hash captured at
+     * diff time (concept section 5). The count drives the header summary - the per-node edited color paints
+     * independently at render time.
+     *
+     * @return the number of stale marks.
+     */
+    public int countStaleLeftMarks() {
+        int stale = 0;
+        for (Map.Entry<EditNodeAbstract, DiffMark> entry : marksLeft.entrySet()) {
+            if (entry.getKey().getMerkleHash() != entry.getValue().getMerkleHashAtDiff()) {
+                stale++;
+            }
+        }
+        return stale;
+    }
+
+    /**
+     * Returns the number of marks of the left pane (the aggregate of the staleness summary).
+     *
+     * @return the mark count.
+     */
+    public int getLeftMarkCount() {
+        return marksLeft.size();
     }
 
     /**
@@ -199,22 +237,23 @@ public final class DiffViewController {
     }
 
     /**
-     * Finds the editor container whose left tree carries the given model: the ours side of a view opened from the
-     * root popup of another tab. The search walks the shared tabbed pane, so no registry is needed - every editor
-     * container of the main window is a tab of it.
+     * Finds the editor container whose left tree carries the given ours root: the ours side of a view opened from
+     * the root popup of another tab or from a diff dialog. The search walks the shared tabbed pane, so no registry
+     * is needed - every editor container of the main window is a tab of it.
      *
-     * @param oursModel the ours side's tree model, not null.
+     * @param oursRoot the ours side's live root, not null.
      * @param anchor any component inside the main window, for finding the tabbed pane.
-     * @return the container, or null when no editor tab carries the model.
+     * @return the container, or null when no editor tab carries the root.
      */
-    public static JackEditTreeContainer findOursContainer(JackTreeModel oursModel, Component anchor) {
-        final JTabbedPane tabs = (JTabbedPane) SwingUtilities.getAncestorOfClass(JTabbedPane.class, anchor);
+    public static JackEditTreeContainer findOursContainer(EditNodeAbstract oursRoot, Component anchor) {
+        final JTabbedPane tabs = anchor == null ? null
+                : (JTabbedPane) SwingUtilities.getAncestorOfClass(JTabbedPane.class, anchor);
         if (tabs == null) {
             return null;
         }
         for (int i = 0; i < tabs.getTabCount(); i++) {
             final JackEditTreeContainer candidate = containerOf(tabs.getComponentAt(i));
-            if (candidate != null && candidate.getLeftTree().getModel() == oursModel) {
+            if (candidate != null && candidate.getLeftTree().getModel().getEditTree().getRoot() == oursRoot) {
                 return candidate;
             }
         }
@@ -244,5 +283,78 @@ public final class DiffViewController {
         final Component c = (tabComponent instanceof JScrollPane scrollPane)
                 ? scrollPane.getViewport().getView() : tabComponent;
         return c instanceof JackEditTreeContainer container ? container : null;
+    }
+
+    /**
+     * Opens the W2 view of two roots (the "Show in trees" action of the diff dialogs): ours is the left root's
+     * editor tab, theirs is the right root.
+     *
+     * @param anchor any component inside the main window, may be null (the call is a no-op then).
+     * @param left the ours root, not null.
+     * @param right the theirs root, not null.
+     * @return true when the view opened.
+     */
+    public static boolean openW2View(Component anchor, EditNodeAbstract left, EditNodeAbstract right) {
+        if (anchor == null || left == null || right == null) {
+            return false;
+        }
+        final JackEditTreeContainer container = findOursContainer(left, anchor);
+        if (container == null) {
+            return false;
+        }
+        showContainerTab(container);
+        return openIn(container, container.getLeftTree().getModel().getEditTree(), right, Kind.W2);
+    }
+
+    /**
+     * Opens the W3 view of an ours tree against a theirs root (the "Show in trees" action of the merge dialogs):
+     * the view opens in the ours tab and classifies per merge plan.
+     *
+     * @param anchor any component inside the main window, may be null (the call is a no-op then).
+     * @param oursTree the ours tree, not null.
+     * @param theirsRoot the theirs root, not null.
+     * @return true when the view opened.
+     */
+    public static boolean openW3View(Component anchor, EditTree oursTree, EditNodeAbstract theirsRoot) {
+        if (anchor == null || oursTree == null || oursTree.getRoot() == null || theirsRoot == null) {
+            return false;
+        }
+        final JackEditTreeContainer container = findOursContainer(oursTree.getRoot(), anchor);
+        if (container == null) {
+            return false;
+        }
+        showContainerTab(container);
+        return openIn(container, oursTree, theirsRoot, Kind.W3);
+    }
+
+    /**
+     * Opens the W3 view of an ours root against a theirs root: the ours tree is the editor tab that carries the
+     * root (its import state is the base).
+     *
+     * @param anchor any component inside the main window, may be null (the call is a no-op then).
+     * @param oursRoot the ours root, not null.
+     * @param theirsRoot the theirs root, not null.
+     * @return true when the view opened.
+     */
+    public static boolean openW3View(Component anchor, EditNodeAbstract oursRoot, EditNodeAbstract theirsRoot) {
+        if (anchor == null || oursRoot == null || theirsRoot == null) {
+            return false;
+        }
+        final JackEditTreeContainer container = findOursContainer(oursRoot, anchor);
+        if (container == null) {
+            return false;
+        }
+        showContainerTab(container);
+        return openIn(container, container.getLeftTree().getModel().getEditTree(), theirsRoot, Kind.W3);
+    }
+
+    private static boolean openIn(JackEditTreeContainer container, EditTree oursTree,
+            EditNodeAbstract theirsRoot, Kind kind) {
+        final DiffViewController controller = container.getDiffController();
+        if (controller.isOpen()) {
+            controller.close();
+        }
+        controller.open(oursTree, theirsRoot, kind);
+        return controller.isOpen();
     }
 }

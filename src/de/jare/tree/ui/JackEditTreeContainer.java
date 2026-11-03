@@ -52,6 +52,8 @@ public class JackEditTreeContainer extends JPanel {
         // deselecting Diff closes the diff view.
         this.leftTree.getDiffCheckBox().addActionListener(e -> onDiffToggle(this.leftTree.getDiffCheckBox().isSelected()));
         this.rightTree.getDiffCheckBox().addActionListener(e -> onDiffToggle(this.rightTree.getDiffCheckBox().isSelected()));
+        this.leftTree.getRediffButton().addActionListener(e -> getDiffController().rediff());
+        this.rightTree.getRediffButton().addActionListener(e -> getDiffController().rediff());
         TreeDiffSides.addChangeListener(this::refreshDiffSegments);
 
         this.splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftTree, rightTree);
@@ -139,6 +141,28 @@ public class JackEditTreeContainer extends JPanel {
         }
         syncingToggles = false;
     }
+
+    /**
+     * Updates the staleness summary of the open view's header (concept CONCEPT_TreeDiffView.md section 5): the
+     * left tree's tick counts its stale marks and hands the numbers over; the right pane header shows the pair
+     * description plus "N of M marks outdated" once marks go stale. Re-diff clears the line by itself (fresh marks).
+     *
+     * @param stale the number of left marks whose node changed since the diff.
+     * @param total the total number of left marks.
+     */
+    void updateDiffStaleness(int stale, int total) {
+        if (!getDiffController().isOpen() || getDiffController().getPairText() == null) {
+            return;
+        }
+        final String suffix = stale > 0 ? "  \u2014  " + stale + " of " + total + " marks outdated" : "";
+        final String text = getDiffController().getPairText() + suffix;
+        if (!text.equals(lastStalenessText)) {
+            lastStalenessText = text;
+            rightTree.setDiffInfo(text);
+        }
+    }
+
+    private String lastStalenessText;
 
     /**
      * Returns the diff view controller of this container, created lazily.

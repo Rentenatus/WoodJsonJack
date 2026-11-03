@@ -44,6 +44,20 @@ public class TreeDiffDialog extends JDialog {
      * @param right the right side root, not null.
      */
     public TreeDiffDialog(Window owner, EditNodeAbstract left, EditNodeAbstract right) {
+        this(owner, null, left, right);
+    }
+
+    /**
+     * Runs the diff of the two sides and shows the report. The diff itself is a pure function — neither side is
+     * touched. The "Show in trees" button opens the W2 diff view in the editor tabs (concept
+     * CONCEPT_TreeDiffView.md); it needs an anchor component inside the main window to find them.
+     *
+     * @param owner the owner window, may be null.
+     * @param anchor a component inside the main window for the view handover, or null (button disabled).
+     * @param left the left side root, not null.
+     * @param right the right side root, not null.
+     */
+    public TreeDiffDialog(Window owner, java.awt.Component anchor, EditNodeAbstract left, EditNodeAbstract right) {
         super(owner, "Tree Diff: " + TreeDiffSides.describe(left) + " \u2194 " + TreeDiffSides.describe(right));
         setModalityType(ModalityType.MODELESS);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -73,6 +87,15 @@ public class TreeDiffDialog extends JDialog {
         add(scroll, BorderLayout.CENTER);
 
         final JPanel buttons = new JPanel();
+        final JButton showInTrees = new JButton("Show in trees");
+        showInTrees.setToolTipText("Open the W2 diff view in the editor tabs (marks on both trees)");
+        showInTrees.setEnabled(anchor != null);
+        showInTrees.addActionListener(e -> {
+            if (DiffViewController.openW2View(anchor, left, right)) {
+                dispose();
+            }
+        });
+        buttons.add(showInTrees);
         final JButton close = new JButton("Close");
         close.addActionListener(e -> dispose());
         buttons.add(close);
