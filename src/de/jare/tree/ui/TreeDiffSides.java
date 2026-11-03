@@ -32,9 +32,35 @@ public final class TreeDiffSides {
     private static EditNodeAbstract remembered;
     private static JackTreeModel rememberedModel;
     private static boolean rememberedAsLeft;
+    private static final java.util.List<Runnable> changeListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     private TreeDiffSides() {
         // utility class, no instances
+    }
+
+    /**
+     * Registers a listener that runs whenever the marked side changes. The tree diff view enables its segment
+     * control per editor container, so every container must hear the change.
+     *
+     * @param listener the callback, not null.
+     */
+    public static void addChangeListener(Runnable listener) {
+        changeListeners.add(listener);
+    }
+
+    /**
+     * Removes a registered change listener.
+     *
+     * @param listener the callback to remove.
+     */
+    public static void removeChangeListener(Runnable listener) {
+        changeListeners.remove(listener);
+    }
+
+    private static void fireChanged() {
+        for (Runnable listener : changeListeners) {
+            listener.run();
+        }
     }
 
     /**
@@ -50,6 +76,7 @@ public final class TreeDiffSides {
         remembered = root;
         rememberedModel = model;
         rememberedAsLeft = asLeft;
+        fireChanged();
     }
 
     /**

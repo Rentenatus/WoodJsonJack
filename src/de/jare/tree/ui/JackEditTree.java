@@ -57,6 +57,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     private final JLabel resourceLabel;
     private final JComboBox<ParseMode> parseModeBox;
     private final JCheckBox linkCheckBox;
+    private final JCheckBox diffCheckBox;
+    private final JLabel diffInfoLabel;
+
+    private Map<EditNodeAbstract, DiffMark> diffMarks;
 
     private final TreeFocusListenerImpl treeFocusListener;
     private final ContentListenerImpl contentListener;
@@ -105,6 +109,16 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         linkCheckBox.setSelectedIcon(new ImageIcon(getClass().getResource("/icons/link_view.png")));
         linkCheckBox.setIcon(new ImageIcon(getClass().getResource("/icons/no_link.png")));
         rightPanel.add(linkCheckBox);
+
+        // checkbox for the diff view mode of the container's right pane (concept CONCEPT_TreeDiffView.md)
+        diffCheckBox = new JCheckBox("Diff");
+        diffCheckBox.setToolTipText("Show the tree diff view in this tab (mark a side in the root popup first)");
+        rightPanel.add(diffCheckBox);
+
+        // label for the pair description in diff mode, hidden outside the diff view
+        diffInfoLabel = new JLabel();
+        diffInfoLabel.setVisible(false);
+        leftPanel.add(diffInfoLabel);
 
         // JTree initialisieren 
         final JackTreeModel jackTreeModel = new JackTreeModel(rootName);
@@ -440,6 +454,47 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
     protected JCheckBox getLinkCheckBox() {
         return linkCheckBox;
+    }
+
+    JCheckBox getDiffCheckBox() {
+        return diffCheckBox;
+    }
+
+    /**
+     * Sets the diff marks of this tree (concept CONCEPT_TreeDiffView.md section 4). The controller fills the map
+     * when the diff view opens or re-diffs; null clears it. The renderer reads it at paint time - null renders
+     * exactly as without the diff view.
+     *
+     * @param marks the marks keyed by node, or null for none.
+     */
+    public void setDiffMarks(Map<EditNodeAbstract, DiffMark> marks) {
+        this.diffMarks = marks;
+    }
+
+    /**
+     * Returns the diff marks of this tree.
+     *
+     * @return the map keyed by node, or null when this tree shows no marks.
+     */
+    public Map<EditNodeAbstract, DiffMark> getDiffMarks() {
+        return diffMarks;
+    }
+
+    /**
+     * Shows the pair description of the diff view in this tree's header, or hides the label again.
+     *
+     * @param text the description, or null to hide.
+     */
+    public void setDiffInfo(String text) {
+        if (text == null) {
+            diffInfoLabel.setText("");
+            diffInfoLabel.setVisible(false);
+        } else {
+            diffInfoLabel.setText(text);
+            diffInfoLabel.setVisible(true);
+        }
+        revalidate();
+        repaint();
     }
 
     @Override

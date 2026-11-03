@@ -24,6 +24,8 @@ public class JackEditTreeContainer extends JPanel {
     private final JackEditTree leftTree;
     private final JackEditTree rightTree;
     private final JSplitPane splitPane;
+    private DiffViewController diffController;
+    private boolean syncingToggles;
 
     /**
      * Creates a container with two JackEditTree instances.
@@ -37,26 +39,134 @@ public class JackEditTreeContainer extends JPanel {
         this.leftTree = new JackEditTree(master, leftRootName, propNames);
         this.rightTree = new JackEditTree(master, rightRootName, propNames);
         this.rightTree.setReadonly(true);
-        
+
         this.leftTree.getLinkCheckBox().addActionListener(
                 e -> toggleLinkView(this.leftTree.getLinkCheckBox().isSelected())
         );
         this.rightTree.getLinkCheckBox().addActionListener(
                 e -> toggleLinkView(this.rightTree.getLinkCheckBox().isSelected())
         );
-        
+
+        // The diff segment of the right pane mode (concept CONCEPT_TreeDiffView.md): geometry is the role, this
+        // container's live left tree is ours, the remembered side freezes as theirs. Selecting Dependents or
+        // deselecting Diff closes the diff view.
+        this.leftTree.getDiffCheckBox().addActionListener(e -> onDiffToggle(this.leftTree.getDiffCheckBox().isSelected()));
+        this.rightTree.getDiffCheckBox().addActionListener(e -> onDiffToggle(this.rightTree.getDiffCheckBox().isSelected()));
+        TreeDiffSides.addChangeListener(this::refreshDiffSegments);
+
         this.splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftTree, rightTree);
         this.splitPane.setResizeWeight(0.5);
         this.splitPane.setContinuousLayout(true);
         this.splitPane.setOneTouchExpandable(false);
-        
+
         this.leftTree.setMinimumSize(EXPANDED_MIN_SIZE);
         this.rightTree.setMinimumSize(COLLAPSED_MIN_SIZE);
-        
+
         setLayout(new BorderLayout());
         add(splitPane, BorderLayout.CENTER);
-        
+
         toggleLinkView(false);
+        refreshDiffSegments();
+    }
+
+    /**
+     * Handles the Diff segment of the pane mode: selected opens the diff view of this container (ours = this
+     * container's left tree, theirs = the remembered side, W3 when ours carries an import state, else W2);
+     * deselected closes it and falls back to the dependents view.
+     */
+    private void onDiffToggle(boolean selected) {
+        if (syncingToggles) {
+            return;
+        }
+        if (selected) {
+            if (!openDiffFromSegment()) {
+                syncingToggles = true;
+                leftTree.getDiffCheckBox().setSelected(false);
+                rightTree.getDiffCheckBox().setSelected(false);
+                syncingToggles = false;
+            }
+        } else {
+            getDiffController().close();
+            // close() restores the pane; show the dependents view as the mode after a diff
+            toggleLinkView(true);
+        }
+    }
+
+    /**
+     * Opens the diff view from the segment control: this container is ours, the remembered side is theirs.
+     *
+     * @return true when the view opened; false when no pair exists (nothing marked or the marked root is this
+     * container's own root) - the caller reverts the toggle.
+     */
+    private boolean openDiffFromSegment() {
+        final de.jare.jsoncasted.editor.core.EditTree oursTree = leftTree.getModel().getEditTree();
+        final de.jare.jsoncasted.editor.core.EditNodeAbstract theirs
+                = TreeDiffSides.getRemembered();
+        if (oursTree == null || theirs == null || theirs == oursTree.getRoot()) {
+            return false;
+        }
+        final DiffViewController.Kind kind = oursTree.getBaseSnapshot() != null
+                ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2;
+        if (getDiffController().isOpen()) {
+            getDiffController().close();
+        }
+        getDiffController().open(oursTree, theirs, kind);
+        return getDiffController().isOpen();
+    }
+
+    /**
+     * Refreshes the Diff segments of both tree headers from the marked side and the view state: enabled when a
+     * different tree is marked, selected while the diff view is open, and the tooltip names the pair and kind.
+     */
+    void refreshDiffSegments() {
+        final de.jare.jsoncasted.editor.core.EditNodeAbstract theirs = TreeDiffSides.getRemembered();
+        final de.jare.jsoncasted.editor.core.EditTree oursTree
+                = leftTree.getModel() != null ? leftTree.getModel().getEditTree() : null;
+        final boolean enabled = theirs != null && oursTree != null && theirs != oursTree.getRoot();
+        final boolean open = getDiffController().isOpen();
+        String tooltip = "Show the tree diff view in this tab (mark a side in the root popup first)";
+        if (enabled) {
+            final DiffViewController.Kind kind = oursTree.getBaseSnapshot() != null
+                    ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2;
+            tooltip = kind.getLabel() + " against " + TreeDiffSides.describe(theirs)
+                    + (TreeDiffSides.isRememberedAsLeft() ? " (marked as left)" : " (marked as right)");
+        }
+        syncingToggles = true;
+        for (JackEditTree tree : new JackEditTree[]{leftTree, rightTree}) {
+            tree.getDiffCheckBox().setEnabled(enabled);
+            tree.getDiffCheckBox().setSelected(open);
+            tree.getDiffCheckBox().setToolTipText(tooltip);
+        }
+        syncingToggles = false;
+    }
+
+    /**
+     * Returns the diff view controller of this container, created lazily.
+     *
+     * @return the controller, never null.
+     */
+    public DiffViewController getDiffController() {
+        if (diffController == null) {
+            diffController = new DiffViewController(this);
+        }
+        return diffController;
+    }
+
+    /**
+     * Expands the right pane for the diff view without touching the mode checkboxes: the diff mode shows the pane
+     * like the dependents view does.
+     */
+    void showDiffPane() {
+        rightTree.setVisible(true);
+        rightTree.setMinimumSize(EXPANDED_MIN_SIZE);
+        splitPane.setDividerSize(EXPANDED_DIVIDER_SIZE);
+        splitPane.setEnabled(true);
+        SwingUtilities.invokeLater(() -> {
+            splitPane.setResizeWeight(0.5);
+            splitPane.setDividerLocation(0.5);
+        });
+        revalidate();
+        repaint();
     }
 
     /**
@@ -65,6 +175,10 @@ public class JackEditTreeContainer extends JPanel {
      * @param enabled when true, the right instance is shown.
      */
     private void toggleLinkView(boolean enabled) {
+        // selecting the dependents view is a mode switch: an open diff view closes first
+        if (enabled && diffController != null && diffController.isOpen()) {
+            diffController.close();
+        }
         leftTree.getLinkCheckBox().setSelected(enabled);
         rightTree.getLinkCheckBox().setSelected(enabled);
         
