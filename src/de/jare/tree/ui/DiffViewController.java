@@ -6,11 +6,19 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.diff.DeltaOp;
+import de.jare.jsoncasted.diff.DeltaType;
+import de.jare.jsoncasted.diff.MergePlan;
 import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.events.HistoryManager;
+import de.jare.jsoncasted.editor.merge.EditTreeMerger;
+import de.jare.jsoncasted.editor.merge.MergeOutcome;
 import de.jare.tree.control.model.JackTreeModel;
 import java.awt.Component;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.swing.JTabbedPane;
 import javax.swing.JScrollPane;
@@ -61,6 +69,7 @@ public final class DiffViewController {
     private EditTree theirsCopyTree;
     private TreeModel savedRightModel;
     private String pairText;
+    private MergePlan plan;
     private boolean open;
     private final Map<EditNodeAbstract, DiffMark> marksLeft = new HashMap<>();
     private final Map<EditNodeAbstract, DiffMark> marksRight = new HashMap<>();
@@ -141,6 +150,7 @@ public final class DiffViewController {
         theirsSourceRoot = null;
         kind = null;
         pairText = null;
+        plan = null;
         open = false;
         container.refreshDiffSegments();
     }
@@ -158,7 +168,7 @@ public final class DiffViewController {
 
         marksLeft.clear();
         marksRight.clear();
-        DiffMarkBuilder.build(kind, oursTree, theirsSourceRoot, theirsCopyTree, marksLeft, marksRight);
+        plan = DiffMarkBuilder.build(kind, oursTree, theirsSourceRoot, theirsCopyTree, marksLeft, marksRight);
 
         container.getRightTree().getTree().setModel(new JackTreeModel(theirsCopyTree));
         container.getRightTree().refreshResourceInfo();
@@ -234,6 +244,147 @@ public final class DiffViewController {
      */
     public EditNodeAbstract getTheirsSourceRoot() {
         return theirsSourceRoot;
+    }
+
+    /**
+     * Returns the mark of one copy node of the right pane - the pick UI asks before applying.
+     *
+     * @param copyNode a node of the frozen copy.
+     * @return its mark, or null when the node carries none.
+     */
+    public DiffMark getRightMark(EditNodeAbstract copyNode) {
+        return marksRight.get(copyNode);
+    }
+
+    /**
+     * Tells why a pick is not possible, or null when it is (concept section 7). Cherry-picking is W3-only - the
+     * merge plan protects the pick - and structural changes (MOVE/REORDER) stay deferred in v1.
+     *
+     * @param mark the mark to check, may be null.
+     * @return the hint for the user, or null when the pick may run.
+     */
+    public String pickHint(DiffMark mark) {
+        if (!open || kind != Kind.W3 || plan == null) {
+            return "Cherry-picking needs the W3 diff view (the merge plan protects the pick).";
+        }
+        if (mark == null) {
+            return "This node carries no diff mark.";
+        }
+        if (mark.isTaken()) {
+            return "This change was already taken.";
+        }
+        if (pickDeltaOf(mark) == null) {
+            return "This change is structural (MOVE/REORDER) - not applicable yet (v1).";
+        }
+        return null;
+    }
+
+    /**
+     * Takes the change of one marked copy node into the live ours tree (concept section 7): the mark's delta - a
+     * conflict's theirs delta for conflict marks, the inline take-theirs decision - applies through
+     * {@link EditTreeMerger#applyDeltas} as ONE transaction on the ours history (one undo step). The mark flips to
+     * taken; the ours node's own mark self-invalidates through the Merkle hash comparison.
+     *
+     * @param copyNode the marked node of the frozen copy, not null.
+     * @return null on success, else the problem list as one message.
+     */
+    public String pick(EditNodeAbstract copyNode) {
+        final DiffMark mark = marksRight.get(copyNode);
+        final String hint = pickHint(mark);
+        if (hint != null) {
+            return hint;
+        }
+        final List<DeltaOp> applied = new ArrayList<>();
+        applied.add(pickDeltaOf(mark));
+        return applyAndFlag(applied, "Pick");
+    }
+
+    /**
+     * Takes all incoming theirs changes of the apply list into the live ours tree (concept section 7): one
+     * transaction, one undo step. Radiating ops stay out of the batch - they must be picked individually as long as
+     * the dependent lookup (R10) is not built; conflicts are decisions and never part of a take-all.
+     *
+     * @return null on success, else a message (also when there was nothing to take).
+     */
+    public String takeAllIncoming() {
+        if (!open || kind != Kind.W3 || plan == null) {
+            return "Cherry-picking needs the W3 diff view (the merge plan protects the pick).";
+        }
+        final List<DeltaOp> batch = new ArrayList<>();
+        int skippedRadiating = 0;
+        int skippedStructural = 0;
+        for (DeltaOp op : plan.getApplyOps()) {
+            if (op.getType() == DeltaType.MOVE || op.getType() == DeltaType.REORDER) {
+                skippedStructural++;
+            } else if (op.isRadiating()) {
+                skippedRadiating++;
+            } else {
+                batch.add(op);
+            }
+        }
+        if (batch.isEmpty()) {
+            final StringBuilder nothing = new StringBuilder("Nothing to take.");
+            if (skippedRadiating > 0) {
+                nothing.append(" ").append(skippedRadiating).append(" radiating change(s) wait for an individual pick.");
+            }
+            if (skippedStructural > 0) {
+                nothing.append(" ").append(skippedStructural).append(" structural change(s) are not applicable (v1).");
+            }
+            return nothing.toString();
+        }
+        final String outcome = applyAndFlag(batch, "Take all incoming");
+        final StringBuilder message = new StringBuilder(outcome == null ? "" : outcome);
+        if (skippedRadiating > 0) {
+            message.append(message.length() > 0 ? "\n" : "").append(skippedRadiating)
+                    .append(" radiating change(s) wait for an individual pick.");
+        }
+        return message.length() == 0 ? null : message.toString();
+    }
+
+    /**
+     * Applies the deltas as one transaction and flags the taken marks of the right pane (identity match on the
+     * delta - the builder mapped the plan's own instances).
+     */
+    private String applyAndFlag(List<DeltaOp> deltas, String what) {
+        final MergeOutcome outcome = EditTreeMerger.applyDeltas(oursTree, theirsCopyTree.getRoot(), plan,
+                deltas, history());
+        if (!outcome.isApplied()) {
+            return String.join("\n", outcome.getProblems());
+        }
+        for (DiffMark mark : marksRight.values()) {
+            if (!mark.isTaken() && mark.getDelta() != null && deltas.contains(mark.getDelta())) {
+                mark.setTaken();
+            }
+        }
+        // the taken flag lives in the marks; a repaint reruns the renderer for the visible rows
+        container.getRightTree().getTree().repaint();
+        if (!outcome.getProblems().isEmpty()) {
+            return String.join("\n", outcome.getProblems());
+        }
+        return null;
+    }
+
+    /**
+     * Returns the delta a pick of this mark would apply: the conflict's theirs delta for conflict marks (the
+     * inline take-theirs), the mark's own delta otherwise. Null when there is nothing applicable (structural, or a
+     * conflict without a theirs delta).
+     */
+    private DeltaOp pickDeltaOf(DiffMark mark) {
+        final DeltaOp delta = mark.isConflictMark() ? mark.getConflict().getTheirsDelta() : mark.getDelta();
+        return delta != null && delta.getType() != DeltaType.MOVE && delta.getType() != DeltaType.REORDER
+                ? delta : null;
+    }
+
+    /**
+     * Returns the undo history of the ours tab - every pick books its transaction there (one undo step per batch).
+     *
+     * @return the ours history, or null when no master control is wired.
+     */
+    private HistoryManager history() {
+        final JackTreeModel oursModel = container.getLeftTree().getModel();
+        return container.getLeftTree().getJackMaster() != null
+                ? container.getLeftTree().getJackMaster().getUndoManager().getManagerFor(oursModel).getHistory()
+                : null;
     }
 
     /**

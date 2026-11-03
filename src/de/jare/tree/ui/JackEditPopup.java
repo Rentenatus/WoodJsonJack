@@ -53,6 +53,7 @@ public class JackEditPopup extends JPopupMenu {
     private final JMenuItem diffMergeItem;
     private final JMenuItem diffView2Item;
     private final JMenuItem diffView3Item;
+    private final JMenuItem diffPickItem;
     private boolean lastRootSelected;
     private Component lastInvoker;
     private final JackMasterControl master;
@@ -140,6 +141,8 @@ public class JackEditPopup extends JPopupMenu {
         diffMergeItem.addActionListener(e -> runThreeWayMerge());
         diffView2Item.addActionListener(e -> runDiffView(false));
         diffView3Item.addActionListener(e -> runDiffView(true));
+        diffPickItem = new JMenuItem("Diff view: take this change");
+        diffPickItem.addActionListener(e -> pickDiffChange());
         add(diffLeftItem);
         add(diffRightItem);
         add(diffRunItem);
@@ -147,6 +150,7 @@ public class JackEditPopup extends JPopupMenu {
         add(diffMergeItem);
         add(diffView2Item);
         add(diffView3Item);
+        add(diffPickItem);
 
         selectionListener = new TreeFocusListener() {
             @Override
@@ -261,6 +265,78 @@ public class JackEditPopup extends JPopupMenu {
                 diffMergeItem.setText("W3 Merge: with " + desc);
                 diffView3Item.setText("W3 View: with " + desc);
             }
+        }
+        updatePickItem();
+    }
+
+    /**
+     * Refreshes the cherry-pick item of the open diff view (concept CONCEPT_TreeDiffView.md section 7): enabled on a
+     * marked node of the right pane (the frozen theirs copy) when the pick is possible; the tooltip says why not
+     * when it is not.
+     */
+    private void updatePickItem() {
+        final DiffViewController controller = invokerDiffController();
+        final EditNodeAbstract clicked = invokerNode();
+        DiffMark mark = null;
+        if (controller != null && clicked != null) {
+            mark = controller.getRightMark(clicked);
+        }
+        final String hint = controller != null ? controller.pickHint(mark) : null;
+        final boolean pickable = controller != null && clicked != null && hint == null;
+        diffPickItem.setEnabled(pickable);
+        diffPickItem.setToolTipText(hint != null ? hint
+                : "Apply this theirs change into the ours tree (one undo step)");
+        if (mark != null && mark.isRadiating()) {
+            diffPickItem.setText("Diff view: take this change (radiating)");
+        } else {
+            diffPickItem.setText("Diff view: take this change");
+        }
+    }
+
+    /**
+     * Returns the diff view controller of the container the popup was opened in, or null.
+     *
+     * @return the controller of the invoker's container, or null.
+     */
+    private DiffViewController invokerDiffController() {
+        if (lastInvoker == null) {
+            return null;
+        }
+        final Object ancestor = javax.swing.SwingUtilities.getAncestorOfClass(
+                JackEditTreeContainer.class, lastInvoker);
+        return ancestor instanceof JackEditTreeContainer container ? container.getDiffController() : null;
+    }
+
+    /**
+     * Takes the change of the clicked copy node into the ours tree (concept section 7). Radiating picks confirm
+     * first - the dependent lookup (R10) is not built, the badge alone must say what radiates.
+     */
+    private void pickDiffChange() {
+        final DiffViewController controller = invokerDiffController();
+        final EditNodeAbstract clicked = invokerNode();
+        if (controller == null || clicked == null) {
+            return;
+        }
+        final DiffMark mark = controller.getRightMark(clicked);
+        if (mark == null || controller.pickHint(mark) != null) {
+            return;
+        }
+        if (mark.isRadiating()) {
+            final Window owner = lastInvoker != null
+                    ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
+            final int answer = JOptionPane.showConfirmDialog(owner,
+                    "This change radiates into dependent resources (wood id / link target).\nApply it anyway?",
+                    "Radiating change", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (answer != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+        final String result = controller.pick(clicked);
+        if (result != null) {
+            final Window owner = lastInvoker != null
+                    ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
+            JOptionPane.showMessageDialog(owner, result, "Diff view: take this change",
+                    JOptionPane.WARNING_MESSAGE);
         }
     }
 

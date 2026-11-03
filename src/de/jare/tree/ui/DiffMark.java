@@ -6,16 +6,19 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.diff.ConflictRecord;
+import de.jare.jsoncasted.diff.DeltaOp;
+
 /**
  * The visual diff mark of one node in the tree diff view (concept CONCEPT_TreeDiffView.md section 4): a view-layer
- * value that summarizes one {@link de.jare.jsoncasted.diff.DeltaOp} or
- * {@link de.jare.jsoncasted.diff.ConflictRecord} for exactly one node. It never rides along in the node models, in
- * copies or in the Merkle hash; the controller maps it to the nodes of the live ours tree and of the frozen theirs
- * copy.
+ * value that summarizes one {@link DeltaOp} or {@link ConflictRecord} for exactly one node. It never rides along in
+ * the node models, in copies or in the Merkle hash; the controller maps it to the nodes of the live ours tree and of
+ * the frozen theirs copy.
  *
  * <p>
  * The mark carries the node's Merkle hash at diff time: the renderer compares it with the node's current hash at
  * paint time and paints the edited color when they differ (section 5, self-validating marks - no event wiring).
+ * The mark also keeps the engine object it summarizes - the cherry-pick applies exactly that delta (section 7).
  * </p>
  *
  * @author Janusch Rentenatus
@@ -55,21 +58,50 @@ public final class DiffMark {
     private final boolean radiating;
     private final long merkleHashAtDiff;
     private final String tooltip;
+    private final DeltaOp delta;
+    private final ConflictRecord conflict;
     private boolean taken;
 
     /**
-     * Creates a mark.
+     * Creates a mark of a delta op.
      *
+     * @param op the op the mark summarizes (the cherry-pick applies it), not null.
      * @param type the change state shown.
-     * @param radiating true when the op radiates into dependent resources (badge in the view).
-     * @param merkleHashAtDiff the node's Merkle hash at diff time, for the staleness check at paint time.
      * @param tooltip the change description (old -> new, reason, reorder order), shown in the tooltip.
      */
-    public DiffMark(MarkType type, boolean radiating, long merkleHashAtDiff, String tooltip) {
+    public DiffMark(DeltaOp op, MarkType type, String tooltip) {
+        this(type, op.isRadiating(), 0L, tooltip, op, null);
+    }
+
+    /**
+     * Creates a mark of a conflict record.
+     *
+     * @param record the conflict the mark summarizes (the cherry-pick takes its theirs delta), not null.
+     * @param tooltip the conflict description (reason, both deltas), shown in the tooltip.
+     */
+    public DiffMark(ConflictRecord record, String tooltip) {
+        this(MarkType.CONFLICT, record.isRadiating(), 0L, tooltip, null, record);
+    }
+
+    private DiffMark(MarkType type, boolean radiating, long merkleHashAtDiff, String tooltip,
+            DeltaOp delta, ConflictRecord conflict) {
         this.type = type;
         this.radiating = radiating;
         this.merkleHashAtDiff = merkleHashAtDiff;
         this.tooltip = tooltip == null ? "" : tooltip;
+        this.delta = delta;
+        this.conflict = conflict;
+    }
+
+    /**
+     * Returns the mark with the node's Merkle hash captured - the builder calls this when it maps the mark onto the
+     * node; the hash drives the staleness check at paint time.
+     *
+     * @param hash the node's Merkle hash at diff time.
+     * @return the mark with the hash.
+     */
+    DiffMark withMerkleHash(long hash) {
+        return new DiffMark(type, radiating, hash, tooltip, delta, conflict);
     }
 
     public MarkType getType() {
@@ -101,6 +133,33 @@ public final class DiffMark {
      */
     public String getTooltip() {
         return tooltip;
+    }
+
+    /**
+     * Returns the delta the mark summarizes, or null for conflict marks.
+     *
+     * @return the delta op, or null.
+     */
+    public DeltaOp getDelta() {
+        return delta;
+    }
+
+    /**
+     * Returns the conflict the mark summarizes, or null for delta marks.
+     *
+     * @return the conflict record, or null.
+     */
+    public ConflictRecord getConflict() {
+        return conflict;
+    }
+
+    /**
+     * Tells whether the mark summarizes a conflict (instead of a delta).
+     *
+     * @return true for conflict marks.
+     */
+    public boolean isConflictMark() {
+        return conflict != null;
     }
 
     /**

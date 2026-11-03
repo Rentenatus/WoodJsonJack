@@ -50,26 +50,27 @@ final class DiffMarkBuilder {
      * @param theirsCopyTree the frozen theirs copy shown in the right pane, not null.
      * @param marksLeft the map for the left pane (ours nodes), filled by this call.
      * @param marksRight the map for the right pane (copy nodes), filled by this call.
+     * @return the merge plan of a W3 view (the cherry-pick applies against it), or null for W2.
      */
-    static void build(DiffViewController.Kind kind, EditTree oursTree, EditNodeAbstract theirsSourceRoot,
+    static MergePlan build(DiffViewController.Kind kind, EditTree oursTree, EditNodeAbstract theirsSourceRoot,
             EditTree theirsCopyTree, Map<EditNodeAbstract, DiffMark> marksLeft,
             Map<EditNodeAbstract, DiffMark> marksRight) {
         final EditNodeAbstract oursRoot = oursTree.getRoot();
         final EditNodeAbstract copyRoot = theirsCopyTree.getRoot();
         if (oursRoot == null || copyRoot == null) {
-            return;
+            return null;
         }
         if (kind == DiffViewController.Kind.W3 && oursTree.getBaseSnapshot() != null) {
-            buildFromPlan(oursTree, oursRoot, copyRoot, marksLeft, marksRight);
-        } else {
-            final DiffReport report = TreeDiffer.diff(oursRoot, copyRoot);
-            for (DeltaOp op : report.getOps()) {
-                markPairDiff(op, oursRoot, copyRoot, marksLeft, marksRight);
-            }
+            return buildFromPlan(oursTree, oursRoot, copyRoot, marksLeft, marksRight);
         }
+        final DiffReport report = TreeDiffer.diff(oursRoot, copyRoot);
+        for (DeltaOp op : report.getOps()) {
+            markPairDiff(op, oursRoot, copyRoot, marksLeft, marksRight);
+        }
+        return null;
     }
 
-    private static void buildFromPlan(EditTree oursTree, EditNodeAbstract oursRoot, EditNodeAbstract copyRoot,
+    private static MergePlan buildFromPlan(EditTree oursTree, EditNodeAbstract oursRoot, EditNodeAbstract copyRoot,
             Map<EditNodeAbstract, DiffMark> marksLeft, Map<EditNodeAbstract, DiffMark> marksRight) {
         final MergePlan plan = EditTreeMerger.analyze(oursTree, copyRoot);
         for (DeltaOp op : plan.getOursReport().getOps()) {
@@ -82,6 +83,7 @@ final class DiffMarkBuilder {
         for (ConflictRecord record : plan.getConflicts()) {
             markConflict(record, oursRoot, copyRoot, marksLeft, marksRight);
         }
+        return plan;
     }
 
     /**
@@ -176,14 +178,9 @@ final class DiffMarkBuilder {
             Map<EditNodeAbstract, DiffMark> marksLeft, Map<EditNodeAbstract, DiffMark> marksRight) {
         final EditNodeAbstract oursNode = resolve(oursRoot, record.getMatchKey());
         final EditNodeAbstract theirsNode = resolve(copyRoot, record.getMatchKey());
-        if (oursNode != null) {
-            marksLeft.put(oursNode, new DiffMark(DiffMark.MarkType.CONFLICT, record.isRadiating(),
-                    oursNode.getMerkleHash(), record.toString()));
-        }
-        if (theirsNode != null) {
-            marksRight.put(theirsNode, new DiffMark(DiffMark.MarkType.CONFLICT, record.isRadiating(),
-                    theirsNode.getMerkleHash(), record.toString()));
-        }
+        final DiffMark mark = new DiffMark(record, record.toString());
+        put(marksLeft, oursNode, mark);
+        put(marksRight, theirsNode, mark);
     }
 
     /**
@@ -207,7 +204,7 @@ final class DiffMarkBuilder {
     }
 
     private static DiffMark markOf(DeltaOp op, String tooltip) {
-        return new DiffMark(markTypeOf(op.getType()), op.isRadiating(), 0L, tooltip);
+        return new DiffMark(op, markTypeOf(op.getType()), tooltip);
     }
 
     private static DiffMark.MarkType markTypeOf(DeltaType type) {
@@ -230,8 +227,7 @@ final class DiffMarkBuilder {
     private static void put(Map<EditNodeAbstract, DiffMark> marks, EditNodeAbstract node, DiffMark mark) {
         if (node != null) {
             // the node's hash at diff time drives the staleness check at paint time
-            marks.put(node, new DiffMark(mark.getType(), mark.isRadiating(), node.getMerkleHash(),
-                    mark.getTooltip()));
+            marks.put(node, mark.withMerkleHash(node.getMerkleHash()));
         }
     }
 

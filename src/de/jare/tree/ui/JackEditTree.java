@@ -60,6 +60,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     private final JCheckBox diffCheckBox;
     private final JLabel diffInfoLabel;
     private final JButton rediffButton;
+    private final JButton takeAllButton;
 
     private Map<EditNodeAbstract, DiffMark> diffMarks;
 
@@ -126,6 +127,12 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         rediffButton.setToolTipText("Run the same pair again with a fresh copy and fresh marks");
         rediffButton.setVisible(false);
         rightPanel.add(rediffButton);
+
+        // cherry-pick batch of the W3 view (concept section 7), visible only in diff mode
+        takeAllButton = new JButton("Take all incoming");
+        takeAllButton.setToolTipText("Apply all incoming theirs changes as one undo step");
+        takeAllButton.setVisible(false);
+        rightPanel.add(takeAllButton);
 
         // JTree initialisieren 
         final JackTreeModel jackTreeModel = new JackTreeModel(rootName);
@@ -497,10 +504,12 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             diffInfoLabel.setText("");
             diffInfoLabel.setVisible(false);
             rediffButton.setVisible(false);
+            takeAllButton.setVisible(false);
         } else {
             diffInfoLabel.setText(text);
             diffInfoLabel.setVisible(true);
             rediffButton.setVisible(true);
+            takeAllButton.setVisible(true);
         }
         revalidate();
         repaint();
@@ -508,6 +517,10 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
 
     JButton getRediffButton() {
         return rediffButton;
+    }
+
+    JButton getTakeAllButton() {
+        return takeAllButton;
     }
 
     @Override

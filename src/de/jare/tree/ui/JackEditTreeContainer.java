@@ -54,6 +54,8 @@ public class JackEditTreeContainer extends JPanel {
         this.rightTree.getDiffCheckBox().addActionListener(e -> onDiffToggle(this.rightTree.getDiffCheckBox().isSelected()));
         this.leftTree.getRediffButton().addActionListener(e -> getDiffController().rediff());
         this.rightTree.getRediffButton().addActionListener(e -> getDiffController().rediff());
+        this.leftTree.getTakeAllButton().addActionListener(e -> takeAllIncoming());
+        this.rightTree.getTakeAllButton().addActionListener(e -> takeAllIncoming());
         TreeDiffSides.addChangeListener(this::refreshDiffSegments);
 
         this.splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftTree, rightTree);
@@ -117,6 +119,18 @@ public class JackEditTreeContainer extends JPanel {
     }
 
     /**
+     * Runs the take-all of the open W3 view and reports the outcome (concept CONCEPT_TreeDiffView.md section 7):
+     * the batch applies as one undo step; radiating changes wait for individual picks.
+     */
+    private void takeAllIncoming() {
+        final String result = getDiffController().takeAllIncoming();
+        if (result != null) {
+            javax.swing.JOptionPane.showMessageDialog(this, result, "Take all incoming",
+                    javax.swing.JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    /**
      * Refreshes the Diff segments of both tree headers from the marked side and the view state: enabled when a
      * different tree is marked, selected while the diff view is open, and the tooltip names the pair and kind.
      */
@@ -125,7 +139,9 @@ public class JackEditTreeContainer extends JPanel {
         final de.jare.jsoncasted.editor.core.EditTree oursTree
                 = leftTree.getModel() != null ? leftTree.getModel().getEditTree() : null;
         final boolean enabled = theirs != null && oursTree != null && theirs != oursTree.getRoot();
-        final boolean open = getDiffController().isOpen();
+        final DiffViewController controller = getDiffController();
+        final boolean open = controller.isOpen();
+        final boolean w3 = open && controller.getKind() == DiffViewController.Kind.W3;
         String tooltip = "Show the tree diff view in this tab (mark a side in the root popup first)";
         if (enabled) {
             final DiffViewController.Kind kind = oursTree.getBaseSnapshot() != null
@@ -138,6 +154,7 @@ public class JackEditTreeContainer extends JPanel {
             tree.getDiffCheckBox().setEnabled(enabled);
             tree.getDiffCheckBox().setSelected(open);
             tree.getDiffCheckBox().setToolTipText(tooltip);
+            tree.getTakeAllButton().setEnabled(w3);
         }
         syncingToggles = false;
     }
