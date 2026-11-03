@@ -22,6 +22,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTree;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeCellRenderer;
@@ -101,9 +102,31 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
                 ? fg
                 : UIManager.getColor("Label.disabledForeground"));
 
+        // tree diff view marks (concept CONCEPT_TreeDiffView.md sections 4 and 5): the marks live on the
+        // JackEditTree this tree belongs to; a tree without marks renders exactly as before. The mark color
+        // overlays the type and status colors and stays visible when selected - the mark is the point of the view.
+        final DiffMark mark = diffMarkOf(tree, data);
+        final boolean stale = mark != null && data instanceof EditNodeAbstract absNode
+                && mark.getMerkleHashAtDiff() != absNode.getMerkleHash();
+        if (mark != null) {
+            if (mark.isRadiating()) {
+                editLabel.setText(editLabel.getText() + " \u21bb");
+            }
+            if (mark.isTaken()) {
+                editLabel.setForeground(UIManager.getColor("Label.disabledForeground"));
+            } else {
+                final DiffMark.MarkType type = stale ? DiffMark.MarkType.EDITED : mark.getType();
+                final String markKey = WoodSettings.INSTANCE.getColorPrefix() + type.getThemeKey();
+                final Color markColor = WoodSettings.INSTANCE.getShownTheme().getColor(markKey);
+                if (markColor != null) {
+                    editLabel.setForeground(markColor);
+                }
+            }
+        }
+
         // tooltip with parse state, edit status and type info
         if (data != null) {
-            panel.setToolTipText(buildTooltip(data));
+            panel.setToolTipText(buildTooltip(data, mark, stale));
         } else {
             panel.setToolTipText(null);
         }
@@ -111,9 +134,43 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
         return panel;
     }
 
-    private String buildTooltip(EditNode data) {
+    /**
+     * Returns the diff mark of the rendered node: the map lives on the JackEditTree the rendered tree belongs to,
+     * the node identity is the key. Trees without a diff view have no map and render unchanged.
+     *
+     * @param tree the rendered tree.
+     * @param data the rendered edit node.
+     * @return the mark, or null when this node carries none.
+     */
+    private DiffMark diffMarkOf(JTree tree, EditNode data) {
+        if (tree == null || !(data instanceof EditNodeAbstract)) {
+            return null;
+        }
+        final Object ancestor = SwingUtilities.getAncestorOfClass(JackEditTree.class, tree);
+        if (!(ancestor instanceof JackEditTree editor) || editor.getDiffMarks() == null) {
+            return null;
+        }
+        return editor.getDiffMarks().get(data);
+    }
+
+    private String buildTooltip(EditNode data, DiffMark mark, boolean stale) {
         StringBuilder sb = new StringBuilder("<html>");
         sb.append("<b>").append(escapeHtml(data.getName())).append("</b><br>");
+        if (mark != null) {
+            sb.append("Diff: ").append(mark.getType().name());
+            if (mark.isRadiating()) {
+                sb.append(" (radiating)");
+            }
+            if (!mark.getTooltip().isEmpty()) {
+                sb.append("<br>").append(escapeHtml(mark.getTooltip()));
+            }
+            if (mark.isTaken()) {
+                sb.append("<br>taken into this tree");
+            } else if (stale) {
+                sb.append("<br>changed since the diff ran - re-diff");
+            }
+            sb.append("<br>");
+        }
         if (data instanceof EditNodeAbstract absNode) {
             sb.append("Parse: ").append(absNode.getParseState().getName()).append("<br>");
         }
