@@ -195,9 +195,12 @@ public final class DiffViewController {
         marksRight.clear();
         counterpartToTheirs.clear();
         counterpartToOurs.clear();
-        plan = DiffMarkBuilder.build(kind, oursTree, theirsSourceRoot, theirsCopyTree, marksLeft, marksRight);
+        // the identity correspondence comes FIRST: the mark building resolves base-relative paths on the
+        // anchor side only and hops to the other pane through it (see DiffMarkBuilder)
         buildCounterparts(oursTree.getRoot(), theirsCopyTree.getRoot());
         installSelectionCoupler();
+        plan = DiffMarkBuilder.build(kind, oursTree, theirsSourceRoot, theirsCopyTree, marksLeft, marksRight,
+                counterpartToTheirs, counterpartToOurs);
 
         container.getRightTree().getTree().setModel(new JackTreeModel(theirsCopyTree));
         container.getRightTree().refreshResourceInfo();
