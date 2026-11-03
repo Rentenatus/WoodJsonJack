@@ -215,7 +215,7 @@ public class JackEditTreeContainer extends JPanel {
             return;
         }
         applyBannerColors();
-        bannerKindLabel.setText(" " + controller.getKind().getLabel() + " ");
+        bannerKindLabel.setText(" " + controller.getKind().getBadge() + " ");
         final int stale = controller.countStaleLeftMarks();
         final String suffix = stale > 0
                 ? "  \u2014  " + stale + " of " + controller.getLeftMarkCount() + " marks outdated" : "";

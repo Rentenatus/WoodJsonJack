@@ -99,8 +99,8 @@ public class WoodWindow extends JFrame {
         editorTrees.add(editorTree1);
         editorTrees.add(editorTree2);
 
-        centerTabs.addTab("Tree Editor 1", new JScrollPane(editorTree1));
-        centerTabs.addTab("Tree Editor 2", new JScrollPane(editorTree2));
+        centerTabs.addTab("Tree Editor 1", wrapEditor(editorTree1));
+        centerTabs.addTab("Tree Editor 2", wrapEditor(editorTree2));
 
         editorTree1.setReadonly(true);
 
@@ -324,6 +324,26 @@ public class WoodWindow extends JFrame {
     }
 
     /**
+     * Wraps an editor container in its tab scroll pane. The scroll bar that scrolls the whole content (banner
+     * included) is deliberately thin - about 60% of the LaF default: the trees carry their own scroll panes, the
+     * outer one is only the fallback when the window is smaller than the container.
+     *
+     * @param container the editor container, not null.
+     * @return the wrapping scroll pane with the slim scroll bars.
+     */
+    private JScrollPane wrapEditor(JackEditTreeContainer container) {
+        final JScrollPane scrollPane = new JScrollPane(container);
+        scrollPane.getVerticalScrollBar().setPreferredSize(
+                new java.awt.Dimension(EDITOR_SCROLLBAR_WIDTH, 0));
+        scrollPane.getHorizontalScrollBar().setPreferredSize(
+                new java.awt.Dimension(0, EDITOR_SCROLLBAR_WIDTH));
+        return scrollPane;
+    }
+
+    /** The slim scroll bar width of an editor tab (about 60% of the LaF default). */
+    private static final int EDITOR_SCROLLBAR_WIDTH = 9;
+
+    /**
      * Adds a new editor tab with the loaded JSON content.
      *
      * @param file the JSON file that was loaded
@@ -333,7 +353,7 @@ public class WoodWindow extends JFrame {
         editorTrees.add(treeContainer);
         editorFiles.put(treeContainer, file);
         String tabTitle = file != null ? file.getName() : "New Editor";
-        JScrollPane scrollPane = new JScrollPane(treeContainer);
+        JScrollPane scrollPane = wrapEditor(treeContainer);
         centerTabs.addTab(tabTitle, scrollPane);
         centerTabs.setSelectedComponent(scrollPane);
 

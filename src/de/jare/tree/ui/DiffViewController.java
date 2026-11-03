@@ -48,17 +48,29 @@ public final class DiffViewController {
      */
     public enum Kind {
 
-        W2("Diff W2"),
-        W3("Diff W3");
+        W2("Diff W2", "W2"),
+        W3("Diff W3", "W3");
 
         private final String label;
+        private final String badge;
 
-        private Kind(String label) {
+        private Kind(String label, String badge) {
             this.label = label;
+            this.badge = badge;
         }
 
         public String getLabel() {
             return label;
+        }
+
+        /**
+         * Returns the short kind badge for the diff banner (the banner itself says "diff", the badge only the
+         * kind - the pair description does not repeat it).
+         *
+         * @return "W2" or "W3".
+         */
+        public String getBadge() {
+            return badge;
         }
     }
 
@@ -173,8 +185,7 @@ public final class DiffViewController {
         container.getRightTree().refreshResourceInfo();
         container.getLeftTree().setDiffMarks(marksLeft);
         container.getRightTree().setDiffMarks(marksRight);
-        pairText = kind.getLabel() + ": "
-                + TreeDiffSides.describe(oursTree.getRoot()) + " \u2194 "
+        pairText = TreeDiffSides.describe(oursTree.getRoot()) + " \u2194 "
                 + TreeDiffSides.describe(theirsCopy);
 
         open = true;
