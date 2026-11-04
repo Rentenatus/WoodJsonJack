@@ -15,11 +15,13 @@ public class UserPreferences {
     private String uiLanguage;      // "de", "en"
     private boolean showTips;
     private boolean autoSave;
+    private boolean gradientUnderlay;
 
     public UserPreferences() {
         this.uiLanguage = "de";
         this.showTips = true;
         this.autoSave = true;
+        this.gradientUnderlay = true;
     }
 
     public String getUiLanguage() {
@@ -44,5 +46,20 @@ public class UserPreferences {
 
     public void setAutoSave(boolean autoSave) {
         this.autoSave = autoSave;
+    }
+
+    /**
+     * Whether unselected signal rows - parse status in edit mode, diff marks in diff mode - carry the
+     * gradient underlay (tree background on the left end, the signal color blended with 32% into the
+     * tree background on the right end). Someone bothered by it turns the underlay off here.
+     *
+     * @return true when the gradient underlay shows, default true.
+     */
+    public boolean isGradientUnderlay() {
+        return gradientUnderlay;
+    }
+
+    public void setGradientUnderlay(boolean gradientUnderlay) {
+        this.gradientUnderlay = gradientUnderlay;
     }
 }

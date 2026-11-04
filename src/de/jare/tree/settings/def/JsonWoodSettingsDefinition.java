@@ -67,6 +67,7 @@ public class JsonWoodSettingsDefinition implements JsonItemDefinition {
         userPreferences.addField("uiLanguage", asString);
         userPreferences.addField("showTips", asBoolean);
         userPreferences.addField("autoSave", asBoolean);
+        userPreferences.addField("gradientUnderlay", asBoolean);
 
         //JsonClass windowLayout = model.newJsonReflect(WindowLayout.class);
         JsonClass colorScheme = model.newJsonReflect(ColorScheme.class);

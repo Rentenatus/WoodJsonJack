@@ -30,7 +30,25 @@ import javax.swing.tree.TreeCellRenderer;
 
 public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
-    private final JPanel panel = new JPanel(new BorderLayout());
+    // The row background of an unselected signal row: the tree background on the left end of the row, the
+    // signal color blended with 32% into the tree background on the right end (paintComponent below). The
+    // signal is the parse status in edit mode, the diff mark in diff mode; selected rows keep the inverted
+    // selection bar - the gradient never fights it.
+    private Color gradientLeft;
+    private Color gradientRight;
+
+    private final JPanel panel = new JPanel(new BorderLayout()) {
+        @Override
+        protected void paintComponent(java.awt.Graphics g) {
+            if (gradientLeft != null && gradientRight != null) {
+                final java.awt.Graphics2D g2 = (java.awt.Graphics2D) g;
+                g2.setPaint(new java.awt.GradientPaint(0f, 0f, gradientLeft, getWidth(), 0f, gradientRight));
+                g2.fillRect(0, 0, getWidth(), getHeight());
+            } else {
+                super.paintComponent(g);
+            }
+        }
+    };
     private final JPanel labels = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
     private final JLabel editLabel = new JLabel();
     private final JLabel infoLabel = new JLabel();
@@ -65,8 +83,22 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
         final boolean stale = mark != null
                 && mark.getMerkleHashAtDiff() != ((EditNodeAbstract) data).getMerkleHash();
 
+        // Accessibility: a text prefix in front of the cell text as a second, color independent signal for
+        // color-blind users - parse status in edit mode ([!] error, [?] warning), diff mark in diff mode
+        // ([+] add, [-] remove, [~] modify, [\u2192] move, [\u2195] reorder, [!!] conflict, [*] stale, [\u2713] taken).
+        String prefix = "";
+        if (treeDiffMarks == null) {
+            if (data != null && data.getEditStatus() == EditStatus.ERROR) {
+                prefix = "[!] ";
+            } else if (data != null && data.getEditStatus() == EditStatus.WARNING) {
+                prefix = "[?] ";
+            }
+        } else if (mark != null) {
+            prefix = prefixOf(mark, stale);
+        }
+
         if (data != null) {
-            editLabel.setText(data.getName());
+            editLabel.setText(prefix + data.getName());
             infoLabel.setText(data.rightString() + " ");
         } else {
             editLabel.setText(String.valueOf(value));
@@ -112,6 +144,8 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
         // the selection bar: a special row paints it itself, inverted; a row without special color stays
         // transparent and lets the look and feel paint its usual bar - FlatLaf's rounded, focus aware one
         Color bg, fg;
+        gradientLeft = null;
+        gradientRight = null;
         if (selected && special != null) {
             bg = special;
             fg = tree.getBackground();
@@ -124,6 +158,16 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
             bg = tree.getBackground();
             fg = plain != null ? plain : tree.getForeground();
             panel.setOpaque(true);
+            // unselected signal row: the gradient bar - tree background on the left, the signal color (32%)
+            // blended with the tree background (68%) on the right. Signals: the parse status in edit mode,
+            // the diff mark in diff mode; a taken mark is grayed out and stays flat. The underlay is the
+            // gradientUnderlay switch of the user preferences - someone bothered by it turns it off there.
+            if (special != null
+                    && !(treeDiffMarks != null && mark != null && mark.isTaken())
+                    && WoodSettings.INSTANCE.getUserPreferences().isGradientUnderlay()) {
+                gradientLeft = bg;
+                gradientRight = blend(special, bg, 0.32f);
+            }
         }
 
         panel.setBackground(bg);
@@ -147,6 +191,48 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
         }
 
         return panel;
+    }
+
+    /**
+     * Blends two colors: the first with the given weight, the second with the rest. Both stay opaque.
+     *
+     * @param first the dominant color, not null.
+     * @param second the base color, not null.
+     * @param weight the weight of the first color (0 to 1).
+     * @return the blended color, never null.
+     */
+    private static Color blend(Color first, Color second, float weight) {
+        final float[] f = first.getRGBColorComponents(null);
+        final float[] s = second.getRGBColorComponents(null);
+        return new Color(
+                weight * f[0] + (1 - weight) * s[0],
+                weight * f[1] + (1 - weight) * s[1],
+                weight * f[2] + (1 - weight) * s[2]);
+    }
+
+    /**
+     * Returns the accessibility prefix of a diff mark - the color independent twin of the mark color. The
+     * stale mark shows its own prefix ([*] edited since the diff ran); a taken mark shows the checkmark only
+     * (it is grayed out anyway).
+     *
+     * @param mark the diff mark, not null.
+     * @param stale whether the marked node changed since the diff ran.
+     * @return the prefix with trailing space, never null.
+     */
+    private static String prefixOf(DiffMark mark, boolean stale) {
+        if (mark.isTaken()) {
+            return "[\u2713] ";
+        }
+        final DiffMark.MarkType type = stale ? DiffMark.MarkType.EDITED : mark.getType();
+        return switch (type) {
+            case ADD -> "[+] ";
+            case REMOVE -> "[-] ";
+            case MODIFY -> "[~] ";
+            case MOVE -> "[\u2192] ";
+            case REORDER -> "[\u2195] ";
+            case CONFLICT -> "[!!] ";
+            case EDITED -> "[*] ";
+        };
     }
 
     /**
