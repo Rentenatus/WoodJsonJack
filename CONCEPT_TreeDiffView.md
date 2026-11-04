@@ -85,10 +85,19 @@ The right pane in DIFF mode shows `deepCopy(true)` of the counterpart root plus 
 **W2 vs. W3 in the view:**
 
 - **W3 view** (the merge view): base = ours' retained import state (`getBaseSnapshot`), ours = left
-  pane, theirs = right copy. Marks classify per the `MergePlan`. **Cherry-picking is W3-only** — it
-  is `applyDeltas` on merge-plan deltas, protected by conflict analysis.
-- **W2 view** (the comparison view): marks from the `DiffReport` of left vs. right copy. v1:
-  visualization only, no cherry-picking (a W2 pair diff has no base and no conflict protection).
+  pane, theirs = right copy. Marks classify per the `MergePlan`. **Cherry-picking is protected by the
+  merge plan** — it is `applyDeltas` on merge-plan deltas.
+- **W2 view** (the comparison view): marks from the `DiffReport` of left vs. right copy.
+  **W2 cherry-picking exists**: a W2 mark picks through the same `applyDeltas` rail — the report op
+  carries everything the application needs, a neutral empty-plan carrier books the outcome (the
+  conflict protection is the pair semantics itself: the mark IS the change). Take-all stays W3-only
+  (a plain pair has no apply list).
+
+**One extra entry, the disk pair:** **Diff Changes (vs. Disk)** (Project menu, and the save
+conflict's "Merge (3-way)"/"User diff (W2)" options): ours is the live working copy, theirs is the
+on-the-fly loaded disk version. With a retained import state it opens as W3
+(base = import state — the save quadrant made visible), without as W2; the conflict dialog can
+force the plain W2 user diff. Picking there takes external changes into the working copy.
 
 ## 4. Where the diff information lives
 
@@ -244,7 +253,9 @@ Cherry-picking takes selected theirs changes into the live ours tree — on the 
 - No changes to the diff engine or the node models.
 - No automatic re-diff.
 - No MOVE/REORDER application (engine-side still v1-deferred).
-- No W2 cherry-picking (no base, no conflict protection — reconsider after W3 proving itself).
+- ~~No W2 cherry-picking~~ — lifted after W3 proved itself: W2 marks pick through the same
+  `applyDeltas` rail with a neutral plan carrier (report op carries everything); take-all stays
+  W3-only.
 - No dependent lookup (`getDependents`, R10) — radiating marks show the badge, not the dependent list.
 
 ## 12. Open questions
