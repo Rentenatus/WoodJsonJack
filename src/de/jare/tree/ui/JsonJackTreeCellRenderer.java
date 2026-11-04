@@ -31,13 +31,16 @@ import javax.swing.tree.TreeCellRenderer;
 public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
     private final JPanel panel = new JPanel(new BorderLayout());
+    private final JPanel labels = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
     private final JLabel editLabel = new JLabel();
     private final JLabel infoLabel = new JLabel();
 
     public JsonJackTreeCellRenderer() {
         panel.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
-        panel.add(editLabel, BorderLayout.WEST);
-        panel.add(infoLabel, BorderLayout.EAST);
+        labels.setOpaque(false);
+        labels.add(editLabel);
+        labels.add(infoLabel);
+        panel.add(labels, BorderLayout.WEST);
 
         editLabel.setOpaque(false);
         infoLabel.setOpaque(false);
@@ -70,54 +73,61 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
             infoLabel.setText(" ");
         }
 
-        // The effective special color of this row, if any: the type/status color in edit mode, the diff mark color
-        // in diff mode (stale -> edited, taken -> disabled). It decides the selection bar: a special row INVERTS
-        // its spec when selected - the special color becomes the bar background and the row background the text
-        // color - so the row stays recognizable as what it is, selected or not. A row without a special color
-        // keeps the usual selection colors.
+        // The label color of the not-selected row - the type key color in edit mode (overlaid by the status
+        // color at WARNING/ERROR - but only in edit mode: a tree in diff mode shows ONLY the diff colors, a
+        // parse red would read as a REMOVE mark), the diff mark color in diff mode (stale -> edited, taken ->
+        // disabled). The SIGNAL part of it - the status color in edit mode, the mark color in diff mode - is
+        // the special color: a selected special row INVERTS its spec, the special color becomes the bar
+        // background and the row background the text color. The type key colors alone are the normal text
+        // colors, not a signal - they keep the usual selection bar; a stateless root carries nothing special.
         Color special = null;
+        Color plain = null;
         if (treeDiffMarks == null) {
             if (data != null) {
-                special = WoodSettings.INSTANCE.getShownTheme().getColor(
+                plain = WoodSettings.INSTANCE.getShownTheme().getColor(
                         WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey());
-                // the edit status color at WARNING/ERROR overlays the type key color - but only in edit mode: a
-                // tree in diff mode shows ONLY the diff colors, a parse red would read as a REMOVE mark
+                // the status color overlays the type key color - but only in edit mode: a tree in diff mode
+                // shows ONLY the diff colors, a parse red would read as a REMOVE mark.
                 if (data.getEditStatus() == EditStatus.ERROR || data.getEditStatus() == EditStatus.WARNING) {
                     final Color statusColor = WoodSettings.INSTANCE.getShownTheme().getColor(
                             WoodSettings.INSTANCE.getColorPrefix() + "fore." + data.getEditStatus().getLiteral());
                     if (statusColor != null) {
+                        plain = statusColor;
                         special = statusColor;
                     }
                 }
             }
         } else if (mark != null) {
             if (mark.isTaken()) {
-                special = UIManager.getColor("Label.disabledForeground");
+                plain = UIManager.getColor("Label.disabledForeground");
+                special = plain;
             } else {
                 final DiffMark.MarkType type = stale ? DiffMark.MarkType.EDITED : mark.getType();
                 special = WoodSettings.INSTANCE.getShownTheme().getColor(
                         WoodSettings.INSTANCE.getColorPrefix() + type.getThemeKey());
+                plain = special;
             }
         }
 
-        // the selection bar: inverted for special rows, the usual one otherwise
+        // the selection bar: a special row paints it itself, inverted; a row without special color stays
+        // transparent and lets the look and feel paint its usual bar - FlatLaf's rounded, focus aware one
         Color bg, fg;
         if (selected && special != null) {
             bg = special;
             fg = tree.getBackground();
+            panel.setOpaque(true);
         } else if (selected) {
-            bg = UIManager.getColor("Tree.selectionBackground");
+            bg = null;
             fg = UIManager.getColor("Tree.selectionForeground");
+            panel.setOpaque(false);
         } else {
             bg = tree.getBackground();
-            fg = tree.getForeground();
+            fg = plain != null ? plain : tree.getForeground();
+            panel.setOpaque(true);
         }
 
         panel.setBackground(bg);
-        panel.setOpaque(true);
-        // edit mode: the type/status color shows (edit mode special); diff mode: a neutral base - the type
-        // colors stay out of the diff view, ONLY the diff marks color their nodes
-        editLabel.setForeground(!selected && special != null ? special : fg);
+        editLabel.setForeground(fg);
         infoLabel.setForeground(selected
                 ? fg
                 : UIManager.getColor("Label.disabledForeground"));
