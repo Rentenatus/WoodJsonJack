@@ -99,6 +99,49 @@ public class JackMainActions {
     }
 
     /**
+     * Opens the tree diff view of the working copy against the file on disk (concepts doc/TreeDiffView.md and
+     * doc/JSON_PROJECT.md save quadrant made visible): left = the live, editable working copy (ours), right =
+     * the on the fly loaded disk version as the frozen theirs copy. With a retained import state the W3
+     * classification runs - apply list = the external changes, conflicts = both sides edited, no-op = did the
+     * same - and cherry picks take disk changes into the working copy (one undo step each); without a base
+     * state the W2 comparison shows.
+     *
+     * @param trigger logging tag of the caller
+     */
+    public void diffActiveAgainstDisk(String trigger) {
+        final EditTree ours = woodWindow.getActiveEditTree();
+        final File file = woodWindow.getActiveFile();
+        if (ours == null) {
+            woodWindow.showErrorDialog("No active editor tree to compare.");
+            return;
+        }
+        if (file == null || !file.exists()) {
+            woodWindow.showErrorDialog("The active tab has no file on disk - nothing to compare.");
+            return;
+        }
+        try {
+            final EditTree disk = JsonTreeConverter.fromJsonFile(file);
+            if (disk == null || disk.getRoot() == null) {
+                woodWindow.showErrorDialog("Could not load the disk version of " + file.getName() + ".");
+                return;
+            }
+            final DiffViewController.Kind kind = ours.getBaseSnapshot() != null
+                    ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2;
+            final JackEditTreeContainer container = woodWindow.getActiveContainer();
+            if (container == null) {
+                return;
+            }
+            DiffViewController.showContainerTab(container);
+            container.getDiffController().open(ours, disk.getRoot(), kind);
+            master.getFastLog().tryWrite("io", trigger + ": diff " + kind.getBadge()
+                    + " working copy vs disk (" + file.getName() + ")");
+        } catch (IOException | JsonParseException e) {
+            master.getFastLog().tryWrite("io", "Disk diff failed: " + e.getMessage());
+            woodWindow.showErrorDialog("Diff against disk failed: " + e.getMessage());
+        }
+    }
+
+    /**
      * Saves the tree of the active editor tab into its file. Without a known file (the tree was not loaded
      * from disk) the save-as dialog is shown instead.
      */

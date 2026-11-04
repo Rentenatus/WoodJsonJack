@@ -69,6 +69,7 @@ public class JackMainMenu extends JMenuBar {
         JMenuItem closeProjectItem = new JMenuItem("Close Project");
         JMenuItem saveItem = new JMenuItem("Save");
         JMenuItem saveAsItem = new JMenuItem("Save As...");
+        JMenuItem diffChangesItem = new JMenuItem("Diff Changes (vs. Disk)");
         JMenuItem exitItem = new JMenuItem("Exit");
 
         exitItem.addActionListener(e -> woodWindow.dispose());
@@ -77,6 +78,7 @@ public class JackMainMenu extends JMenuBar {
         closeProjectItem.addActionListener(e -> woodWindow.closeProject());
         saveItem.addActionListener(e -> mainActions.saveActiveFile());
         saveAsItem.addActionListener(e -> mainActions.saveActiveFileAs());
+        diffChangesItem.addActionListener(e -> mainActions.diffActiveAgainstDisk("menu diff changes"));
 
         projectMenu.add(newItem);
         projectMenu.add(openItem);
@@ -84,6 +86,7 @@ public class JackMainMenu extends JMenuBar {
         projectMenu.add(closeProjectItem);
         projectMenu.add(saveItem);
         projectMenu.add(saveAsItem);
+        projectMenu.add(diffChangesItem);
         projectMenu.addSeparator();
         projectMenu.add(exitItem);
 
