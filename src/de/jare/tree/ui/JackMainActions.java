@@ -106,6 +106,18 @@ public class JackMainActions {
      * @param trigger logging tag of the caller
      */
     public void diffActiveAgainstDisk(String trigger) {
+        diskDiff(trigger, null);
+    }
+
+    /**
+     * Opens the disk diff with a FORCED kind - the save conflict offers the plain W2 user diff alongside the
+     * W3 merge view: left = the user's version, right = the disk version, only the direct comparison marks,
+     * no merge classification (nothing to pick from, nothing to decide - look, then decide in the dialog).
+     *
+     * @param trigger logging tag of the caller
+     * @param forcedKind W2 for the plain user diff, or null for the automatic kind (W3 with a base state)
+     */
+    public void diskDiff(String trigger, DiffViewController.Kind forcedKind) {
         final EditTree ours = woodWindow.getActiveEditTree();
         final File file = woodWindow.getActiveFile();
         if (ours == null) {
@@ -122,8 +134,9 @@ public class JackMainActions {
                 woodWindow.showErrorDialog("Could not load the disk version of " + file.getName() + ".");
                 return;
             }
-            final DiffViewController.Kind kind = ours.getBaseSnapshot() != null
-                    ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2;
+            final DiffViewController.Kind kind = forcedKind != null ? forcedKind
+                    : (ours.getBaseSnapshot() != null
+                        ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2);
             final JackEditTreeContainer container = woodWindow.getActiveContainer();
             if (container == null) {
                 return;
@@ -251,11 +264,13 @@ public class JackMainActions {
      * @return true only when the chosen path ends in a plain save of the tree (overwrite)
      */
     private boolean conflictDecision(EditTree tree, File target) {
-        final Object[] options = {"Merge (3-way)", "Overwrite anyway", "Discard my edits", "Cancel"};
+        final Object[] options = {"Merge (3-way)", "User diff (W2)", "Overwrite anyway",
+            "Discard my edits", "Cancel"};
         final int answer = JOptionPane.showOptionDialog(woodWindow,
                 "The file changed externally while you have unsaved edits.\n"
                 + "Merge opens the 3-way diff view (base = import state, ours = your tree, theirs = the disk)"
                 + " - the cherry picks there are the merge.\n"
+                + "User diff shows the plain comparison (your version vs. the disk), the pure look.\n"
                 + "Overwrite the external change, or discard your edits?",
                 "Save conflict", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
                 null, options, options[0]);
@@ -264,8 +279,11 @@ public class JackMainActions {
                 diffActiveAgainstDisk("save conflict");
                 return false;
             case 1:
-                return true;
+                diskDiff("save conflict user diff", DiffViewController.Kind.W2);
+                return false;
             case 2:
+                return true;
+            case 3:
                 reloadActiveTab(target);
                 return false;
             default:
