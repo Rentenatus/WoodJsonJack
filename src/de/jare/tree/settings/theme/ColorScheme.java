@@ -65,6 +65,26 @@ public class ColorScheme implements AScheme {
         colorMap.put(DARK_FORE_ARRAY, new Color(142, 238, 255));
         colorMap.put(DARK_FORE_OBJECT, new Color(251, 251, 251));
         colorMap.put(DARK_FORE_ANNOTATION, new Color(255, 178, 102));
+        // change-state family of the tree diff view
+        colorMap.put(LIGHT_FORE_DIFF_ADD, new Color(0, 140, 70));
+        colorMap.put(LIGHT_FORE_DIFF_REMOVE, new Color(178, 34, 34));
+        colorMap.put(LIGHT_FORE_DIFF_MODIFY, new Color(200, 130, 0));
+        colorMap.put(LIGHT_FORE_DIFF_MOVE, new Color(128, 0, 200));
+        colorMap.put(LIGHT_FORE_DIFF_CONFLICT, new Color(200, 0, 200));
+        colorMap.put(LIGHT_FORE_DIFF_RADIATING, new Color(255, 128, 0));
+        colorMap.put(LIGHT_FORE_DIFF_EDITED, new Color(140, 110, 70));
+        // the banner is dark cherry red with white text in BOTH schemes - it does not follow the system colors
+        colorMap.put(LIGHT_FORE_DIFF_BANNER_TEXT, new Color(255, 255, 255));
+        colorMap.put(LIGHT_BACK_DIFF_BANNER, new Color(122, 28, 45));
+        colorMap.put(DARK_FORE_DIFF_ADD, new Color(120, 255, 160));
+        colorMap.put(DARK_FORE_DIFF_REMOVE, new Color(255, 120, 120));
+        colorMap.put(DARK_FORE_DIFF_MODIFY, new Color(255, 210, 100));
+        colorMap.put(DARK_FORE_DIFF_MOVE, new Color(200, 160, 255));
+        colorMap.put(DARK_FORE_DIFF_CONFLICT, new Color(255, 120, 255));
+        colorMap.put(DARK_FORE_DIFF_RADIATING, new Color(255, 180, 100));
+        colorMap.put(DARK_FORE_DIFF_EDITED, new Color(215, 200, 170));
+        colorMap.put(DARK_FORE_DIFF_BANNER_TEXT, new Color(255, 255, 255));
+        colorMap.put(DARK_BACK_DIFF_BANNER, new Color(122, 28, 45));
     }
 
     public ColorScheme deepCopy() {

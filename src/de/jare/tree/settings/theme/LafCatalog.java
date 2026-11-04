@@ -20,6 +20,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.LookAndFeel;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 /**
  * Catalog of the FlatLaf look and feels available for the two color modes. Persisted as class
@@ -118,6 +119,12 @@ public class LafCatalog {
             Logger.getGlobal().log(Level.SEVERE, "Could not install look and feel: " + entry.getClassName(), ex);
             return;
         }
+        // FlatLaf paints its own full width selection bar behind the cell renderer (paintWideSelection), which a
+        // label width renderer never covers. With the wide cell renderer the renderer spans the whole row and
+        // paints the bar itself: inverted for rows with special colors, the usual colors otherwise
+        // (JsonJackTreeCellRenderer). The put must follow every look and feel install - the defaults table is
+        // rebuilt with it.
+        UIManager.put("Tree.wideCellRenderer", Boolean.TRUE);
         refreshAllUi();
     }
 

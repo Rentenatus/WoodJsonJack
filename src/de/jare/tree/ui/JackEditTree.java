@@ -57,6 +57,9 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     private final JLabel resourceLabel;
     private final JComboBox<ParseMode> parseModeBox;
     private final JCheckBox linkCheckBox;
+    private final JCheckBox diffCheckBox;
+
+    private Map<EditNodeAbstract, DiffMark> diffMarks;
 
     private final TreeFocusListenerImpl treeFocusListener;
     private final ContentListenerImpl contentListener;
@@ -105,6 +108,11 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         linkCheckBox.setSelectedIcon(new ImageIcon(getClass().getResource("/icons/link_view.png")));
         linkCheckBox.setIcon(new ImageIcon(getClass().getResource("/icons/no_link.png")));
         rightPanel.add(linkCheckBox);
+
+        // checkbox for the diff view mode of the container's right pane (concept CONCEPT_TreeDiffView.md)
+        diffCheckBox = new JCheckBox("Diff");
+        diffCheckBox.setToolTipText("Show the tree diff view in this tab (mark a side in the root popup first)");
+        rightPanel.add(diffCheckBox);
 
         // JTree initialisieren 
         final JackTreeModel jackTreeModel = new JackTreeModel(rootName);
@@ -442,6 +450,30 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         return linkCheckBox;
     }
 
+    JCheckBox getDiffCheckBox() {
+        return diffCheckBox;
+    }
+
+    /**
+     * Sets the diff marks of this tree (concept CONCEPT_TreeDiffView.md section 4). The controller fills the map
+     * when the diff view opens or re-diffs; null clears it. The renderer reads it at paint time - null renders
+     * exactly as without the diff view.
+     *
+     * @param marks the marks keyed by node, or null for none.
+     */
+    public void setDiffMarks(Map<EditNodeAbstract, DiffMark> marks) {
+        this.diffMarks = marks;
+    }
+
+    /**
+     * Returns the diff marks of this tree.
+     *
+     * @return the map keyed by node, or null when this tree shows no marks.
+     */
+    public Map<EditNodeAbstract, DiffMark> getDiffMarks() {
+        return diffMarks;
+    }
+
     @Override
     public JTree getTree() {
         return jtree;
@@ -501,6 +533,28 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
             return;
         }
         checkNodeChanged(root, model);
+        reportDiffStaleness();
+    }
+
+    /**
+     * Feeds the staleness of the diff marks into the container's header summary (concept CONCEPT_TreeDiffView.md
+     * section 5): the marks self-validate per node at paint time; this walk only aggregates the count for the
+     * "N of M marks outdated" line, riding the existing 200ms tick of the parse refresh.
+     */
+    private void reportDiffStaleness() {
+        if (diffMarks == null || diffMarks.isEmpty()) {
+            return;
+        }
+        int stale = 0;
+        for (Map.Entry<EditNodeAbstract, DiffMark> entry : diffMarks.entrySet()) {
+            if (entry.getKey().getMerkleHash() != entry.getValue().getMerkleHashAtDiff()) {
+                stale++;
+            }
+        }
+        if (javax.swing.SwingUtilities.getAncestorOfClass(JackEditTreeContainer.class, this)
+                instanceof JackEditTreeContainer container) {
+            container.updateDiffStaleness(stale, diffMarks.size());
+        }
     }
 
     /**

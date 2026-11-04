@@ -12,6 +12,7 @@ import de.jare.jsoncasted.editor.core.EditNodeAbstract;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.ParseMode;
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.model.JackTreeModel;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_ANNOTATION;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_ADD_NODE;
 import static de.jare.tree.control.listeners.ContentListener.EDIT_COPY;
@@ -23,6 +24,8 @@ import static de.jare.tree.control.listeners.ContentListener.EDIT_RENAME_NODE;
 import de.jare.tree.control.listeners.ParseModeListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
+import java.awt.Component;
+import java.awt.Window;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.*;
@@ -40,7 +43,13 @@ public class JackEditPopup extends JPopupMenu {
     private final JMenuItem addNodeItem;
     private final JMenuItem addAnnotationItem;
     private final JMenuItem renameNodeItem;
+    private final JMenuItem diffLeftItem;
+    private final JMenuItem diffRightItem;
+    private final JMenuItem diffView2Item;
+    private final JMenuItem diffView3Item;
+    private final JMenuItem diffPickItem;
     private boolean lastRootSelected;
+    private Component lastInvoker;
     private final JackMasterControl master;
     private Object lastSelectedNode;
     private TreeFocusComponent lastSelectedEditor;
@@ -77,6 +86,7 @@ public class JackEditPopup extends JPopupMenu {
         addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
             @Override
             public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                lastInvoker = getInvoker();
                 updateMenuEnabledState(lastRootSelected, lastSelectedNode != null);
             }
 
@@ -106,6 +116,27 @@ public class JackEditPopup extends JPopupMenu {
         add(cutItem);
         add(pasteItem);
         add(pasteUnderneathItem);
+
+        // Tree diff (U1/U4, see doc/TREE_DIFF.md in jsonCasted): mark one root as LEFT or RIGHT, then "W2:" / "W3:"
+        // open the diff view directly (concept CONCEPT_TreeDiffView.md) - one entry per pair kind, view first.
+        // The precise op list of the open pair is the Report button of the cherry banner; the dialogs have no
+        // popup entries of their own anymore.
+        addSeparator();
+        diffLeftItem = new JMenuItem("Diff: mark as left side");
+        diffRightItem = new JMenuItem("Diff: mark as right side");
+        diffView2Item = new JMenuItem("W2 (mark a side first)");
+        diffView3Item = new JMenuItem("W3 (mark a side first)");
+        diffLeftItem.addActionListener(e -> rememberDiffSide(true));
+        diffRightItem.addActionListener(e -> rememberDiffSide(false));
+        diffView2Item.addActionListener(e -> runDiffView(false));
+        diffView3Item.addActionListener(e -> runDiffView(true));
+        diffPickItem = new JMenuItem("Diff view: take this change");
+        diffPickItem.addActionListener(e -> pickDiffChange());
+        add(diffLeftItem);
+        add(diffRightItem);
+        add(diffView2Item);
+        add(diffView3Item);
+        add(diffPickItem);
 
         selectionListener = new TreeFocusListener() {
             @Override
@@ -161,7 +192,321 @@ public class JackEditPopup extends JPopupMenu {
         EditMenuEnablementLogger.logAddMenus(master, "edit popup", hard, isReadonly, nodeExists,
                 enableAddRename, parentAnnotation, editTree, selected);
 
+        updateDiffItems();
+
         updatePasteEnabled();
+    }
+
+    /**
+     * Refreshes the tree diff items. The target comes from the tree the popup opened on (the invoker), not from the
+     * broadcast selection: the active editor is usually the left tree of the tab, so a click into the right tree
+     * never reaches the selection listeners and the broadcast state stays stale — the diff items would be disabled
+     * although the user just clicked a root.
+     */
+    private void updateDiffItems() {
+        final EditNodeAbstract clicked = invokerNode();
+        final EditNodeAbstract selected = clicked != null ? clicked : selectedData();
+        final boolean atRoot = clicked != null
+                ? invokerRootSelected()
+                : lastRootSelected && selected != null;
+        final boolean onFrozenCopy = invokerIsFrozenCopy();
+        diffLeftItem.setEnabled(atRoot && !onFrozenCopy);
+        diffRightItem.setEnabled(atRoot && !onFrozenCopy);
+        diffLeftItem.setText("Diff: mark as left side");
+        diffRightItem.setText("Diff: mark as right side");
+        diffLeftItem.setToolTipText(onFrozenCopy
+                ? "The frozen copy of the diff view cannot be a diff side" : null);
+        diffRightItem.setToolTipText(onFrozenCopy
+                ? "The frozen copy of the diff view cannot be a diff side" : null);
+
+        final EditNodeAbstract marked = TreeDiffSides.getRemembered();
+        final boolean hasMarked = TreeDiffSides.hasRemembered();
+        // The pair counterpart: normally the marked side; on the marked side itself the last partner - a diff or
+        // view that ran before makes the same pair runnable again from the marked tab too.
+        final boolean onMarked = hasMarked && selected == marked;
+        final EditNodeAbstract counterpart = onMarked ? TreeDiffSides.getPartner() : marked;
+        final boolean ready = hasMarked && atRoot && counterpart != null && !onFrozenCopy;
+        final boolean baseReady = ready && threeWayBaseAvailable();
+        diffView2Item.setEnabled(ready);
+        diffView3Item.setEnabled(baseReady);
+        if (!hasMarked) {
+            diffView2Item.setText("W2 (mark a side first)");
+            diffView3Item.setText("W3 (mark a side first)");
+        } else if (counterpart == null) {
+            diffView2Item.setText("W2: this is the marked side (run from another tab first)");
+            diffView3Item.setText("W3: this is the marked side (run from another tab first)");
+        } else {
+            // the counterpart's role is the opposite of the marked side's flag
+            final String desc = TreeDiffSides.describe(counterpart)
+                    + ((TreeDiffSides.isRememberedAsLeft() != onMarked) ? " (as left)" : " (as right)");
+            diffView2Item.setText("W2: with " + desc);
+            if (!threeWayBaseAvailable()) {
+                diffView3Item.setText("W3: with " + desc + " (ours side has no import state)");
+            } else {
+                diffView3Item.setText("W3: with " + desc);
+            }
+        }
+        updatePickItem();
+    }
+
+    /**
+     * Refreshes the cherry-pick item of the open diff view (concept CONCEPT_TreeDiffView.md section 7): enabled on a
+     * marked node of the right pane (the frozen theirs copy) when the pick is possible; the tooltip says why not
+     * when it is not.
+     */
+    private void updatePickItem() {
+        final DiffViewController controller = invokerDiffController();
+        final EditNodeAbstract clicked = invokerNode();
+        DiffMark mark = null;
+        if (controller != null && clicked != null) {
+            mark = controller.getRightMark(clicked);
+        }
+        final String hint = controller != null ? controller.pickHint(mark) : null;
+        final boolean pickable = controller != null && clicked != null && hint == null;
+        diffPickItem.setEnabled(pickable);
+        diffPickItem.setToolTipText(hint != null ? hint
+                : "Apply this theirs change into the ours tree (one undo step)");
+        if (mark != null && mark.isRadiating()) {
+            diffPickItem.setText("Diff view: take this change (radiating)");
+        } else {
+            diffPickItem.setText("Diff view: take this change");
+        }
+    }
+
+    /**
+     * Returns the diff view controller of the container the popup was opened in, or null.
+     *
+     * @return the controller of the invoker's container, or null.
+     */
+    private DiffViewController invokerDiffController() {
+        if (lastInvoker == null) {
+            return null;
+        }
+        final Object ancestor = javax.swing.SwingUtilities.getAncestorOfClass(
+                JackEditTreeContainer.class, lastInvoker);
+        return ancestor instanceof JackEditTreeContainer container ? container.getDiffController() : null;
+    }
+
+    /**
+     * Takes the change of the clicked copy node into the ours tree (concept section 7). Radiating picks confirm
+     * first - the dependent lookup (R10) is not built, the badge alone must say what radiates.
+     */
+    private void pickDiffChange() {
+        final DiffViewController controller = invokerDiffController();
+        final EditNodeAbstract clicked = invokerNode();
+        if (controller == null || clicked == null) {
+            return;
+        }
+        final DiffMark mark = controller.getRightMark(clicked);
+        if (mark == null || controller.pickHint(mark) != null) {
+            return;
+        }
+        if (mark.isRadiating()) {
+            final Window owner = lastInvoker != null
+                    ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
+            final int answer = JOptionPane.showConfirmDialog(owner,
+                    "This change radiates into dependent resources (wood id / link target).\nApply it anyway?",
+                    "Radiating change", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (answer != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+        final String result = controller.pick(clicked);
+        if (result != null) {
+            final Window owner = lastInvoker != null
+                    ? javax.swing.SwingUtilities.getWindowAncestor(lastInvoker) : null;
+            JOptionPane.showMessageDialog(owner, result, "Diff view: take this change",
+                    JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    /**
+     * Tells whether the popup was opened on the frozen copy of an open diff view (the right pane of the ours
+     * tab). The copy is a snapshot, not a live tree - it must not become a diff side, its roots would pair a
+     * detached state and later degenerate into comparing a tree with its own copy.
+     *
+     * @return true when the invoker is the frozen theirs copy.
+     */
+    private boolean invokerIsFrozenCopy() {
+        if (lastInvoker == null) {
+            return false;
+        }
+        final Object containerAncestor = javax.swing.SwingUtilities.getAncestorOfClass(
+                JackEditTreeContainer.class, lastInvoker);
+        if (!(containerAncestor instanceof JackEditTreeContainer container)
+                || !container.getDiffController().isOpen()) {
+            return false;
+        }
+        final Object treeAncestor = javax.swing.SwingUtilities.getAncestorOfClass(
+                JackEditTree.class, lastInvoker);
+        return treeAncestor == container.getRightTree();
+    }
+
+    /**
+     * Returns the node the popup was opened on, derived from the invoker tree's selection — installOn selects the
+     * clicked path before showing the popup, so this is exactly the right-clicked node.
+     *
+     * @return the clicked node, or null when the invoker is unknown.
+     */
+    private EditNodeAbstract invokerNode() {
+        if (lastInvoker instanceof JTree tree
+                && tree.getLastSelectedPathComponent() instanceof DefaultMutableTreeNode dmtn
+                && dmtn.getUserObject() instanceof EditNodeAbstract data) {
+            return data;
+        }
+        return null;
+    }
+
+    /**
+     * Tells whether the node the popup was opened on is the root of its tree.
+     *
+     * @return true when the clicked node is a root.
+     */
+    private boolean invokerRootSelected() {
+        if (lastInvoker instanceof JTree tree
+                && tree.getLastSelectedPathComponent() instanceof DefaultMutableTreeNode dmtn) {
+            return dmtn.getParent() == null;
+        }
+        return false;
+    }
+
+    /**
+     * Returns the edit tree of the popup invoker — the tree the user actually clicked, which may differ from the
+     * active editor (the left tree of the tab).
+     *
+     * @return the clicked tree, or null when unknown.
+     */
+    private EditTree invokerEditTree() {
+        final JackTreeModel model = invokerModel();
+        return model == null ? null : model.getEditTree();
+    }
+
+    /**
+     * Returns the tree model of the popup invoker — the merge books its transaction on the clicked tree's history,
+     * not on the active editor's.
+     *
+     * @return the clicked tree model, or null when unknown.
+     */
+    private JackTreeModel invokerModel() {
+        if (lastInvoker == null) {
+            return null;
+        }
+        final java.awt.Container ancestor
+                = javax.swing.SwingUtilities.getAncestorOfClass(JackEditTree.class, lastInvoker);
+        return ancestor instanceof JackEditTree editor ? editor.getModel() : null;
+    }
+
+    /**
+     * The diff actions act on the tree the popup opened on; the broadcast state is only the fallback.
+     *
+     * @return the clicked node, or the last selected node.
+     */
+    private EditNodeAbstract diffTargetNode() {
+        final EditNodeAbstract clicked = invokerNode();
+        return clicked != null ? clicked : selectedData();
+    }
+
+    /**
+     * The diff actions act on the tree the popup opened on; the broadcast state is only the fallback.
+     *
+     * @return the clicked tree, or the active editor's tree.
+     */
+    private EditTree diffTargetTree() {
+        final EditTree clickedTree = invokerEditTree();
+        return clickedTree != null ? clickedTree : activeEditTree();
+    }
+
+    /**
+     * Marks the selected root as one diff side, replacing any previously marked side.
+     *
+     * @param asLeft true for the LEFT flag (the ours role), false for the RIGHT flag (the theirs role)
+     */
+    private void rememberDiffSide(boolean asLeft) {
+        final EditNodeAbstract selected = diffTargetNode();
+        if (selected == null) {
+            return;
+        }
+        TreeDiffSides.remember(selected, invokerModel(), asLeft);
+        updateMenuEnabledState(lastRootSelected, lastSelectedNode != null);
+    }
+
+    /**
+     * Returns the pair root of the clicked root: the clicked root itself, or — when the popup opened on the marked
+     * root — the marked side's last partner (the same pair again, runnable from the marked tab too). Null when the
+     * pair does not exist.
+     *
+     * @return the pair root, or null.
+     */
+    private EditNodeAbstract pairRoot() {
+        final EditNodeAbstract marked = TreeDiffSides.getRemembered();
+        final EditNodeAbstract current = diffTargetNode();
+        if (marked == null || current == null) {
+            return null;
+        }
+        return current == marked ? TreeDiffSides.getPartner() : current;
+    }
+
+    /**
+     * Returns the ours tree of the pair (the LEFT role): the marked side's tree when the flag is LEFT, else
+     * the counterpart's tree — the clicked tab normally, the last partner on the marked tab itself.
+     *
+     * @return the ours tree, or null when the pair does not exist.
+     */
+    private EditTree threeWayOursTree() {
+        final EditNodeAbstract marked = TreeDiffSides.getRemembered();
+        final EditNodeAbstract clicked = diffTargetNode();
+        if (marked == null || clicked == null) {
+            return null;
+        }
+        if (TreeDiffSides.isRememberedAsLeft()) {
+            return TreeDiffSides.getRememberedTree();
+        }
+        return clicked == marked ? TreeDiffSides.getPartnerTree() : diffTargetTree();
+    }
+
+    /**
+     * Opens the tree diff view (concept CONCEPT_TreeDiffView.md): the view opens in the ours tab, the right pane of
+     * that tab freezes theirs as a deep copy and both panes carry marks. The roles follow the flag: the LEFT flag is
+     * ours, the RIGHT flag freezes as theirs.
+     *
+     * @param threeWay true for the W3 view (merge plan marks, cherry-pickable), false for W2 (comparison marks).
+     */
+    private void runDiffView(boolean threeWay) {
+        final EditNodeAbstract marked = TreeDiffSides.getRemembered();
+        final EditNodeAbstract clicked = diffTargetNode();
+        final EditNodeAbstract other = pairRoot();
+        if (marked == null || clicked == null || other == null) {
+            return;
+        }
+        if (threeWay && !threeWayBaseAvailable()) {
+            return;
+        }
+        final EditTree oursTree = threeWayOursTree();
+        final EditNodeAbstract theirsRoot = TreeDiffSides.isRememberedAsLeft() ? other : marked;
+        if (oursTree == null || oursTree.getRoot() == null || lastInvoker == null) {
+            return;
+        }
+        if (clicked != marked) {
+            TreeDiffSides.rememberPartner(clicked, invokerModel());
+        }
+        final JackEditTreeContainer oursContainer
+                = DiffViewController.findOursContainer(oursTree.getRoot(), lastInvoker);
+        if (oursContainer == null) {
+            return;
+        }
+        DiffViewController.showContainerTab(oursContainer);
+        oursContainer.getDiffController().open(oursTree, theirsRoot,
+                threeWay ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2);
+    }
+
+    /**
+     * Tells whether the 3-way diff can run: the ours side (the LEFT role) must carry an import state as base.
+     *
+     * @return true when the base is available
+     */
+    private boolean threeWayBaseAvailable() {
+        final EditTree oursTree = threeWayOursTree();
+        return oursTree != null && oursTree.getBaseSnapshot() != null;
     }
 
     /**
