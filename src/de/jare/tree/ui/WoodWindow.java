@@ -6,6 +6,7 @@
  */
 package de.jare.tree.ui;
 
+import de.jare.jsoncasted.editor.core.EditProject;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.JsonWriteException;
@@ -59,6 +60,8 @@ public class WoodWindow extends JFrame {
     private JackUndoPanel jackPanel;
     private SearchResultPanel searchResultPanel;
     private JackFastLogPanel fastLogPanel;
+    // The project session of the editor (concept doc/JSON_PROJECT.md): null when no project session is open
+    private EditProject editProject;
     private final TreeFocusListener treeFocusListener;
     // The orator of the master control holds its listeners via weak references
     // only: the field keeps the listener reachable, otherwise the garbage
@@ -309,6 +312,72 @@ public class WoodWindow extends JFrame {
      * @param tree the Tree with the loaded content
      */
     public void addEditorTab(File file, EditTree tree) {
+        addEditorTab(file, tree, null, false);
+    }
+
+    /**
+     * Opens a project session in the editor (concept doc/JSON_PROJECT.md, phase 4): the main file becomes the
+     * editable tab identity, every sub resource of the parse project opens as a read only view on the SHARED
+     * EditTree (visibility axis: promoted FOREGROUND, read only first - decision 3 of the plan). A previously
+     * open project session closes; its tabs stay (their trees live on) unless a new project replaces them.
+     *
+     * @param mainFile the project's main resource file
+     * @param project the session clamp with the shared trees
+     */
+    public void openProject(File mainFile, EditProject project) throws JsonParseException {
+        if (editProject != null) {
+            editProject.close();
+        }
+        this.editProject = project;
+
+        addEditorTab(mainFile, project.getMainTree(), null, false);
+        for (final String synonym : project.getSortedSynonyms()) {
+            final EditTree tree = project.findBySynonym(synonym);
+            if (tree == null || tree == project.getMainTree()) {
+                continue;
+            }
+            final File treeFile = resourceFileOf(tree);
+            addEditorTab(treeFile, tree, "[" + synonym + "]", true);
+        }
+    }
+
+    /**
+     * Returns the open project session, or null when no project was opened.
+     *
+     * @return the edit project of the session, or null
+     */
+    public EditProject getEditProject() {
+        return editProject;
+    }
+
+    /**
+     * Closes the open project session (releases the shared trees and the parse project). The editor tabs keep
+     * their views - the session ends, the windows do what their user wants with them.
+     */
+    public void closeProject() {
+        if (editProject != null) {
+            editProject.close();
+            editProject = null;
+        }
+    }
+
+    private static File resourceFileOf(EditTree tree) {
+        if (tree == null || tree.getBaseSnapshot() == null || !tree.getBaseSnapshot().hasResourceFile()) {
+            return null;
+        }
+        return new File(tree.getBaseSnapshot().getResourceFile());
+    }
+
+    /**
+     * Adds a new editor tab with the loaded JSON content, optionally read only and with a title hint (the
+     * project sub resources open as read only views, concept doc/JSON_PROJECT.md visibility axis).
+     *
+     * @param file the JSON file that was loaded
+     * @param tree the Tree with the loaded content
+     * @param titleHint extra title text after the file name, or null for none
+     * @param readonly true when the tab must not edit its tree
+     */
+    public void addEditorTab(File file, EditTree tree, String titleHint, boolean readonly) {
         JackEditTreeContainer newContainer = new JackEditTreeContainer(
                 jackmaster,
                 THIS_SYNONYM,
@@ -318,9 +387,13 @@ public class WoodWindow extends JFrame {
         JackTreeModel model = new JackTreeModel(tree);
         newContainer.getLeftTree().getTree().setModel(model);
         newContainer.getLeftTree().refreshResourceInfo();
+        if (readonly) {
+            newContainer.getLeftTree().setReadonly(true);
+            newContainer.getRightTree().setReadonly(true);
+        }
         // newContainer.getLeftTree().getModel().rebuildFromDomain();
 
-        addEditorTab(file, newContainer);
+        addEditorTab(file, newContainer, titleHint);
     }
 
     /**
@@ -350,9 +423,23 @@ public class WoodWindow extends JFrame {
      * @param treeContainer the JackEditTreeContainer with the loaded content
      */
     private void addEditorTab(File file, JackEditTreeContainer treeContainer) {
+        addEditorTab(file, treeContainer, null);
+    }
+
+    /**
+     * Adds a new editor tab with the loaded JSON content.
+     *
+     * @param file the JSON file that was loaded
+     * @param treeContainer the JackEditTreeContainer with the loaded content
+     * @param titleHint extra title text after the file name, or null for none
+     */
+    private void addEditorTab(File file, JackEditTreeContainer treeContainer, String titleHint) {
         editorTrees.add(treeContainer);
         editorFiles.put(treeContainer, file);
         String tabTitle = file != null ? file.getName() : "New Editor";
+        if (titleHint != null && !titleHint.isBlank()) {
+            tabTitle = tabTitle + "  " + titleHint;
+        }
         JScrollPane scrollPane = wrapEditor(treeContainer);
         centerTabs.addTab(tabTitle, scrollPane);
         centerTabs.setSelectedComponent(scrollPane);
@@ -436,6 +523,8 @@ public class WoodWindow extends JFrame {
                 leftTree.close();
             }
         }
+        // the project session ends with the window - the clamp releases the shared trees
+        closeProject();
     }
 
     /**

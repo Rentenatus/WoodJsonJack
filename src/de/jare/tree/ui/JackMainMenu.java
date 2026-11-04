@@ -65,17 +65,23 @@ public class JackMainMenu extends JMenuBar {
 
         JMenuItem newItem = new JMenuItem("New");
         JMenuItem openItem = new JMenuItem("Open...");
+        JMenuItem openProjectItem = new JMenuItem("Open Project...");
+        JMenuItem closeProjectItem = new JMenuItem("Close Project");
         JMenuItem saveItem = new JMenuItem("Save");
         JMenuItem saveAsItem = new JMenuItem("Save As...");
         JMenuItem exitItem = new JMenuItem("Exit");
 
         exitItem.addActionListener(e -> woodWindow.dispose());
         openItem.addActionListener(e -> openJsonFile());
+        openProjectItem.addActionListener(e -> openJsonProject());
+        closeProjectItem.addActionListener(e -> woodWindow.closeProject());
         saveItem.addActionListener(e -> mainActions.saveActiveFile());
         saveAsItem.addActionListener(e -> mainActions.saveActiveFileAs());
 
         projectMenu.add(newItem);
         projectMenu.add(openItem);
+        projectMenu.add(openProjectItem);
+        projectMenu.add(closeProjectItem);
         projectMenu.add(saveItem);
         projectMenu.add(saveAsItem);
         projectMenu.addSeparator();
@@ -308,6 +314,22 @@ public class JackMainMenu extends JMenuBar {
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
             mainActions.loadJsonFile(selectedFile);
+        }
+    }
+
+    /**
+     * Opens a project session: the chosen file is the project's main resource; every provider file of its graph
+     * shares the ONE session (concept doc/JSON_PROJECT.md).
+     */
+    private void openJsonProject() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new FileNameExtensionFilter("JSON Files", "json"));
+        fileChooser.setDialogTitle("Open project (main resource file)");
+
+        int result = fileChooser.showOpenDialog(woodWindow);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            mainActions.loadJsonProject(selectedFile);
         }
     }
 

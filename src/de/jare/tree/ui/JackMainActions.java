@@ -7,6 +7,7 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
+import de.jare.jsoncasted.editor.core.EditProject;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.EditTreeWriter;
 import de.jare.jsoncasted.editor.core.JsonTreeConverter;
@@ -70,6 +71,25 @@ public class JackMainActions {
         } catch (IOException | JsonParseException e) {
             master.getFastLog().tryWrite("io", "Load failed: " + file.getName() + " - " + e.getMessage());
             woodWindow.showErrorDialog("Error opening file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Opens a project session (concept doc/JSON_PROJECT.md, phase 4): ONE parse project load, every resource
+     * converted exactly once, the main file as editable tab, the sub resources as read only views on the shared
+     * trees - B exists once, every tab sees the same EditTree.
+     *
+     * @param file the project's main resource file
+     */
+    public void loadJsonProject(File file) {
+        try {
+            final EditProject project = EditProject.open(file);
+            woodWindow.openProject(file, project);
+            master.getFastLog().tryWrite("io", "Loaded project " + file.getName()
+                    + " (" + project.getSortedSynonyms().size() + " resources)");
+        } catch (IOException | JsonParseException e) {
+            master.getFastLog().tryWrite("io", "Project load failed: " + file.getName() + " - " + e.getMessage());
+            woodWindow.showErrorDialog("Error opening project: " + e.getMessage());
         }
     }
 
