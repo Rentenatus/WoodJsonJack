@@ -70,6 +70,8 @@ public class WoodWindow extends JFrame {
     private JackFastLogPanel fastLogPanel;
     // The project session of the editor (concept doc/JSON_PROJECT.md): null when no project session is open
     private EditProject editProject;
+    // One shared instance for all save/diff actions of the window (the tab popup and the menu act together)
+    private JackMainActions mainActions;
     private final TreeFocusListener treeFocusListener;
     // The orator of the master control holds its listeners via weak references
     // only: the field keeps the listener reachable, otherwise the garbage
@@ -471,6 +473,70 @@ public class WoodWindow extends JFrame {
     }
 
     /**
+     * Returns the edit tree shown in the left pane of the given container, or null.
+     *
+     * @param container the tab's editor container, may be null
+     * @return its edit tree, or null
+     */
+    public EditTree treeOf(JackEditTreeContainer container) {
+        if (container == null || container.getLeftTree() == null || container.getLeftTree().getModel() == null) {
+            return null;
+        }
+        return container.getLeftTree().getModel().getEditTree();
+    }
+
+    /**
+     * Returns the file remembered for the given editor tab, or null.
+     *
+     * @param container the tab's editor container, may be null
+     * @return its file, or null
+     */
+    public File fileOf(JackEditTreeContainer container) {
+        return container == null ? null : editorFiles.get(container);
+    }
+
+    /**
+     * Remembers the file for the given editor tab, e.g. after a save-as from its tab popup.
+     *
+     * @param container the tab's editor container, not null
+     * @param file the file to remember
+     */
+    public void setFileOf(JackEditTreeContainer container, File file) {
+        editorFiles.put(container, file);
+    }
+
+    /**
+     * Returns the shared instance of the main actions (save, diff) - the menu and the tab popups act on it.
+     *
+     * @return the main actions, created lazily
+     */
+    public JackMainActions getMainActions() {
+        if (mainActions == null) {
+            mainActions = new JackMainActions(this, jackmaster);
+        }
+        return mainActions;
+    }
+
+    /**
+     * Returns the editor container that shows the given edit tree in a tab, or null.
+     *
+     * @param tree the tree to find, may be null
+     * @return its container, or null when no tab shows it
+     */
+    public JackEditTreeContainer tabOfTree(EditTree tree) {
+        return findContainerOf(tree);
+    }
+
+    /**
+     * Returns all loaded editor containers (the tab popup walks them to find a remembered side's tree).
+     *
+     * @return unmodifiable list of the loaded tabs
+     */
+    public List<JackEditTreeContainer> getAllContainers() {
+        return List.copyOf(editorTrees);
+    }
+
+    /**
      * Builds the closable tab header: the title label (the OUTDATED marker updates it) and the close button.
      * Only loaded editor tabs carry it - the two fixed start tabs stay as they are.
      */
@@ -487,6 +553,24 @@ public class WoodWindow extends JFrame {
         close.setToolTipText("Close this tab (a tree with unsaved changes asks first)");
         close.addActionListener(e -> closeEditorTab(container));
         header.add(close);
+        // the tab popup: save, save as, the disk diff and the diff pair entries of the root popup
+        header.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                maybeShowPopup(e);
+            }
+
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                maybeShowPopup(e);
+            }
+
+            private void maybeShowPopup(java.awt.event.MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    JackTabPopup.show(WoodWindow.this, container, header, e.getX(), e.getY());
+                }
+            }
+        });
         return header;
     }
 

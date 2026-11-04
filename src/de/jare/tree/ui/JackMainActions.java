@@ -106,26 +106,28 @@ public class JackMainActions {
      * @param trigger logging tag of the caller
      */
     public void diffActiveAgainstDisk(String trigger) {
-        diskDiff(trigger, null);
+        diskDiff(trigger, null, woodWindow.getActiveContainer());
     }
 
     /**
-     * Opens the disk diff with a FORCED kind - the save conflict offers the plain W2 user diff alongside the
-     * W3 merge view: left = the user's version, right = the disk version, only the direct comparison marks,
-     * no merge classification (nothing to pick from, nothing to decide - look, then decide in the dialog).
+     * Opens the disk diff for the given tab (the tab popup entry), with a FORCED kind - the save conflict
+     * offers the plain W2 user diff alongside the W3 merge view: left = the user's version, right = the disk
+     * version, only the direct comparison marks, no merge classification.
      *
      * @param trigger logging tag of the caller
      * @param forcedKind W2 for the plain user diff, or null for the automatic kind (W3 with a base state)
+     * @param container the tab whose tree is compared
      */
-    public void diskDiff(String trigger, DiffViewController.Kind forcedKind) {
-        final EditTree ours = woodWindow.getActiveEditTree();
-        final File file = woodWindow.getActiveFile();
+    public void diskDiff(String trigger, DiffViewController.Kind forcedKind,
+            de.jare.tree.ui.JackEditTreeContainer container) {
+        final EditTree ours = woodWindow.treeOf(container);
+        final File file = woodWindow.fileOf(container);
         if (ours == null) {
-            woodWindow.showErrorDialog("No active editor tree to compare.");
+            woodWindow.showErrorDialog("No editor tree to compare.");
             return;
         }
         if (file == null || !file.exists()) {
-            woodWindow.showErrorDialog("The active tab has no file on disk - nothing to compare.");
+            woodWindow.showErrorDialog("This tab has no file on disk - nothing to compare.");
             return;
         }
         try {
@@ -137,7 +139,6 @@ public class JackMainActions {
             final DiffViewController.Kind kind = forcedKind != null ? forcedKind
                     : (ours.getBaseSnapshot() != null
                         ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2);
-            final JackEditTreeContainer container = woodWindow.getActiveContainer();
             if (container == null) {
                 return;
             }
@@ -156,12 +157,25 @@ public class JackMainActions {
      * from disk) the save-as dialog is shown instead.
      */
     public void saveActiveFile() {
-        final File target = woodWindow.getActiveFile();
-        if (target == null) {
-            saveActiveFileAs();
+        saveTab(woodWindow.getActiveContainer());
+    }
+
+    /**
+     * Saves the tree of the given editor tab into its file. Without a known file (the tree was not loaded
+     * from disk) the save-as dialog is shown instead.
+     *
+     * @param container the tab to save, may be null (nothing happens then)
+     */
+    public void saveTab(de.jare.tree.ui.JackEditTreeContainer container) {
+        if (container == null) {
             return;
         }
-        writeActiveTree(target);
+        final File target = woodWindow.fileOf(container);
+        if (target == null) {
+            saveTabAs(container);
+            return;
+        }
+        writeTree(target, container);
     }
 
     /**
@@ -169,6 +183,19 @@ public class JackMainActions {
      * for the tab so the next save overwrites it.
      */
     public void saveActiveFileAs() {
+        saveTabAs(woodWindow.getActiveContainer());
+    }
+
+    /**
+     * Saves the tree of the given editor tab into a file chosen in a save dialog. The chosen file is remembered
+     * for the tab so the next save overwrites it.
+     *
+     * @param container the tab to save, may be null (nothing happens then)
+     */
+    public void saveTabAs(de.jare.tree.ui.JackEditTreeContainer container) {
+        if (container == null) {
+            return;
+        }
         final JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Save JSON file...");
         chooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
@@ -187,23 +214,24 @@ public class JackMainActions {
                 return;
             }
         }
-        if (writeActiveTree(target)) {
-            woodWindow.setActiveFile(target);
+        if (writeTree(target, container)) {
+            woodWindow.setFileOf(container, target);
         }
     }
 
     /**
-     * Writes the tree of the active editor tab with the tree writer (composite keys, transient filter) - behind
-     * the save guard of the project concept (doc/JSON_PROJECT.md): the two state axes of the active tree decide
+     * Writes the tree of the given editor tab with the tree writer (composite keys, transient filter) - behind
+     * the save guard of the project concept (doc/JSON_PROJECT.md): the two state axes of the tree decide
      * whether the plain overwrite is allowed. Only the EDITED+OUTDATED conflict asks: merge over the existing
      * 3-way rails (base = retained import state, ours = the tree, theirs = the external file), overwrite anyway,
      * or discard the own edits.
      *
      * @param target the file to write
-     * @return true when the tree was written, false on error or without an active tree
+     * @param container the tab whose tree is written
+     * @return true when the tree was written, false on error or without a tree
      */
-    private boolean writeActiveTree(File target) {
-        final EditTree tree = woodWindow.getActiveEditTree();
+    private boolean writeTree(File target, de.jare.tree.ui.JackEditTreeContainer container) {
+        final EditTree tree = woodWindow.treeOf(container);
         if (tree == null) {
             return false;
         }
@@ -281,7 +309,8 @@ public class JackMainActions {
                 diffActiveAgainstDisk("save conflict");
                 return false;
             case 1:
-                diskDiff("save conflict user diff", DiffViewController.Kind.W2);
+                diskDiff("save conflict user diff", DiffViewController.Kind.W2,
+                        woodWindow.getActiveContainer());
                 return false;
             case 2:
                 return true;

@@ -57,7 +57,7 @@ public class JackMainMenu extends JMenuBar {
     public JackMainMenu(WoodWindow mainFrame, JackMasterControl master) {
         this.woodWindow = mainFrame;
         this.master = master;
-        this.mainActions = new JackMainActions(mainFrame, master);
+        this.mainActions = mainFrame.getMainActions();
 
         // Project menu
         JMenu projectMenu = new JMenu("Project");
