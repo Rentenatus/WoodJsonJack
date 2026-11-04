@@ -8,9 +8,12 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditProject;
 import de.jare.jsoncasted.editor.core.EditTree;
+import de.jare.jsoncasted.editor.events.HistoryEvent;
+import de.jare.jsoncasted.editor.events.HistoryListener;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.JsonWriteException;
 import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
+import static de.jare.jsoncasted.lang.JsonTerms.SELF_SYNONYM;
 import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.listeners.ParseProblemsListener;
@@ -29,6 +32,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -352,6 +356,91 @@ public class WoodWindow extends JFrame {
             final File treeFile = resourceFileOf(tree);
             addEditorTab(treeFile, tree, "[" + synonym + "]", true);
         }
+        wireChangePropagation(project);
+    }
+
+    /**
+     * Change propagation (concept doc/JSON_PROJECT.md): the EDITABLE session trees get a history listener - a
+     * command that changes B notifies B's dependents (who references B's namespace): their tabs repaint (a
+     * changed wood id or link target changes what their references mean) and the fast log records the blast
+     * radius. Read only session views never edit, their histories stay silent.
+     *
+     * @param project the session to wire
+     */
+    private void wireChangePropagation(final EditProject project) {
+        for (final JackEditTreeContainer container : editorTrees) {
+            final EditTree tree = container.getLeftTree() != null
+                    && container.getLeftTree().getModel() != null
+                            ? container.getLeftTree().getModel().getEditTree() : null;
+            if (tree == null || container.getLeftTree().isReadonly()) {
+                continue;
+            }
+            final String synonym = sessionSynonymOf(project, tree);
+            if (synonym == null) {
+                continue;
+            }
+            jackmaster.getUndoManager().getManagerFor(container.getLeftTree().getModel()).getHistory()
+                    .addListener(new HistoryListener() {
+                        @Override
+                        public void onClear(HistoryEvent event) {
+                            // the propagation reacts to changes, not to clears
+                        }
+
+                        @Override
+                        public void onAction(HistoryEvent event) {
+                            if (HistoryEvent.ChangeType.CMD_EXECUTED.equals(event.getChangeType())
+                                    || HistoryEvent.ChangeType.CMD_UNDONE.equals(event.getChangeType())
+                                    || HistoryEvent.ChangeType.CMD_REDONE.equals(event.getChangeType())) {
+                                propagateChangeOf(project, synonym);
+                            }
+                        }
+                    });
+        }
+    }
+
+    /**
+     * Notifies the tabs of the dependents after a resource changed: repaint and a log line with the blast
+     * radius (the dependent lookup itself - the full R10 dependent list - is a later stage).
+     */
+    private void propagateChangeOf(final EditProject project, final String changedSynonym) {
+        final Set<String> dependents;
+        try {
+            dependents = project.getParseProject().getDependents(changedSynonym);
+        } catch (IllegalStateException ex) {
+            return;
+        }
+        if (dependents == null || dependents.isEmpty()) {
+            return;
+        }
+        for (final String dependent : dependents) {
+            final EditTree dependentTree = project.findBySynonym(dependent);
+            if (dependentTree == null) {
+                continue;
+            }
+            final JackEditTreeContainer container = findContainerOf(dependentTree);
+            if (container != null) {
+                container.getLeftTree().getTree().repaint();
+                container.getRightTree().getTree().repaint();
+            }
+        }
+        jackmaster.getFastLog().tryWrite("io", "Change of '" + changedSynonym
+                + "' radiates into: " + dependents);
+    }
+
+    private String sessionSynonymOf(EditProject project, EditTree tree) {
+        try {
+            if (project.getMainTree() == tree) {
+                return SELF_SYNONYM;
+            }
+            for (final String synonym : project.getSortedSynonyms()) {
+                if (project.findBySynonym(synonym) == tree) {
+                    return synonym;
+                }
+            }
+        } catch (JsonParseException ex) {
+            // an open session has no cycle (it opened)
+        }
+        return null;
     }
 
     /**
