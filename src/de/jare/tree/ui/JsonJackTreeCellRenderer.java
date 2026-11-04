@@ -64,20 +64,48 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
         if (data != null) {
             editLabel.setText(data.getName());
-            if (treeDiffMarks == null) {
-                String foreKey = WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey();
-                editLabel.setForeground(WoodSettings.INSTANCE.getShownTheme().getColor(foreKey));
-            }
             infoLabel.setText(data.rightString() + " ");
         } else {
             editLabel.setText(String.valueOf(value));
-            editLabel.setForeground(tree.getForeground());
             infoLabel.setText(" ");
         }
 
-        // mimic selection/focus according to JTree defaults
+        // The effective special color of this row, if any: the type/status color in edit mode, the diff mark color
+        // in diff mode (stale -> edited, taken -> disabled). It decides the selection bar: a special row INVERTS
+        // its spec when selected - the special color becomes the bar background and the row background the text
+        // color - so the row stays recognizable as what it is, selected or not. A row without a special color
+        // keeps the usual selection colors.
+        Color special = null;
+        if (treeDiffMarks == null) {
+            if (data != null) {
+                special = WoodSettings.INSTANCE.getShownTheme().getColor(
+                        WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey());
+                // the edit status color at WARNING/ERROR overlays the type key color - but only in edit mode: a
+                // tree in diff mode shows ONLY the diff colors, a parse red would read as a REMOVE mark
+                if (data.getEditStatus() == EditStatus.ERROR || data.getEditStatus() == EditStatus.WARNING) {
+                    final Color statusColor = WoodSettings.INSTANCE.getShownTheme().getColor(
+                            WoodSettings.INSTANCE.getColorPrefix() + "fore." + data.getEditStatus().getLiteral());
+                    if (statusColor != null) {
+                        special = statusColor;
+                    }
+                }
+            }
+        } else if (mark != null) {
+            if (mark.isTaken()) {
+                special = UIManager.getColor("Label.disabledForeground");
+            } else {
+                final DiffMark.MarkType type = stale ? DiffMark.MarkType.EDITED : mark.getType();
+                special = WoodSettings.INSTANCE.getShownTheme().getColor(
+                        WoodSettings.INSTANCE.getColorPrefix() + type.getThemeKey());
+            }
+        }
+
+        // the selection bar: inverted for special rows, the usual one otherwise
         Color bg, fg;
-        if (selected) {
+        if (selected && special != null) {
+            bg = special;
+            fg = tree.getBackground();
+        } else if (selected) {
             bg = UIManager.getColor("Tree.selectionBackground");
             fg = UIManager.getColor("Tree.selectionForeground");
         } else {
@@ -87,56 +115,18 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
 
         panel.setBackground(bg);
         panel.setOpaque(true);
-
-        // for readability the edit label gets the same base color as the tree
-        if (!selected) {
-            // edit mode: type key colors (object/property/array/annotation); diff mode: a neutral base - the type
-            // colors stay out of the diff view, ONLY the diff marks color their nodes
-            if (treeDiffMarks == null) {
-                String foreKey = data != null
-                        ? WoodSettings.INSTANCE.getColorPrefix() + data.getTypeKey() : null;
-                editLabel.setForeground(data != null ? WoodSettings.INSTANCE.getShownTheme().getColor(foreKey) : fg);
-            } else {
-                editLabel.setForeground(fg);
-            }
-
-            // the edit status color at WARNING/ERROR overlays the type key color - but only in edit mode: a tree
-            // in diff mode shows ONLY the diff colors, a parse red would read as a REMOVE mark
-            if (data != null && treeDiffMarks == null) {
-                EditStatus status = data.getEditStatus();
-                if (status == EditStatus.ERROR || status == EditStatus.WARNING) {
-                    String statusKey = WoodSettings.INSTANCE.getColorPrefix()
-                            + "fore." + status.getLiteral();
-                    Color statusColor = WoodSettings.INSTANCE.getShownTheme().getColor(statusKey);
-                    if (statusColor != null) {
-                        editLabel.setForeground(statusColor);
-                    }
-                }
-            }
-        } else {
-            editLabel.setForeground(fg);
-        }
+        // edit mode: the type/status color shows (edit mode special); diff mode: a neutral base - the type
+        // colors stay out of the diff view, ONLY the diff marks color their nodes
+        editLabel.setForeground(!selected && special != null ? special : fg);
         infoLabel.setForeground(selected
                 ? fg
                 : UIManager.getColor("Label.disabledForeground"));
 
         // tree diff view marks (concept CONCEPT_TreeDiffView.md sections 4 and 5): a tree without marks renders
-        // exactly as before. The mark color overlays the type and status colors and stays visible when selected -
-        // the mark is the point of the view.
-        if (mark != null) {
-            if (mark.isRadiating()) {
-                editLabel.setText(editLabel.getText() + " \u21bb");
-            }
-            if (mark.isTaken()) {
-                editLabel.setForeground(UIManager.getColor("Label.disabledForeground"));
-            } else {
-                final DiffMark.MarkType type = stale ? DiffMark.MarkType.EDITED : mark.getType();
-                final String markKey = WoodSettings.INSTANCE.getColorPrefix() + type.getThemeKey();
-                final Color markColor = WoodSettings.INSTANCE.getShownTheme().getColor(markKey);
-                if (markColor != null) {
-                    editLabel.setForeground(markColor);
-                }
-            }
+        // exactly as before; the radiating badge is the only text change, the colors flow through the special
+        // color above.
+        if (mark != null && mark.isRadiating()) {
+            editLabel.setText(editLabel.getText() + " \u21bb");
         }
 
         // tooltip with parse state, edit status and type info
