@@ -8,6 +8,7 @@ package de.jare.tree.ui;
 
 import de.jare.jsoncasted.diff.DeltaOp;
 import de.jare.jsoncasted.diff.DeltaType;
+import de.jare.jsoncasted.diff.DiffReport;
 import de.jare.jsoncasted.diff.DifferableNode;
 import de.jare.jsoncasted.diff.MergePlan;
 import de.jare.jsoncasted.diff.NodeValidator;
@@ -480,14 +481,18 @@ public final class DiffViewController {
     }
 
     /**
-     * Tells why a pick is not possible, or null when it is (concept section 7). Cherry-picking is W3-only - the
-     * merge plan protects the pick - and structural changes (MOVE/REORDER) stay deferred in v1.
+     * Tells why a pick is not possible, or null when it is (concept section 7). Picking takes a theirs change
+     * into ours through the one application rail - W3 protected by the merge plan, W2 with the mark's own
+     * report op (no merge plan exists for a plain pair); structural changes (MOVE/REORDER) stay deferred.
      *
      * @param mark the mark to check, may be null.
      * @return the hint for the user, or null when the pick may run.
      */
     public String pickHint(DiffMark mark) {
-        if (!open || kind != Kind.W3 || plan == null) {
+        if (!open) {
+            return "The diff view is closed.";
+        }
+        if (kind == Kind.W3 && plan == null) {
             return "Cherry-picking needs the W3 diff view (the merge plan protects the pick).";
         }
         if (mark == null) {
@@ -587,11 +592,12 @@ public final class DiffViewController {
 
     /**
      * Applies the deltas as one transaction and flags the taken marks of the right pane (identity match on the
-     * delta - the builder mapped the plan's own instances).
+     * delta - the builder mapped the plan's own instances). W2 picks carry a neutral plan - the report op
+     * carries everything the application needs, the plan only books the outcome.
      */
     private String applyAndFlag(List<DeltaOp> deltas, String what) {
-        final MergeOutcome outcome = EditTreeMerger.applyDeltas(oursTree, theirsCopyTree.getRoot(), plan,
-                deltas, history());
+        final MergeOutcome outcome = EditTreeMerger.applyDeltas(oursTree, theirsCopyTree.getRoot(),
+                planOrCarrier(), deltas, history());
         if (!outcome.isApplied()) {
             return String.join("\n", outcome.getProblems());
         }
@@ -618,6 +624,24 @@ public final class DiffViewController {
         return delta != null && delta.getType() != DeltaType.MOVE && delta.getType() != DeltaType.REORDER
                 ? delta : null;
     }
+
+    /**
+     * The plan of the application rail: the W3 merge plan, or the neutral carrier for W2 (an empty pair of
+     * reports - applyDeltas books its outcome on a plan, a plain pair has none, the report op carries
+     * everything the application itself needs).
+     */
+    private MergePlan planOrCarrier() {
+        if (plan != null) {
+            return plan;
+        }
+        if (neutralCarrier == null) {
+            neutralCarrier = new MergePlan(new DiffReport(), new DiffReport());
+        }
+        return neutralCarrier;
+    }
+
+    /** Neutral plan carrier of a W2 view, built on first pick. */
+    private MergePlan neutralCarrier;
 
     /**
      * Returns the undo history of the ours tab - every pick books its transaction there (one undo step per batch).
