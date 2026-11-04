@@ -13,9 +13,6 @@ import de.jare.jsoncasted.editor.core.EditTreeWriter;
 import de.jare.jsoncasted.editor.core.JsonTreeConverter;
 import de.jare.jsoncasted.editor.core.SaveGuard;
 import de.jare.debug.JsonDebugLevel;
-import de.jare.jsoncasted.diff.MergePlan;
-import de.jare.jsoncasted.editor.events.HistoryManager;
-import de.jare.jsoncasted.editor.merge.EditTreeMerger;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.parserservice.JsonParserService;
 import de.jare.jsoncasted.lang.JsonResource;
@@ -244,9 +241,10 @@ public class JackMainActions {
     }
 
     /**
-     * The EDITED+OUTDATED conflict decision: merge over the 3-way rails (the merge decision dialog books its
-     * transaction on the tree's history), overwrite anyway (the external change is lost), discard the own
-     * edits (reload) or cancel.
+     * The EDITED+OUTDATED conflict decision: the 3-way diff view of the working copy against the disk version
+     * (the merge IS the cherry picking there - conflicts show as conflict marks, take theirs equals a pick,
+     * keep mine equals leaving it), overwrite anyway (the external change is lost), discard the own edits
+     * (reload) or cancel.
      *
      * @param tree the tree with unsaved edits
      * @param target the externally changed file
@@ -256,13 +254,14 @@ public class JackMainActions {
         final Object[] options = {"Merge (3-way)", "Overwrite anyway", "Discard my edits", "Cancel"};
         final int answer = JOptionPane.showOptionDialog(woodWindow,
                 "The file changed externally while you have unsaved edits.\n"
-                + "Merge over the 3-way rails (base = import state, ours = your tree, theirs = the file),\n"
-                + "overwrite the external change, or discard your edits?",
+                + "Merge opens the 3-way diff view (base = import state, ours = your tree, theirs = the disk)"
+                + " - the cherry picks there are the merge.\n"
+                + "Overwrite the external change, or discard your edits?",
                 "Save conflict", JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE,
                 null, options, options[0]);
         switch (answer) {
             case 0:
-                mergeWithExternalFile(tree, target);
+                diffActiveAgainstDisk("save conflict");
                 return false;
             case 1:
                 return true;
@@ -271,27 +270,6 @@ public class JackMainActions {
                 return false;
             default:
                 return false;
-        }
-    }
-
-    /**
-     * Opens the 3-way merge decision against the external file state (doc/TREE_DIFF.md rails: base = the
-     * retained import state of the tree, ours = the tree, theirs = the fresh edit import of the changed file).
-     */
-    private void mergeWithExternalFile(EditTree tree, File target) {
-        try {
-            final EditTree theirs = JsonTreeConverter.fromJsonFile(target);
-            if (theirs == null || theirs.getRoot() == null) {
-                return;
-            }
-            final MergePlan plan = EditTreeMerger.analyze(tree, theirs.getRoot());
-            final HistoryManager history
-                    = master.getUndoManager().getManagerFor(woodWindow.getActiveContainer()
-                            .getLeftTree().getModel()).getHistory();
-            new MergeDecisionDialog(woodWindow, tree, theirs.getRoot(), plan, history).setVisible(true);
-        } catch (IOException | JsonParseException e) {
-            master.getFastLog().tryWrite("io", "Merge analysis failed: " + e.getMessage());
-            woodWindow.showErrorDialog("Merge analysis failed: " + e.getMessage());
         }
     }
 
