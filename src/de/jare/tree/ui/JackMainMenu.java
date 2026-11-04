@@ -67,6 +67,7 @@ public class JackMainMenu extends JMenuBar {
         JMenuItem openItem = new JMenuItem("Open...");
         JMenuItem openProjectItem = new JMenuItem("Open Project...");
         JMenuItem closeProjectItem = new JMenuItem("Close Project");
+        JMenuItem showResourceItem = new JMenuItem("Show Project Resource...");
         JMenuItem saveItem = new JMenuItem("Save");
         JMenuItem saveAsItem = new JMenuItem("Save As...");
         JMenuItem diffChangesItem = new JMenuItem("Diff Changes (vs. Disk)");
@@ -76,6 +77,7 @@ public class JackMainMenu extends JMenuBar {
         openItem.addActionListener(e -> openJsonFile());
         openProjectItem.addActionListener(e -> openJsonProject());
         closeProjectItem.addActionListener(e -> woodWindow.closeProject());
+        showResourceItem.addActionListener(e -> showProjectResource());
         saveItem.addActionListener(e -> mainActions.saveActiveFile());
         saveAsItem.addActionListener(e -> mainActions.saveActiveFileAs());
         diffChangesItem.addActionListener(e -> mainActions.diffActiveAgainstDisk("menu diff changes"));
@@ -84,6 +86,7 @@ public class JackMainMenu extends JMenuBar {
         projectMenu.add(openItem);
         projectMenu.add(openProjectItem);
         projectMenu.add(closeProjectItem);
+        projectMenu.add(showResourceItem);
         projectMenu.add(saveItem);
         projectMenu.add(saveAsItem);
         projectMenu.add(diffChangesItem);
@@ -317,6 +320,30 @@ public class JackMainMenu extends JMenuBar {
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
             mainActions.loadJsonFile(selectedFile);
+        }
+    }
+
+    /**
+     * Promotes a project resource to its own tab (visibility axis, concept doc/JSON_PROJECT.md): a closed
+     * session resource is BACKGROUND - this opens (or selects) its read only view.
+     */
+    private void showProjectResource() {
+        final de.jare.jsoncasted.editor.core.EditProject project = woodWindow.getEditProject();
+        if (project == null) {
+            JOptionPane.showMessageDialog(woodWindow,
+                    "No project session is open (Project > Open Project... first).",
+                    "Show Project Resource", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        try {
+            final String[] synonyms = project.getSortedSynonyms().toArray(new String[0]);
+            final Object chosen = JOptionPane.showInputDialog(woodWindow, "Project resource:",
+                    "Show Project Resource", JOptionPane.PLAIN_MESSAGE, null, synonyms, synonyms[0]);
+            if (chosen instanceof String synonym) {
+                woodWindow.showProjectResource(synonym);
+            }
+        } catch (de.jare.jsoncasted.io.JsonParseException ex) {
+            woodWindow.showErrorDialog("Project graph error: " + ex.getMessage());
         }
     }
 

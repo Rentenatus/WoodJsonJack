@@ -214,6 +214,8 @@ public class JackMainActions {
             EditTreeWriter.toJsonFile(target, tree);
             refreshMergeBaseAfterSave(tree, target);
             master.getFastLog().tryWrite("io", "Saved " + target.getName());
+            // the save refreshed the fingerprint - the (outdated) markers may go
+            woodWindow.refreshOutdatedMarkers();
             return true;
         } catch (IOException e) {
             master.getFastLog().tryWrite("io", "Save failed: " + target.getName() + " - " + e.getMessage());

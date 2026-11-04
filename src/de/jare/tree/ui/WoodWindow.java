@@ -54,6 +54,10 @@ public class WoodWindow extends JFrame {
     private final ThemeSuite themeSuite;
     private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
     private final Map<JackEditTreeContainer, File> editorFiles = new HashMap<>();
+    // the loaded tabs' scroll panes and base titles - the closable headers carry the titles, the OUTDATED
+    // markers rewrite them (concept doc/JSON_PROJECT.md phase 4)
+    private final Map<JackEditTreeContainer, JScrollPane> containerPanes = new HashMap<>();
+    private final Map<JackEditTreeContainer, String> containerTitles = new HashMap<>();
     private PreferencesDialog preferencesDialog;
     private final List<Consumer<Boolean>> darkModeListeners = new ArrayList<>();
     private JackClipboardPanel jackClipboardPanel;
@@ -132,6 +136,7 @@ public class WoodWindow extends JFrame {
                 JackEditTreeContainer container = editorTrees.get(idx);
                 jackmaster.setActiveEditor(container.getLeftTree(), this);
             }
+            refreshOutdatedMarkers();
         });
 
         treeFocusListener = new TreeFocusListener() {
@@ -219,6 +224,14 @@ public class WoodWindow extends JFrame {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
                 shutdownEditors();
+            }
+        });
+
+        // the file-currency axis surfaces on focus: external changes show as (outdated) in the tab titles
+        addWindowFocusListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowGainedFocus(java.awt.event.WindowEvent e) {
+                refreshOutdatedMarkers();
             }
         });
     }
@@ -369,6 +382,157 @@ public class WoodWindow extends JFrame {
     }
 
     /**
+     * Builds the closable tab header: the title label (the OUTDATED marker updates it) and the close button.
+     * Only loaded editor tabs carry it - the two fixed start tabs stay as they are.
+     */
+    private java.awt.Component createTabHeader(JLabel titleLabel, JackEditTreeContainer container) {
+        final JPanel header = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
+        header.setOpaque(false);
+        header.add(titleLabel);
+        final JButton close = new JButton("\u2715");
+        close.setFont(close.getFont().deriveFont(9f));
+        close.setMargin(new java.awt.Insets(0, 4, 0, 0));
+        close.setBorderPainted(false);
+        close.setContentAreaFilled(false);
+        close.setFocusable(false);
+        close.setToolTipText("Close this tab (a tree with unsaved changes asks first)");
+        close.addActionListener(e -> closeEditorTab(container));
+        header.add(close);
+        return header;
+    }
+
+    /**
+     * Closes one loaded editor tab (close guard, concept doc/JSON_PROJECT.md phase 4): a tree with unsaved
+     * changes asks before it goes; session trees of an open project are NOT closed on the EditTree level -
+     * the session owns them, the tab only loses its view (promote it again any time). Plain file tabs stop
+     * their parsers, exactly like the window close does.
+     *
+     * @param container the tab's editor container
+     */
+    public void closeEditorTab(JackEditTreeContainer container) {
+        final EditTree tree = container.getLeftTree() != null && container.getLeftTree().getModel() != null
+                ? container.getLeftTree().getModel().getEditTree() : null;
+        if (tree != null && tree.isEdited()) {
+            final int answer = JOptionPane.showConfirmDialog(this,
+                    "This tab carries unsaved changes.\nClose it anyway (the changes are lost)?",
+                    "Close tab", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (answer != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+        final JScrollPane pane = containerPanes.remove(container);
+        if (pane != null) {
+            centerTabs.remove(pane);
+        }
+        editorTrees.remove(container);
+        editorFiles.remove(container);
+        containerTitles.remove(container);
+
+        container.getLeftTree().stopParseRefreshTimer();
+        container.getRightTree().stopParseRefreshTimer();
+        if (tree != null && !isSessionTree(tree) && tree.isParserRunning()) {
+            tree.stopParserService();
+            tree.close();
+        }
+    }
+
+    /**
+     * Tells whether the tree belongs to the open project session - session trees stay alive after their tab
+     * closes (the session owns them, they come back via promote).
+     */
+    private boolean isSessionTree(EditTree tree) {
+        if (editProject == null || tree == null) {
+            return false;
+        }
+        if (editProject.getMainTree() == tree) {
+            return true;
+        }
+        try {
+            for (final String synonym : editProject.getSortedSynonyms()) {
+                if (tree == editProject.findBySynonym(synonym)) {
+                    return true;
+                }
+            }
+        } catch (JsonParseException ex) {
+            // an open session has no cycle (it opened); safety net, never expected
+        }
+        return false;
+    }
+
+    /**
+     * Promotes a project resource to its own tab again (visibility axis, concept doc/JSON_PROJECT.md): a
+     * closed session resource is BACKGROUND - this opens (or selects) its read only view.
+     *
+     * @param synonym the session synonym of the resource
+     */
+    public void showProjectResource(String synonym) {
+        final EditProject project = getEditProject();
+        if (project == null) {
+            return;
+        }
+        final EditTree tree = project.findBySynonym(synonym);
+        if (tree == null) {
+            return;
+        }
+        final JackEditTreeContainer open = findContainerOf(tree);
+        if (open != null) {
+            final JScrollPane pane = containerPanes.get(open);
+            if (pane != null) {
+                centerTabs.setSelectedComponent(pane);
+            }
+            return;
+        }
+        addEditorTab(resourceFileOf(tree), tree, "[" + synonym + "]", true);
+    }
+
+    private JackEditTreeContainer findContainerOf(EditTree tree) {
+        for (final JackEditTreeContainer container : editorTrees) {
+            final EditTree candidate = container.getLeftTree() != null
+                    && container.getLeftTree().getModel() != null
+                            ? container.getLeftTree().getModel().getEditTree() : null;
+            if (candidate == tree) {
+                return container;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Refreshes the OUTDATED markers of all loaded tabs (concept file-currency axis made visible): a tree
+     * whose origin file changed externally gets the marker in its tab title until the tab re-imports or
+     * saves. Called on tab switches, window focus and after saves.
+     */
+    public void refreshOutdatedMarkers() {
+        for (final Map.Entry<JackEditTreeContainer, String> entry : containerTitles.entrySet()) {
+            final JackEditTreeContainer container = entry.getKey();
+            final EditTree tree = container.getLeftTree() != null
+                    && container.getLeftTree().getModel() != null
+                            ? container.getLeftTree().getModel().getEditTree() : null;
+            final String title = tree != null && tree.isOutdated()
+                    ? entry.getValue() + "  (outdated)" : entry.getValue();
+            final JScrollPane pane = containerPanes.get(container);
+            if (pane == null) {
+                continue;
+            }
+            final int index = centerTabs.indexOfComponent(pane);
+            if (index >= 0) {
+                // the header component carries the title label - find it and update its text
+                final java.awt.Component header = centerTabs.getTabComponentAt(index);
+                if (header instanceof JPanel panel) {
+                    for (int i = 0; i < panel.getComponentCount(); i++) {
+                        if (panel.getComponent(i) instanceof JLabel label) {
+                            if (!title.equals(label.getText())) {
+                                label.setText(title);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Adds a new editor tab with the loaded JSON content, optionally read only and with a title hint (the
      * project sub resources open as read only views, concept doc/JSON_PROJECT.md visibility axis).
      *
@@ -443,6 +607,13 @@ public class WoodWindow extends JFrame {
         JScrollPane scrollPane = wrapEditor(treeContainer);
         centerTabs.addTab(tabTitle, scrollPane);
         centerTabs.setSelectedComponent(scrollPane);
+
+        // the closable header (the tab title lives here - the OUTDATED marker updates this label too)
+        containerPanes.put(treeContainer, scrollPane);
+        containerTitles.put(treeContainer, tabTitle);
+        final JLabel titleLabel = new JLabel(tabTitle);
+        centerTabs.setTabComponentAt(centerTabs.getTabCount() - 1,
+                createTabHeader(titleLabel, treeContainer));
 
         // Add popup to the new tree
         JackEditPopup jackPopup = new JackEditPopup(jackmaster);
