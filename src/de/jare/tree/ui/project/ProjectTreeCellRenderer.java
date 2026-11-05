@@ -69,6 +69,16 @@ public class ProjectTreeCellRenderer extends DefaultTreeCellRenderer {
             if (node.getError() != null) {
                 setText(node.toString() + " [!!]");
             }
+            // the main file of its bundle: the star prefix (space before the name) - the one
+            // file open and diff actions focus, visible at a glance inside the bundle
+            if (node.getKind() == ProjectTreeNode.Kind.FILE
+                    && node.getParent() instanceof ProjectTreeNode parentBundle
+                    && parentBundle.getKind() == ProjectTreeNode.Kind.BUNDLE
+                    && parentBundle.getDescriptor() != null
+                    && node.getFile() != null
+                    && node.getFile().getName().equals(parentBundle.getDescriptor().getMain())) {
+                setText("★ " + node.toString());
+            }
             if (sel) {
                 setForeground(null);
             } else if (node.getError() != null) {
