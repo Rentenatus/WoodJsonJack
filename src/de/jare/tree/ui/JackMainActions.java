@@ -332,9 +332,8 @@ public class JackMainActions {
     }
 
     /**
-     * Core of the bundle folder: creates the bundle folder below the first json partition with
-     * a minimal descriptor (main file only, no imports) and an empty JSON main file. Rollback
-     * like the materializer: a failure leaves no half bundle folder.
+     * Core of "Project > Add Folder > bundle" for the menu: the first json partition is the
+     * host (bundles are discovered by the scan of json partitions, concept section 3).
      *
      * @param bundleName the plain name of the new bundle folder
      * @return true when the bundle was created; false when refused or failed (nothing left over)
@@ -346,24 +345,62 @@ public class JackMainActions {
         if (document == null || projectRoot == null) {
             return false;
         }
+        for (Partition partition : document.getRoots()) {
+            if (partition != null && partition.getType() == PartitionType.JSON) {
+                boolean added = addProjectBundleIn(partition.resolve(projectRoot), bundleName);
+                if (added) {
+                    sidebar.refreshProject();
+                }
+                return added;
+            }
+        }
+        master.getFastLog().tryWrite("io", "Bundle not added: the project has no json partition "
+                + "- add a json folder first (Project > Add Folder > json).");
+        return false;
+    }
+
+    /**
+     * Popup path "New bundle here" on a folder inside a json partition: the clicked folder is
+     * the host - bundles nest, so any json-world folder can receive one. When the user
+     * cancelled, nothing happens; when the name was refused, the why lives in the fast log.
+     *
+     * @param hostFolder the clicked folder that receives the bundle subfolder
+     */
+    public boolean addBundleTo(File hostFolder) {
+        Object answer = JOptionPane.showInputDialog(woodWindow,
+                "Name of the bundle (created inside " + hostFolder.getName() + "):",
+                "New bundle folder", JOptionPane.PLAIN_MESSAGE, null, null, "freshBundle");
+        if (answer == null) {
+            return false; // cancelled
+        }
+        boolean added = addProjectBundleIn(hostFolder, String.valueOf(answer));
+        if (!added) {
+            woodWindow.showErrorDialog("The bundle was not added:\n"
+                    + String.valueOf(answer) + "\n(the name is taken or invalid - the fast log has the details)");
+        }
+        return added;
+    }
+
+    /**
+     * Core of the bundle folder: creates the bundle folder below the given host folder with a
+     * minimal descriptor (main file only, no imports) and an empty JSON main file. Rollback
+     * like the materializer: a failure leaves no half bundle folder.
+     *
+     * @param hostFolder the folder that receives the new bundle subfolder
+     * @param bundleName the plain name of the new bundle folder
+     * @return true when the bundle was created; false when refused or failed (nothing left over)
+     */
+    public boolean addProjectBundleIn(File hostFolder, String bundleName) {
+        if (hostFolder == null || !hostFolder.isDirectory()) {
+            master.getFastLog().tryWrite("io", "Bundle not added: the host folder does not exist.");
+            return false;
+        }
         if (bundleName == null || !bundleName.matches("[A-Za-z0-9._\\-]+")) {
             master.getFastLog().tryWrite("io", "Bundle not added: '" + bundleName
                     + "' is not a plain folder name.");
             return false;
         }
-        Partition jsonHost = null;
-        for (Partition partition : document.getRoots()) {
-            if (partition != null && partition.getType() == PartitionType.JSON) {
-                jsonHost = partition;
-                break;
-            }
-        }
-        if (jsonHost == null) {
-            master.getFastLog().tryWrite("io", "Bundle not added: the project has no json partition "
-                    + "- add a json folder first (Project > Add Folder > json).");
-            return false;
-        }
-        File bundleFolder = new File(jsonHost.resolve(projectRoot), bundleName);
+        File bundleFolder = new File(hostFolder, bundleName);
         if (bundleFolder.exists()) {
             master.getFastLog().tryWrite("io", "Bundle not added: " + bundleFolder.getAbsolutePath()
                     + " already exists.");
@@ -396,9 +433,204 @@ public class JackMainActions {
                 deleteRecursively(bundleFolder);
             }
         }
-        sidebar.refreshProject();
-        master.getFastLog().tryWrite("io", "Added bundle '" + bundleName + "' into partition '"
-                + jsonHost.getName() + "'");
+        master.getFastLog().tryWrite("io", "Added bundle '" + bundleName + "' into " + hostFolder.getName());
+        return true;
+    }
+
+    /**
+     * Popup path "New subfolder": asks for the name and creates a plain subfolder. The projection
+     * shows it as a folder node; no partition role is involved (that is Project > Add Folder).
+     *
+     * @param folder the folder that receives the subfolder
+     * @return true when the subfolder was created; false when cancelled or refused
+     */
+    public boolean addSubfolderTo(File folder) {
+        Object answer = JOptionPane.showInputDialog(woodWindow,
+                "Name of the new subfolder:", "New folder",
+                JOptionPane.PLAIN_MESSAGE, null, null, "newFolder");
+        if (answer == null) {
+            return false; // cancelled
+        }
+        boolean added = addSubfolderAt(folder, String.valueOf(answer));
+        if (!added) {
+            woodWindow.showErrorDialog("The subfolder was not added:\n"
+                    + String.valueOf(answer) + "\n(the name is taken or invalid - the fast log has the details)");
+        }
+        return added;
+    }
+
+    /**
+     * Core of the plain subfolder: refuses existing names and invalid spellings, creates nothing
+     * else. Read-only mounts are the caller's responsibility (the popup does not offer it there).
+     *
+     * @param folder the parent folder
+     * @param name the plain subfolder name
+     * @return true when the folder exists afterwards and was fresh
+     */
+    public boolean addSubfolderAt(File folder, String name) {
+        if (folder == null || !folder.isDirectory()) {
+            return false;
+        }
+        if (name == null || !name.matches("[A-Za-z0-9._\\-]+")) {
+            master.getFastLog().tryWrite("io", "Folder not added: '" + name
+                    + "' is not a plain folder name.");
+            return false;
+        }
+        File sub = new File(folder, name);
+        if (sub.exists()) {
+            master.getFastLog().tryWrite("io", "Folder not added: " + sub.getAbsolutePath()
+                    + " already exists.");
+            return false;
+        }
+        if (!sub.mkdir()) {
+            master.getFastLog().tryWrite("io", "Folder not added: " + sub.getAbsolutePath()
+                    + " could not be created.");
+            return false;
+        }
+        master.getFastLog().tryWrite("io", "Added folder '" + name + "' into " + folder.getName());
+        return true;
+    }
+
+    /**
+     * Popup path for a typed file (New JSON file / New Java file / ...): asks for the name and
+     * writes the file with the role's template below the given folder. The template may carry
+     * the placeholder {@code {stem}} - it is replaced by the typed name without its extension
+     * (the Java skeleton names its class like the file).
+     *
+     * @param folder the parent folder
+     * @param title the dialog title
+     * @param suggestedName the pre-filled file name (role typical)
+     * @param template the file content template, or null for an empty file
+     * @return true when the file was written; false when cancelled or refused
+     */
+    public boolean addFileTo(File folder, String title, String suggestedName, String template) {
+        Object answer = JOptionPane.showInputDialog(woodWindow,
+                "Name of the new file:", title,
+                JOptionPane.PLAIN_MESSAGE, null, null, suggestedName);
+        if (answer == null) {
+            return false; // cancelled
+        }
+        String fileName = String.valueOf(answer);
+        String content = template;
+        if (content != null && content.contains("{stem}")) {
+            String stem = fileName.toLowerCase().lastIndexOf('.') > 0
+                    ? fileName.substring(0, fileName.lastIndexOf('.')) : fileName;
+            content = content.replace("{stem}", stem);
+        }
+        boolean added = addFileAt(folder, fileName, content);
+        if (!added) {
+            woodWindow.showErrorDialog("The file was not added:\n"
+                    + fileName + "\n(the name is taken or invalid - the fast log has the details)");
+        }
+        return added;
+    }
+
+    /**
+     * Core of the file creation: plain name gate, refuse existing, one template write - the
+     * copy of the materializer's honesty rules for single files.
+     *
+     * @param folder the parent folder
+     * @param fileName the plain file name (with extension)
+     * @param template the content, or null for an empty file
+     * @return true when the file was written; false when refused or failed (nothing left over)
+     */
+    public boolean addFileAt(File folder, String fileName, String template) {
+        if (folder == null || !folder.isDirectory()) {
+            return false;
+        }
+        if (fileName == null || !fileName.matches("[A-Za-z0-9._\\-]+")) {
+            master.getFastLog().tryWrite("io", "File not added: '" + fileName
+                    + "' is not a plain file name.");
+            return false;
+        }
+        File file = new File(folder, fileName);
+        if (file.exists()) {
+            master.getFastLog().tryWrite("io", "File not added: " + file.getAbsolutePath()
+                    + " already exists.");
+            return false;
+        }
+        try {
+            java.nio.file.Files.writeString(file.toPath(), template != null ? template : "");
+        } catch (IOException e) {
+            master.getFastLog().tryWrite("io", "File not added: " + fileName + " - " + e.getMessage());
+            file.delete();
+            return false;
+        }
+        master.getFastLog().tryWrite("io", "Added file '" + fileName + "' into " + folder.getName());
+        return true;
+    }
+
+    /**
+     * Popup path "New JSON resource" on a bundle: asks for the name and creates the file AND
+     * declares it in the bundle descriptor (the bundle subtree renders the descriptor's meaning,
+     * concept section 4 - an undeclared file would hang below "undeclared" instead).
+     *
+     * @param bundleFolder the bundle folder (contains .woodbundle.json)
+     */
+    public boolean addBundleResourceTo(File bundleFolder) {
+        Object answer = JOptionPane.showInputDialog(woodWindow,
+                "Name of the new JSON resource (declared in the bundle descriptor):",
+                "New bundle resource", JOptionPane.PLAIN_MESSAGE, null, null, "newResource.json");
+        if (answer == null) {
+            return false; // cancelled
+        }
+        boolean added = addBundleResourceAt(bundleFolder, String.valueOf(answer));
+        if (!added) {
+            woodWindow.showErrorDialog("The resource was not added:\n"
+                    + String.valueOf(answer) + "\n(the name is taken or invalid - the fast log has the details)");
+        }
+        return added;
+    }
+
+    /**
+     * Core of the bundle resource: writes the JSON file and appends it to the descriptor's file
+     * list. Nothing is written when the name is refused; the file write and the descriptor
+     * update happen in that order, a failed descriptor update removes the fresh file again -
+     * no half state survives.
+     *
+     * @param bundleFolder the bundle folder (contains .woodbundle.json)
+     * @param fileName the plain resource file name
+     * @return true when file and descriptor agree afterwards; false when refused or failed
+     */
+    public boolean addBundleResourceAt(File bundleFolder, String fileName) {
+        if (bundleFolder == null || !bundleFolder.isDirectory()) {
+            return false;
+        }
+        ProjectFileService service = new ProjectFileService();
+        if (fileName == null || !fileName.matches("[A-Za-z0-9._\\-]+")) {
+            master.getFastLog().tryWrite("io", "Resource not added: '" + fileName
+                    + "' is not a plain file name.");
+            return false;
+        }
+        File file = new File(bundleFolder, fileName);
+        if (file.exists()) {
+            master.getFastLog().tryWrite("io", "Resource not added: " + file.getAbsolutePath()
+                    + " already exists.");
+            return false;
+        }
+        try {
+            de.jare.jsoncasted.project.BundleDescriptor descriptor
+                    = service.loadBundleDescriptor(bundleFolder);
+            java.nio.file.Files.writeString(file.toPath(), "{}");
+            boolean complete = false;
+            try {
+                if (!descriptor.getFiles().contains(fileName)) {
+                    descriptor.getFiles().add(fileName);
+                }
+                service.saveBundleDescriptor(bundleFolder, descriptor);
+                complete = true;
+            } finally {
+                if (!complete) {
+                    file.delete();
+                }
+            }
+        } catch (IOException | JsonParseException | de.jare.jsoncasted.model.JsonBuildException
+                | JsonWriteException e) {
+            master.getFastLog().tryWrite("io", "Resource not added: " + fileName + " - " + e.getMessage());
+            file.delete();
+            return false;
+        }
+        master.getFastLog().tryWrite("io", "Added bundle resource '" + fileName + "'");
         return true;
     }
 

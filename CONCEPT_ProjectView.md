@@ -19,6 +19,7 @@ It builds on what exists and is live-tested today:
 | Project history as `user-home/.wood/projects.json` (MRU list, most recent first, dedup per folder, cap 10) + "Open Recent" sub menu | built | `ProjectHistory` / `SettingsService` / `JackMainMenu` (WoodJsonJack) |
 | Startup reopen: the history's front project opens itself, a vanished folder is skipped silently | built | `WoodWindow.reopenLastProject` (WoodJsonJack) |
 | Add Folder menu: partition roles (src/test/assets/json/gen/target) create folder + partition entry, "bundle" creates an empty bundle in the json partition; duplicates and unnames refused without side effects | built | `JackMainActions.addProjectFolderAt/addProjectBundleAt` / `JackMainMenu` (WoodJsonJack) |
+| Tree popups: the root offers Add Folder + whole-project refresh, folder nodes get type-appropriate New items (json: JSON file/nested bundle, src/test: Java file, assets: file, bundle: declared JSON resource), read-only mounts get none; the expansion itself loads (treeWillExpand -> lazyLoad, the placeholder never survives an expand) | built | `ProjectSidebar.appendNewItems` / `lazyLoad` / `JackMainActions.addProjectBundleIn/addFileAt/addSubfolderAt/addBundleResourceAt` (WoodJsonJack) |
 | `ProjektEntry` / `ProjectSettings` / `knownProjects` — the older settings-side project concept; its name is now free of the bundle family | built | `de.jare.tree.settings.project` (unchanged, kept as is) |
 | Cross-file link resolution (`WoodProxyResolver`, `_woodProviders` / `_woodLink`) | built | jsonCasted |
 

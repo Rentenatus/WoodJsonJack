@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -96,7 +97,7 @@ public class ProjectSidebar extends JPanel {
         tree.addTreeWillExpandListener(new TreeWillExpandListener() {
             @Override
             public void treeWillExpand(TreeExpansionEvent event) throws ExpandVetoException {
-                lazyLoad(event.getPath());
+                lazyLoad(event.getPath().getLastPathComponent());
             }
 
             @Override
@@ -304,6 +305,103 @@ public class ProjectSidebar extends JPanel {
         }
     }
 
+    /**
+     * The type-appropriate "New" entries of a folder node (concept section 2: the role decides
+     * the behavior): a json partition offers JSON files and nested bundles, src/test offer Java
+     * files, assets offer a plain file - everywhere a subfolder. Read-only mounts (gen, target,
+     * isolated) get nothing: nobody creates into a stand they only look at. A bundle gets the
+     * one thing that makes sense inside it: a declared JSON resource.
+     *
+     * @param popup the popup under construction
+     * @param node the clicked node
+     */
+    private void appendNewItems(JPopupMenu popup, ProjectTreeNode node) {
+        if (!hasProject()) {
+            return;
+        }
+        final ProjectTreeNode.Kind kind = node.getKind();
+        if (kind != ProjectTreeNode.Kind.PARTITION && kind != ProjectTreeNode.Kind.FOLDER
+                && kind != ProjectTreeNode.Kind.BUNDLE) {
+            return;
+        }
+        if (node.isReadonlyMount()) {
+            return;
+        }
+        if (kind == ProjectTreeNode.Kind.BUNDLE) {
+            JMenuItem resource = new JMenuItem("New JSON resource...");
+            resource.setToolTipText("Create a JSON file and declare it in the bundle descriptor");
+            resource.addActionListener(ev -> {
+                if (window.getMainActions().addBundleResourceTo(node.getFile())) {
+                    reloadSubtree(node);
+                }
+            });
+            popup.add(resource);
+            popup.addSeparator();
+            return;
+        }
+        final PartitionType type = node.enclosingPartitionType();
+        if (type == PartitionType.JSON) {
+            JMenuItem jsonFile = new JMenuItem("New JSON file...");
+            jsonFile.setToolTipText("An empty JSON file below " + node);
+            jsonFile.addActionListener(ev -> {
+                if (window.getMainActions().addFileTo(node.getFile(),
+                        "New JSON file", "newFile.json", "{}")) {
+                    reloadSubtree(node);
+                }
+            });
+            popup.add(jsonFile);
+            JMenuItem bundleHere = new JMenuItem("New bundle...");
+            bundleHere.setToolTipText("An empty bundle folder below " + node + " (bundles can nest)");
+            bundleHere.addActionListener(ev -> {
+                if (window.getMainActions().addBundleTo(node.getFile())) {
+                    reloadSubtree(node);
+                }
+            });
+            popup.add(bundleHere);
+        } else if (type == PartitionType.SRC || type == PartitionType.TEST) {
+            JMenuItem javaFile = new JMenuItem("New Java file...");
+            javaFile.setToolTipText("A Java skeleton below " + node);
+            javaFile.addActionListener(ev -> {
+                if (window.getMainActions().addFileTo(node.getFile(),
+                        "New Java file", "NewClass.java", "public class {stem} {\n}\n")) {
+                    reloadSubtree(node);
+                }
+            });
+            popup.add(javaFile);
+        } else if (type == PartitionType.ASSETS) {
+            JMenuItem plainFile = new JMenuItem("New file...");
+            plainFile.setToolTipText("An empty file below " + node);
+            plainFile.addActionListener(ev -> {
+                if (window.getMainActions().addFileTo(node.getFile(),
+                        "New file", "newFile.txt", null)) {
+                    reloadSubtree(node);
+                }
+            });
+            popup.add(plainFile);
+        }
+        JMenuItem subfolder = new JMenuItem("New subfolder...");
+        subfolder.setToolTipText("A plain folder below " + node);
+        subfolder.addActionListener(ev -> {
+            if (window.getMainActions().addSubfolderTo(node.getFile())) {
+                reloadSubtree(node);
+            }
+        });
+        popup.add(subfolder);
+        popup.addSeparator();
+    }
+
+    /**
+     * Re-reads one subtree after a create action: the clicked node reloads, the user keeps the
+     * expansion context instead of the whole tree collapsing.
+     *
+     * @param node the parent node of the fresh content
+     */
+    private void reloadSubtree(ProjectTreeNode node) {
+        node.reset();
+        node.ensureLoaded(model);
+        tree.expandPath(new TreePath(node.getPath()));
+    }
+
     private void maybePopup(MouseEvent e) {
         if (!e.isPopupTrigger()) {
             return;
@@ -323,7 +421,27 @@ public class ProjectSidebar extends JPanel {
             openDocument.addActionListener(ev -> openProjectDocument());
             popup.add(openDocument);
             popup.addSeparator();
+
+            // the root is the project level: the same folder roles as the Project menu
+            JMenu addFolderMenu = new JMenu("Add Folder");
+            addFolderMenu.setToolTipText("Create a folder of a project role inside the project root");
+            for (PartitionType type : PartitionType.VALUES) {
+                if (type == PartitionType.ISOLATED) {
+                    continue; // an old world is never created empty
+                }
+                JMenuItem typeItem = new JMenuItem(type.getName());
+                typeItem.addActionListener(ev -> window.getMainActions().addProjectFolder(type));
+                addFolderMenu.add(typeItem);
+            }
+            JMenuItem bundleRootItem = new JMenuItem("bundle");
+            bundleRootItem.setToolTipText("An empty bundle inside the first json partition");
+            bundleRootItem.addActionListener(ev -> window.getMainActions().addProjectBundle());
+            addFolderMenu.addSeparator();
+            addFolderMenu.add(bundleRootItem);
+            popup.add(addFolderMenu);
+            popup.addSeparator();
         }
+        appendNewItems(popup, node);
         if (node.getKind() == ProjectTreeNode.Kind.FILE) {
             JMenuItem open = new JMenuItem(isJson(node.getFile()) ? "Open bundle" : "Open externally");
             open.addActionListener(ev -> openNode(node));
@@ -378,6 +496,14 @@ public class ProjectSidebar extends JPanel {
         JMenuItem refresh = new JMenuItem("Refresh");
         refresh.setToolTipText("Re-read this subtree from disk");
         refresh.addActionListener(ev -> {
+            if (node.getKind() == ProjectTreeNode.Kind.PROJECT) {
+                // the root is the project itself: the whole document re-reads, the sidebar keeps
+                // the last valid state on problems (concept section 12, phase 4)
+                if (hasProject()) {
+                    refreshProject();
+                }
+                return;
+            }
             node.reset();
             if (node.getKind() == ProjectTreeNode.Kind.FOLDER
                     || node.getKind() == ProjectTreeNode.Kind.PARTITION) {
