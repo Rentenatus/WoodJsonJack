@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="WjjSuite">
+  <test name="WjjTests">
+    <classes>
+    <class name="de.jare.tree.control.fastlog.FastLogNGTest"/>
+    <class name="de.jare.tree.control.JackMasterControlNGTest"/>
+    <class name="de.jare.tree.control.model.JackTreeModelNGTest"/>
+    <class name="de.jare.tree.parse.AnnotationSoftParseNGTest"/>
+    <class name="de.jare.tree.parse.SoftParseNGTest"/>
+    <class name="de.jare.tree.ui.JackEditPopupEnablementNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackAttrTableModelNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackComboBoxCellEditorNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackHardRenameGuardNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackObjectTableModelNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackPaneEditorGuardNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackTableButtonRendererNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackTreeCellEditorNGTest"/>
+    <class name="de.jare.tree.ui.project.ProjectTreeNodeNGTest"/>
+    </classes>
+  </test>
+</suite>

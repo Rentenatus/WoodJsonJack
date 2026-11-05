@@ -38,6 +38,9 @@ public class ProjectTreeCellRenderer extends DefaultTreeCellRenderer {
                     && node.getPartition().getType() != null) {
                 setText(node.toString() + " [" + node.getPartition().getType().getName() + "]");
             }
+            if (node.getKind() == ProjectTreeNode.Kind.BUNDLE) {
+                setText(node.toString() + " [bundle]");
+            }
             if (sel) {
                 setForeground(null);
             } else if (node.isReadonlyMount()) {

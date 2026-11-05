@@ -7,6 +7,7 @@
 package de.jare.tree.ui.project;
 
 import de.jare.jsoncasted.project.Partition;
+import de.jare.jsoncasted.project.PartitionType;
 import de.jare.jsoncasted.project.ProjectDocument;
 import de.jare.tree.ui.WoodWindow;
 import java.awt.BorderLayout;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
@@ -176,8 +178,9 @@ public class ProjectSidebar extends JPanel {
     }
 
     /**
-     * Double-click semantics (concept section 3): JSON opens through the existing bundle
-     * machinery, every other file opens externally in v1. Folders toggle their expansion.
+     * Double-click semantics (concept sections 3 and 4): JSON opens through the existing bundle
+     * machinery, a bundle opens its main file, every other file opens externally in v1. Folders
+     * toggle their expansion.
      *
      * @param node the selected node
      */
@@ -193,6 +196,18 @@ public class ProjectSidebar extends JPanel {
                     window.getMainActions().loadJsonBundle(file);
                 } else {
                     openExternal(file);
+                }
+                break;
+            case BUNDLE:
+                File mainFile = projectNode.getMainFile();
+                if (mainFile == null) {
+                    window.showErrorDialog("This bundle has no readable main file.");
+                    break;
+                }
+                if (isJson(mainFile)) {
+                    window.getMainActions().loadJsonBundle(mainFile);
+                } else {
+                    openExternal(mainFile);
                 }
                 break;
             case PROJECT:
@@ -227,6 +242,20 @@ public class ProjectSidebar extends JPanel {
             popup.add(open);
             popup.addSeparator();
         }
+        if (node.getKind() == ProjectTreeNode.Kind.BUNDLE) {
+            JMenuItem openMain = new JMenuItem("Open main file");
+            openMain.setToolTipText("Open the bundle through its declared main file");
+            openMain.addActionListener(ev -> openNode(node));
+            popup.add(openMain);
+            popup.addSeparator();
+        }
+        if (isMaterializable(node)) {
+            JMenuItem materialize = new JMenuItem("Materialize bundle...");
+            materialize.setToolTipText("Create the bundle folder around this single JSON file (concept section 4)");
+            materialize.addActionListener(ev -> materialize(node));
+            popup.add(materialize);
+            popup.addSeparator();
+        }
         JMenuItem refresh = new JMenuItem("Refresh");
         refresh.setToolTipText("Re-read this subtree from disk");
         refresh.addActionListener(ev -> {
@@ -245,6 +274,52 @@ public class ProjectSidebar extends JPanel {
         popup.add(reveal);
 
         popup.show(tree, e.getX(), e.getY());
+    }
+
+    /**
+     * The single-file fallback materialization (concept section 4, rule 4): a bare JSON
+     * directly inside a json partition becomes an explicit bundle - folder plus descriptor.
+     * Runs only on explicit user action; afterwards the partition is re-projected.
+     *
+     * @param node the bare JSON file node
+     */
+    private void materialize(ProjectTreeNode node) {
+        File jsonFile = node.getFile();
+        String stem = jsonFile.getName().replaceFirst("(?i)\\.json$", "");
+        int answer = JOptionPane.showConfirmDialog(this, "Materialize the implicit bundle around \""
+                + jsonFile.getName() + "\"?\n\nCreates the sibling folder \"" + stem
+                + "\", moves the file into it and writes the bundle descriptor.",
+                "Materialize bundle", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+        if (answer != JOptionPane.OK_OPTION) {
+            return;
+        }
+        try {
+            BundleMaterializer.materialize(jsonFile);
+        } catch (IOException ex) {
+            window.showErrorDialog("Could not materialize the bundle: " + ex.getMessage());
+            return;
+        }
+        // the implicit state is gone - re-project this partition from disk
+        ProjectTreeNode partitionNode = node.isDirectlyBelowPartition()
+                ? (ProjectTreeNode) node.getParent() : null;
+        if (partitionNode != null) {
+            partitionNode.reset();
+            partitionNode.ensureLoaded(model);
+            tree.expandPath(new TreePath(partitionNode.getPath()));
+        }
+    }
+
+    /**
+     * @param node the node under the popup
+     * @return true when the node is a bare JSON directly inside a json partition - the
+     * materialization candidate of concept section 4, rule 4
+     */
+    private boolean isMaterializable(ProjectTreeNode node) {
+        return node.getKind() == ProjectTreeNode.Kind.FILE
+                && isJson(node.getFile())
+                && node.enclosingPartitionType() == PartitionType.JSON
+                && node.isDirectlyBelowPartition()
+                && !node.isReadonlyMount();
     }
 
     private void revealInExplorer(ProjectTreeNode node) {
