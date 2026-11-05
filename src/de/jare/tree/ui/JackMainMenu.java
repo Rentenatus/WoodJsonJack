@@ -133,8 +133,28 @@ public class JackMainMenu extends JMenuBar {
         projectMenu.add(newProjectItem);
         projectMenu.add(openProjectItem);
         projectMenu.add(recentProjectsMenu);
-        projectMenu.add(closeProjectItem);
         projectMenu.addSeparator();
+
+        // Add Folder: the partition roles of the concept (section 2) and the bundle folder -
+        // every entry asks for the name, the folder on disk and the project document grow together
+        JMenu addFolderMenu = new JMenu("Add Folder");
+        addFolderMenu.setIcon(UiIcons.newProjectIcon());
+        for (de.jare.jsoncasted.project.PartitionType type : de.jare.jsoncasted.project.PartitionType.VALUES) {
+            if (type == de.jare.jsoncasted.project.PartitionType.ISOLATED) {
+                continue; // an isolated mount is an old world from outside, never created empty
+            }
+            JMenuItem typeItem = new JMenuItem(type.getName());
+            typeItem.addActionListener(e -> mainActions.addProjectFolder(type));
+            addFolderMenu.add(typeItem);
+        }
+        JMenuItem bundleFolderItem = new JMenuItem("bundle");
+        bundleFolderItem.addActionListener(e -> mainActions.addProjectBundle());
+        addFolderMenu.addSeparator();
+        addFolderMenu.add(bundleFolderItem);
+        projectMenu.add(addFolderMenu);
+
+        projectMenu.addSeparator();
+        projectMenu.add(closeProjectItem);
         projectMenu.add(refreshProjectItem);
 
         // Edit menu: clipboard operations first, then the structural node operations

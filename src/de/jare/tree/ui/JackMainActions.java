@@ -17,6 +17,8 @@ import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.JsonWriteException;
 import de.jare.jsoncasted.io.parserservice.JsonParserService;
 import de.jare.jsoncasted.lang.JsonResource;
+import de.jare.jsoncasted.project.Partition;
+import de.jare.jsoncasted.project.PartitionType;
 import de.jare.jsoncasted.project.ProjectDocument;
 import de.jare.jsoncasted.project.ProjectFileService;
 import de.jare.tree.control.JackMasterControl;
@@ -227,6 +229,202 @@ public class JackMainActions {
      */
     public void diffActiveAgainstDisk(String trigger) {
         diskDiff(trigger, null, woodWindow.getActiveContainer());
+    }
+
+    /**
+     * Menu path of "Project > Add Folder > (type)": asks for the folder name (the type name as
+     * the suggestion) and adds a partition of the given role to the open project (concept
+     * CONCEPT_ProjectView.md, section 2 - the role table). Folder on disk and project document
+     * grow together; an existing folder can be mounted this way, creating never overwrites.
+     *
+     * @param type the partition role of the new folder
+     */
+    public void addProjectFolder(PartitionType type) {
+        if (!hasOpenProject()) {
+            return;
+        }
+        String suggestion = type.getName();
+        Object answer = JOptionPane.showInputDialog(woodWindow,
+                "Name of the " + suggestion + " folder in the project root:",
+                "Add " + suggestion + " folder", JOptionPane.PLAIN_MESSAGE, null, null, suggestion);
+        if (answer == null) {
+            return; // cancelled
+        }
+        boolean added = addProjectFolderAt(String.valueOf(answer), type);
+        if (!added) {
+            woodWindow.showErrorDialog("The folder was not added:\n"
+                    + String.valueOf(answer) + "\n(the name is taken or invalid - the fast log has the details)");
+        }
+    }
+
+    /**
+     * Core of "Project > Add Folder": creates the folder in the project root when missing and
+     * appends a partition entry to the project document. Refused without any change when the
+     * name is not a plain folder name or when another partition already mounts that folder.
+     *
+     * @param folderName the plain folder name inside the project root
+     * @param type the partition role of the new folder
+     * @return true when the partition was added; false when refused (nothing changed)
+     */
+    public boolean addProjectFolderAt(String folderName, PartitionType type) {
+        de.jare.tree.ui.project.ProjectSidebar sidebar = woodWindow.getProjectSidebar();
+        ProjectDocument document = sidebar.getDocument();
+        File projectRoot = sidebar.getProjectRoot();
+        if (document == null || projectRoot == null || type == null) {
+            return false;
+        }
+        if (folderName == null || !folderName.matches("[A-Za-z0-9._\\-]+")) {
+            master.getFastLog().tryWrite("io", "Folder not added: '" + folderName
+                    + "' is not a plain folder name.");
+            return false;
+        }
+        File folder = new File(projectRoot, folderName);
+        try {
+            String canonical = folder.getCanonicalPath();
+            for (Partition partition : document.getRoots()) {
+                if (partition != null && canonical.equals(partition.resolve(projectRoot).getCanonicalPath())) {
+                    master.getFastLog().tryWrite("io", "Folder not added: partition '"
+                            + partition.getName() + "' already mounts " + canonical);
+                    return false;
+                }
+            }
+            if (folder.exists() && !folder.isDirectory()) {
+                master.getFastLog().tryWrite("io", "Folder not added: " + canonical
+                        + " exists and is not a folder.");
+                return false;
+            }
+            if (!folder.exists() && !folder.mkdir()) {
+                master.getFastLog().tryWrite("io", "Folder not added: " + canonical
+                        + " could not be created.");
+                return false;
+            }
+            document.getRoots().add(new Partition(folderName, type, "./" + folderName, null));
+            new ProjectFileService().saveProject(projectRoot, document);
+        } catch (IOException | JsonParseException | JsonWriteException e) {
+            master.getFastLog().tryWrite("io", "Folder not added: " + folderName + " - " + e.getMessage());
+            return false;
+        }
+        sidebar.refreshProject();
+        master.getFastLog().tryWrite("io", "Added " + type.getName() + " folder '" + folderName + "'");
+        return true;
+    }
+
+    /**
+     * Menu path of "Project > Add Folder > bundle": asks for the name and creates an empty
+     * bundle (folder with descriptor and main file) inside the first json partition - bundles
+     * are discovered by the scan of json partitions (concept section 3).
+     */
+    public void addProjectBundle() {
+        if (!hasOpenProject()) {
+            return;
+        }
+        Object answer = JOptionPane.showInputDialog(woodWindow,
+                "Name of the bundle (created inside the json partition):",
+                "Add bundle folder", JOptionPane.PLAIN_MESSAGE, null, null, "freshBundle");
+        if (answer == null) {
+            return; // cancelled
+        }
+        boolean added = addProjectBundleAt(String.valueOf(answer));
+        if (!added) {
+            woodWindow.showErrorDialog("The bundle was not added:\n"
+                    + String.valueOf(answer) + "\n(the name is taken, invalid or no json partition - the fast log has the details)");
+        }
+    }
+
+    /**
+     * Core of the bundle folder: creates the bundle folder below the first json partition with
+     * a minimal descriptor (main file only, no imports) and an empty JSON main file. Rollback
+     * like the materializer: a failure leaves no half bundle folder.
+     *
+     * @param bundleName the plain name of the new bundle folder
+     * @return true when the bundle was created; false when refused or failed (nothing left over)
+     */
+    public boolean addProjectBundleAt(String bundleName) {
+        de.jare.tree.ui.project.ProjectSidebar sidebar = woodWindow.getProjectSidebar();
+        ProjectDocument document = sidebar.getDocument();
+        File projectRoot = sidebar.getProjectRoot();
+        if (document == null || projectRoot == null) {
+            return false;
+        }
+        if (bundleName == null || !bundleName.matches("[A-Za-z0-9._\\-]+")) {
+            master.getFastLog().tryWrite("io", "Bundle not added: '" + bundleName
+                    + "' is not a plain folder name.");
+            return false;
+        }
+        Partition jsonHost = null;
+        for (Partition partition : document.getRoots()) {
+            if (partition != null && partition.getType() == PartitionType.JSON) {
+                jsonHost = partition;
+                break;
+            }
+        }
+        if (jsonHost == null) {
+            master.getFastLog().tryWrite("io", "Bundle not added: the project has no json partition "
+                    + "- add a json folder first (Project > Add Folder > json).");
+            return false;
+        }
+        File bundleFolder = new File(jsonHost.resolve(projectRoot), bundleName);
+        if (bundleFolder.exists()) {
+            master.getFastLog().tryWrite("io", "Bundle not added: " + bundleFolder.getAbsolutePath()
+                    + " already exists.");
+            return false;
+        }
+        if (!bundleFolder.mkdir()) {
+            master.getFastLog().tryWrite("io", "Bundle not added: " + bundleFolder.getAbsolutePath()
+                    + " could not be created.");
+            return false;
+        }
+        String mainName = bundleName + ".json";
+        boolean complete = false;
+        try {
+            try {
+                de.jare.jsoncasted.project.BundleDescriptor descriptor
+                        = new de.jare.jsoncasted.project.BundleDescriptor(bundleName, mainName);
+                descriptor.getFiles().add(mainName);
+                new ProjectFileService().saveBundleDescriptor(bundleFolder, descriptor);
+                java.nio.file.Files.writeString(new File(bundleFolder, mainName).toPath(), "{}");
+            } catch (IOException | JsonParseException | JsonWriteException e) {
+                throw new IOException(e);
+            }
+            complete = true;
+        } catch (IOException e) {
+            master.getFastLog().tryWrite("io", "Bundle not added: " + bundleName + " - " + e.getMessage());
+            deleteRecursively(bundleFolder);
+            return false;
+        } finally {
+            if (!complete) {
+                deleteRecursively(bundleFolder);
+            }
+        }
+        sidebar.refreshProject();
+        master.getFastLog().tryWrite("io", "Added bundle '" + bundleName + "' into partition '"
+                + jsonHost.getName() + "'");
+        return true;
+    }
+
+    private boolean hasOpenProject() {
+        if (woodWindow.getProjectSidebar().hasProject()) {
+            return true;
+        }
+        woodWindow.showErrorDialog("No project is open (Project > Open Project... first).");
+        return false;
+    }
+
+    private void deleteRecursively(File folder) {
+        if (folder == null || !folder.exists()) {
+            return;
+        }
+        File[] children = folder.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                if (child.isDirectory()) {
+                    deleteRecursively(child);
+                } else if (!child.delete()) {
+                    return;
+                }
+            }
+        }
+        folder.delete();
     }
 
     /**

@@ -215,6 +215,20 @@ public class ProjectSidebar extends JPanel {
     }
 
     /**
+     * @return the root folder of the open project, or null when none is open
+     */
+    public File getProjectRoot() {
+        return projectRoot;
+    }
+
+    /**
+     * @return the projected project document of the open project, or null when none is open
+     */
+    public ProjectDocument getDocument() {
+        return document;
+    }
+
+    /**
      * Opens the project document in a tab (concept section 8: it is JSON, the same round
      * trip as any other JSON file). Offered from the project node and from bundle nodes.
      */
