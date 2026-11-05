@@ -12,6 +12,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.io.File;
+import java.util.function.BiConsumer;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -22,35 +23,42 @@ import javax.swing.JTextArea;
 import javax.swing.WindowConstants;
 
 /**
- * The clone dialog in its dry form (concept: CONCEPT_ProjectView.md, section 5, and
- * implementation plan phase 4: the dialog without execution until phase 6). Shows the source,
- * the sibling-convention destination and the two copy modes with their effects; the preview
- * follows the mode choice live. Nothing is copied - the button says so.
+ * The clone dialog (concept: CONCEPT_ProjectView.md, section 5 - implementation plan phase 6):
+ * shows the source, the sibling-convention destination and the two copy modes with their effects;
+ * the preview follows the mode choice live. Cloning executes through the caller's action - the
+ * dialog holds no io of its own.
  *
  * @author Janusch Rentenatus
  */
 public class BundleCloneDialog extends JDialog {
 
     private final File sourceFolder;
+    private final BiConsumer<File, Boolean> onClone;
     private final JRadioButton deepButton;
     private final JRadioButton shallowButton;
     private final JLabel targetLabel;
     private final JTextArea previewArea;
+    private final JButton cloneButton;
 
     /**
-     * Shows the dry clone dialog for the given bundle folder.
+     * Shows the clone dialog for the given bundle folder.
      *
-     * @param parentWindow the window the dialog belongs to (modal anchor)
-     * @param sourceFolder the bundle folder to clone
+     * @param parentWindow the window the dialog belongs to (modal anchor).
+     * @param sourceFolder the bundle folder to clone.
+     * @param onClone executes the clone (source folder, deep mode) - called on the Clone button;
+     * the dialog closes itself right after and holds no state of the io.
      */
-    public static void show(java.awt.Window parentWindow, File sourceFolder) {
-        BundleCloneDialog dialog = new BundleCloneDialog(parentWindow, sourceFolder);
+    public static void show(java.awt.Window parentWindow, File sourceFolder,
+            BiConsumer<File, Boolean> onClone) {
+        BundleCloneDialog dialog = new BundleCloneDialog(parentWindow, sourceFolder, onClone);
         dialog.setVisible(true);
     }
 
-    private BundleCloneDialog(java.awt.Window parentWindow, File sourceFolder) {
-        super(parentWindow, "Clone bundle (preview)", ModalityType.APPLICATION_MODAL);
+    private BundleCloneDialog(java.awt.Window parentWindow, File sourceFolder,
+            BiConsumer<File, Boolean> onClone) {
+        super(parentWindow, "Clone bundle", ModalityType.APPLICATION_MODAL);
         this.sourceFolder = sourceFolder;
+        this.onClone = onClone;
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
         JPanel form = new JPanel(new GridBagLayout());
@@ -98,10 +106,16 @@ public class BundleCloneDialog extends JDialog {
         deepButton.addActionListener(e -> updatePreview());
         shallowButton.addActionListener(e -> updatePreview());
 
-        JButton closeButton = new JButton("Close (execution comes with phase 6)");
-        closeButton.addActionListener(e -> dispose());
+        cloneButton = new JButton("Clone");
+        cloneButton.addActionListener(e -> {
+            dispose();
+            onClone.accept(sourceFolder, deepButton.isSelected());
+        });
+        JButton cancelButton = new JButton("Cancel");
+        cancelButton.addActionListener(e -> dispose());
         JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        buttonRow.add(closeButton);
+        buttonRow.add(cancelButton);
+        buttonRow.add(cloneButton);
 
         add(form, BorderLayout.CENTER);
         add(buttonRow, BorderLayout.SOUTH);
@@ -116,12 +130,13 @@ public class BundleCloneDialog extends JDialog {
         StringBuilder text = new StringBuilder();
         if (plan.isRefused()) {
             text.append("Refused: ").append(plan.refusalReason()).append('\n');
+            cloneButton.setEnabled(false);
         } else {
             for (String note : plan.getNotes()) {
                 text.append("- ").append(note).append('\n');
             }
+            cloneButton.setEnabled(true);
         }
-        text.append("\nThis is a dry preview - nothing is copied in this phase.");
         previewArea.setText(text.toString());
     }
 

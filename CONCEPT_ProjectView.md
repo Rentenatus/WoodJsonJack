@@ -400,7 +400,9 @@ keep their names because the bundle rename freed the word *project* for exactly 
    commit. (Established loop of this feature series.)
 
 ---
-*Status: phases 1 to 4 built - project document model (jsonCasted), sidebar skeleton,
-the bundle grouping with single-file fallback and the project document round trip with the
-dry clone dialog (execution: phase 6). Names and rules marked "binding" are the agreed state
-of the discussion; everything else is proposal until the phase that builds it.*
+*Status: phases 1 to 6 built - project document model (jsonCasted), sidebar skeleton, bundle
+grouping with single-file fallback, project document round trip with dialog, bundle-scoped IDs
+(strategy B) with the engine's supervised merging, and the clone execution (folder copy, sibling
+convention, deep/shallow, descriptor relabel - no ID remapping). Open: phases 7 (imports) and 8
+(RerollID). Names and rules marked "binding" are the agreed state of the discussion; everything
+else is proposal until the phase that builds it.*

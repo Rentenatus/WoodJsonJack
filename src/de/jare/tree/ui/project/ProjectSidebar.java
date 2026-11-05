@@ -312,8 +312,9 @@ public class ProjectSidebar extends JPanel {
             openMain.addActionListener(ev -> openNode(node));
             popup.add(openMain);
             JMenuItem cloneItem = new JMenuItem("Clone bundle...");
-            cloneItem.setToolTipText("Dry preview of the clone (concept section 5) - execution comes later");
-            cloneItem.addActionListener(ev -> BundleCloneDialog.show(window, node.getFile()));
+            cloneItem.setToolTipText("Duplicate this bundle next to the original (concept section 5)");
+            cloneItem.addActionListener(ev -> BundleCloneDialog.show(window, node.getFile(),
+                    (source, deep) -> cloneBundle(node, source, deep)));
             popup.add(cloneItem);
             popup.addSeparator();
         }
@@ -342,6 +343,37 @@ public class ProjectSidebar extends JPanel {
         popup.add(reveal);
 
         popup.show(tree, e.getX(), e.getY());
+    }
+
+    /**
+     * The clone execution (concept section 5, phase 6): folder copy into the first free sibling,
+     * descriptor relabel, deep relocation on demand - the result re-projects on the spot, the
+     * new bundle appears next to the original exactly where the tree shows it.
+     *
+     * @param node the cloned bundle node (its parent re-projects).
+     * @param sourceFolder the bundle folder of the node.
+     * @param deep deep or shallow mode of the dialog.
+     */
+    private void cloneBundle(ProjectTreeNode node, File sourceFolder, boolean deep) {
+        final File target;
+        try {
+            target = BundleCloner.clone(sourceFolder, deep);
+        } catch (IOException ex) {
+            window.showErrorDialog("Could not clone the bundle:\n\n" + ex.getMessage());
+            return;
+        }
+        JOptionPane.showMessageDialog(this, "Cloned to\n" + target.getAbsolutePath(),
+                "Clone bundle", JOptionPane.INFORMATION_MESSAGE);
+        // the sibling exists on disk - re-project this subtree so the new bundle shows up
+        if (node.getParent() instanceof ProjectTreeNode) {
+            ProjectTreeNode parent = (ProjectTreeNode) node.getParent();
+            if (parent.getKind() == ProjectTreeNode.Kind.PARTITION
+                    || parent.getKind() == ProjectTreeNode.Kind.FOLDER) {
+                parent.reset();
+                parent.ensureLoaded(model);
+                tree.expandPath(new TreePath(parent.getPath()));
+            }
+        }
     }
 
     /**
