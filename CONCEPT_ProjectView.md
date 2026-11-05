@@ -385,6 +385,13 @@ keep their names because the bundle rename freed the word *project* for exactly 
    `WoodProxyResolver` (owner-relative resolution, no cwd fallback); the fixtures carry
    file-relative paths now. Downstream consumers (clone deep relocation, reroll classification,
    the imports resolver) already lived by this convention.
+8. **Synonym reroll as a switch (decided - amendment of section 7.1):** the wood object IDs always
+   reroll (the point of RerollID), the provider synonyms reroll only with the switch on. The dialog
+   carries the checkbox, default ON (the binding original), the engine takes the flag
+   (`BundleReroller.plan(..., rerollSynonyms)`). With the switch off: the bundle keeps its wiring
+   names, the ids still reroll project-wide disjoint, the internal references only exchange their
+   id part - dangling validation is not optional. Use case: keep readable wiring names when only
+   the identities must become fresh (a shared scope without a rename).
 
 ## 12. Implementation plan
 

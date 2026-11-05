@@ -64,6 +64,7 @@ public class RerollIdsDialog extends JDialog {
     private final List<TreeCandidate> candidates;
     private final List<JCheckBox> boxes = new ArrayList<>();
     private final JTextArea previewArea;
+    private final javax.swing.JCheckBox synonymBox;
 
     /**
      * One tree of the project as the dialog lists it: the file, its label relative to the project
@@ -110,11 +111,16 @@ public class RerollIdsDialog extends JDialog {
         previewArea.setEditable(false);
         previewArea.setText("All trees are preselected - the reroll is project-wide disjoint.\n"
                 + "Deselect only when you deliberately narrow the disjoint scope.\n");
+        // the synonym switch: ids always reroll, the wiring names only with the box checked
+        synonymBox = new javax.swing.JCheckBox("Reroll provider synonyms too (ids always reroll)", true);
+        synonymBox.setToolTipText("Unchecked: the bundle keeps its wiring names, "
+                + "every wood id still rerolls and the references follow the new ids");
         JButton rerollButton = new JButton("Reroll");
         rerollButton.addActionListener(e -> executeReroll());
         JButton cancelButton = new JButton("Cancel");
         cancelButton.addActionListener(e -> dispose());
         JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonRow.add(synonymBox);
         buttonRow.add(rerollButton);
         buttonRow.add(cancelButton);
 
@@ -140,13 +146,13 @@ public class RerollIdsDialog extends JDialog {
      * @return the outcome - check the status before interpreting the counts
      */
     public static RerollOutcome executeAll(WoodWindow window, File projectRoot,
-            ProjectDocument document, File bundleFolder, File mainFile)
+            ProjectDocument document, File bundleFolder, File mainFile, boolean rerollSynonyms)
             throws de.jare.jsoncasted.io.JsonParseException {
         final List<BundleReroller.TreeIds> disjoint = new ArrayList<>();
         for (TreeCandidate candidate : enumerateTrees(projectRoot, document, bundleFolder)) {
             disjoint.add(candidate.ids);
         }
-        return executeReroll(window, bundleFolder, mainFile, disjoint);
+        return executeReroll(window, bundleFolder, mainFile, disjoint, rerollSynonyms);
     }
 
     /**
@@ -293,7 +299,7 @@ public class RerollIdsDialog extends JDialog {
                     disjoint.add(candidates.get(i).ids);
                 }
             }
-            final RerollOutcome outcome = executeReroll(window, bundleFolder, mainFile, disjoint);
+            final RerollOutcome outcome = executeReroll(window, bundleFolder, mainFile, disjoint, synonymBox.isSelected());
             switch (outcome.status) {
                 case REFUSED -> previewArea.setText(
                         String.join("\n", outcome.problems)
@@ -334,7 +340,7 @@ public class RerollIdsDialog extends JDialog {
      * @return the outcome - check the status before interpreting the counts
      */
     static RerollOutcome executeReroll(WoodWindow window, File bundleFolder, File mainFile,
-            List<BundleReroller.TreeIds> disjoint) throws de.jare.jsoncasted.io.JsonParseException {
+            List<BundleReroller.TreeIds> disjoint, boolean rerollSynonyms) throws de.jare.jsoncasted.io.JsonParseException {
         // open the bundle through the real rails - the detour of the editor session is the point
         window.getMainActions().loadJsonBundle(mainFile);
         final EditBundle session = window.getEditBundle();
@@ -361,7 +367,7 @@ public class RerollIdsDialog extends JDialog {
         final Set<String> externalSynonyms = new HashSet<>();
         // classification first, then the real plan (the classification feeds the synonym sets)
         final BundleReroller.RerollPlan plan = classifyProvidersAndPlan(session, trees, bundleFolder,
-                bundleRawIds, bundleLinks, bundleSynonyms, externalSynonyms, disjoint);
+                bundleRawIds, bundleLinks, bundleSynonyms, externalSynonyms, disjoint, rerollSynonyms);
         if (plan.isRefused()) {
             return new RerollOutcome(RerollOutcome.Status.REFUSED, plan.getProblems(), 0, 0, 0);
         }
@@ -436,7 +442,7 @@ public class RerollIdsDialog extends JDialog {
     private static BundleReroller.RerollPlan classifyProvidersAndPlan(EditBundle session,
             List<EditTree> trees, File bundleFolder, Set<String> bundleRawIds, Set<String> bundleLinks,
             Set<String> bundleSynonyms, Set<String> externalSynonyms,
-            List<BundleReroller.TreeIds> disjoint) throws de.jare.jsoncasted.io.JsonParseException {
+            List<BundleReroller.TreeIds> disjoint, boolean rerollSynonyms) throws de.jare.jsoncasted.io.JsonParseException {
         for (EditTree tree : trees) {
             final JsonNode providers = tree.getProvidersNode();
             final List<JsonNode> entries = providers != null ? providers.asArray() : null;
@@ -473,7 +479,7 @@ public class RerollIdsDialog extends JDialog {
                 bundleSynonyms.add(provider);
             }
         }
-        return BundleReroller.plan(bundleRawIds, bundleSynonyms, externalSynonyms, bundleLinks, disjoint);
+        return BundleReroller.plan(bundleRawIds, bundleSynonyms, externalSynonyms, bundleLinks, disjoint, rerollSynonyms);
     }
 
     /**
