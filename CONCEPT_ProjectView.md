@@ -400,12 +400,15 @@ keep their names because the bundle rename freed the word *project* for exactly 
    live project (an old version has almost the same `syn::id` pairs) - therefore they are fully
    outside the identity world: never bundled into the reroll (neither the enumeration nor the
    disjoint sets - a reroll does not see them), never scanned by the version conflict rule, open
-   only as read-only views, clone/materialize refused. Exactly one hook is deliberate: a
-   project-local import resolution serves an isolated bundle only as the **last resort** - the
-   live `json` partitions always win, an old version never shadows the current bundle (explicit
-   wiring into the old world remains possible any time via a path import). Use case: cherry-picking
-   against a stand (concept CONCEPT_TreeDiffView.md) - the isolated mount is the parking place of
-   the theirs side.
+   only as read-only views, clone/materialize refused. Exactly one hook is deliberate, with a
+   refined engagement rule: a project-local import resolution may FIND an isolated bundle, but
+   only as the **last resort** (the live `json` partitions always win, an old version never
+   shadows the current bundle) and **never as a live link into the ghost world** - the hit
+   materializes a deep-copy into the project's import cache (`.wood/cache/<name>/<version>/`,
+   exactly once, the frozen-stand rail of the repository channel, own badge `ISOLATED`); the
+   isolated folder itself stays a read-only view. Explicit wiring into the old world remains
+   the user's own decision via a path import. Use case: cherry-picking against a stand (concept
+   CONCEPT_TreeDiffView.md) - the isolated mount is the parking place of the theirs side.
 
 ## 12. Implementation plan
 
