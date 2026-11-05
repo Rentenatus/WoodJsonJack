@@ -245,6 +245,27 @@ public class WoodWindow extends JFrame {
                 refreshOutdatedMarkers();
             }
         });
+
+        // startup reopen: the most recent project of the history opens itself
+        reopenLastProject();
+    }
+
+    /**
+     * Opens the front entry of the project history at startup ({@code user-home/.wood/
+     * projects.json}, UX layer of CONCEPT_ProjectView.md). A folder that vanished or lost its
+     * project document is skipped silently - the history keeps the entry, "Open Recent" shows it
+     * disabled; a dialog at startup would only state what the silent sidebar already does: no
+     * project open.
+     */
+    private void reopenLastProject() {
+        java.util.List<de.jare.tree.settings.project.HistoryEntry> projects = projectHistory.getProjects();
+        if (projects.isEmpty() || projects.get(0).getProjectPath() == null) {
+            return;
+        }
+        File last = new File(projects.get(0).getProjectPath());
+        if (new de.jare.jsoncasted.project.ProjectFileService().isProjectRoot(last)) {
+            getMainActions().openProject(last);
+        }
     }
 
     private JPanel createJackUndoPanel() {
