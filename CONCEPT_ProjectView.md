@@ -369,6 +369,13 @@ keep their names because the bundle rename freed the word *project* for exactly 
    working bundle is the install action's job.)
 5. Import cache location: per project (e.g. `.wood/cache/`) vs. `~/.wood/cache/`. Per project makes
    the project self-contained; user-global saves duplicates. Tendency: per project.
+6. **Editor provider round trip (fixed - phase 8a):** the editor had no representation of a file's
+   `_woodProviders` member and its save dropped the entries silently - saving a wired file from a
+   tab stripped the bundle wiring. Phase 8a fixes it (jsonCasted_edit): the import captures the
+   member on the `EditTree`, `EditTreeWriter` writes it back verbatim; a save keeps the wiring. This
+   is the precondition for phase 8's synonym reroll. Known residual quirk (accepted): string
+   values with embedded quotes or backslashes do not escape/unescape symmetrically between parser
+   and writer - out of scope, provider synonyms and filenames are identifiers.
 
 ## 12. Implementation plan
 
@@ -404,6 +411,7 @@ keep their names because the bundle rename freed the word *project* for exactly 
 grouping with single-file fallback, project document round trip with dialog, bundle-scoped IDs
 (strategy B) with the engine's supervised merging, the clone execution, and the import
 resolution (path reactor, project-local, repository with the materialize-once cache, conflict
-rule - no transitive resolution). Open: phase 8 (RerollID). Names and rules marked "binding" are
-the agreed state of the discussion; everything else is proposal until the phase that builds
+rule - no transitive resolution). Phase 8a built (editor provider round trip fix, the
+precondition); open: phase 8 (RerollID itself). Names and rules marked "binding" are the
+agreed state of the discussion; everything else is proposal until the phase that builds
 it.*
