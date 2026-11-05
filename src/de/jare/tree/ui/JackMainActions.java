@@ -7,7 +7,7 @@
 package de.jare.tree.ui;
 
 import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.jsoncasted.editor.core.EditProject;
+import de.jare.jsoncasted.editor.core.EditBundle;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.core.EditTreeWriter;
 import de.jare.jsoncasted.editor.core.JsonTreeConverter;
@@ -77,27 +77,27 @@ public class JackMainActions {
     }
 
     /**
-     * Opens a project session (concept doc/JSON_PROJECT.md, phase 4): ONE parse project load, every resource
+     * Opens a bundle session (concept doc/JSON_BUNDLE.md, phase 4): ONE parse bundle load, every resource
      * converted exactly once, the main file as editable tab, the sub resources as read only views on the shared
      * trees - B exists once, every tab sees the same EditTree.
      *
-     * @param file the project's main resource file
+     * @param file the bundle's main resource file
      */
-    public void loadJsonProject(File file) {
+    public void loadJsonBundle(File file) {
         try {
-            final EditProject project = EditProject.open(file);
-            woodWindow.openProject(file, project);
-            master.getFastLog().tryWrite("io", "Loaded project " + file.getName()
-                    + " (" + project.getSortedSynonyms().size() + " resources)");
+            final EditBundle bundle = EditBundle.open(file);
+            woodWindow.openBundle(file, bundle);
+            master.getFastLog().tryWrite("io", "Loaded bundle " + file.getName()
+                    + " (" + bundle.getSortedSynonyms().size() + " resources)");
         } catch (IOException | JsonParseException e) {
-            master.getFastLog().tryWrite("io", "Project load failed: " + file.getName() + " - " + e.getMessage());
-            woodWindow.showErrorDialog("Error opening project: " + e.getMessage());
+            master.getFastLog().tryWrite("io", "Bundle load failed: " + file.getName() + " - " + e.getMessage());
+            woodWindow.showErrorDialog("Error opening bundle: " + e.getMessage());
         }
     }
 
     /**
      * Opens the tree diff view of the working copy against the file on disk (concepts doc/TreeDiffView.md and
-     * doc/JSON_PROJECT.md save quadrant made visible): left = the live, editable working copy (ours), right =
+     * doc/JSON_BUNDLE.md save quadrant made visible): left = the live, editable working copy (ours), right =
      * the on the fly loaded disk version as the frozen theirs copy. With a retained import state the W3
      * classification runs - apply list = the external changes, conflicts = both sides edited, no-op = did the
      * same - and cherry picks take disk changes into the working copy (one undo step each); without a base
@@ -221,7 +221,7 @@ public class JackMainActions {
 
     /**
      * Writes the tree of the given editor tab with the tree writer (composite keys, transient filter) - behind
-     * the save guard of the project concept (doc/JSON_PROJECT.md): the two state axes of the tree decide
+     * the save guard of the bundle concept (doc/JSON_BUNDLE.md): the two state axes of the tree decide
      * whether the plain overwrite is allowed. Only the EDITED+OUTDATED conflict asks: merge over the existing
      * 3-way rails (base = retained import state, ours = the tree, theirs = the external file), overwrite anyway,
      * or discard the own edits.
@@ -253,7 +253,7 @@ public class JackMainActions {
     }
 
     /**
-     * The save guard quadrant (concept doc/JSON_PROJECT.md, SaveGuard): CLEAN+CURRENT and EDITED+CURRENT allow
+     * The save guard quadrant (concept doc/JSON_BUNDLE.md, SaveGuard): CLEAN+CURRENT and EDITED+CURRENT allow
      * the plain save; CLEAN+OUTDATED offers the re-import (no user work at risk, the external change wins);
      * EDITED+OUTDATED is the real conflict - never a blind overwrite, the decision runs on the existing merge
      * rails and asks.

@@ -6,7 +6,7 @@
  */
 package de.jare.tree.ui;
 
-import de.jare.jsoncasted.editor.core.EditProject;
+import de.jare.jsoncasted.editor.core.EditBundle;
 import de.jare.jsoncasted.editor.core.EditTree;
 import de.jare.jsoncasted.editor.events.HistoryEvent;
 import de.jare.jsoncasted.editor.events.HistoryListener;
@@ -59,7 +59,7 @@ public class WoodWindow extends JFrame {
     private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
     private final Map<JackEditTreeContainer, File> editorFiles = new HashMap<>();
     // the loaded tabs' scroll panes and base titles - the closable headers carry the titles, the OUTDATED
-    // markers rewrite them (concept doc/JSON_PROJECT.md phase 4)
+    // markers rewrite them (concept doc/JSON_BUNDLE.md phase 4)
     private final Map<JackEditTreeContainer, JScrollPane> containerPanes = new HashMap<>();
     private final Map<JackEditTreeContainer, String> containerTitles = new HashMap<>();
     private PreferencesDialog preferencesDialog;
@@ -68,8 +68,8 @@ public class WoodWindow extends JFrame {
     private JackUndoPanel jackPanel;
     private SearchResultPanel searchResultPanel;
     private JackFastLogPanel fastLogPanel;
-    // The project session of the editor (concept doc/JSON_PROJECT.md): null when no project session is open
-    private EditProject editProject;
+    // The bundle session of the editor (concept doc/JSON_BUNDLE.md): null when no bundle session is open
+    private EditBundle editBundle;
     // One shared instance for all save/diff actions of the window (the tab popup and the menu act together)
     private JackMainActions mainActions;
     private final TreeFocusListener treeFocusListener;
@@ -335,41 +335,41 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Opens a project session in the editor (concept doc/JSON_PROJECT.md, phase 4): the main file becomes the
-     * editable tab identity, every sub resource of the parse project opens as a read only view on the SHARED
+     * Opens a bundle session in the editor (concept doc/JSON_BUNDLE.md, phase 4): the main file becomes the
+     * editable tab identity, every sub resource of the parse bundle opens as a read only view on the SHARED
      * EditTree (visibility axis: promoted FOREGROUND, read only first - decision 3 of the plan). A previously
-     * open project session closes; its tabs stay (their trees live on) unless a new project replaces them.
+     * open bundle session closes; its tabs stay (their trees live on) unless a new bundle replaces them.
      *
-     * @param mainFile the project's main resource file
-     * @param project the session clamp with the shared trees
+     * @param mainFile the bundle's main resource file
+     * @param bundle the session clamp with the shared trees
      */
-    public void openProject(File mainFile, EditProject project) throws JsonParseException {
-        if (editProject != null) {
-            editProject.close();
+    public void openBundle(File mainFile, EditBundle bundle) throws JsonParseException {
+        if (editBundle != null) {
+            editBundle.close();
         }
-        this.editProject = project;
+        this.editBundle = bundle;
 
-        addEditorTab(mainFile, project.getMainTree(), null, false);
-        for (final String synonym : project.getSortedSynonyms()) {
-            final EditTree tree = project.findBySynonym(synonym);
-            if (tree == null || tree == project.getMainTree()) {
+        addEditorTab(mainFile, bundle.getMainTree(), null, false);
+        for (final String synonym : bundle.getSortedSynonyms()) {
+            final EditTree tree = bundle.findBySynonym(synonym);
+            if (tree == null || tree == bundle.getMainTree()) {
                 continue;
             }
             final File treeFile = resourceFileOf(tree);
             addEditorTab(treeFile, tree, "[" + synonym + "]", true);
         }
-        wireChangePropagation(project);
+        wireChangePropagation(bundle);
     }
 
     /**
-     * Change propagation (concept doc/JSON_PROJECT.md): the EDITABLE session trees get a history listener - a
+     * Change propagation (concept doc/JSON_BUNDLE.md): the EDITABLE session trees get a history listener - a
      * command that changes B notifies B's dependents (who references B's namespace): their tabs repaint (a
      * changed wood id or link target changes what their references mean) and the fast log records the blast
      * radius. Read only session views never edit, their histories stay silent.
      *
-     * @param project the session to wire
+     * @param bundle the session to wire
      */
-    private void wireChangePropagation(final EditProject project) {
+    private void wireChangePropagation(final EditBundle bundle) {
         for (final JackEditTreeContainer container : editorTrees) {
             final EditTree tree = container.getLeftTree() != null
                     && container.getLeftTree().getModel() != null
@@ -377,7 +377,7 @@ public class WoodWindow extends JFrame {
             if (tree == null || container.getLeftTree().isReadonly()) {
                 continue;
             }
-            final String synonym = sessionSynonymOf(project, tree);
+            final String synonym = sessionSynonymOf(bundle, tree);
             if (synonym == null) {
                 continue;
             }
@@ -393,7 +393,7 @@ public class WoodWindow extends JFrame {
                             if (HistoryEvent.ChangeType.CMD_EXECUTED.equals(event.getChangeType())
                                     || HistoryEvent.ChangeType.CMD_UNDONE.equals(event.getChangeType())
                                     || HistoryEvent.ChangeType.CMD_REDONE.equals(event.getChangeType())) {
-                                propagateChangeOf(project, synonym);
+                                propagateChangeOf(bundle, synonym);
                             }
                         }
                     });
@@ -404,10 +404,10 @@ public class WoodWindow extends JFrame {
      * Notifies the tabs of the dependents after a resource changed: repaint and a log line with the blast
      * radius (the dependent lookup itself - the full R10 dependent list - is a later stage).
      */
-    private void propagateChangeOf(final EditProject project, final String changedSynonym) {
+    private void propagateChangeOf(final EditBundle bundle, final String changedSynonym) {
         final Set<String> dependents;
         try {
-            dependents = project.getParseProject().getDependents(changedSynonym);
+            dependents = bundle.getParseBundle().getDependents(changedSynonym);
         } catch (IllegalStateException ex) {
             return;
         }
@@ -415,7 +415,7 @@ public class WoodWindow extends JFrame {
             return;
         }
         for (final String dependent : dependents) {
-            final EditTree dependentTree = project.findBySynonym(dependent);
+            final EditTree dependentTree = bundle.findBySynonym(dependent);
             if (dependentTree == null) {
                 continue;
             }
@@ -429,13 +429,13 @@ public class WoodWindow extends JFrame {
                 + "' radiates into: " + dependents);
     }
 
-    private String sessionSynonymOf(EditProject project, EditTree tree) {
+    private String sessionSynonymOf(EditBundle bundle, EditTree tree) {
         try {
-            if (project.getMainTree() == tree) {
+            if (bundle.getMainTree() == tree) {
                 return SELF_SYNONYM;
             }
-            for (final String synonym : project.getSortedSynonyms()) {
-                if (project.findBySynonym(synonym) == tree) {
+            for (final String synonym : bundle.getSortedSynonyms()) {
+                if (bundle.findBySynonym(synonym) == tree) {
                     return synonym;
                 }
             }
@@ -446,22 +446,22 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Returns the open project session, or null when no project was opened.
+     * Returns the open bundle session, or null when no bundle was opened.
      *
-     * @return the edit project of the session, or null
+     * @return the edit bundle of the session, or null
      */
-    public EditProject getEditProject() {
-        return editProject;
+    public EditBundle getEditBundle() {
+        return editBundle;
     }
 
     /**
-     * Closes the open project session (releases the shared trees and the parse project). The editor tabs keep
+     * Closes the open bundle session (releases the shared trees and the parse bundle). The editor tabs keep
      * their views - the session ends, the windows do what their user wants with them.
      */
-    public void closeProject() {
-        if (editProject != null) {
-            editProject.close();
-            editProject = null;
+    public void closeBundle() {
+        if (editBundle != null) {
+            editBundle.close();
+            editBundle = null;
         }
     }
 
@@ -575,8 +575,8 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Closes one loaded editor tab (close guard, concept doc/JSON_PROJECT.md phase 4): a tree with unsaved
-     * changes asks before it goes; session trees of an open project are NOT closed on the EditTree level -
+     * Closes one loaded editor tab (close guard, concept doc/JSON_BUNDLE.md phase 4): a tree with unsaved
+     * changes asks before it goes; session trees of an open bundle are NOT closed on the EditTree level -
      * the session owns them, the tab only loses its view (promote it again any time). Plain file tabs stop
      * their parsers, exactly like the window close does.
      *
@@ -610,19 +610,19 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Tells whether the tree belongs to the open project session - session trees stay alive after their tab
+     * Tells whether the tree belongs to the open bundle session - session trees stay alive after their tab
      * closes (the session owns them, they come back via promote).
      */
     private boolean isSessionTree(EditTree tree) {
-        if (editProject == null || tree == null) {
+        if (editBundle == null || tree == null) {
             return false;
         }
-        if (editProject.getMainTree() == tree) {
+        if (editBundle.getMainTree() == tree) {
             return true;
         }
         try {
-            for (final String synonym : editProject.getSortedSynonyms()) {
-                if (tree == editProject.findBySynonym(synonym)) {
+            for (final String synonym : editBundle.getSortedSynonyms()) {
+                if (tree == editBundle.findBySynonym(synonym)) {
                     return true;
                 }
             }
@@ -633,17 +633,17 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Promotes a project resource to its own tab again (visibility axis, concept doc/JSON_PROJECT.md): a
+     * Promotes a bundle resource to its own tab again (visibility axis, concept doc/JSON_BUNDLE.md): a
      * closed session resource is BACKGROUND - this opens (or selects) its read only view.
      *
      * @param synonym the session synonym of the resource
      */
-    public void showProjectResource(String synonym) {
-        final EditProject project = getEditProject();
-        if (project == null) {
+    public void showBundleResource(String synonym) {
+        final EditBundle bundle = getEditBundle();
+        if (bundle == null) {
             return;
         }
-        final EditTree tree = project.findBySynonym(synonym);
+        final EditTree tree = bundle.findBySynonym(synonym);
         if (tree == null) {
             return;
         }
@@ -707,7 +707,7 @@ public class WoodWindow extends JFrame {
 
     /**
      * Adds a new editor tab with the loaded JSON content, optionally read only and with a title hint (the
-     * project sub resources open as read only views, concept doc/JSON_PROJECT.md visibility axis).
+     * bundle sub resources open as read only views, concept doc/JSON_BUNDLE.md visibility axis).
      *
      * @param file the JSON file that was loaded
      * @param tree the Tree with the loaded content
@@ -867,8 +867,8 @@ public class WoodWindow extends JFrame {
                 leftTree.close();
             }
         }
-        // the project session ends with the window - the clamp releases the shared trees
-        closeProject();
+        // the bundle session ends with the window - the clamp releases the shared trees
+        closeBundle();
     }
 
     /**

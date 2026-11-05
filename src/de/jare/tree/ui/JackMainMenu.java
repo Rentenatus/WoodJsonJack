@@ -59,15 +59,15 @@ public class JackMainMenu extends JMenuBar {
         this.master = master;
         this.mainActions = mainFrame.getMainActions();
 
-        // Project menu
-        JMenu projectMenu = new JMenu("Project");
-        projectMenu.setMnemonic(KeyEvent.VK_P);
+        // Bundle menu
+        JMenu bundleMenu = new JMenu("Bundle");
+        bundleMenu.setMnemonic(KeyEvent.VK_B);
 
         JMenuItem newItem = new JMenuItem("New");
         JMenuItem openItem = new JMenuItem("Open...");
-        JMenuItem openProjectItem = new JMenuItem("Open Project...");
-        JMenuItem closeProjectItem = new JMenuItem("Close Project");
-        JMenuItem showResourceItem = new JMenuItem("Show Project Resource...");
+        JMenuItem openBundleItem = new JMenuItem("Open Bundle...");
+        JMenuItem closeBundleItem = new JMenuItem("Close Bundle");
+        JMenuItem showResourceItem = new JMenuItem("Show Bundle Resource...");
         JMenuItem saveItem = new JMenuItem("Save");
         JMenuItem saveAsItem = new JMenuItem("Save As...");
         JMenuItem diffChangesItem = new JMenuItem("Diff Changes (vs. Disk)");
@@ -75,23 +75,23 @@ public class JackMainMenu extends JMenuBar {
 
         exitItem.addActionListener(e -> woodWindow.dispose());
         openItem.addActionListener(e -> openJsonFile());
-        openProjectItem.addActionListener(e -> openJsonProject());
-        closeProjectItem.addActionListener(e -> woodWindow.closeProject());
-        showResourceItem.addActionListener(e -> showProjectResource());
+        openBundleItem.addActionListener(e -> openJsonBundle());
+        closeBundleItem.addActionListener(e -> woodWindow.closeBundle());
+        showResourceItem.addActionListener(e -> showBundleResource());
         saveItem.addActionListener(e -> mainActions.saveActiveFile());
         saveAsItem.addActionListener(e -> mainActions.saveActiveFileAs());
         diffChangesItem.addActionListener(e -> mainActions.diffActiveAgainstDisk("menu diff changes"));
 
-        projectMenu.add(newItem);
-        projectMenu.add(openItem);
-        projectMenu.add(openProjectItem);
-        projectMenu.add(closeProjectItem);
-        projectMenu.add(showResourceItem);
-        projectMenu.add(saveItem);
-        projectMenu.add(saveAsItem);
-        projectMenu.add(diffChangesItem);
-        projectMenu.addSeparator();
-        projectMenu.add(exitItem);
+        bundleMenu.add(newItem);
+        bundleMenu.add(openItem);
+        bundleMenu.add(openBundleItem);
+        bundleMenu.add(closeBundleItem);
+        bundleMenu.add(showResourceItem);
+        bundleMenu.add(saveItem);
+        bundleMenu.add(saveAsItem);
+        bundleMenu.add(diffChangesItem);
+        bundleMenu.addSeparator();
+        bundleMenu.add(exitItem);
 
         JMenuItem copyItem = new JMenuItem("Copy");
         cutItem = new JMenuItem("Cut");
@@ -103,11 +103,11 @@ public class JackMainMenu extends JMenuBar {
         pasteItem.addActionListener(e -> master.fireContentCommand(EDIT_PASTE, this));
         pasteUnderneathItem.addActionListener(e -> master.fireContentCommand(EDIT_PASTE_UNDERNEATH, this));
 
-        projectMenu.addSeparator();
-        projectMenu.add(copyItem);
-        projectMenu.add(cutItem);
-        projectMenu.add(pasteItem);
-        projectMenu.add(pasteUnderneathItem);
+        bundleMenu.addSeparator();
+        bundleMenu.add(copyItem);
+        bundleMenu.add(cutItem);
+        bundleMenu.add(pasteItem);
+        bundleMenu.add(pasteUnderneathItem);
 
         // Edit menu
         JMenu editMenu = new JMenu("Edit");
@@ -163,7 +163,7 @@ public class JackMainMenu extends JMenuBar {
         );
         infoMenu.add(aboutItem);
 
-        add(projectMenu);
+        add(bundleMenu);
         add(editMenu);
         add(optionsMenu);
         add(infoMenu);
@@ -324,42 +324,42 @@ public class JackMainMenu extends JMenuBar {
     }
 
     /**
-     * Promotes a project resource to its own tab (visibility axis, concept doc/JSON_PROJECT.md): a closed
+     * Promotes a bundle resource to its own tab (visibility axis, concept doc/JSON_BUNDLE.md): a closed
      * session resource is BACKGROUND - this opens (or selects) its read only view.
      */
-    private void showProjectResource() {
-        final de.jare.jsoncasted.editor.core.EditProject project = woodWindow.getEditProject();
-        if (project == null) {
+    private void showBundleResource() {
+        final de.jare.jsoncasted.editor.core.EditBundle bundle = woodWindow.getEditBundle();
+        if (bundle == null) {
             JOptionPane.showMessageDialog(woodWindow,
-                    "No project session is open (Project > Open Project... first).",
-                    "Show Project Resource", JOptionPane.INFORMATION_MESSAGE);
+                    "No bundle session is open (Bundle > Open Bundle... first).",
+                    "Show Bundle Resource", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         try {
-            final String[] synonyms = project.getSortedSynonyms().toArray(new String[0]);
-            final Object chosen = JOptionPane.showInputDialog(woodWindow, "Project resource:",
-                    "Show Project Resource", JOptionPane.PLAIN_MESSAGE, null, synonyms, synonyms[0]);
+            final String[] synonyms = bundle.getSortedSynonyms().toArray(new String[0]);
+            final Object chosen = JOptionPane.showInputDialog(woodWindow, "Bundle resource:",
+                    "Show Bundle Resource", JOptionPane.PLAIN_MESSAGE, null, synonyms, synonyms[0]);
             if (chosen instanceof String synonym) {
-                woodWindow.showProjectResource(synonym);
+                woodWindow.showBundleResource(synonym);
             }
         } catch (de.jare.jsoncasted.io.JsonParseException ex) {
-            woodWindow.showErrorDialog("Project graph error: " + ex.getMessage());
+            woodWindow.showErrorDialog("Bundle graph error: " + ex.getMessage());
         }
     }
 
     /**
-     * Opens a project session: the chosen file is the project's main resource; every provider file of its graph
-     * shares the ONE session (concept doc/JSON_PROJECT.md).
+     * Opens a bundle session: the chosen file is the bundle's main resource; every provider file of its graph
+     * shares the ONE session (concept doc/JSON_BUNDLE.md).
      */
-    private void openJsonProject() {
+    private void openJsonBundle() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileFilter(new FileNameExtensionFilter("JSON Files", "json"));
-        fileChooser.setDialogTitle("Open project (main resource file)");
+        fileChooser.setDialogTitle("Open bundle (main resource file)");
 
         int result = fileChooser.showOpenDialog(woodWindow);
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
-            mainActions.loadJsonProject(selectedFile);
+            mainActions.loadJsonBundle(selectedFile);
         }
     }
 

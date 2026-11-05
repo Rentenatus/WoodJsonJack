@@ -206,7 +206,7 @@ Cherry-picking takes selected theirs changes into the live ours tree — on the 
   restores the left state — if that state equals the diff-time state, the marks become fresh again by
   themselves (hash equality), which is correct: the comparison is honest again.
 - Radiating picks (wood id / link target changes) show the radiating badge before applying; the
-  dependent lookup (`EditProject.getDependents`, concept R10) is still open and explicitly out of
+  dependent lookup (`EditBundle.getDependents`, concept R10) is still open and explicitly out of
   scope here.
 
 ## 8. Lifecycle
