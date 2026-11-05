@@ -395,7 +395,7 @@ keep their names because the bundle rename freed the word *project* for exactly 
    commit. (Established loop of this feature series.)
 
 ---
-*Status: phases 1 to 3 built - project document model (jsonCasted), sidebar skeleton
-(WoodJsonJack) and the bundle grouping with single-file fallback. Names and rules marked
-"binding" are the agreed state of the discussion; everything else is proposal until the
-phase that builds it.*
+*Status: phases 1 to 4 built - project document model (jsonCasted), sidebar skeleton,
+the bundle grouping with single-file fallback and the project document round trip with the
+dry clone dialog (execution: phase 6). Names and rules marked "binding" are the agreed state
+of the discussion; everything else is proposal until the phase that builds it.*

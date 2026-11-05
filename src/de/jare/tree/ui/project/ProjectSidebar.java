@@ -6,9 +6,12 @@
  */
 package de.jare.tree.ui.project;
 
+import de.jare.jsoncasted.io.JsonParseException;
+import de.jare.jsoncasted.model.JsonBuildException;
 import de.jare.jsoncasted.project.Partition;
 import de.jare.jsoncasted.project.PartitionType;
 import de.jare.jsoncasted.project.ProjectDocument;
+import de.jare.jsoncasted.project.ProjectFileService;
 import de.jare.tree.ui.WoodWindow;
 import java.awt.BorderLayout;
 import java.awt.Desktop;
@@ -17,6 +20,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
@@ -53,6 +57,8 @@ public class ProjectSidebar extends JPanel {
     private File projectRoot;
     private ProjectDocument document;
     private ProjectTreeNode root;
+    // project layer io without state of its own (concept sections 1, 2 and 4)
+    private final ProjectFileService projectService = new ProjectFileService();
 
     public ProjectSidebar(WoodWindow window) {
         super(new BorderLayout());
@@ -171,6 +177,52 @@ public class ProjectSidebar extends JPanel {
         }
     }
 
+    /**
+     * The project document round trip (concept section 12, phase 4): re-reads
+     * {@code .wood/project.json} of the open project and re-projects it. A document that became
+     * invalid is refused with the problems found - the sidebar keeps the last valid state
+     * until a correct document is saved.
+     */
+    public void refreshProject() {
+        if (projectRoot == null) {
+            return;
+        }
+        try {
+            ProjectDocument reloaded = projectService.loadProject(projectRoot);
+            List<String> problems = projectService.validateProject(projectRoot, reloaded);
+            if (!problems.isEmpty()) {
+                window.showErrorDialog("The project document has problems:\n\n"
+                        + String.join("\n", problems)
+                        + "\n\nThe sidebar keeps the last valid state; fix the document and save again.");
+                return;
+            }
+            showProject(projectRoot, reloaded);
+        } catch (IOException | JsonParseException | JsonBuildException | RuntimeException e) {
+            window.showErrorDialog("Could not re-read " + projectService.getProjectDocumentFile(projectRoot)
+                    + ":\n" + e.getMessage()
+                    + "\n\nThe sidebar keeps the last valid state.");
+        }
+    }
+
+    /**
+     * @return the project document file of the open project (.wood/project.json), or null
+     * when no project is open
+     */
+    public File getProjectDocumentFile() {
+        return projectRoot != null ? projectService.getProjectDocumentFile(projectRoot) : null;
+    }
+
+    /**
+     * @param candidate the file a save just wrote
+     * @return true when the candidate is the project document of the open project - the file
+     * whose save must refresh the sidebar
+     */
+    public boolean isProjectDocumentFile(File candidate) {
+        File projectDocumentFile = getProjectDocumentFile();
+        return candidate != null && projectDocumentFile != null
+                && candidate.getAbsolutePath().equalsIgnoreCase(projectDocumentFile.getAbsolutePath());
+    }
+
     private void lazyLoad(Object node) {
         if (node instanceof ProjectTreeNode) {
             ((ProjectTreeNode) node).ensureLoaded(model);
@@ -236,6 +288,18 @@ public class ProjectSidebar extends JPanel {
         ProjectTreeNode node = (ProjectTreeNode) path.getLastPathComponent();
 
         JPopupMenu popup = new JPopupMenu();
+        if (node.getKind() == ProjectTreeNode.Kind.PROJECT && hasProject()) {
+            // the round trip of the project document (concept section 12, phase 4)
+            JMenuItem openDocument = new JMenuItem("Open project document");
+            openDocument.setToolTipText("Open .wood/project.json in a tab - it is JSON");
+            openDocument.addActionListener(ev -> {
+                if (getProjectDocumentFile() != null) {
+                    window.getMainActions().loadJsonBundle(getProjectDocumentFile());
+                }
+            });
+            popup.add(openDocument);
+            popup.addSeparator();
+        }
         if (node.getKind() == ProjectTreeNode.Kind.FILE) {
             JMenuItem open = new JMenuItem(isJson(node.getFile()) ? "Open bundle" : "Open externally");
             open.addActionListener(ev -> openNode(node));
@@ -247,6 +311,10 @@ public class ProjectSidebar extends JPanel {
             openMain.setToolTipText("Open the bundle through its declared main file");
             openMain.addActionListener(ev -> openNode(node));
             popup.add(openMain);
+            JMenuItem cloneItem = new JMenuItem("Clone bundle...");
+            cloneItem.setToolTipText("Dry preview of the clone (concept section 5) - execution comes later");
+            cloneItem.addActionListener(ev -> BundleCloneDialog.show(window, node.getFile()));
+            popup.add(cloneItem);
             popup.addSeparator();
         }
         if (isMaterializable(node)) {

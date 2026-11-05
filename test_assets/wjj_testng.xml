@@ -16,6 +16,7 @@
     <class name="de.jare.tree.ui.JsonJackPaneEditorGuardNGTest"/>
     <class name="de.jare.tree.ui.JsonJackTableButtonRendererNGTest"/>
     <class name="de.jare.tree.ui.JsonJackTreeCellEditorNGTest"/>
+    <class name="de.jare.tree.ui.project.BundleClonePlannerNGTest"/>
     <class name="de.jare.tree.ui.project.ProjectTreeNodeNGTest"/>
     </classes>
   </test>

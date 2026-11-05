@@ -297,6 +297,11 @@ public class JackMainActions {
             master.getFastLog().tryWrite("io", "Saved " + target.getName());
             // the save refreshed the fingerprint - the (outdated) markers may go
             woodWindow.refreshOutdatedMarkers();
+            // project document round trip (concept CONCEPT_ProjectView.md section 12, phase 4):
+            // a save of .wood/project.json re-projects the sidebar
+            if (woodWindow.getProjectSidebar().isProjectDocumentFile(target)) {
+                woodWindow.getProjectSidebar().refreshProject();
+            }
             return true;
         } catch (IOException e) {
             master.getFastLog().tryWrite("io", "Save failed: " + target.getName() + " - " + e.getMessage());
