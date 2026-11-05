@@ -39,9 +39,11 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
 
     private final Kind kind;
     private final Partition partition;
-    private final BundleDescriptor descriptor;
+    // mutable on reset: a bundle reload re-reads the descriptor, so a main file swap or a
+    // rename shows in the SAME node instead of surviving in a stale copy until re-scan
+    private BundleDescriptor descriptor;
     private final File file;
-    private final String label;
+    private String label;
     private boolean loaded;
     // a scan problem the projection degrades honestly (a broken bundle descriptor): the
     // node stays visible as what it fell back to, the warning says what is wrong with it
@@ -115,6 +117,20 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
 
     public void reset() {
         loaded = false;
+        // a bundle reload re-reads the descriptor: the node reflects the CURRENT disk state
+        // (a just swapped main file leads the children again), not the state of its scan
+        if (kind == Kind.BUNDLE && file != null && file.isDirectory()) {
+            try {
+                descriptor = PROJECT_SERVICE.loadBundleDescriptor(file);
+                warning = null;
+                label = descriptor != null && descriptor.getName() != null
+                        && !descriptor.getName().isBlank()
+                        ? descriptor.getName() : file.getName();
+            } catch (Exception e) {
+                warning = "Broken bundle descriptor (" + e.getMessage()
+                        + ") - the node keeps the last readable state.";
+            }
+        }
         removeAllChildren();
         if (kind == Kind.FOLDER || kind == Kind.PARTITION) {
             addPlaceholder();

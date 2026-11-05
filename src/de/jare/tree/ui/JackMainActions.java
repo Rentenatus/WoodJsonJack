@@ -634,6 +634,79 @@ public class JackMainActions {
         return true;
     }
 
+    /**
+     * Popup path "Set as main file...": the guard dialog before the descriptor rewrite - it
+     * names the bundle and the file that is the main right now, so the swap is an informed
+     * decision instead of a surprise refocus of the bundle's open behavior.
+     *
+     * @param bundleFolder the bundle folder (contains .woodbundle.json)
+     * @param fileName the candidate main file
+     * @return true when the main was swapped; false when it already was, was cancelled or failed
+     */
+    public boolean setBundleMain(File bundleFolder, String fileName) {
+        de.jare.jsoncasted.project.BundleDescriptor descriptor;
+        try {
+            descriptor = new ProjectFileService().loadBundleDescriptor(bundleFolder);
+        } catch (IOException | JsonParseException | de.jare.jsoncasted.model.JsonBuildException e) {
+            woodWindow.showErrorDialog("The bundle descriptor could not be read:\n" + e.getMessage());
+            return false;
+        }
+        if (fileName.equals(descriptor.getMain())) {
+            JOptionPane.showMessageDialog(woodWindow,
+                    "'" + fileName + "' is already the main file of bundle '"
+                    + descriptor.getName() + "'.",
+                    "Set as main file", JOptionPane.INFORMATION_MESSAGE);
+            return false;
+        }
+        int answer = JOptionPane.showConfirmDialog(woodWindow,
+                "Set '" + fileName + "' as the main file of bundle '" + descriptor.getName() + "'?\n\n"
+                + "Current main: '" + descriptor.getMain() + "'\n\n"
+                + "The bundle opens its main file - opening bundles and the\n"
+                + "sidebar's double click will focus the new one afterwards.",
+                "Set as main file", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE);
+        if (answer != JOptionPane.OK_OPTION) {
+            return false;
+        }
+        return setBundleMainAt(bundleFolder, fileName);
+    }
+
+    /**
+     * Core of "Set as main file": rewrites the descriptor's {@code main} and joins the file into
+     * the declared files list when it is not declared yet (the validator demands the main to be
+     * part of the list). Nothing is written when the file already is the main.
+     *
+     * @param bundleFolder the bundle folder (contains .woodbundle.json)
+     * @param fileName the new main file name
+     * @return true when the descriptor names the new main afterwards
+     */
+    public boolean setBundleMainAt(File bundleFolder, String fileName) {
+        if (bundleFolder == null || fileName == null || fileName.isBlank()) {
+            return false;
+        }
+        ProjectFileService service = new ProjectFileService();
+        try {
+            de.jare.jsoncasted.project.BundleDescriptor descriptor
+                    = service.loadBundleDescriptor(bundleFolder);
+            if (fileName.equals(descriptor.getMain())) {
+                return false;
+            }
+            if (!descriptor.getFiles().contains(fileName)) {
+                descriptor.getFiles().add(fileName);
+            }
+            descriptor.setMain(fileName);
+            service.saveBundleDescriptor(bundleFolder, descriptor);
+        } catch (IOException | JsonParseException | de.jare.jsoncasted.model.JsonBuildException
+                | JsonWriteException e) {
+            master.getFastLog().tryWrite("io", "Main file not swapped: " + fileName
+                    + " - " + e.getMessage());
+            woodWindow.showErrorDialog("The main file could not be set:\n" + e.getMessage());
+            return false;
+        }
+        master.getFastLog().tryWrite("io", "Main file of bundle " + bundleFolder.getName()
+                + " is now " + fileName);
+        return true;
+    }
+
     private boolean hasOpenProject() {
         if (woodWindow.getProjectSidebar().hasProject()) {
             return true;

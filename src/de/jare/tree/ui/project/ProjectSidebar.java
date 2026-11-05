@@ -446,6 +446,22 @@ public class ProjectSidebar extends JPanel {
             JMenuItem open = new JMenuItem(isJson(node.getFile()) ? "Open bundle" : "Open externally");
             open.addActionListener(ev -> openNode(node));
             popup.add(open);
+            // a JSON file inside its bundle can become the main - the guard dialog names the
+            // bundle and the current main before the descriptor rewrite happens
+            if (isJson(node.getFile())
+                    && node.getParent() instanceof ProjectTreeNode parentBundle
+                    && parentBundle.getKind() == ProjectTreeNode.Kind.BUNDLE
+                    && !node.isReadonlyMount()) {
+                JMenuItem setMain = new JMenuItem("Set as main file...");
+                setMain.setToolTipText("Make this file the bundle's main file (the open target)");
+                setMain.addActionListener(ev -> {
+                    if (window.getMainActions().setBundleMain(parentBundle.getFile(),
+                            node.getFile().getName())) {
+                        reloadSubtree(parentBundle);
+                    }
+                });
+                popup.add(setMain);
+            }
             popup.addSeparator();
         }
         if (node.getKind() == ProjectTreeNode.Kind.BUNDLE) {
@@ -453,12 +469,13 @@ public class ProjectSidebar extends JPanel {
             openMain.setToolTipText("Open the bundle through its declared main file");
             openMain.addActionListener(ev -> openNode(node));
             popup.add(openMain);
-            if (hasProject() && projectRoot != null) {
-                JMenuItem openDocument = new JMenuItem("Open project document");
-                openDocument.setToolTipText("Open .wood/project.json in a tab - it is JSON");
-                openDocument.addActionListener(ev -> openProjectDocument());
-                popup.add(openDocument);
-            }
+            // the bundle document is JSON just like the project document (concept section 8)
+            // - the round trip opens the descriptor in a tab, read-only when the mount is
+            JMenuItem openBundleDocument = new JMenuItem("Open bundle document");
+            openBundleDocument.setToolTipText("Open .woodbundle.json in a tab - it is JSON");
+            openBundleDocument.addActionListener(ev -> window.getMainActions().loadJsonBundle(
+                    projectService.getBundleDescriptorFile(node.getFile()), node.isReadonlyMount()));
+            popup.add(openBundleDocument);
             // clone and reroll are identity-world actions: they exist only in json partitions.
             // An isolated source (phase 9) is a view-only old world - nobody clones or rerolls
             // a stand, and it never writes back.
