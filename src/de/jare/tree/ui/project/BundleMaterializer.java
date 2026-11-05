@@ -31,14 +31,31 @@ public final class BundleMaterializer {
 
     /**
      * Materializes the bundle around the given bare JSON file: creates the sibling folder,
-     * moves the file into it and writes the {@code .woodbundle.json}.
+     * writes the {@code .woodbundle.json} and moves the file into it. The descriptor is written
+     * BEFORE the move - so every failure leaves the original file in place and the rolled-back
+     * folder carries at most the descriptor: no implicit state survives an explicit action,
+     * and no half materialization survives a failure either.
      *
      * @param bareJsonFile the bare JSON directly inside a json partition
      * @return the new bundle folder
-     * @throws IOException when the folder cannot be created, the file cannot be moved or the
-     * descriptor cannot be written
+     * @throws IOException when the folder cannot be created, the descriptor cannot be written
+     * or the file cannot be moved - the partial materialization is rolled back
      */
     public static File materialize(File bareJsonFile) throws IOException {
+        return materialize(bareJsonFile, new ProjectFileService());
+    }
+
+    /**
+     * The materialization with the given descriptor service (tests inject a failing one to
+     * reach the rollback).
+     *
+     * @param bareJsonFile the bare JSON directly inside a json partition
+     * @param service the service writing the bundle descriptor, not null
+     * @return the new bundle folder
+     * @throws IOException when the folder cannot be created, the descriptor cannot be written
+     * or the file cannot be moved - the partial materialization is rolled back
+     */
+    static File materialize(File bareJsonFile, ProjectFileService service) throws IOException {
         String fullName = bareJsonFile.getName();
         String stem = fullName.toLowerCase().endsWith(".json")
                 ? fullName.substring(0, fullName.length() - ".json".length()) : fullName;
@@ -49,21 +66,39 @@ public final class BundleMaterializer {
         if (!bundleFolder.mkdir()) {
             throw new IOException("Could not create folder: " + bundleFolder.getAbsolutePath());
         }
+        boolean moved = false;
         try {
+            try {
+                BundleDescriptor descriptor = new BundleDescriptor(stem, fullName);
+                service.saveBundleDescriptor(bundleFolder, descriptor);
+            } catch (JsonParseException | JsonWriteException e) {
+                throw new IOException("The bundle descriptor could not be written: "
+                        + e.getMessage(), e);
+            }
             Files.move(bareJsonFile.toPath(), new File(bundleFolder, fullName).toPath());
-        } catch (IOException e) {
-            bundleFolder.delete();
-            throw e;
-        }
-        try {
-            ProjectFileService service = new ProjectFileService();
-            BundleDescriptor descriptor = new BundleDescriptor(stem, fullName);
-            service.saveBundleDescriptor(bundleFolder, descriptor);
-        } catch (JsonParseException | JsonWriteException e) {
-            throw new IOException("File moved, but the bundle descriptor could not be written: "
-                    + e.getMessage(), e);
+            moved = true;
+        } finally {
+            if (!moved) {
+                deleteRecursively(bundleFolder);
+            }
         }
         return bundleFolder;
+    }
+
+    /**
+     * The rollback of a failed materialization: the fresh folder disappears completely - the
+     * bare JSON file never moved, so no half state survives anywhere.
+     */
+    private static void deleteRecursively(File folder) {
+        final File[] entries = folder.listFiles();
+        if (entries != null) {
+            for (File entry : entries) {
+                deleteRecursively(entry);
+            }
+        }
+        if (folder.exists()) {
+            folder.delete();
+        }
     }
 
 }

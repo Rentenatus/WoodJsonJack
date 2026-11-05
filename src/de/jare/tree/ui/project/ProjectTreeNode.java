@@ -43,6 +43,9 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
     private final File file;
     private final String label;
     private boolean loaded;
+    // a scan problem the projection degrades honestly (a broken bundle descriptor): the
+    // node stays visible as what it fell back to, the warning says what is wrong with it
+    private String warning;
 
     public ProjectTreeNode(String label) {
         this.kind = Kind.PROJECT;
@@ -240,11 +243,11 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
 
     /**
      * Scans a folder for a bundle descriptor and builds the bundle node when one is found.
-     * A broken descriptor degrades honestly: the folder renders as a plain folder; the error
-     * surfaces as soon as a later structural phase needs the descriptor.
+     * A broken descriptor degrades honestly but visibly: the folder renders as a plain folder
+     * with a warning - the reason is neither silently swallowed nor guessed away.
      *
      * @param folder the folder to scan
-     * @return the bundle node, or null when the folder has no (readable) descriptor
+     * @return the bundle node, or null when the folder has no descriptor
      */
     private ProjectTreeNode tryBundleNode(File folder) {
         if (!folder.isDirectory() || !PROJECT_SERVICE.getBundleDescriptorFile(folder).isFile()) {
@@ -253,8 +256,19 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
         try {
             return new ProjectTreeNode(folder, PROJECT_SERVICE.loadBundleDescriptor(folder));
         } catch (Exception e) {
-            return null;
+            ProjectTreeNode degraded = new ProjectTreeNode(folder, true);
+            degraded.warning = "Broken bundle descriptor (" + e.getMessage()
+                    + ") - the folder renders as a plain folder until the descriptor is fixed.";
+            return degraded;
         }
+    }
+
+    /**
+     * @return the scan warning of this node (a broken bundle descriptor it degraded from), or
+     * null when the node renders as what it is
+     */
+    public String getWarning() {
+        return warning;
     }
 
     /**
@@ -318,7 +332,9 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
                     + descriptor.getFiles().size() + "] -> " + (file != null ? file.getAbsolutePath() : "?");
         }
         if (file != null) {
-            return file.getAbsolutePath();
+            return warning != null
+                    ? file.getAbsolutePath() + "\n" + warning
+                    : file.getAbsolutePath();
         }
         return label;
     }

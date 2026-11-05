@@ -213,6 +213,16 @@ public class ProjectSidebar extends JPanel {
     }
 
     /**
+     * Opens the project document in a tab (concept section 8: it is JSON, the same round
+     * trip as any other JSON file). Offered from the project node and from bundle nodes.
+     */
+    private void openProjectDocument() {
+        if (getProjectDocumentFile() != null) {
+            window.getMainActions().loadJsonBundle(getProjectDocumentFile());
+        }
+    }
+
+    /**
      * @param candidate the file a save just wrote
      * @return true when the candidate is the project document of the open project - the file
      * whose save must refresh the sidebar
@@ -292,11 +302,7 @@ public class ProjectSidebar extends JPanel {
             // the round trip of the project document (concept section 12, phase 4)
             JMenuItem openDocument = new JMenuItem("Open project document");
             openDocument.setToolTipText("Open .wood/project.json in a tab - it is JSON");
-            openDocument.addActionListener(ev -> {
-                if (getProjectDocumentFile() != null) {
-                    window.getMainActions().loadJsonBundle(getProjectDocumentFile());
-                }
-            });
+            openDocument.addActionListener(ev -> openProjectDocument());
             popup.add(openDocument);
             popup.addSeparator();
         }
@@ -311,6 +317,12 @@ public class ProjectSidebar extends JPanel {
             openMain.setToolTipText("Open the bundle through its declared main file");
             openMain.addActionListener(ev -> openNode(node));
             popup.add(openMain);
+            if (hasProject() && projectRoot != null) {
+                JMenuItem openDocument = new JMenuItem("Open project document");
+                openDocument.setToolTipText("Open .wood/project.json in a tab - it is JSON");
+                openDocument.addActionListener(ev -> openProjectDocument());
+                popup.add(openDocument);
+            }
             JMenuItem cloneItem = new JMenuItem("Clone bundle...");
             cloneItem.setToolTipText("Duplicate this bundle next to the original (concept section 5)");
             cloneItem.addActionListener(ev -> BundleCloneDialog.show(window, node.getFile(),

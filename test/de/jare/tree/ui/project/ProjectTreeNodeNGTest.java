@@ -1,12 +1,17 @@
 package de.jare.tree.ui.project;
 
+import de.jare.jsoncasted.io.JsonParseException;
+import de.jare.jsoncasted.io.JsonWriteException;
 import de.jare.jsoncasted.project.BundleDescriptor;
 import de.jare.jsoncasted.project.Partition;
 import de.jare.jsoncasted.project.PartitionType;
 import de.jare.jsoncasted.project.ProjectFileService;
+import java.awt.Component;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import javax.swing.JLabel;
+import javax.swing.JTree;
 import javax.swing.tree.DefaultTreeModel;
 import static org.testng.Assert.*;
 import org.testng.annotations.AfterMethod;
@@ -27,6 +32,15 @@ public class ProjectTreeNodeNGTest {
     private File profilesFolder;
     private File assetsFolder;
     private ProjectFileService service;
+
+    // reaches the materialization rollback from the test side: the descriptor write fails
+    private static final ProjectFileService FAILING_DESCRIPTOR_SERVICE = new ProjectFileService() {
+        @Override
+        public void saveBundleDescriptor(File bundleFolder, BundleDescriptor descriptor)
+                throws JsonParseException, JsonWriteException {
+            throw new JsonWriteException("descriptor write refused by the test");
+        }
+    };
 
     @BeforeMethod
     public void setUp() throws Exception {
@@ -183,6 +197,70 @@ public class ProjectTreeNodeNGTest {
             // the file must be untouched
             assertTrue(stray.isFile());
         }
+    }
+
+    /**
+     * The materialization rollback: a failing descriptor write leaves the bare JSON untouched
+     * at its place and no half bundle folder behind - the same no-half-state discipline as the
+     * clone rollback.
+     */
+    @Test
+    public void testMaterializeRollsBackWhenDescriptorWriteFails() {
+        File stray = new File(profilesFolder, "stray.json");
+        try {
+            BundleMaterializer.materialize(stray, FAILING_DESCRIPTOR_SERVICE);
+            fail("Expected an IOException for the failing descriptor write.");
+        } catch (IOException expected) {
+            assertTrue(expected.getMessage().contains("descriptor"),
+                    "the error names what failed: " + expected.getMessage());
+        }
+        assertTrue(stray.isFile(), "the bare JSON never moved");
+        assertFalse(new File(profilesFolder, "stray").exists(), "no half bundle folder survives");
+    }
+
+    /**
+     * A broken bundle descriptor degrades honestly and visibly: the folder renders as a
+     * plain folder with a [!] marker and the tooltip names the reason - the projection never
+     * guesses the bundle away silently.
+     */
+    @Test
+    public void testBrokenBundleDescriptorIsVisible() throws Exception {
+        newFolder("profiles/brokenDescriptor");
+        writeFile("profiles/brokenDescriptor/.woodbundle.json", "{ not json");
+
+        ProjectTreeNode partition = partitionNode(profilesFolder, PartitionType.JSON);
+        partition.ensureLoaded(new DefaultTreeModel(partition));
+
+        ProjectTreeNode degraded = childByName(partition, "brokenDescriptor");
+        assertEquals(degraded.getKind(), ProjectTreeNode.Kind.FOLDER);
+        assertTrue(degraded.getWarning().contains("Broken bundle descriptor"),
+                "the warning names the problem: " + degraded.getWarning());
+        assertTrue(degraded.toTooltip().contains("Broken bundle descriptor"));
+
+        Component rendered = new ProjectTreeCellRenderer().getTreeCellRendererComponent(
+                new JTree(), degraded, false, false, false, 0, false);
+        assertTrue(((JLabel) rendered).getText().contains("[!]"),
+                "the label marks the scan problem: " + ((JLabel) rendered).getText());
+    }
+
+    /**
+     * The readonly defaults follow the role (concept section 2): gen and target mounts are
+     * readonly without an explicit flag, the editable roles are not; an explicit flag wins
+     * over any default - gen mounted writable on purpose stays writable.
+     */
+    @Test
+    public void testGenAndTargetMountsAreReadonlyByDefault() {
+        assertTrue(partitionNode(assetsFolder, PartitionType.GEN).isReadonlyMount());
+        assertTrue(partitionNode(assetsFolder, PartitionType.TARGET).isReadonlyMount());
+        assertFalse(partitionNode(assetsFolder, PartitionType.SRC).isReadonlyMount());
+        assertFalse(partitionNode(assetsFolder, PartitionType.JSON).isReadonlyMount());
+
+        assertTrue(partitionNode(assetsFolder, PartitionType.GEN).toTooltip().contains("readonly"),
+                "the mount says it is readonly: "
+                + partitionNode(assetsFolder, PartitionType.GEN).toTooltip());
+
+        Partition genWritableOnPurpose = new Partition("genw", PartitionType.GEN, "./assets", false);
+        assertFalse(new ProjectTreeNode(genWritableOnPurpose, assetsFolder).isReadonlyMount());
     }
 
     //

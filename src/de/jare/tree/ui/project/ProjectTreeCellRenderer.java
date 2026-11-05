@@ -41,6 +41,10 @@ public class ProjectTreeCellRenderer extends DefaultTreeCellRenderer {
             if (node.getKind() == ProjectTreeNode.Kind.BUNDLE) {
                 setText(node.toString() + " [bundle]");
             }
+            // a scan problem says so in the label - the tooltip carries the reason
+            if (node.getWarning() != null) {
+                setText(node.toString() + " [!]");
+            }
             if (sel) {
                 setForeground(null);
             } else if (node.isReadonlyMount()) {
