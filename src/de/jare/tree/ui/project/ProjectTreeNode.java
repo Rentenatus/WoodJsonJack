@@ -174,9 +174,15 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
         Comparator<File> byName = Comparator.comparing(f -> f.getName().toLowerCase());
         dirs.sort(byName);
         files.sort(byName);
-        boolean jsonTree = enclosingPartitionType() == PartitionType.JSON;
+        // bundle-aware inside json partitions AND isolated sources: an isolated mount is the
+        // view-only old world (concept CONCEPT_ProjectView.md, phase 9) - it renders like a json
+        // partition (bundles, descriptors, the grouping), it just never takes part in the
+        // identity world of the project
+        final PartitionType enclosing = enclosingPartitionType();
+        final boolean bundleAware = enclosing == PartitionType.JSON
+                || enclosing == PartitionType.ISOLATED;
         for (File dir : dirs) {
-            ProjectTreeNode bundle = jsonTree ? tryBundleNode(dir) : null;
+            ProjectTreeNode bundle = bundleAware ? tryBundleNode(dir) : null;
             children.add(bundle != null ? bundle : new ProjectTreeNode(dir, true));
         }
         for (File plain : files) {

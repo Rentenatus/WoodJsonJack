@@ -87,11 +87,24 @@ public class JackMainActions {
      * @param file the bundle's main resource file
      */
     public void loadJsonBundle(File file) {
+        loadJsonBundle(file, false);
+    }
+
+    /**
+     * Opens a bundle session with the main tree's editability decided by the caller: an
+     * ISOLATED source (concept CONCEPT_ProjectView.md, phase 9 - an old version to look at)
+     * opens completely read-only, no editor action writes into it.
+     *
+     * @param file the bundle's main resource file
+     * @param mainReadonly true when the main tree opens as a read-only view
+     */
+    public void loadJsonBundle(File file, boolean mainReadonly) {
         try {
             final EditBundle bundle = EditBundle.open(file);
-            woodWindow.openBundle(file, bundle);
+            woodWindow.openBundle(file, bundle, mainReadonly);
             master.getFastLog().tryWrite("io", "Loaded bundle " + file.getName()
-                    + " (" + bundle.getSortedSynonyms().size() + " resources)");
+                    + " (" + bundle.getSortedSynonyms().size() + " resources"
+                    + (mainReadonly ? ", read-only view" : "") + ")");
         } catch (IOException | JsonParseException e) {
             master.getFastLog().tryWrite("io", "Bundle load failed: " + file.getName() + " - " + e.getMessage());
             woodWindow.showErrorDialog("Error opening bundle: " + e.getMessage());

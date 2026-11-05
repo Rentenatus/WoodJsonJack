@@ -97,6 +97,7 @@ Rules (binding):
 | `json` | **bundle partition** — contains bundles (section 4) | editable, bundle-aware |
 | `gen` | output of a generator (e.g. Java models generated from JSON) — semantically build output that is meant to be *read* | default `readonly` |
 | `target` | build output, wiped by builds | collapsed, `readonly`, not indexed |
+| `isolated` | **isolated source** — a view-only old world (section 12, phase 9): bundles to *look at*, e.g. an older version of a project bundle | `readonly`, bundle-aware, fully outside the identity world |
 
 Types are roles, not layouts: the UI derives icon, color and behavior from `type`, never from
 guessing path conventions.
@@ -392,6 +393,19 @@ keep their names because the bundle rename freed the word *project* for exactly 
    names, the ids still reroll project-wide disjoint, the internal references only exchange their
    id part - dangling validation is not optional. Use case: keep readable wiring names when only
    the identities must become fresh (a shared scope without a rename).
+9. **Isolated sources (decided - phase 9):** an `isolated` partition mounts a view-only old world:
+   bundles a user wants to *look at* - typically an older version of a project bundle (from git,
+   a worktree or a copy; the extraction from git itself is a later comfort, v1 mounts a folder the
+   user fills). By their reason of existence these sources carry **IDs that must collide** with the
+   live project (an old version has almost the same `syn::id` pairs) - therefore they are fully
+   outside the identity world: never bundled into the reroll (neither the enumeration nor the
+   disjoint sets - a reroll does not see them), never scanned by the version conflict rule, open
+   only as read-only views, clone/materialize refused. Exactly one hook is deliberate: a
+   project-local import resolution serves an isolated bundle only as the **last resort** - the
+   live `json` partitions always win, an old version never shadows the current bundle (explicit
+   wiring into the old world remains possible any time via a path import). Use case: cherry-picking
+   against a stand (concept CONCEPT_TreeDiffView.md) - the isolated mount is the parking place of
+   the theirs side.
 
 ## 12. Implementation plan
 
@@ -418,19 +432,27 @@ keep their names because the bundle rename freed the word *project* for exactly 
    `disjunct_to_bundles` collision validation — engine tool with subset support, but the UI
    always passes **all project trees** (bundle resources, standalone files, their resources) =
    project-wide disjoint. Undo as one composite transaction. Can follow directly after phase 5;
-   also benefits from settling question 1 of section 11.
-9. Each phase: compile all three repos, test loop per repo recipe, live test in the running app,
+   also benefits from settling question 1 of section 11. *(Built; amendment: the synonym switch,
+   question 8.)*
+9. **Isolated sources (question 9):** the `isolated` partition type — a view-only old world
+   outside the identity world: bundle-aware rendering, read-only open, no clone/materialize,
+   no reroll participation (neither enumeration nor disjoint), no conflict scan; a project-local
+   import serves an isolated bundle only as the last resort (live `json` partitions always win).
+   *(Built.)*
+10. Each phase: compile all three repos, test loop per repo recipe, live test in the running app,
    commit. (Established loop of this feature series.)
 
 ---
-*Status: phases 1 to 8 built - project document model (jsonCasted), sidebar skeleton, bundle
+*Status: phases 1 to 9 built - project document model (jsonCasted), sidebar skeleton, bundle
 grouping with single-file fallback, project document round trip with dialog, bundle-scoped IDs
 (strategy B) with the engine's supervised merging, the clone execution, the import resolution
 (path reactor, project-local, repository with the materialize-once cache, conflict rule - no
-transitive resolution), and RerollID (engine plan tool with disjunct_to_bundles, editor commands
-as one composite undo step, dialog with the project-wide preselected tree list; its
-preconditions landed as 8a - the editor provider round trip fix - and the strict file-relative
-provider filename resolution of question 7). Open: none of the planned phases; the noted backlog
-items are readonly enforcement on save and the dormant namespaced open lane until the import
-wiring establishes it. Names and rules marked "binding" are the agreed state of the discussion;
-everything else is proposal until the phase that builds it.*
+transitive resolution), RerollID (engine plan tool with disjunct_to_bundles and the synonym
+switch, editor commands as one composite undo step, dialog with the project-wide preselected
+tree list; its preconditions landed as 8a - the editor provider round trip fix - and the strict
+file-relative provider filename resolution of question 7), and the isolated sources (phase 9 -
+the view-only old world outside the identity world, cherry-pick-ready). Open: none of the planned
+phases; the noted backlog items are readonly enforcement on save and the dormant namespaced open
+lane until the import wiring establishes it; git extraction for isolated mounts is a later comfort.
+Names and rules marked "binding" are the agreed state of the discussion; everything else is
+proposal until the phase that builds it.*

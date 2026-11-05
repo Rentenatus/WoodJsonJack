@@ -348,12 +348,27 @@ public class WoodWindow extends JFrame {
      * @param bundle the session clamp with the shared trees
      */
     public void openBundle(File mainFile, EditBundle bundle) throws JsonParseException {
+        openBundle(mainFile, bundle, false);
+    }
+
+    /**
+     * Opens the bundle session with the main tree's editability decided by the caller. An
+     * isolated source (concept CONCEPT_ProjectView.md, phase 9 - an old version to look at)
+     * opens completely read-only: the main tree is a view like the provider trees, no editor
+     * action writes into it.
+     *
+     * @param mainFile the bundle's main file (tab identity)
+     * @param bundle the bundle session to open
+     * @param mainReadonly true when the main tree opens as a read-only view
+     * @throws JsonParseException if wiring the session fails
+     */
+    public void openBundle(File mainFile, EditBundle bundle, boolean mainReadonly) throws JsonParseException {
         if (editBundle != null) {
             editBundle.close();
         }
         this.editBundle = bundle;
 
-        addEditorTab(mainFile, bundle.getMainTree(), null, false);
+        addEditorTab(mainFile, bundle.getMainTree(), null, mainReadonly);
         for (final String synonym : bundle.getSortedSynonyms()) {
             final EditTree tree = bundle.findBySynonym(synonym);
             if (tree == null || tree == bundle.getMainTree()) {
@@ -363,6 +378,21 @@ public class WoodWindow extends JFrame {
             addEditorTab(treeFile, tree, "[" + synonym + "]", true);
         }
         wireChangePropagation(bundle);
+    }
+
+    /**
+     * @param tree the edit tree whose tab is asked
+     * @return true when the editor showing the tree is a read-only view (isolated sources and
+     * provider trees open that way)
+     */
+    public boolean isReadOnlyView(EditTree tree) {
+        for (final JackEditTreeContainer container : editorTrees) {
+            if (container.getLeftTree() != null && container.getLeftTree().getModel() != null
+                    && container.getLeftTree().getModel().getEditTree() == tree) {
+                return container.getLeftTree().isReadonly();
+            }
+        }
+        return false;
     }
 
     /**

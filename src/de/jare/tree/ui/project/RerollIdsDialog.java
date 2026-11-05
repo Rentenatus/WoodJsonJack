@@ -134,6 +134,24 @@ public class RerollIdsDialog extends JDialog {
     }
 
     /**
+     * The labels of the trees the dialog would enumerate (the live check proves with this that
+     * isolated sources stay outside the identity world - they never join the disjoint set).
+     *
+     * @param projectRoot the open project root, not null
+     * @param document the open project document, not null
+     * @param bundleFolder the bundle the reroll would target, not null
+     * @return the labels of every tree of the project's json partitions, in scan order
+     */
+    public static List<String> treeLabelsOf(File projectRoot, ProjectDocument document,
+            File bundleFolder) {
+        final List<String> labels = new ArrayList<>();
+        for (TreeCandidate candidate : enumerateTrees(projectRoot, document, bundleFolder)) {
+            labels.add(candidate.label);
+        }
+        return labels;
+    }
+
+    /**
      * The binding default path (concept section 7.1): every tree of the project goes into the
      * disjoint set - the curated subset exists only by explicit deselection in the dialog. The
      * live check drives this rail.

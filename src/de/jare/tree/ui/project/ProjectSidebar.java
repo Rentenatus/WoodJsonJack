@@ -255,7 +255,9 @@ public class ProjectSidebar extends JPanel {
             case FILE:
                 File file = projectNode.getFile();
                 if (file != null && isJson(file)) {
-                    window.getMainActions().loadJsonBundle(file);
+                    // a readonly mount (isolated source, gen, target) opens as a view only -
+                    // phase 9: an old version to look at never becomes editable
+                    window.getMainActions().loadJsonBundle(file, projectNode.isReadonlyMount());
                 } else {
                     openExternal(file);
                 }
@@ -267,7 +269,7 @@ public class ProjectSidebar extends JPanel {
                     break;
                 }
                 if (isJson(mainFile)) {
-                    window.getMainActions().loadJsonBundle(mainFile);
+                    window.getMainActions().loadJsonBundle(mainFile, projectNode.isReadonlyMount());
                 } else {
                     openExternal(mainFile);
                 }
@@ -323,21 +325,30 @@ public class ProjectSidebar extends JPanel {
                 openDocument.addActionListener(ev -> openProjectDocument());
                 popup.add(openDocument);
             }
-            JMenuItem cloneItem = new JMenuItem("Clone bundle...");
-            cloneItem.setToolTipText("Duplicate this bundle next to the original (concept section 5)");
-            cloneItem.addActionListener(ev -> BundleCloneDialog.show(window, node.getFile(),
-                    (source, deep) -> cloneBundle(node, source, deep)));
-            popup.add(cloneItem);
+            // clone and reroll are identity-world actions: they exist only in json partitions.
+            // An isolated source (phase 9) is a view-only old world - nobody clones or rerolls
+            // a stand, and it never writes back.
+            final boolean identityWorld = node.enclosingPartitionType() == PartitionType.JSON
+                    && !node.isReadonlyMount();
+            if (identityWorld) {
+                JMenuItem cloneItem = new JMenuItem("Clone bundle...");
+                cloneItem.setToolTipText("Duplicate this bundle next to the original (concept section 5)");
+                cloneItem.addActionListener(ev -> BundleCloneDialog.show(window, node.getFile(),
+                        (source, deep) -> cloneBundle(node, source, deep)));
+                popup.add(cloneItem);
+            }
             if (hasProject() && projectRoot != null) {
                 JMenuItem importsItem = new JMenuItem("Imports...");
                 importsItem.setToolTipText("The descriptor's imports with their resolutions (concept section 6)");
                 importsItem.addActionListener(ev -> BundleImportsDialog.show(window, projectRoot, node.getFile()));
                 popup.add(importsItem);
-                JMenuItem rerollItem = new JMenuItem("Reroll IDs...");
-                rerollItem.setToolTipText("Fresh identities for this bundle - disjoint from the whole project (concept section 7.1)");
-                rerollItem.addActionListener(ev -> RerollIdsDialog.show(window, projectRoot, document,
-                        node.getFile(), node.getMainFile()));
-                popup.add(rerollItem);
+                if (identityWorld) {
+                    JMenuItem rerollItem = new JMenuItem("Reroll IDs...");
+                    rerollItem.setToolTipText("Fresh identities for this bundle - disjoint from the whole project (concept section 7.1)");
+                    rerollItem.addActionListener(ev -> RerollIdsDialog.show(window, projectRoot, document,
+                            node.getFile(), node.getMainFile()));
+                    popup.add(rerollItem);
+                }
             }
             popup.addSeparator();
         }
