@@ -16,6 +16,7 @@ import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import static de.jare.jsoncasted.lang.JsonTerms.SELF_SYNONYM;
 import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.ParseProblemsListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -455,6 +456,29 @@ public class WoodWindow extends JFrame {
      */
     public EditBundle getEditBundle() {
         return editBundle;
+    }
+
+    /**
+     * @return the undo manager of the window (the command funnels of the editors live here)
+     */
+    public JackUndoManager getUndoManager() {
+        return jackmaster.getUndoManager();
+    }
+
+    /**
+     * Finds the tree model that shows the given edit tree (the tab of that bundle file).
+     *
+     * @param tree the edit tree whose model is sought, not null
+     * @return the model showing the tree, or null when no editor of this window shows it
+     */
+    public JackTreeModel findModelOf(EditTree tree) {
+        for (final JackEditTreeContainer container : editorTrees) {
+            if (container.getLeftTree() != null && container.getLeftTree().getModel() != null
+                    && container.getLeftTree().getModel().getEditTree() == tree) {
+                return container.getLeftTree().getModel();
+            }
+        }
+        return null;
     }
 
     /**

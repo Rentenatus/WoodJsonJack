@@ -376,6 +376,15 @@ keep their names because the bundle rename freed the word *project* for exactly 
    is the precondition for phase 8's synonym reroll. Known residual quirk (accepted): string
    values with embedded quotes or backslashes do not escape/unescape symmetrically between parser
    and writer - out of scope, provider synonyms and filenames are identifiers.
+7. **Provider filename resolution (decided, binding - phase 8):** a `_woodProviders` filename
+   resolves **strictly relative to the folder of the file that declares it**; absolute filenames
+   pass through unchanged. Before this rule relative filenames resolved against the process
+   working directory (the reason the suites had to run from `test_assets`): a bundle only loaded
+   completely when the editor happened to run in the right folder, and the editor session silently
+   missed provider trees elsewhere. The engine changed in `JsonBundle.loadProviderGraph` and
+   `WoodProxyResolver` (owner-relative resolution, no cwd fallback); the fixtures carry
+   file-relative paths now. Downstream consumers (clone deep relocation, reroll classification,
+   the imports resolver) already lived by this convention.
 
 ## 12. Implementation plan
 
@@ -407,11 +416,14 @@ keep their names because the bundle rename freed the word *project* for exactly 
    commit. (Established loop of this feature series.)
 
 ---
-*Status: phases 1 to 7 built - project document model (jsonCasted), sidebar skeleton, bundle
+*Status: phases 1 to 8 built - project document model (jsonCasted), sidebar skeleton, bundle
 grouping with single-file fallback, project document round trip with dialog, bundle-scoped IDs
-(strategy B) with the engine's supervised merging, the clone execution, and the import
-resolution (path reactor, project-local, repository with the materialize-once cache, conflict
-rule - no transitive resolution). Phase 8a built (editor provider round trip fix, the
-precondition); open: phase 8 (RerollID itself). Names and rules marked "binding" are the
-agreed state of the discussion; everything else is proposal until the phase that builds
-it.*
+(strategy B) with the engine's supervised merging, the clone execution, the import resolution
+(path reactor, project-local, repository with the materialize-once cache, conflict rule - no
+transitive resolution), and RerollID (engine plan tool with disjunct_to_bundles, editor commands
+as one composite undo step, dialog with the project-wide preselected tree list; its
+preconditions landed as 8a - the editor provider round trip fix - and the strict file-relative
+provider filename resolution of question 7). Open: none of the planned phases; the noted backlog
+items are readonly enforcement on save and the dormant namespaced open lane until the import
+wiring establishes it. Names and rules marked "binding" are the agreed state of the discussion;
+everything else is proposal until the phase that builds it.*

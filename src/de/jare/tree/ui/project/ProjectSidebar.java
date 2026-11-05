@@ -333,6 +333,11 @@ public class ProjectSidebar extends JPanel {
                 importsItem.setToolTipText("The descriptor's imports with their resolutions (concept section 6)");
                 importsItem.addActionListener(ev -> BundleImportsDialog.show(window, projectRoot, node.getFile()));
                 popup.add(importsItem);
+                JMenuItem rerollItem = new JMenuItem("Reroll IDs...");
+                rerollItem.setToolTipText("Fresh identities for this bundle - disjoint from the whole project (concept section 7.1)");
+                rerollItem.addActionListener(ev -> RerollIdsDialog.show(window, projectRoot, document,
+                        node.getFile(), node.getMainFile()));
+                popup.add(rerollItem);
             }
             popup.addSeparator();
         }
