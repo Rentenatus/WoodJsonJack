@@ -536,6 +536,21 @@ public class ProjectSidebar extends JPanel {
                 protectItem.addActionListener(ev ->
                         toggleBundleFileProtection(parentBundle, node));
                 popup.add(protectItem);
+                // the ghost's way out (phase 21): an undeclared JSON file of the bundle folder
+                // registers into the descriptor - the glyph disappears, the file becomes truth
+                if (parentBundle.getDescriptor() != null
+                        && !parentBundle.getDescriptor().hasFile(fileName)) {
+                    JMenuItem registerItem = new JMenuItem("Register in bundle");
+                    registerItem.setToolTipText("Declare this file in the bundle descriptor - "
+                            + "it stops haunting as an undeclared leftover");
+                    registerItem.addActionListener(ev -> {
+                        if (window.getMainActions().registerBundleResourceAt(
+                                parentBundle.getFile(), fileName)) {
+                            reloadSubtree(parentBundle);
+                        }
+                    });
+                    popup.add(registerItem);
+                }
             }
             popup.addSeparator();
         }

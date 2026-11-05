@@ -69,20 +69,27 @@ public class ProjectTreeCellRenderer extends DefaultTreeCellRenderer {
             if (node.getError() != null) {
                 setText(node.toString() + " [!!]");
             }
-            // inside a bundle the file rows carry their roles (concept phase 19 and 20): the
-            // star prefix (space before the name) marks the main file, the protected marker
-            // the descriptor-carried read-only fence - a fenced main file can be both
+            // inside a bundle the file rows carry their roles (concept phase 19, 20 and 21):
+            // the star prefix (space before the name) marks the main file, the protected marker
+            // the descriptor-carried read-only fence, and the GHOST prefix an undeclared file -
+            // it lies in the bundle folder but not in the descriptor's truth, so it haunts
+            // (register it and the ghost disappears; star and fence are for declared files)
             if (node.getKind() == ProjectTreeNode.Kind.FILE
                     && node.getParent() instanceof ProjectTreeNode parentBundle
                     && parentBundle.getKind() == ProjectTreeNode.Kind.BUNDLE
                     && parentBundle.getDescriptor() != null
                     && node.getFile() != null) {
                 String text = node.toString();
-                if (node.getFile().getName().equals(parentBundle.getDescriptor().getMain())) {
-                    text = "★ " + text;
-                }
-                if (parentBundle.getDescriptor().isProtected(node.getFile().getName())) {
-                    text = text + " [protected]";
+                String fileName = node.getFile().getName();
+                if (!parentBundle.getDescriptor().hasFile(fileName)) {
+                    text = "\uD83D\uDC7B " + text;
+                } else {
+                    if (fileName.equals(parentBundle.getDescriptor().getMain())) {
+                        text = "★ " + text;
+                    }
+                    if (parentBundle.getDescriptor().isProtected(fileName)) {
+                        text = text + " [protected]";
+                    }
                 }
                 setText(text);
             }

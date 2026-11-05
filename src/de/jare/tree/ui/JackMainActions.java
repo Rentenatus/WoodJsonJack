@@ -707,6 +707,46 @@ public class JackMainActions {
         return true;
     }
 
+    /**
+     * Core of "Register in bundle" (the ghost glyph disappears): declares an existing file of
+     * the bundle folder in its descriptor's files list. No content is written - the file lies
+     * there already, only the bundle's truth adopts it. A repeated call is refused.
+     *
+     * @param bundleFolder the bundle folder (contains .woodbundle.json)
+     * @param fileName the existing file to declare
+     * @return true when the descriptor lists the file afterwards; false when refused
+     */
+    public boolean registerBundleResourceAt(File bundleFolder, String fileName) {
+        if (bundleFolder == null || !bundleFolder.isDirectory() || fileName == null
+                || fileName.isBlank()) {
+            return false;
+        }
+        ProjectFileService service = new ProjectFileService();
+        try {
+            de.jare.jsoncasted.project.BundleDescriptor descriptor
+                    = service.loadBundleDescriptor(bundleFolder);
+            if (descriptor.hasFile(fileName)) {
+                master.getFastLog().tryWrite("io", "Not registered: '" + fileName
+                        + "' is already declared in the bundle.");
+                return false;
+            }
+            if (!new File(bundleFolder, fileName).isFile()) {
+                master.getFastLog().tryWrite("io", "Not registered: '" + fileName
+                        + "' does not exist in the bundle folder.");
+                return false;
+            }
+            descriptor.getFiles().add(fileName);
+            service.saveBundleDescriptor(bundleFolder, descriptor);
+        } catch (IOException | JsonParseException | de.jare.jsoncasted.model.JsonBuildException
+                | JsonWriteException e) {
+            master.getFastLog().tryWrite("io", "Not registered: " + fileName + " - " + e.getMessage());
+            return false;
+        }
+        master.getFastLog().tryWrite("io", "Registered '" + fileName + "' in bundle "
+                + bundleFolder.getName());
+        return true;
+    }
+
     private boolean hasOpenProject() {
         if (woodWindow.getProjectSidebar().hasProject()) {
             return true;
