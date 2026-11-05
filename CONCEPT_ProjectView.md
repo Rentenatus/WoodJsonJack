@@ -415,6 +415,20 @@ keep their names because the bundle rename freed the word *project* for exactly 
    isolated folder itself stays a read-only view. Explicit wiring into the old world remains
    the user's own decision via a path import. Use case: cherry-picking against a stand (concept
    CONCEPT_TreeDiffView.md) - the isolated mount is the parking place of the theirs side.
+10. **Cherry-picks from a foreign identity world (decided - phase 10):** NO persistence of any
+    reroll trace. Instead the pick boundary of a cross-world pair (ours = live session, theirs =
+    an isolated stand opened as the diff counterpart) runs a causal translation at pick time:
+    (a) **synonym check** - the picked references carry ghost synonyms; the translation derives
+    old→current from the ONLY stable anchor, the provider file correspondence (a ghost provider
+    entry names the same file as a live provider entry under a new synonym);
+    (b) **conflict check** - a translated reference must resolve in the live world: references
+    into the pick's own content rewire to the fresh ids, references to live objects must exist
+    under the translated synonym (a rerolled away id dangles and REFUSES the pick with guidance -
+    nothing is half-applied); (c) **fresh ids for every picked element** - picked identities are
+    born new and disjoint in the live world, never inherited from the ghost (identity deltas as
+    such never apply - the engine reports identity changes as REMOVE+ADD anyway). Causally
+    faithful: nothing is guessed or reconstructed after the fact; unresolvable means refusal,
+    the user decides.
 
 ## 12. Implementation plan
 
@@ -456,11 +470,16 @@ keep their names because the bundle rename freed the word *project* for exactly 
    no reroll participation (neither enumeration nor disjoint), no conflict scan; a project-local
    import serves an isolated bundle only as the last resort and as a FIND - the hit materializes
    a frozen copy, never a live link into the ghost world. *(Built.)*
-10. Each phase: compile all three repos, test loop per repo recipe, live test in the running app,
+10. **Cross-world cherry-picks (question 10):** the pick boundary translation of a cross-world
+   pair (live session ↔ isolated stand): synonym check via the provider file correspondence,
+   conflict check on every translated reference (dangling refuses the whole pick), fresh ids for
+   every picked element - no reroll trace is persisted; the translation is causal, per pick.
+   *(Built.)*
+11. Each phase: compile all three repos, test loop per repo recipe, live test in the running app,
    commit. (Established loop of this feature series.)
 
 ---
-*Status: phases 1 to 9 built - project document model (jsonCasted), sidebar skeleton, bundle
+*Status: phases 1 to 10 built - project document model (jsonCasted), sidebar skeleton, bundle
 grouping with single-file fallback, project document round trip with dialog, bundle-scoped IDs
 (strategy B) with the engine's supervised merging, the clone execution, the import resolution
 (path reactor, project-local, repository with the materialize-once cache, conflict rule - no
@@ -468,7 +487,9 @@ transitive resolution), RerollID (engine plan tool with disjunct_to_bundles and 
 switch, editor commands as one composite undo step, dialog with the project-wide preselected
 tree list; its preconditions landed as 8a - the editor provider round trip fix - and the strict
 file-relative provider filename resolution of question 7), and the isolated sources (phase 9 -
-the view-only old world outside the identity world, cherry-pick-ready). Open: none of the planned
+the view-only old world outside the identity world, cherry-pick ready), and the cross-world pick
+boundary translation (phase 10 - the synonym check via the relative provider name, the conflict
+check, fresh ids for every picked element - no reroll trace persisted, question 10). Open: none of the planned
 phases; the noted backlog items are readonly enforcement on save and the dormant namespaced open
 lane until the import wiring establishes it; git extraction for isolated mounts is a later comfort.
 Names and rules marked "binding" are the agreed state of the discussion; everything else is

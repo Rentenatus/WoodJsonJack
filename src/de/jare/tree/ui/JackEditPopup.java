@@ -494,9 +494,31 @@ public class JackEditPopup extends JPopupMenu {
         if (oursContainer == null) {
             return;
         }
+        // phase 10 (concept CONCEPT_ProjectView.md, question 10): a cross-world pair (the theirs
+        // side is a stand of a foreign identity world - an isolated source, an old version) picks
+        // through the identity translation: synonym check, conflict check, fresh ids. A
+        // same-world pair picks verbatim as before.
+        final de.jare.jsoncasted.editor.core.EditTree theirsTree = theirsRoot == marked
+                ? TreeDiffSides.getRememberedTree()
+                : invokerModel() != null ? invokerModel().getEditTree() : null;
+        de.jare.jsoncasted.editor.merge.PickIdentityTranslation pickTranslation = null;
+        if (theirsTree != null) {
+            final java.awt.Window ancestor = javax.swing.SwingUtilities.getWindowAncestor(lastInvoker);
+            if (ancestor instanceof WoodWindow woodWindow) {
+                try {
+                    pickTranslation = DiffViewController.crossWorldTranslationOf(
+                            woodWindow, oursTree, theirsTree);
+                } catch (de.jare.jsoncasted.io.JsonParseException ex) {
+                    // the pair itself stays usable; a pick then runs unexplained verbatim - the
+                    // refusal case below is the safer failure mode and this path does not happen
+                    // on readable sessions
+                    pickTranslation = null;
+                }
+            }
+        }
         DiffViewController.showContainerTab(oursContainer);
         oursContainer.getDiffController().open(oursTree, theirsRoot,
-                threeWay ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2);
+                threeWay ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2, pickTranslation);
     }
 
     /**

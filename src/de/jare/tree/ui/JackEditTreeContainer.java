@@ -168,7 +168,20 @@ public class JackEditTreeContainer extends JPanel {
         if (getDiffController().isOpen()) {
             getDiffController().close();
         }
-        getDiffController().open(oursTree, theirs, kind);
+        // phase 10: a cross-world theirs (an isolated stand among the tabs) picks through the
+        // identity translation - same-world pairs stay verbatim
+        de.jare.jsoncasted.editor.merge.PickIdentityTranslation pickTranslation = null;
+        final de.jare.jsoncasted.editor.core.EditTree theirsTree = TreeDiffSides.getRememberedTree();
+        final java.awt.Window ancestor = javax.swing.SwingUtilities.getWindowAncestor(this);
+        if (theirsTree != null && ancestor instanceof WoodWindow woodWindow) {
+            try {
+                pickTranslation = DiffViewController.crossWorldTranslationOf(
+                        woodWindow, oursTree, theirsTree);
+            } catch (de.jare.jsoncasted.io.JsonParseException ex) {
+                pickTranslation = null;
+            }
+        }
+        getDiffController().open(oursTree, theirs, kind, pickTranslation);
         if (getDiffController().isOpen()) {
             // this container just paired with the marked side: the marked side can run the same pair again
             TreeDiffSides.rememberPartner(oursTree.getRoot(), leftTree.getModel());

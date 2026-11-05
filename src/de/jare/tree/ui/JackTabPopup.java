@@ -165,9 +165,17 @@ public class JackTabPopup extends JPopupMenu {
         if (oursContainer == null) {
             return;
         }
+        // phase 10: a cross-world pair (the theirs side is an isolated stand) picks through the
+        // identity translation - same-world pairs stay verbatim
+        de.jare.jsoncasted.editor.merge.PickIdentityTranslation pickTranslation = null;
+        try {
+            pickTranslation = DiffViewController.crossWorldTranslationOf(woodWindow, oursTree, theirsTree);
+        } catch (de.jare.jsoncasted.io.JsonParseException ex) {
+            pickTranslation = null;
+        }
         DiffViewController.showContainerTab(oursContainer);
         oursContainer.getDiffController().open(oursTree, theirsTree.getRoot(),
-                threeWay ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2);
+                threeWay ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2, pickTranslation);
     }
 
     private EditTree sideTreeOf(Object rememberedNode) {
