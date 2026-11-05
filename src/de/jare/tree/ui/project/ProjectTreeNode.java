@@ -294,6 +294,31 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
     }
 
     /**
+     * The broken state of a bundle - the sidebar's counterpart of the parse error of a JSON
+     * tree: the declared main file does not exist on disk (deleted, renamed, never there), so
+     * opening the bundle is impossible even though the descriptor itself is well formed.
+     * Computed on demand: the node never carries a stale error, the renderer sees the CURRENT
+     * disk state every paint (the fast little existence checks cost nothing next to a scan).
+     *
+     * @return the error explanation, or null when the bundle is complete
+     */
+    public String getError() {
+        if (kind != Kind.BUNDLE || descriptor == null || file == null) {
+            return null;
+        }
+        String mainName = descriptor.getMain();
+        if (mainName == null || mainName.isBlank()) {
+            return "The bundle has no main file - the descriptor is incomplete. Open the bundle "
+                    + "document and declare one (or use Set as main file on a contained file).";
+        }
+        if (!new File(file, mainName).isFile()) {
+            return "Main file '" + mainName + "' is missing - the bundle cannot open. Put the "
+                    + "file back or set one of the declared files as the new main.";
+        }
+        return null;
+    }
+
+    /**
      * @return the descriptor of this bundle node, or null for every other kind
      */
     public BundleDescriptor getDescriptor() {
@@ -350,8 +375,13 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
         }
         if (kind == Kind.BUNDLE && descriptor != null) {
             String mainName = descriptor.getMain() != null ? descriptor.getMain() : "?";
-            return label + " [bundle, main: " + mainName + ", files: "
+            String tooltip = label + " [bundle, main: " + mainName + ", files: "
                     + descriptor.getFiles().size() + "] -> " + (file != null ? file.getAbsolutePath() : "?");
+            String broken = getError();
+            if (broken != null) {
+                tooltip = tooltip + "\n" + broken;
+            }
+            return tooltip;
         }
         if (file != null) {
             return warning != null
