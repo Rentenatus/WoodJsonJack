@@ -14,6 +14,7 @@ import de.jare.jsoncasted.editor.core.JsonTreeConverter;
 import de.jare.jsoncasted.editor.core.SaveGuard;
 import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.io.JsonParseException;
+import de.jare.jsoncasted.io.JsonWriteException;
 import de.jare.jsoncasted.io.parserservice.JsonParserService;
 import de.jare.jsoncasted.lang.JsonResource;
 import de.jare.jsoncasted.project.ProjectDocument;
@@ -125,6 +126,58 @@ public class JackMainActions {
         int result = folderChooser.showOpenDialog(woodWindow);
         if (result == JFileChooser.APPROVE_OPTION) {
             openProject(folderChooser.getSelectedFile());
+        }
+    }
+
+    /**
+     * Lets the user pick a folder and makes it a wood project (concept CONCEPT_ProjectView.md,
+     * section 1): {@code .wood/project.json} with an empty partition list is created, then the
+     * project opens in the sidebar. A folder that already carries a project document is refused -
+     * creating never overwrites. The save variant of the folder chooser deliberately, because it
+     * offers the "create new folder" button.
+     */
+    public void newProject() {
+        JFileChooser folderChooser = new JFileChooser();
+        folderChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        folderChooser.setDialogTitle("New wood project (folder that gets .wood/project.json)");
+        folderChooser.setAcceptAllFileFilterUsed(false);
+
+        int result = folderChooser.showSaveDialog(woodWindow);
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        File folder = folderChooser.getSelectedFile();
+        if (folder == null) {
+            return;
+        }
+        if (new ProjectFileService().isProjectRoot(folder)) {
+            woodWindow.showErrorDialog("This folder is already a wood project:\n"
+                    + folder.getAbsolutePath() + "\n(.wood/project.json exists; creating never overwrites)");
+            return;
+        }
+        createProjectAt(folder);
+    }
+
+    /**
+     * Creates an empty project document ({@code .wood/project.json}, name = the folder name, no
+     * partitions yet) in the given folder and opens it as the active project. Both entry points
+     * share this method: the "New Project..." menu action and live checks.
+     *
+     * @param folder the new project root, must not contain a project document yet
+     */
+    public void createProjectAt(File folder) {
+        if (folder == null || folder.isFile()) {
+            return;
+        }
+        try {
+            ProjectDocument document = new ProjectDocument(folder.getName());
+            new ProjectFileService().saveProject(folder, document);
+            master.getFastLog().tryWrite("io", "Created project " + folder.getName());
+            openProject(folder);
+        } catch (IOException | JsonParseException | JsonWriteException e) {
+            master.getFastLog().tryWrite("io", "Project creation failed: " + folder.getName()
+                    + " - " + e.getMessage());
+            woodWindow.showErrorDialog("Error creating project: " + e.getMessage());
         }
     }
 

@@ -12,6 +12,7 @@ import de.jare.jsoncasted.project.Partition;
 import de.jare.jsoncasted.project.PartitionType;
 import de.jare.jsoncasted.project.ProjectDocument;
 import de.jare.jsoncasted.project.ProjectFileService;
+import de.jare.tree.ui.UiIcons;
 import de.jare.tree.ui.WoodWindow;
 import java.awt.BorderLayout;
 import java.awt.Desktop;
@@ -67,10 +68,11 @@ public class ProjectSidebar extends JPanel {
         nameLabel = new JLabel("No project open");
         nameLabel.setToolTipText("The open wood project (.wood/project.json)");
 
-        JButton openButton = new JButton("Open...");
+        // icon-only buttons (UiIcons resolves through the installed LaF, so they follow the theme)
+        JButton openButton = new JButton(UiIcons.openProjectIcon());
         openButton.setToolTipText("Open a project folder (requires .wood/project.json)");
         openButton.addActionListener(e -> window.getMainActions().chooseAndOpenProject());
-        refreshButton = new JButton("Refresh");
+        refreshButton = new JButton(UiIcons.refreshIcon());
         refreshButton.setToolTipText("Re-read the physical structure below the mounts");
         refreshButton.addActionListener(e -> refreshAll());
         refreshButton.setEnabled(false);

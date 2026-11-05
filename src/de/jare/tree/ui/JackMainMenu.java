@@ -59,43 +59,66 @@ public class JackMainMenu extends JMenuBar {
         this.master = master;
         this.mainActions = mainFrame.getMainActions();
 
-        // Bundle menu
-        JMenu bundleMenu = new JMenu("Bundle");
-        bundleMenu.setMnemonic(KeyEvent.VK_B);
+        // File menu: single file actions without bundle or project state
+        JMenu fileMenu = new JMenu("File");
+        fileMenu.setMnemonic(KeyEvent.VK_F);
 
-        JMenuItem newItem = new JMenuItem("New");
-        JMenuItem openItem = new JMenuItem("Open...");
-        JMenuItem openBundleItem = new JMenuItem("Open Bundle...");
-        JMenuItem openProjectItem = new JMenuItem("Open Project...");
-        JMenuItem closeBundleItem = new JMenuItem("Close Bundle");
-        JMenuItem showResourceItem = new JMenuItem("Show Bundle Resource...");
-        JMenuItem saveItem = new JMenuItem("Save");
-        JMenuItem saveAsItem = new JMenuItem("Save As...");
+        JMenuItem openItem = new JMenuItem("Open...", UiIcons.openFileIcon());
+        JMenuItem saveItem = new JMenuItem("Save", UiIcons.saveIcon());
+        JMenuItem saveAsItem = new JMenuItem("Save As...", UiIcons.saveIcon());
         JMenuItem diffChangesItem = new JMenuItem("Diff Changes (vs. Disk)");
         JMenuItem exitItem = new JMenuItem("Exit");
 
         exitItem.addActionListener(e -> woodWindow.dispose());
         openItem.addActionListener(e -> openJsonFile());
-        openBundleItem.addActionListener(e -> openJsonBundle());
-        openProjectItem.addActionListener(e -> mainActions.chooseAndOpenProject());
-        closeBundleItem.addActionListener(e -> woodWindow.closeBundle());
-        showResourceItem.addActionListener(e -> showBundleResource());
         saveItem.addActionListener(e -> mainActions.saveActiveFile());
         saveAsItem.addActionListener(e -> mainActions.saveActiveFileAs());
         diffChangesItem.addActionListener(e -> mainActions.diffActiveAgainstDisk("menu diff changes"));
 
-        bundleMenu.add(newItem);
-        bundleMenu.add(openItem);
+        fileMenu.add(openItem);
+        fileMenu.add(saveItem);
+        fileMenu.add(saveAsItem);
+        fileMenu.add(diffChangesItem);
+        fileMenu.addSeparator();
+        fileMenu.add(exitItem);
+
+        // Bundle menu: the multi resource session (concepts doc/JSON_BUNDLE.md and doc/TREE_DIFF.md)
+        JMenu bundleMenu = new JMenu("Bundle");
+        bundleMenu.setMnemonic(KeyEvent.VK_B);
+
+        JMenuItem openBundleItem = new JMenuItem("Open Bundle...", UiIcons.openBundleIcon());
+        JMenuItem closeBundleItem = new JMenuItem("Close Bundle");
+        JMenuItem showResourceItem = new JMenuItem("Show Bundle Resource...");
+
+        openBundleItem.addActionListener(e -> openJsonBundle());
+        closeBundleItem.addActionListener(e -> woodWindow.closeBundle());
+        showResourceItem.addActionListener(e -> showBundleResource());
+
         bundleMenu.add(openBundleItem);
-        bundleMenu.add(openProjectItem);
         bundleMenu.add(closeBundleItem);
         bundleMenu.add(showResourceItem);
-        bundleMenu.add(saveItem);
-        bundleMenu.add(saveAsItem);
-        bundleMenu.add(diffChangesItem);
-        bundleMenu.addSeparator();
-        bundleMenu.add(exitItem);
 
+        // Project menu: the .wood/project.json scope (concept CONCEPT_ProjectView.md, sections 1 and 8)
+        JMenu projectMenu = new JMenu("Project");
+        projectMenu.setMnemonic(KeyEvent.VK_P);
+
+        JMenuItem newProjectItem = new JMenuItem("New Project...", UiIcons.newProjectIcon());
+        JMenuItem openProjectItem = new JMenuItem("Open Project...", UiIcons.openProjectIcon());
+        JMenuItem closeProjectItem = new JMenuItem("Close Project");
+        JMenuItem refreshProjectItem = new JMenuItem("Refresh", UiIcons.refreshIcon());
+
+        newProjectItem.addActionListener(e -> mainActions.newProject());
+        openProjectItem.addActionListener(e -> mainActions.chooseAndOpenProject());
+        closeProjectItem.addActionListener(e -> woodWindow.getProjectSidebar().closeProject());
+        refreshProjectItem.addActionListener(e -> woodWindow.getProjectSidebar().refreshProject());
+
+        projectMenu.add(newProjectItem);
+        projectMenu.add(openProjectItem);
+        projectMenu.add(closeProjectItem);
+        projectMenu.addSeparator();
+        projectMenu.add(refreshProjectItem);
+
+        // Edit menu: clipboard operations first, then the structural node operations
         JMenuItem copyItem = new JMenuItem("Copy");
         cutItem = new JMenuItem("Cut");
         pasteItem = new JMenuItem("paste into this node");
@@ -106,15 +129,14 @@ public class JackMainMenu extends JMenuBar {
         pasteItem.addActionListener(e -> master.fireContentCommand(EDIT_PASTE, this));
         pasteUnderneathItem.addActionListener(e -> master.fireContentCommand(EDIT_PASTE_UNDERNEATH, this));
 
-        bundleMenu.addSeparator();
-        bundleMenu.add(copyItem);
-        bundleMenu.add(cutItem);
-        bundleMenu.add(pasteItem);
-        bundleMenu.add(pasteUnderneathItem);
-
-        // Edit menu
         JMenu editMenu = new JMenu("Edit");
         editMenu.setMnemonic(KeyEvent.VK_E);
+
+        editMenu.add(copyItem);
+        editMenu.add(cutItem);
+        editMenu.add(pasteItem);
+        editMenu.add(pasteUnderneathItem);
+        editMenu.addSeparator();
 
         addNodeMenu = new JMenu("Add Node");
         addAnnotationMenu = new JMenu("Add Annotation");
@@ -166,7 +188,9 @@ public class JackMainMenu extends JMenuBar {
         );
         infoMenu.add(aboutItem);
 
+        add(fileMenu);
         add(bundleMenu);
+        add(projectMenu);
         add(editMenu);
         add(optionsMenu);
         add(infoMenu);
