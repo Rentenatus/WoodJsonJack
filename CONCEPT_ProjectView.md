@@ -124,8 +124,8 @@ Rules:
   collapsed by default and may also be excluded entirely via a viewer setting later.
 - File-node types in v1: **JSON (bundle-aware), other files read-only.**
   - double-click `.json` in a `json` partition → open the bundle in a tab (as today's Open Bundle).
-  - double-click `.md`, `.txt`, `.java`, any other file → v1: external open (desktop handler) or
-    read-only plain view — decided in phase 2, until then: external open. The Wood editor does not
+  - double-click `.md`, `.txt`, `.java`, any other file → **decided (phase 2): external open**
+    (desktop handler, no view inside Wood). The Wood editor does not
     grow a text editor in this concept.
 - Changing physical structure under a mount (files added/removed externally) shows up on refresh
   of that subtree (re-expand / F5-style action). No file system watcher in v1.
@@ -326,7 +326,10 @@ RerollID(bundle, disjoint_to_bundles: [bundle1, …, bundleN])   ← N optional,
 - Header: project name + project document open button (project.json in a tab) + collapse.
 - Per-node context menu (v1): for bundle folders — *Open bundle* (main file), *Open project
   document*, *Clone…* (phase per section 12); for partitions — *Refresh*, *Reveal in explorer*;
-  for `readonly` mounts the edit entries are disabled with a hint.
+  for `readonly` mounts the edit entries are disabled with a hint. Built state: the bundle-level
+  edit actions (clone, materialize, reroll) are refused below readonly mounts and isolated sources
+  render their tabs as read-only views; the remaining backlog is the **save guard** - a save from
+  a tab into a readonly mount is not blocked yet (see status line).
 - The sidebar is **read-mostly state**: it holds no edit state of its own. Opening a bundle reuses
   the entire existing tab/`EditBundle` machinery (duplicate open = focus the existing tab).
 - Theme: sidebar renders with normal tree colors; partition types may get icon tints from the
@@ -361,15 +364,18 @@ keep their names because the bundle rename freed the word *project* for exactly 
    (see section 7, consequence 3). The engine merge supervises collisions; `RerollID` with
    `disjunct_to_bundles` (section 7.1) is the explicit preparation when two bundles must enter
    one resolution scope collision-free.
-2. Bare non-JSON files inside a `json` partition: hide, or show gray? (Tendency: show gray, the
-   partition is honest about what lies there.)
+2. Bare non-JSON files inside a `json` partition: hide, or show gray? **Decided by the build:** the
+   partition is honest - every file shows plainly (no hiding, no graying; a bundle subtree lists
+   undeclared files after the declared ones).
 3. Recent-projects integration with `knownProjects` (section 9) — v2 comfort, decided when the
    sidebar has proven itself.
 4. Bundle version sources: is `version` a descriptor field of the *installed* bundle only, or can
-   working bundles carry a version for install? (Tendency: installed-only in v1; versioning a
-   working bundle is the install action's job.)
-5. Import cache location: per project (e.g. `.wood/cache/`) vs. `~/.wood/cache/`. Per project makes
-   the project self-contained; user-global saves duplicates. Tendency: per project.
+   working bundles carry a version for install? **Decided by the build (v1): installed-only** - the
+   version lives on the import (the pin of a dependency import and the cache key); working bundles
+   carry no version field. Versioning a working bundle is the later install action's job.
+5. Import cache location: per project (e.g. `.wood/cache/`) vs. `~/.wood/cache/`. **Decided &
+   built: per project** (` .wood/cache/<name>/<version>/`, materialized exactly once) - the
+   project stays self-contained.
 6. **Editor provider round trip (fixed - phase 8a):** the editor had no representation of a file's
    `_woodProviders` member and its save dropped the entries silently - saving a wired file from a
    tab stripped the bundle wiring. Phase 8a fixes it (jsonCasted_edit): the import captures the
@@ -415,33 +421,41 @@ keep their names because the bundle rename freed the word *project* for exactly 
 1. **Model foundation (jsonCasted/jsonCasted_edit):** project document readable/writable
    (`ProjectDocument` with `Partition` records: name/type/path/readonly, path resolution incl.
    project-root relative), `.woodbundle.json` readable/writable (name/main/files/imports).
-   Validation rules of sections 2 and 4. Tests.
+   Validation rules of sections 2 and 4. Tests. *(Built - the model landed in jsonCasted;
+   jsonCasted_edit needed no share of it.)*
 2. **Sidebar skeleton (WoodJsonJack):** third panel, project open action (choose folder, needs
    `.wood/project.json`), partition rendering, lazy expansion, file nodes, double-click wiring for
-   JSON (via existing bundle open), reveal-in-explorer.
+   JSON (via existing bundle open), reveal-in-explorer. *(Built.)*
 3. **Bundle grouping:** scan of `json` partitions for descriptors, bundle subtree rendering,
-   single-file fallback with materialize action.
+   single-file fallback with materialize action. *(Built - the scan is bundle-aware in `json` and
+   `isolated` partitions since phase 9.)*
 4. **Project document round trip:** open project.json in a tab (it is JSON), edit, save, sidebar
-   refresh; clone dialog *without* execution (dry) until 6.
+   refresh; clone dialog *without* execution (dry) until 6. *(Built.)*
 5. **Bundle-scoped resolution (engine prerequisite, requires question 1 of section 11):**
    namespace-aware resolution in jsonCasted — asking bundle as resolution context,
    `WoodProxyResolver` / `JsonSystem` supervision, cross-bundle sharing syntax. Regression: all
    existing link tests stay green (single-bundle projects must behave exactly as today).
+   *(Built - questions 1 settled binding; the engine carries the namespaced lane; the editor
+   activates it with the import wiring, see status line.)*
 6. **Clone execution:** folder copy, sibling convention, deep/shallow, descriptor rewrite.
-   (No ID remapping — Strategy B, section 7.)
+   (No ID remapping — Strategy B, section 7.) *(Built - shallow clones byte-identical, deep
+   relocates external provider files with rewritten references and a full rollback.)*
 7. **Imports:** path imports (same-project wiring), local repository layout, materialize-once
-   cache, resolution with strict refusal rules.
+   cache, resolution with strict refusal rules. *(Built - binding channel order, conflict rule,
+   no transitive resolution; the isolated find runs through the same materialize-once rail since
+   phase 9.)*
 8. **RerollID (section 7.1):** id generation + reference rewrite inside one bundle,
    `disjunct_to_bundles` collision validation — engine tool with subset support, but the UI
    always passes **all project trees** (bundle resources, standalone files, their resources) =
    project-wide disjoint. Undo as one composite transaction. Can follow directly after phase 5;
    also benefits from settling question 1 of section 11. *(Built; amendment: the synonym switch,
-   question 8.)*
+   question 8; preconditions 8a - the editor provider round trip fix and the strict file-relative
+   provider filename resolution, question 7.)*
 9. **Isolated sources (question 9):** the `isolated` partition type — a view-only old world
    outside the identity world: bundle-aware rendering, read-only open, no clone/materialize,
    no reroll participation (neither enumeration nor disjoint), no conflict scan; a project-local
-   import serves an isolated bundle only as the last resort (live `json` partitions always win).
-   *(Built.)*
+   import serves an isolated bundle only as the last resort and as a FIND - the hit materializes
+   a frozen copy, never a live link into the ghost world. *(Built.)*
 10. Each phase: compile all three repos, test loop per repo recipe, live test in the running app,
    commit. (Established loop of this feature series.)
 

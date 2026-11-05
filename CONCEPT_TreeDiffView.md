@@ -99,6 +99,12 @@ on-the-fly loaded disk version. With a retained import state it opens as W3
 (base = import state — the save quadrant made visible), without as W2; the conflict dialog can
 force the plain W2 user diff. Picking there takes external changes into the working copy.
 
+*Where a theirs stand parks:* an old version to compare against (e.g. from git) has a project-visible
+parking place since the project view's phase 9 — an `isolated` mount (see
+`CONCEPT_ProjectView.md`, sections 2 and 11.9): view-only, outside the identity world, never
+colliding with the live bundle. The pair is then the classic W2: live bundle left, isolated stand
+right, cherry-picks land in ours.
+
 ## 4. Where the diff information lives
 
 **Not on the node models.** Marks are view state, not content; they must not ride along in `deepCopy`,

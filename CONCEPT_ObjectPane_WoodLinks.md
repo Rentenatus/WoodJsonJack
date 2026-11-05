@@ -1,6 +1,6 @@
 # Konzept: Wood-Links im Editor-Core und Object-Pane
 
-**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b) — das Fields-Pane heißt seit dem Umbenennen **Object-Pane** (es zeigt das Objekt mit seinen Feldern; Klassen `JsonJackObjectPane`/`JsonJackObjectTableModel`, Tab-Label „Object"). Offen: Auswahl-Semantik (Kapitel 6), Merge nach develop. Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit vier Ausnahmen: Renames im Soft-Modus als Freitext bzw. im Hard-Modus über die Kandidaten-Combobox, primitive Werte in beiden Modi, jsonField-Kombination (Feld-Auswahl der Parent-Description) in beiden Modi und die Erzeugung fehlender Felder (AddNodeCommand) in der Object-Pane.
+**Status**: Phase A umgesetzt (jsonCasted_edit, Branch `feature/woodLinks`, Commits 4b8b899–89554b7), Phase B umgesetzt (WoodJsonJack, Branch `feature/fieldsPane`, Commit 6c12e7b) — das Fields-Pane heißt seit dem Umbenennen **Object-Pane** (es zeigt das Objekt mit seinen Feldern; Klassen `JsonJackObjectPane`/`JsonJackObjectTableModel`, Tab-Label „Object"). Beide Zweige sind nach develop gemergt; offen bleibt die Auswahl-Semantik (Kapitel 6). Beide Panes sind Sandbox-Ansichten: Änderungen werden nie in den EditNode zurückgespielt (Kapitel 5.1) — mit vier Ausnahmen: Renames im Soft-Modus als Freitext bzw. im Hard-Modus über die Kandidaten-Combobox, primitive Werte in beiden Modi, jsonField-Kombination (Feld-Auswahl der Parent-Description) in beiden Modi und die Erzeugung fehlender Felder (AddNodeCommand) in der Object-Pane.
 **Betroffene Projekte**: `jsonCasted_edit` (Phase A, Editor-Core), `WoodJsonJack` (Phase B, Swing-UI)
 **Abhängigkeiten**: `JsonTreeConverter`, `EditTreeWriter`, `EditTree`, `EditNodeObject`, `EditLinkingSet`, `JsonModelDescriptor`, `JsonTerms`
 **Vorbedingung**: Phase A vor Phase B — die Combobox des Object-Pane filtert Objekt-Instanzen, die der Editor heute noch verliert.
@@ -465,8 +465,11 @@ synchroner Lauf, keine Validierungsstatus-Änderung).
    Verweisen auf Objekte mit oder ohne woodId? Wird beim Setzen automatisch eine
    woodId ans Original vergeben?
 2. **woodId-Generierung**: Woher kommen Ids für neu angelegte Objekte? Kandidat ist
-   der bestehende `IdGenerator`; ob woodIds editor-lokal oder provider-global sein
-   müssen, klärt die Auswahl-Semantik.
+   der bestehende `IdGenerator`; der Gültigkeitsraum ist seither entschieden
+   (CONCEPT_ProjectView.md Abschnitt 7, Strategy B): woodIds sind **bundle-scoped**,
+   die Neuziehung frischer Identitäten ist das RerollID-Werkzeug - die Frage
+   editor-lokal vs. provider-global ist damit geklärt, offen bleibt nur der
+   Setz-Moment der Auswahl-Semantik.
 3. **UI-Sicht auf den Halteraum**: Luft-Objekte im LinkingSet sind unsichtbar, solange
    kein Knoten auf sie zeigt. Für das endgültige Löschen und Aufräumen braucht es
    eine Sicht (z. B. Sektion im Object-Pane oder eigener Baumabschnitt). Design offen.
