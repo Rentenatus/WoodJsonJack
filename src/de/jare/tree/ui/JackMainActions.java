@@ -16,10 +16,13 @@ import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.parserservice.JsonParserService;
 import de.jare.jsoncasted.lang.JsonResource;
+import de.jare.jsoncasted.project.ProjectDocument;
+import de.jare.jsoncasted.project.ProjectFileService;
 import de.jare.tree.control.JackMasterControl;
 import de.jare.tree.control.model.JackTreeModel;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -92,6 +95,56 @@ public class JackMainActions {
         } catch (IOException | JsonParseException e) {
             master.getFastLog().tryWrite("io", "Bundle load failed: " + file.getName() + " - " + e.getMessage());
             woodWindow.showErrorDialog("Error opening bundle: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lets the user choose a project folder and opens it (concept: CONCEPT_ProjectView.md,
+     * sections 1 and 8). The folder must contain {@code .wood/project.json}; the document is
+     * validated at load time and refused with the problems found.
+     */
+    public void chooseAndOpenProject() {
+        JFileChooser folderChooser = new JFileChooser();
+        folderChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        folderChooser.setDialogTitle("Open wood project (folder with .wood/project.json)");
+        folderChooser.setAcceptAllFileFilterUsed(false);
+
+        int result = folderChooser.showOpenDialog(woodWindow);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            openProject(folderChooser.getSelectedFile());
+        }
+    }
+
+    /**
+     * Opens a project folder in the sidebar: loads {@code .wood/project.json}, validates the
+     * document (binding rules of the concept) and projects it as partition level.
+     *
+     * @param folder the candidate project root
+     */
+    public void openProject(File folder) {
+        if (folder == null) {
+            return;
+        }
+        ProjectFileService projectService = new ProjectFileService();
+        if (!projectService.isProjectRoot(folder)) {
+            woodWindow.showErrorDialog("Not a wood project: "
+                    + folder.getAbsolutePath() + "\n(no .wood/project.json found)");
+            return;
+        }
+        try {
+            ProjectDocument document = projectService.loadProject(folder);
+            List<String> problems = projectService.validateProject(folder, document);
+            if (!problems.isEmpty()) {
+                woodWindow.showErrorDialog("The project document is invalid:\n\n"
+                        + String.join("\n", problems));
+                return;
+            }
+            woodWindow.getProjectSidebar().showProject(folder, document);
+            master.getFastLog().tryWrite("io", "Loaded project " + folder.getName()
+                    + " (" + document.getRoots().size() + " partitions)");
+        } catch (IOException | JsonParseException | de.jare.jsoncasted.model.JsonBuildException e) {
+            master.getFastLog().tryWrite("io", "Project load failed: " + folder.getName() + " - " + e.getMessage());
+            woodWindow.showErrorDialog("Error opening project: " + e.getMessage());
         }
     }
 

@@ -70,6 +70,8 @@ public class WoodWindow extends JFrame {
     private JackFastLogPanel fastLogPanel;
     // The bundle session of the editor (concept doc/JSON_BUNDLE.md): null when no bundle session is open
     private EditBundle editBundle;
+    // The project sidebar: the projection of the open wood project (concept: CONCEPT_ProjectView.md)
+    private final de.jare.tree.ui.project.ProjectSidebar projectSidebar;
     // One shared instance for all save/diff actions of the window (the tab popup and the menu act together)
     private JackMainActions mainActions;
     private final TreeFocusListener treeFocusListener;
@@ -98,10 +100,11 @@ public class WoodWindow extends JFrame {
         JSplitPane horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         JSplitPane verticalSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
 
-        // Left: project tree
-        WoodProjektTree projectTree = new WoodProjektTree("Project", "Node1", "Node2", "Folder");
-        projectTree.setPreferredSize(new Dimension(250, 0));
-        horizontalSplit.setLeftComponent(new JScrollPane(projectTree));
+        // Left: project sidebar (concept: CONCEPT_ProjectView.md section 8) - the projection
+        // of .wood/project.json: partitions on level 1, physical structure below, lazy loading.
+        projectSidebar = new de.jare.tree.ui.project.ProjectSidebar(this);
+        projectSidebar.setPreferredSize(new Dimension(250, 0));
+        horizontalSplit.setLeftComponent(projectSidebar);
 
         // Center: editor tabs + upper toolbar
         centerTabs = new JTabbedPane();
@@ -515,6 +518,16 @@ public class WoodWindow extends JFrame {
             mainActions = new JackMainActions(this, jackmaster);
         }
         return mainActions;
+    }
+
+    /**
+     * Returns the project sidebar (concept: CONCEPT_ProjectView.md) - the leftmost panel that
+     * projects the open wood project.
+     *
+     * @return the sidebar of this window
+     */
+    public de.jare.tree.ui.project.ProjectSidebar getProjectSidebar() {
+        return projectSidebar;
     }
 
     /**

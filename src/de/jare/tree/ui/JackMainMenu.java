@@ -66,6 +66,7 @@ public class JackMainMenu extends JMenuBar {
         JMenuItem newItem = new JMenuItem("New");
         JMenuItem openItem = new JMenuItem("Open...");
         JMenuItem openBundleItem = new JMenuItem("Open Bundle...");
+        JMenuItem openProjectItem = new JMenuItem("Open Project...");
         JMenuItem closeBundleItem = new JMenuItem("Close Bundle");
         JMenuItem showResourceItem = new JMenuItem("Show Bundle Resource...");
         JMenuItem saveItem = new JMenuItem("Save");
@@ -76,6 +77,7 @@ public class JackMainMenu extends JMenuBar {
         exitItem.addActionListener(e -> woodWindow.dispose());
         openItem.addActionListener(e -> openJsonFile());
         openBundleItem.addActionListener(e -> openJsonBundle());
+        openProjectItem.addActionListener(e -> mainActions.chooseAndOpenProject());
         closeBundleItem.addActionListener(e -> woodWindow.closeBundle());
         showResourceItem.addActionListener(e -> showBundleResource());
         saveItem.addActionListener(e -> mainActions.saveActiveFile());
@@ -85,6 +87,7 @@ public class JackMainMenu extends JMenuBar {
         bundleMenu.add(newItem);
         bundleMenu.add(openItem);
         bundleMenu.add(openBundleItem);
+        bundleMenu.add(openProjectItem);
         bundleMenu.add(closeBundleItem);
         bundleMenu.add(showResourceItem);
         bundleMenu.add(saveItem);
