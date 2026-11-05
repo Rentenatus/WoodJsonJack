@@ -264,12 +264,18 @@ Consequences (binding):
    `JSON_BUNDLE.md`) gain the asking bundle as namespace argument. The matrix rule
    "different path, same synonym → error" remains unchanged **inside** a bundle; it no longer
    fires across bundle boundaries.
-3. **Cross-bundle sharing is the open follow-up question** (section 11, question 1): today the
-   link graph intentionally shares resources *across* files (`configDesc.json` consumed by many).
-   With scoped IDs, deliberate cross-bundle resolution must be expressed explicitly —
-   candidates: a bundle-qualified reference syntax
-   (`"bundle:base.logging::id"`), or designated *shared* bundles exempt from scoping. This must be
-   settled with the engine side before phase 5 (clone) relies on it.
+3. **Cross-bundle sharing — decided (binding):** the bundle descriptor's `imports` array is the
+   *single explicit input structure* — there is **no bundle-qualified link syntax** and no
+   shared-bundle flag in v1. `syn::id` stays the only link form. Deliberate sharing across
+   bundle boundaries is expressed by *declaring an import* (section 6): the import wires the
+   imported bundle's namespace into the resolution scope of the asking bundle (reactor:
+   live reference; dependency: frozen copy). Without a declared import, cross-bundle resolution
+   does not exist. The engine supervises the wiring: when two namespaces are joined in one
+   resolution scope and their Wood ID keys collide (`syn::id` of both sides overlap), the
+   merge refuses — the remedy is the explicit `RerollID` preparation (section 7.1), never a
+   silent overwrite. [&mdash;] Settled after checking the engine side: the resolution is a
+   flat per-receiver merge today (`JsonBundle.mergeIntoMain`, `WoodProxyResolver.mergeLinkingSets`),
+   which makes the merge point the natural - and only necessary - supervision point.
 4. Strategy A (global uniqueness + remap on copy) is **rejected**: it would make every clone an
    identity translation and destroy the "same world in two places" property that the diff and
    comparison features build on.
@@ -349,12 +355,11 @@ keep their names because the bundle rename freed the word *project* for exactly 
 
 ## 11. Open questions
 
-1. **Cross-bundle sharing syntax (section 7, consequence 3):** how is *deliberate* sharing across
-   bundle boundaries expressed under bundle-scoped IDs — qualified reference syntax
-   (`bundle:base.logging::id`), designated shared bundles, or both? Must be settled with the
-   engine side before phase 5 relies on it. Note: `RerollID` with `disjunct_to_bundles`
-   (section 7.1) is the escape hatch when two bundles must enter one scope collision-free —
-   whichever sharing syntax is chosen, the reroll makes the prep explicit instead of magical.
+1. **Cross-bundle sharing syntax (section 7, consequence 3)** — **decided (binding):** the
+   descriptor `imports` are the only sharing structure; no link syntax, no shared-bundle flag
+   (see section 7, consequence 3). The engine merge supervises collisions; `RerollID` with
+   `disjunct_to_bundles` (section 7.1) is the explicit preparation when two bundles must enter
+   one resolution scope collision-free.
 2. Bare non-JSON files inside a `json` partition: hide, or show gray? (Tendency: show gray, the
    partition is honest about what lies there.)
 3. Recent-projects integration with `knownProjects` (section 9) — v2 comfort, decided when the
