@@ -206,6 +206,7 @@ public class JackMainActions {
                 return;
             }
             woodWindow.getProjectSidebar().showProject(folder, document);
+            woodWindow.rememberProjectInHistory(document.getName(), folder);
             master.getFastLog().tryWrite("io", "Loaded project " + folder.getName()
                     + " (" + document.getRoots().size() + " partitions)");
         } catch (IOException | JsonParseException | de.jare.jsoncasted.model.JsonBuildException e) {

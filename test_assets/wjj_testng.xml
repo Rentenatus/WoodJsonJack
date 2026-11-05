@@ -19,6 +19,7 @@
     <class name="de.jare.tree.ui.project.BundleClonerNGTest"/>
     <class name="de.jare.tree.ui.project.BundleClonePlannerNGTest"/>
     <class name="de.jare.tree.ui.project.ProjectTreeNodeNGTest"/>
+    <class name="de.jare.tree.settings.project.ProjectHistoryNGTest"/>
     </classes>
   </test>
 </suite>

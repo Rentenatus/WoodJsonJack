@@ -55,7 +55,7 @@ public class WoodWindow extends JFrame {
     private final JackEditTreeContainer editorTree1;
     private final JackEditTreeContainer editorTree2;
     private final SettingsService settingsService;
-    private final WoodSettings settings;
+    private final de.jare.tree.settings.project.ProjectHistory projectHistory;    private final WoodSettings settings;
     private final ThemeSuite themeSuite;
     private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
     private final Map<JackEditTreeContainer, File> editorFiles = new HashMap<>();
@@ -89,6 +89,7 @@ public class WoodWindow extends JFrame {
         themeSuite = settingsService.loadThemeSuite(false);
         settings.useThemeSuite(themeSuite);
         jackmaster = new JackMasterControl();
+        projectHistory = settingsService.loadProjectHistory();
 
         setTitle("Wood Json Studio");
         setSize(1200, 800);
@@ -325,6 +326,35 @@ public class WoodWindow extends JFrame {
             settingsService.saveWoodSettings(settings);
         } catch (IOException | JsonParseException | JsonWriteException ex) {
             Logger.getGlobal().log(Level.SEVERE, "Could not save wood settings: ", ex);
+        }
+    }
+
+    /**
+     * The user global project history ({@code user-home/.wood/projects.json}, UX layer of
+     * CONCEPT_ProjectView.md): every opened or newly created project revises its front.
+     *
+     * @return the history, never null
+     */
+    public de.jare.tree.settings.project.ProjectHistory getProjectHistory() {
+        return projectHistory;
+    }
+
+    /**
+     * Moves a just opened or created project to the front of the history and persists the file
+     * immediately - a crash never loses the last project.
+     *
+     * @param projectName the display name of the project
+     * @param projectRoot the project root folder
+     */
+    public void rememberProjectInHistory(String projectName, File projectRoot) {
+        if (projectName == null || projectRoot == null) {
+            return;
+        }
+        projectHistory.remember(projectName, projectRoot.getAbsolutePath());
+        try {
+            settingsService.saveProjectHistory(projectHistory);
+        } catch (IOException | JsonParseException | JsonWriteException ex) {
+            Logger.getGlobal().log(Level.SEVERE, "Could not save the project history: ", ex);
         }
     }
 

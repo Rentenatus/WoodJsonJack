@@ -16,6 +16,7 @@ It builds on what exists and is live-tested today:
 | `EditBundle` — editor-side bundle holder, parse feedback, per-tab lifecycle | built | `de.jare.jsoncasted.editor.core` (jsonCasted_edit) |
 | Open/Close/Show Bundle Resource menu wiring | built | `JackMainActions` / `WoodWindow` (WoodJsonJack) |
 | Main menu split File/Bundle/Project (LaF icons, icon-only project bar buttons, New Project = empty `.wood/project.json`) | built | `JackMainMenu` / `UiIcons` / `ProjectSidebar` (WoodJsonJack) |
+| Project history as `user-home/.wood/projects.json` (MRU list, most recent first, dedup per folder, cap 10) + "Open Recent" sub menu | built | `ProjectHistory` / `SettingsService` / `JackMainMenu` (WoodJsonJack) |
 | `ProjektEntry` / `ProjectSettings` / `knownProjects` — the older settings-side project concept; its name is now free of the bundle family | built | `de.jare.tree.settings.project` (unchanged, kept as is) |
 | Cross-file link resolution (`WoodProxyResolver`, `_woodProviders` / `_woodLink`) | built | jsonCasted |
 

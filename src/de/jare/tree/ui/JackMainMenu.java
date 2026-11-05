@@ -106,6 +106,24 @@ public class JackMainMenu extends JMenuBar {
         JMenuItem openProjectItem = new JMenuItem("Open Project...", UiIcons.openProjectIcon());
         JMenuItem closeProjectItem = new JMenuItem("Close Project");
         JMenuItem refreshProjectItem = new JMenuItem("Refresh", UiIcons.refreshIcon());
+        // the recent list is rebuilt at select time - it moves with every open/create
+        JMenu recentProjectsMenu = new JMenu("Open Recent");
+        recentProjectsMenu.addMenuListener(new javax.swing.event.MenuListener() {
+            @Override
+            public void menuSelected(javax.swing.event.MenuEvent e) {
+                rebuildRecentProjects(recentProjectsMenu);
+            }
+
+            @Override
+            public void menuDeselected(javax.swing.event.MenuEvent e) {
+                // nothing to do
+            }
+
+            @Override
+            public void menuCanceled(javax.swing.event.MenuEvent e) {
+                // nothing to do
+            }
+        });
 
         newProjectItem.addActionListener(e -> mainActions.newProject());
         openProjectItem.addActionListener(e -> mainActions.chooseAndOpenProject());
@@ -114,6 +132,7 @@ public class JackMainMenu extends JMenuBar {
 
         projectMenu.add(newProjectItem);
         projectMenu.add(openProjectItem);
+        projectMenu.add(recentProjectsMenu);
         projectMenu.add(closeProjectItem);
         projectMenu.addSeparator();
         projectMenu.add(refreshProjectItem);
@@ -318,6 +337,43 @@ public class JackMainMenu extends JMenuBar {
 
     private void openPreferences() {
         woodWindow.openPreferences();
+    }
+
+    /**
+     * Rebuilds the "Open Recent" sub menu from the project history ({@code user-home/.wood/
+     * projects.json}). Every entry opens its project directly; an entry whose folder no longer
+     * carries a project document stays visible (the path is the clue) but disabled.
+     *
+     * @param recentProjectsMenu the sub menu to fill
+     */
+    private void rebuildRecentProjects(JMenu recentProjectsMenu) {
+        recentProjectsMenu.removeAll();
+        java.util.List<de.jare.tree.settings.project.HistoryEntry> projects
+                = woodWindow.getProjectHistory().getProjects();
+        if (projects.isEmpty()) {
+            JMenuItem none = new JMenuItem("(no projects yet)");
+            none.setEnabled(false);
+            recentProjectsMenu.add(none);
+            return;
+        }
+        de.jare.jsoncasted.project.ProjectFileService projectService
+                = new de.jare.jsoncasted.project.ProjectFileService();
+        for (de.jare.tree.settings.project.HistoryEntry entry : projects) {
+            if (entry == null || entry.getProjectPath() == null) {
+                continue;
+            }
+            java.io.File folder = new java.io.File(entry.getProjectPath());
+            String label = entry.getProjectName() != null && !entry.getProjectName().isBlank()
+                    ? entry.getProjectName() : folder.getName();
+            JMenuItem item = new JMenuItem(label, UiIcons.openProjectIcon());
+            item.setToolTipText(entry.getProjectPath());
+            if (folder.isDirectory() && projectService.isProjectRoot(folder)) {
+                item.addActionListener(e -> mainActions.openProject(folder));
+            } else {
+                item.setEnabled(false);
+            }
+            recentProjectsMenu.add(item);
+        }
     }
 
     private void triggerReparse() {
