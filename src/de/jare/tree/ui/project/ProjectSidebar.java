@@ -316,6 +316,12 @@ public class ProjectSidebar extends JPanel {
             cloneItem.addActionListener(ev -> BundleCloneDialog.show(window, node.getFile(),
                     (source, deep) -> cloneBundle(node, source, deep)));
             popup.add(cloneItem);
+            if (hasProject() && projectRoot != null) {
+                JMenuItem importsItem = new JMenuItem("Imports...");
+                importsItem.setToolTipText("The descriptor's imports with their resolutions (concept section 6)");
+                importsItem.addActionListener(ev -> BundleImportsDialog.show(window, projectRoot, node.getFile()));
+                popup.add(importsItem);
+            }
             popup.addSeparator();
         }
         if (isMaterializable(node)) {
