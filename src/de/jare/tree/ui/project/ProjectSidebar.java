@@ -263,7 +263,16 @@ public class ProjectSidebar extends JPanel {
      *
      * @param node the selected node
      */
-    private void openNode(Object node) {
+    /**
+     * Double-click semantics (concept sections 3 and 4): JSON opens through the existing bundle
+     * machinery, a bundle opens its main file, every other file opens externally in v1. Folders
+     * toggle their expansion. The machinery reads-write decision honors the read-only mounts
+     * (phase 9) and the descriptor-carried file protection (phase 20): a fenced file opens as
+     * a read-only view.
+     *
+     * @param node the selected node
+     */
+    public void openNode(Object node) {
         if (!(node instanceof ProjectTreeNode)) {
             return;
         }
@@ -273,8 +282,10 @@ public class ProjectSidebar extends JPanel {
                 File file = projectNode.getFile();
                 if (file != null && isJson(file)) {
                     // a readonly mount (isolated source, gen, target) opens as a view only -
-                    // phase 9: an old version to look at never becomes editable
-                    window.getMainActions().loadJsonBundle(file, projectNode.isReadonlyMount());
+                    // phase 9: an old version to look at never becomes editable; a protected
+                    // file (phase 20: the fence in its bundle descriptor) opens as a view too
+                    window.getMainActions().loadJsonBundle(file,
+                            projectNode.isReadonlyMount() || protectedInBundle(projectNode));
                 } else {
                     openExternal(file);
                 }
@@ -286,7 +297,10 @@ public class ProjectSidebar extends JPanel {
                     break;
                 }
                 if (isJson(mainFile)) {
-                    window.getMainActions().loadJsonBundle(mainFile, projectNode.isReadonlyMount());
+                    boolean mainProtected = projectNode.getDescriptor() != null
+                            && projectNode.getDescriptor().isProtected(mainFile.getName());
+                    window.getMainActions().loadJsonBundle(mainFile,
+                            projectNode.isReadonlyMount() || mainProtected);
                 } else {
                     openExternal(mainFile);
                 }
@@ -402,6 +416,55 @@ public class ProjectSidebar extends JPanel {
         tree.expandPath(new TreePath(node.getPath()));
     }
 
+    /**
+     * The descriptor-carried protection (concept phase 20): a JSON file fences off in its
+     * bundle's descriptor - it opens read-only until the fence is removed, the flag travels
+     * with the bundle (git, clones) and every assistant reading the descriptor sees it.
+     *
+     * @param node the file node to ask for
+     * @return true when its bundle descriptor fences this file
+     */
+    private boolean protectedInBundle(ProjectTreeNode node) {
+        if (node.getParent() instanceof ProjectTreeNode parentBundle
+                && parentBundle.getKind() == ProjectTreeNode.Kind.BUNDLE
+                && parentBundle.getDescriptor() != null
+                && node.getFile() != null) {
+            return parentBundle.getDescriptor().isProtected(node.getFile().getName());
+        }
+        return false;
+    }
+
+    /**
+     * Toggles the read-only fence of a bundle file and persists the descriptor. The fence
+     * applies to the open tabs at once (protect flips them read-only, removing flips them
+     * back) so the protection never waits for the next open to take effect.
+     *
+     * @param bundleNode the bundle node whose descriptor carries the fence
+     * @param fileNode the file node inside the bundle
+     */
+    private void toggleBundleFileProtection(ProjectTreeNode bundleNode, ProjectTreeNode fileNode) {
+        de.jare.jsoncasted.project.BundleDescriptor descriptor = bundleNode.getDescriptor();
+        if (descriptor == null || fileNode.getFile() == null) {
+            return;
+        }
+        String fileName = fileNode.getFile().getName();
+        boolean nowProtected = !descriptor.isProtected(fileName);
+        try {
+            if (nowProtected) {
+                descriptor.protect(fileName);
+            } else {
+                descriptor.unprotect(fileName);
+            }
+            projectService.saveBundleDescriptor(bundleNode.getFile(), descriptor);
+        } catch (IOException | de.jare.jsoncasted.io.JsonParseException
+                | de.jare.jsoncasted.io.JsonWriteException e) {
+            window.showErrorDialog("The protection could not be persisted:\n" + e.getMessage());
+            return;
+        }
+        window.setCodeProtection(fileNode.getFile(), nowProtected);
+        reloadSubtree(bundleNode);
+    }
+
     private void maybePopup(MouseEvent e) {
         if (!e.isPopupTrigger()) {
             return;
@@ -461,6 +524,18 @@ public class ProjectSidebar extends JPanel {
                     }
                 });
                 popup.add(setMain);
+                // the read-only fence of phase 20: descriptor carried, survives git and clones,
+                // visible to every assistant that reads the descriptor
+                String fileName = node.getFile().getName();
+                boolean fenced = parentBundle.getDescriptor() != null
+                        && parentBundle.getDescriptor().isProtected(fileName);
+                JMenuItem protectItem = new JMenuItem(fenced
+                        ? "Remove protection" : "Protect file (temporary read-only)");
+                protectItem.setToolTipText("The fence lives in the bundle descriptor: the file "
+                        + "opens as a read-only view until the protection is removed");
+                protectItem.addActionListener(ev ->
+                        toggleBundleFileProtection(parentBundle, node));
+                popup.add(protectItem);
             }
             popup.addSeparator();
         }

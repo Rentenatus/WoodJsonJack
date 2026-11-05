@@ -69,15 +69,22 @@ public class ProjectTreeCellRenderer extends DefaultTreeCellRenderer {
             if (node.getError() != null) {
                 setText(node.toString() + " [!!]");
             }
-            // the main file of its bundle: the star prefix (space before the name) - the one
-            // file open and diff actions focus, visible at a glance inside the bundle
+            // inside a bundle the file rows carry their roles (concept phase 19 and 20): the
+            // star prefix (space before the name) marks the main file, the protected marker
+            // the descriptor-carried read-only fence - a fenced main file can be both
             if (node.getKind() == ProjectTreeNode.Kind.FILE
                     && node.getParent() instanceof ProjectTreeNode parentBundle
                     && parentBundle.getKind() == ProjectTreeNode.Kind.BUNDLE
                     && parentBundle.getDescriptor() != null
-                    && node.getFile() != null
-                    && node.getFile().getName().equals(parentBundle.getDescriptor().getMain())) {
-                setText("★ " + node.toString());
+                    && node.getFile() != null) {
+                String text = node.toString();
+                if (node.getFile().getName().equals(parentBundle.getDescriptor().getMain())) {
+                    text = "★ " + text;
+                }
+                if (parentBundle.getDescriptor().isProtected(node.getFile().getName())) {
+                    text = text + " [protected]";
+                }
+                setText(text);
             }
             if (sel) {
                 setForeground(null);

@@ -380,6 +380,39 @@ public class WoodWindow extends JFrame {
     }
 
     /**
+     * The protection flip of an open file (concept CONCEPT_ProjectView.md, phase 20): every
+     * editor tab that shows this file changes its editability at once - a fence set does not
+     * wait for the next open, a removed fence releases the working view immediately. File
+     * identity is the canonical path.
+     *
+     * @param file the file whose tabs flip
+     * @param readonly true sets the fence (tabs read-only), false releases it
+     */
+    public void setCodeProtection(File file, boolean readonly) {
+        if (file == null) {
+            return;
+        }
+        for (JackEditTreeContainer container : editorTrees) {
+            File tabFile = editorFiles.get(container);
+            if (tabFile != null && sameFile(tabFile, file)) {
+                container.setReadonly(readonly);
+            }
+        }
+    }
+
+    /**
+     * Canonical file identity - the same rule as the project history: one file is one file,
+     * regardless of spelling, drive case or dot segments.
+     */
+    private static boolean sameFile(File a, File b) {
+        try {
+            return a.getCanonicalFile().compareTo(b.getCanonicalFile()) == 0;
+        } catch (IOException ex) {
+            return a.getAbsolutePath().equalsIgnoreCase(b.getAbsolutePath());
+        }
+    }
+
+    /**
      * Adds a new editor tab with the loaded JSON content.
      *
      * @param file the JSON file that was loaded
