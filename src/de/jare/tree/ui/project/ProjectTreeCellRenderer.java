@@ -70,10 +70,10 @@ public class ProjectTreeCellRenderer extends DefaultTreeCellRenderer {
                 setText(node.toString() + " [!!]");
             }
             // inside a bundle the file rows carry their roles (concept phase 19, 20 and 21):
-            // the star prefix (space before the name) marks the main file, the protected marker
-            // the descriptor-carried read-only fence, and the GHOST prefix an undeclared file -
+            // the star prefix (space before the name) marks the main file, the lock suffix the
+            // descriptor-carried read-only fence, and the GHOST prefix an undeclared file -
             // it lies in the bundle folder but not in the descriptor's truth, so it haunts
-            // (register it and the ghost disappears; star and fence are for declared files)
+            // (register it and the ghost disappears; star and lock are for declared files)
             if (node.getKind() == ProjectTreeNode.Kind.FILE
                     && node.getParent() instanceof ProjectTreeNode parentBundle
                     && parentBundle.getKind() == ProjectTreeNode.Kind.BUNDLE
@@ -88,7 +88,7 @@ public class ProjectTreeCellRenderer extends DefaultTreeCellRenderer {
                         text = "★ " + text;
                     }
                     if (parentBundle.getDescriptor().isProtected(fileName)) {
-                        text = text + " [protected]";
+                        text = text + " \uD83D\uDD12";
                     }
                 }
                 setText(text);
