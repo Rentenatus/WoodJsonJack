@@ -48,6 +48,9 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
     // a scan problem the projection degrades honestly (a broken bundle descriptor): the
     // node stays visible as what it fell back to, the warning says what is wrong with it
     private String warning;
+    // the broken bundle state (missing main file) - cached like the descriptor, recomputed
+    // at every reset/reload, never read from disk during a paint
+    private String error;
 
     public ProjectTreeNode(String label) {
         this.kind = Kind.PROJECT;
@@ -92,6 +95,7 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
         this.file = bundleFolder;
         this.label = descriptor != null && descriptor.getName() != null && !descriptor.getName().isBlank()
                 ? descriptor.getName() : bundleFolder.getName();
+        computeError();
         addPlaceholder();
     }
 
@@ -117,8 +121,8 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
 
     public void reset() {
         loaded = false;
-        // a bundle reload re-reads the descriptor: the node reflects the CURRENT disk state
-        // (a just swapped main file leads the children again), not the state of its scan
+        // a bundle reload re-reads the descriptor AND the broken state: the node reflects the
+        // last reload (Refresh, Set as main, a create below it), the paint never touches the disk
         if (kind == Kind.BUNDLE && file != null && file.isDirectory()) {
             try {
                 descriptor = PROJECT_SERVICE.loadBundleDescriptor(file);
@@ -130,6 +134,7 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
                 warning = "Broken bundle descriptor (" + e.getMessage()
                         + ") - the node keeps the last readable state.";
             }
+            computeError();
         }
         removeAllChildren();
         if (kind == Kind.FOLDER || kind == Kind.PARTITION) {
@@ -297,25 +302,36 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
      * The broken state of a bundle - the sidebar's counterpart of the parse error of a JSON
      * tree: the declared main file does not exist on disk (deleted, renamed, never there), so
      * opening the bundle is impossible even though the descriptor itself is well formed.
-     * Computed on demand: the node never carries a stale error, the renderer sees the CURRENT
-     * disk state every paint (the fast little existence checks cost nothing next to a scan).
+     * Cached with the same lifecycle as the descriptor: computed once per scan/reload (the
+     * constructor and every reset), the renderer only reads the field - a paint never
+     * touches the disk, and a restore below this node shows up at the next reload exactly
+     * like every other content change.
      *
-     * @return the error explanation, or null when the bundle is complete
+     * @return the error explanation, or null when the bundle was complete at the last reload
      */
     public String getError() {
+        return error;
+    }
+
+    /**
+     * Recomputes the broken state from the CURRENT descriptor and folder - the one place the
+     * disk is asked, called from the constructor (the scan) and from every reset (a reload).
+     */
+    private void computeError() {
+        error = null;
         if (kind != Kind.BUNDLE || descriptor == null || file == null) {
-            return null;
+            return;
         }
         String mainName = descriptor.getMain();
         if (mainName == null || mainName.isBlank()) {
-            return "The bundle has no main file - the descriptor is incomplete. Open the bundle "
+            error = "The bundle has no main file - the descriptor is incomplete. Open the bundle "
                     + "document and declare one (or use Set as main file on a contained file).";
+            return;
         }
         if (!new File(file, mainName).isFile()) {
-            return "Main file '" + mainName + "' is missing - the bundle cannot open. Put the "
+            error = "Main file '" + mainName + "' is missing - the bundle cannot open. Put the "
                     + "file back or set one of the declared files as the new main.";
         }
-        return null;
     }
 
     /**
