@@ -138,6 +138,20 @@ public class RagStore {
         AtomicFileWrite.writeString(file.toPath(), JsonNodeWriter.writeToString(toJson()));
     }
 
+    /**
+     * Guard for the RAG model switch (§11): a switch is only allowed while no prompt edit
+     * is active - set by the UI/driver around prompt editing.
+     */
+    private static volatile boolean promptEditActive = false;
+
+    public static void setPromptEditActive(boolean active) {
+        promptEditActive = active;
+    }
+
+    public static boolean isPromptEditActive() {
+        return promptEditActive;
+    }
+
     public static RagStore load(File file, EmbeddingProvider embedder, RagDefaults defaults)
             throws IOException, JsonParseException {
         RagStore store = new RagStore(embedder, defaults);
@@ -145,6 +159,16 @@ public class RagStore {
             return store;
         }
         JsonNode root = JsonParserService.parse(file, JsonDebugLevel.SIMPLE).getRoot();
+        // §11 model switch = reset: when the persisted rag model differs from the active
+        // embedder, the RAG is emptied and rebuilt - but never while a prompt edit runs
+        JsonNode rm = root.asObjectValues().get("ragModel");
+        if (rm != null && !rm.asText().equals(embedder.modelName())) {
+            if (promptEditActive) {
+                throw new IllegalStateException(
+                        "RAG model switch refused: a prompt edit is active (§11)");
+            }
+            return store; // reset: chunks of the old embedding model are dropped
+        }
         JsonNode arr = root.asObjectValues().get("chunks");
         if (arr != null && arr.isArray()) {
             for (JsonNode n : arr.asArray()) {

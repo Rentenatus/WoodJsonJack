@@ -100,4 +100,33 @@ public class HarnessRagNGTest {
         List<RagStore.Hit> hits = loaded.retrieve("skill description", 5, 0.05);
         Assert.assertFalse(hits.isEmpty());
     }
+
+    @Test
+    public void testModelSwitchResetsRagButRefusedDuringPromptEdit() throws Exception {
+        RagStore rag = store();
+        rag.store("RESULT", "some result", Map.of("taskType", "RESEARCH"));
+        File tmp = Files.createTempDirectory("harness-rag").resolve("rag.json").toFile();
+        rag.save(tmp);
+
+        EmbeddingProvider other = new EmbeddingProvider() {
+            @Override public String modelName() { return "other-embed-model"; }
+            @Override public double[] embed(String text) { return new double[]{1, 0}; }
+        };
+        // same model: chunks survive
+        RagStore same = RagStore.load(tmp, EmbeddingProvider.hashEmbedding(), RagStore.RagDefaults.standard());
+        Assert.assertEquals(same.getChunks().size(), 1);
+        // model switch: RAG is emptied and rebuilt (§11 reset)
+        RagStore switched = RagStore.load(tmp, other, RagStore.RagDefaults.standard());
+        Assert.assertTrue(switched.getChunks().isEmpty(), "model switch = reset");
+        // ...but never while a prompt edit is active (§11 guard)
+        RagStore.setPromptEditActive(true);
+        try {
+            RagStore.load(tmp, other, RagStore.RagDefaults.standard());
+            Assert.fail("switch must be refused during an active prompt edit");
+        } catch (IllegalStateException e) {
+            Assert.assertTrue(e.getMessage().contains("prompt edit"));
+        } finally {
+            RagStore.setPromptEditActive(false);
+        }
+    }
 }
