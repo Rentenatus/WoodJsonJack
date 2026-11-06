@@ -69,9 +69,38 @@ public class AiCalculator implements HarnessCalculator {
             throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
                     "answer is not strict JSON: " + abbrev(trimmed));
         }
-        // structured parse of the model answer lands here with the jsonCasted loader;
-        // the skeleton accepts any JSON object and reports it as a DONE answer
-        return CalcResult.of(kind, "answered").message(abbrev(trimmed)).status(Status.DONE);
+        // strict JSON parse of the model answer via jsonCasted; a malformed answer raises
+        // SCHEMA_VIOLATION and the engine's catch-mapping falls back deterministically (§13)
+        final de.jare.jsoncasted.lang.JsonNode root;
+        try {
+            root = de.jare.jsoncasted.io.parserservice.JsonParserService.parse(trimmed,
+                    de.jare.debug.JsonDebugLevel.SIMPLE).getRoot();
+        } catch (Exception e) {
+            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
+                    "answer JSON parse failed: " + e.getMessage());
+        }
+        if (root == null || !root.isObject()) {
+            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
+                    "answer is not a JSON object: " + abbrev(trimmed));
+        }
+        CalcResult result = CalcResult.of(kind, text(root, "decision", "answered"))
+                .status(Status.valueOf(text(root, "status", "DONE")))
+                .message(text(root, "message", ""));
+        if (root.asObjectValues().get("score") != null) {
+            result.score(root.asObjectValues().get("score").asLong().intValue());
+        }
+        de.jare.jsoncasted.lang.JsonNode payload = root.asObjectValues().get("payload");
+        if (payload != null && payload.isObject()) {
+            for (var e : payload.asObjectValues().entrySet()) {
+                result.put(e.getKey(), e.getValue().asText());
+            }
+        }
+        return result;
+    }
+
+    private static String text(de.jare.jsoncasted.lang.JsonNode node, String key, String def) {
+        var v = node.asObjectValues().get(key);
+        return v == null || v.isNull() ? def : v.asText();
     }
 
     private static String abbrev(String s) {

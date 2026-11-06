@@ -32,6 +32,7 @@
     <class name="de.jare.harness.HarnessServiceNGTest"/>
     <class name="de.jare.harness.HarnessFeedbackNGTest"/>
     <class name="de.jare.harness.HarnessEvolutionNGTest"/>
+    <class name="de.jare.harness.HarnessAiAnswerNGTest"/>
     </classes>
   </test>
 </suite>
