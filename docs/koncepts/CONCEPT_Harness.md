@@ -96,10 +96,13 @@ Pro Kalkulator-Aufruf landet nur das strukturierte Kennzahlen-Set im Log — **n
 ```
 { aufrufId, taskId, taskType, kind, slotId, modelVersion, attempt,
   dauerMs, tokensIn, tokensOut, score, status, decision,
-  parent1: {aufrufId, score, status}   // redundant (schnelle Aggregation)
-  parent2, parent3: aufrufId           // verlinkt (tiefe Kette im Log)
+  parent1: {aufrufId, score, status},  // redundant (schnelle Aggregation ohne Join)
+  parent2: aufrufId                    // Link genügt: parent3+ sind über den parent2-Eintrag
+                                       // (dessen redundantes parent1) per Walk beliebig tief erreichbar
 }
 ```
+
+parent3 und tiefer werden **nicht** gespeichert — die Information liegt über die Kette bereits vor.
 
 Statistiken kummulieren pro Slot über die Instanz: Ø-Score, Ø-Tokens, Ø-Dauer, Status-Anteile, gruppiert nach Task-Typ × Kind.
 
