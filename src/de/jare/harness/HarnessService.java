@@ -70,6 +70,11 @@ public class HarnessService {
             Modelclass mc = e.getValue();
             if ("ollama".equals(mc.getProvider())) {
                 factory.registerProvider("ollama", new OllamaProvider(mc));
+            } else if ("hosted".equals(mc.getProvider())) {
+                String apiKey = de.jare.tree.settings.WoodSettings.INSTANCE.getAgentPreferences() != null
+                        ? de.jare.tree.settings.WoodSettings.INSTANCE.getAgentPreferences().getApiKey()
+                        : "";
+                factory.registerProvider("hosted", new de.jare.harness.impl.hosted.HostedProvider(apiKey, mc));
             }
         }
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
