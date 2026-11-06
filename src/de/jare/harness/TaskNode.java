@@ -105,6 +105,11 @@ public class TaskNode {
         return parent;
     }
 
+    /** Package-internal: used by the instance codec to rebuild the parent link after a load. */
+    public void setParentInternal(TaskNode parent) {
+        this.parent = parent;
+    }
+
     public List<TaskNode> getChildren() {
         return children;
     }
