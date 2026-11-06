@@ -6,10 +6,16 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.impl.DefaultCalculatorFactory;
+import de.jare.harness.model.CalculatorNode;
+import de.jare.harness.model.HarnessModel;
+import de.jare.harness.model.Quest;
+import de.jare.harness.model.Slot;
 import de.jare.harness.prompts.PromptAssembler;
 import de.jare.harness.prompts.PromptSegment;
 import de.jare.harness.prompts.PromptSegment.Category;
 import de.jare.harness.prompts.RelevanceRegistry;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -92,5 +98,47 @@ public class HarnessPromptsNGTest {
         // unknown taskType falls back to default refs
         List<PromptSegment> def = registry.resolve("UNKNOWN", 3, Kind.EVALUATE, "1.0.0", "x");
         Assert.assertTrue(def.stream().anyMatch(s -> s.ref().equals("prompts/system/orchestrator.v1.md")));
+    }
+
+    @Test
+    public void testHistorySegmentsAreCondensedFromCalculatorLog() {
+        HarnessModel model = new HarnessModel().abortLimits(50, 5, 3, 10);
+        model.getPromptBudgets().put("SYSTEM", 2);
+        model.getPromptBudgets().put("SKILL", 1);
+        model.getPromptBudgets().put("HISTORY", 3);
+        model.getPromptBudgets().put("DATA", 2);
+        model.getPromptBudgets().put("AUFTRAG", 1);
+        for (Kind kind : Kind.values()) {
+            model.addQuest(new Quest(kind).addSlot(new Slot(kind.name().toLowerCase() + ".base")
+                    .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+        }
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "history check"));
+
+        List<List<String>> workPrompts = new ArrayList<>();
+        DefaultCalculatorFactory base = new DefaultCalculatorFactory(model);
+        CalculatorFactory capturing = (node, kind) -> {
+            HarnessCalculator inner = base.createAtomic(node, kind);
+            if (kind != Kind.WORK) {
+                return inner;
+            }
+            return new HarnessCalculator() {
+                @Override public Kind kind() { return Kind.WORK; }
+                @Override public CalcResult calculate(CalcContext ctx) {
+                    workPrompts.add(ctx.prompts());
+                    return inner.calculate(ctx);
+                }
+            };
+        };
+        new HarnessEngine(model, instance, capturing).run();
+
+        Assert.assertFalse(workPrompts.isEmpty(), "WORK must have run");
+        List<String> prompts = workPrompts.get(0);
+        List<String> history = prompts.stream()
+                .filter(p -> p.startsWith("HISTORY:")).toList();
+        Assert.assertFalse(history.isEmpty(), "HISTORY segments condensed from the calculator log (§4)");
+        Assert.assertTrue(history.size() <= 3, "max 3 HISTORY segments (shared budget, §4): " + history);
+        Assert.assertTrue(history.stream().anyMatch(p -> p.contains("->")),
+                "condensed one-line summaries, never raw history: " + history);
     }
 }

@@ -370,6 +370,17 @@ public class HarnessEngine {
             resolved.add(PromptSegment.of(PromptSegment.Category.SYSTEM,
                     "mindset:" + mindsetCategory, mindsetText));
         }
+        // §4 anti-forgetting: HISTORY is never raw history but condensed one-line summaries
+        // from the task's calculator log - max 3 segments, the assembler enforces the shared
+        // HISTORY budget (SUMMARIZE of the previous round and compact compete for it)
+        List<CallLogEntry> log = task.getCalculatorLog();
+        int from = Math.max(0, log.size() - 3);
+        for (int i = from; i < log.size(); i++) {
+            CallLogEntry e = log.get(i);
+            resolved.add(PromptSegment.of(PromptSegment.Category.HISTORY, "history:call-" + e.getAufrufId(),
+                    e.getKind() + " #" + e.getAttempt() + " -> " + e.getDecision()
+                            + (e.getScore() != null ? " (score " + e.getScore() + ")" : "")));
+        }
         return resolved;
     }
 
