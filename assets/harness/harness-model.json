@@ -1,0 +1,41 @@
+{
+  "name": "default-harness",
+  "version": "1.0.0",
+  "taskTypes": ["RESEARCH", "CODE_EDIT", "TEST_RUN", "SUMMARIZE"],
+  "promptBudgets": { "SYSTEM": 2, "SKILL": 1, "HISTORY": 3, "DATA": 2, "AUFTRAG": 1, "maxTokensTotal": 4000 },
+  "abortLimits": { "maxIterations": 50, "maxDepth": 5, "maxRetries": 3, "maxToolCalls": 10 },
+  "modelclasses": {
+    "investigation": { "provider": "ollama", "model": "qwen2.5:3b",       "costFactor": 1.0, "toolCapable": true },
+    "edit":          { "provider": "ollama", "model": "qwen2.5:7b",       "costFactor": 2.0, "toolCapable": true },
+    "plan":          { "provider": "ollama", "model": "llama3.2:3b",      "costFactor": 1.0, "toolCapable": true },
+    "evaluation":    { "provider": "ollama", "model": "llama3.2:3b",      "costFactor": 0.5, "toolCapable": false },
+    "rag":           { "provider": "ollama", "model": "nomic-embed-text", "costFactor": 0.2, "toolCapable": false }
+  },
+  "quests": [
+    {
+      "kind": "WORK",
+      "evolvable": true,
+      "slots": [
+        { "id": "work.base", "mutation": null,
+          "calculator": { "type": "atomic", "impl": "deterministic" } },
+        { "id": "work.m1", "mutation": "Mutation-Resolve-01",
+          "calculator": { "type": "puzzle", "strategy": "sequence",
+            "children": [
+              { "type": "atomic", "impl": "ai", "modelclass": "investigation" },
+              { "type": "atomic", "impl": "deterministic", "tool": "fs.read" }
+            ] } },
+        { "id": "work.m2", "mutation": "Mutation-Resolve-02",
+          "calculator": { "type": "atomic", "impl": "ai", "modelclass": "plan" } },
+        { "id": "work.m3", "mutation": "Mutation-Resolve-03",
+          "calculator": { "type": "atomic", "impl": "deterministic" } }
+      ]
+    },
+    {
+      "kind": "ABORT",
+      "slots": [
+        { "id": "abort", "mutation": null,
+          "calculator": { "type": "atomic", "impl": "deterministic" } }
+      ]
+    }
+  ]
+}
