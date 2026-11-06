@@ -41,11 +41,12 @@ public class OllamaProviderNGTest {
                 os.write(body);
             }
         });
-        server.createContext("/api/generate", exchange -> {
+        server.createContext("/api/chat", exchange -> {
             byte[] req = exchange.getRequestBody().readAllBytes();
             String body = new String(req, StandardCharsets.UTF_8);
-            Assert.assertTrue(body.contains("\"format\":\"json\""), "json-strict requested");
-            String resp = "{\"model\":\"qwen2.5:3b\",\"response\":\"{\\\"decision\\\":\\\"worked\\\",\\\"score\\\":91}\",\"done\":true}";
+            Assert.assertTrue(body.contains("\"format\": \"json\""), "json-strict requested: " + body);
+            Assert.assertTrue(body.contains("\"role\": \"system\""), "system segment as system message: " + body);
+            String resp = "{\"model\":\"qwen2.5:3b\",\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"decision\\\":\\\"worked\\\",\\\"score\\\":91}\"},\"done\":true}";
             byte[] out = resp.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, out.length);

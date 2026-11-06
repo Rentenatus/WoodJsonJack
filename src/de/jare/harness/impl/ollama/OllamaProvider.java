@@ -75,12 +75,27 @@ public class OllamaProvider implements ModelProvider {
 
     @Override
     public String complete(List<String> segments) throws Exception {
-        String prompt = String.join("\n\n", segments);
-        String body = "{\"model\":\"" + modelclass.getModel() + "\",\"prompt\":"
-                + jsonString(prompt) + ",\"format\":\"json\",\"stream\":false}";
-        final String response;
+        // one stateless chat call: SYSTEM segments become the system message, the rest the
+        // user message; JSON-strict via format pin. Round trip via jsonpost's typed layer.
+        de.jare.jsonpost.item.PostChatRequest request =
+                new de.jare.jsonpost.item.PostChatRequest(modelclass.getModel());
+        StringBuilder user = new StringBuilder();
+        for (String seg : segments) {
+            if (seg.startsWith("SYSTEM:")) {
+                request.addMessage("system", seg.substring("SYSTEM:".length()).trim());
+            } else {
+                if (user.length() > 0) {
+                    user.append("\n\n");
+                }
+                user.append(seg);
+            }
+        }
+        request.addMessage("user", user.toString());
+        request.setStream(false);
+        request.setFormat("json");
+        final de.jare.jsonpost.item.PostChatResponse response;
         try {
-            response = client.postRaw(body, baseUrl + "/api/generate", 120000);
+            response = client.postChat(request, baseUrl + "/api/chat", 120000);
         } catch (IOException e) {
             availableCache = false;
             modelclass.markUnavailable();
@@ -88,7 +103,7 @@ public class OllamaProvider implements ModelProvider {
         }
         availableCache = true;
         modelclass.markAvailable();
-        return extractResponse(response);
+        return response.getMessage() == null ? "" : response.getMessage().getContent();
     }
 
     /** Minimal extraction of the "response" field - full JSON parsing happens in the AiCalculator. */
