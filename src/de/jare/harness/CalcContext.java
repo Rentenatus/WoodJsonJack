@@ -90,9 +90,14 @@ public class CalcContext {
         return instance.nextAufrufId();
     }
 
-    /** ctx.metrics.logCall - local raw log entry (§6). */
+    /** ctx.metrics.logCall - local raw log entry + M x 3 aggregate (§6, §8). */
     public void logCall(CallLogEntry entry) {
         instance.logCall(entry);
+    }
+
+    /** ctx.metrics - the aggregated metrics facade (§14). */
+    public de.jare.harness.metrics.MetricsStore metrics() {
+        return instance.getMetrics();
     }
 
     /** ctx.ui.notify - info to the harness window (§14). */

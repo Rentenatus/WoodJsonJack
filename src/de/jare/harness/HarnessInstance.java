@@ -6,6 +6,7 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.metrics.MetricsStore;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +27,7 @@ public class HarnessInstance {
     private long nextTaskId = 1;
     private long nextAufrufId = 1;
     private final List<CallLogEntry> callLog = new ArrayList<>();
+    private final MetricsStore metrics = new MetricsStore();
 
     public HarnessInstance(String modelName, String modelVersion) {
         this.modelName = modelName;
@@ -80,6 +82,12 @@ public class HarnessInstance {
 
     public void logCall(CallLogEntry entry) {
         callLog.add(entry);
+        metrics.recordCall(entry);
+    }
+
+    /** The aggregated M x 3 metrics of this instance (§6, §8). */
+    public MetricsStore getMetrics() {
+        return metrics;
     }
 
     public List<CallLogEntry> getCallLog() {
