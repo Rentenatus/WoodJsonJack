@@ -1,6 +1,9 @@
 # CONCEPT_Harness — Der Harness: Orchestrierung kleiner lokaler Modelle (Ollama)
 
-**Status:** Konzept (Diskussion abgeschlossen, noch keine Implementierung)
+**Status:** Konzept beschlossen, Implementierung läuft auf Branch `feature/harness-impl`
+(Package `de.jare.harness` im WJJ: Engine, Modell + Codecs, Prompts, Metriken, Tooling,
+RAG, Skills, Mindset, Lineage/Evolution, Feedback-Loop, Provider ollama+hosted, HarnessViewPanel;
+Test-Suite WJJ 210/210 grün)
 **Autor:** Konzept aus der Session-Diskussion
 **Geltungsbereich:** WoodJsonJack (WJJ), Package `de.jare.harness`
 
