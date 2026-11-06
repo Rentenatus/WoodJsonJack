@@ -58,8 +58,32 @@ public class HarnessController {
         if (title == null || title.isBlank()) {
             return;
         }
-        final String type = taskType.trim().toUpperCase();
-        final String task = title;
+        runTask(projectRoot, taskType.trim().toUpperCase(), title);
+    }
+
+    /**
+     * Entry point 2 (§3): an editor selection is turned into a prompt - the selection text
+     * becomes the task, only the task type is asked, then the run continues here.
+     */
+    public void runTaskFromSelection(File projectRoot, String selection) {
+        if (projectRoot == null) {
+            JOptionPane.showMessageDialog(owner, "Open a project first.", "Harness", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (selection == null || selection.isBlank()) {
+            JOptionPane.showMessageDialog(owner, "Nothing selected in the editor.", "Harness", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        String taskType = JOptionPane.showInputDialog(owner, "Task type (e.g. RESEARCH, CODE_EDIT):", "Harness Run from Selection", JOptionPane.QUESTION_MESSAGE);
+        if (taskType == null || taskType.isBlank()) {
+            return;
+        }
+        // the selection itself is the constructed prompt (§3 entry point 2)
+        runTask(projectRoot, taskType.trim().toUpperCase(), selection.strip());
+    }
+
+    /** Runs one task in a background thread and shows the harness view afterwards. */
+    public void runTask(File projectRoot, String type, String task) {
         new SwingWorker<HarnessInstance, Void>() {
             @Override
             protected HarnessInstance doInBackground() throws Exception {

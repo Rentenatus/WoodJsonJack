@@ -232,13 +232,19 @@ public class JackMainMenu extends JMenuBar {
         JMenu harnessMenu = new JMenu("Harness");
         harnessMenu.setMnemonic(KeyEvent.VK_H);
         JMenuItem runTaskItem = new JMenuItem("Run Task...");
+        JMenuItem runSelectionItem = new JMenuItem("Run Task from Selection...");
         JMenuItem showHarnessItem = new JMenuItem("Show Harness Window");
         de.jare.harness.ui.HarnessController harnessController =
                 new de.jare.harness.ui.HarnessController(woodWindow);
         runTaskItem.addActionListener(e -> harnessController.runTaskInteractive(
                 woodWindow.getProjectSidebar().getProjectRoot()));
+        // §3 entry point 2: the editor selection is turned into a prompt and continued here
+        runSelectionItem.addActionListener(e -> harnessController.runTaskFromSelection(
+                woodWindow.getProjectSidebar().getProjectRoot(),
+                lastSelectedNode == null ? "" : String.valueOf(lastSelectedNode)));
         showHarnessItem.addActionListener(e -> harnessController.showView());
         harnessMenu.add(runTaskItem);
+        harnessMenu.add(runSelectionItem);
         harnessMenu.add(showHarnessItem);
 
         add(fileMenu);
