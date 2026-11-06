@@ -8,20 +8,17 @@ package de.jare.harness.impl.ollama;
 
 import de.jare.harness.impl.ModelProvider;
 import de.jare.harness.model.Modelclass;
+import de.jare.jsonpost.PostJsonClient;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
  * Local ollama provider (CONCEPT_Harness.md §2): defaults to
  * {@code http://localhost:11434}. One stateless call = one POST to {@code /api/generate}
- * with the assembled segment list as prompt and JSON-strict format. Local models are
- * served sequentially - no concurrency inside ollama.
+ * with the assembled segment list as prompt and JSON-strict format; the HTTP/JSON round
+ * trip goes through jsonCasted's {@link PostJsonClient} (postRaw), the health probe
+ * through {@code getRaw("/api/tags")}. Local models are served sequentially - no
+ * concurrency inside ollama.
  *
  * @author Janusch Rentenatus
  */
@@ -31,6 +28,7 @@ public class OllamaProvider implements ModelProvider {
 
     private final String baseUrl;
     private final Modelclass modelclass;
+    private final PostJsonClient client;
     private volatile Boolean availableCache;
 
     public OllamaProvider(Modelclass modelclass) {
@@ -38,8 +36,13 @@ public class OllamaProvider implements ModelProvider {
     }
 
     public OllamaProvider(String baseUrl, Modelclass modelclass) {
+        this(baseUrl, modelclass, new PostJsonClient());
+    }
+
+    public OllamaProvider(String baseUrl, Modelclass modelclass, PostJsonClient client) {
         this.baseUrl = baseUrl;
         this.modelclass = modelclass;
+        this.client = client;
     }
 
     @Override
@@ -60,16 +63,11 @@ public class OllamaProvider implements ModelProvider {
         return ok;
     }
 
-    /** Cheap TCP probe of the ollama port - no HTTP round trip needed for the health check. */
+    /** Health probe via GET /api/tags through the shared PostJsonClient. */
     private boolean probe() {
         try {
-            URI uri = URI.create(baseUrl);
-            String host = uri.getHost() == null ? "localhost" : uri.getHost();
-            int port = uri.getPort() < 0 ? 11434 : uri.getPort();
-            try (Socket s = new Socket()) {
-                s.connect(new InetSocketAddress(host, port), 500);
-                return true;
-            }
+            client.getRaw(baseUrl + "/api/tags", 1000);
+            return true;
         } catch (IOException e) {
             return false;
         }
@@ -80,27 +78,21 @@ public class OllamaProvider implements ModelProvider {
         String prompt = String.join("\n\n", segments);
         String body = "{\"model\":\"" + modelclass.getModel() + "\",\"prompt\":"
                 + jsonString(prompt) + ",\"format\":\"json\",\"stream\":false}";
-        HttpURLConnection conn = (HttpURLConnection) URI.create(baseUrl + "/api/generate")
-                .toURL().openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setConnectTimeout(2000);
-        conn.setReadTimeout(120000);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(body.getBytes(StandardCharsets.UTF_8));
-        }
-        if (conn.getResponseCode() != 200) {
+        final String response;
+        try {
+            response = client.postRaw(body, baseUrl + "/api/generate", 120000);
+        } catch (IOException e) {
+            availableCache = false;
             modelclass.markUnavailable();
-            throw new IOException("ollama HTTP " + conn.getResponseCode());
+            throw e;
         }
         availableCache = true;
         modelclass.markAvailable();
-        String response = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         return extractResponse(response);
     }
 
-    /** Minimal extraction of the "response" field - full JSON parsing follows with the jsonCasted loader. */
-    private static String extractResponse(String json) {
+    /** Minimal extraction of the "response" field - full JSON parsing happens in the AiCalculator. */
+    static String extractResponse(String json) {
         String key = "\"response\":\"";
         int i = json.indexOf(key);
         if (i < 0) {
@@ -110,7 +102,8 @@ public class OllamaProvider implements ModelProvider {
         for (int j = i + key.length(); j < json.length(); j++) {
             char c = json.charAt(j);
             if (c == '\\' && j + 1 < json.length()) {
-                sb.append(json.charAt(j + 1));
+                char n = json.charAt(j + 1);
+                sb.append(n == 'n' ? '\n' : n == 't' ? '\t' : n);
                 j++;
             } else if (c == '"') {
                 break;
@@ -121,7 +114,7 @@ public class OllamaProvider implements ModelProvider {
         return sb.toString();
     }
 
-    private static String jsonString(String s) {
+    static String jsonString(String s) {
         StringBuilder sb = new StringBuilder("\"");
         for (char c : s.toCharArray()) {
             switch (c) {
