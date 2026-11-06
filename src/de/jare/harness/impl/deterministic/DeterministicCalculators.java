@@ -38,9 +38,9 @@ public final class DeterministicCalculators {
             case ABORT -> calc(kind, DeterministicCalculators::abort);
             case SUMMARIZE -> calc(kind, DeterministicCalculators::summarize);
             case CLOSE -> calc(kind, DeterministicCalculators::close);
-            case RAG_STORE -> calc(kind, ctx -> CalcResult.of(Kind.RAG_STORE, "noop"));
-            case RAG_RETRIEVE -> calc(kind, ctx -> CalcResult.of(Kind.RAG_RETRIEVE, "noop"));
-            case RAG_PRUNE -> calc(kind, ctx -> CalcResult.of(Kind.RAG_PRUNE, "noop"));
+            case RAG_STORE -> calc(kind, DeterministicCalculators::ragStore);
+            case RAG_RETRIEVE -> calc(kind, DeterministicCalculators::ragRetrieve);
+            case RAG_PRUNE -> calc(kind, DeterministicCalculators::ragPrune);
         };
     }
 
@@ -106,6 +106,46 @@ public final class DeterministicCalculators {
         }
         return CalcResult.of(Kind.SUMMARIZE, "summarized")
                 .put("summary", String.join(" | ", parts));
+    }
+
+    /**
+     * RAG_STORE (§11): writes the task's result as a RESULT chunk with meta
+     * {taskId, taskType, kind, score, ts}. The score ≥ minScore gating is done by the
+     * driver (after EVALUATE), the store itself just stores + dedups by contentHash.
+     */
+    private static CalcResult ragStore(CalcContext ctx) {
+        TaskNode t = ctx.task();
+        String document = (t.getArtifact() == null ? "worked:" + t.getTitle() : t.getArtifact())
+                + (t.getPromptSupplement().isEmpty() ? "" : "\n" + t.getPromptSupplement());
+        java.util.Map<String, String> meta = new java.util.LinkedHashMap<>();
+        meta.put("taskId", String.valueOf(t.getId()));
+        meta.put("taskType", t.getTaskType());
+        meta.put("kind", ctx.kind().name());
+        if (t.getScore() != null) {
+            meta.put("score", String.valueOf(t.getScore()));
+        }
+        meta.put("ts", String.valueOf(System.currentTimeMillis()));
+        de.jare.harness.rag.RagChunk chunk = ctx.rag().store("RESULT", document, meta);
+        return CalcResult.of(Kind.RAG_STORE, "stored").put("chunkId", String.valueOf(chunk.getId()));
+    }
+
+    /** RAG_RETRIEVE (§11): vector similarity only, top-k with hard budget → DATA segments. */
+    private static CalcResult ragRetrieve(CalcContext ctx) {
+        var defaults = ctx.rag().getDefaults();
+        var hits = ctx.rag().retrieve(ctx.task().getTitle(), defaults.topK(), defaults.minScore());
+        StringBuilder sb = new StringBuilder();
+        for (var h : hits) {
+            sb.append(h.chunk().getDocument()).append('\n');
+        }
+        return CalcResult.of(Kind.RAG_RETRIEVE, "retrieved")
+                .put("count", String.valueOf(hits.size()))
+                .put("documents", sb.toString().trim());
+    }
+
+    /** RAG_PRUNE (§11): dedup/supersede/ttl/size budget - runs e.g. after each CLOSE. */
+    private static CalcResult ragPrune(CalcContext ctx) {
+        int removed = ctx.rag().prune();
+        return CalcResult.of(Kind.RAG_PRUNE, "pruned").put("removed", String.valueOf(removed));
     }
 
     private static CalcResult close(CalcContext ctx) {

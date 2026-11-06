@@ -35,6 +35,9 @@ import java.util.function.BiConsumer;
  */
 public class HarnessEngine {
 
+    /** RAG_STORE threshold on the 0-100 score scale (§11, konfigurierbar am RAG-Default). */
+    public static final int RAG_STORE_MIN_SCORE = 50;
+
     private final HarnessModel model;
     private final HarnessInstance instance;
     private final CalculatorFactory factory;
@@ -197,6 +200,7 @@ public class HarnessEngine {
                 }
                 execute(task, Kind.SUMMARIZE);
                 execute(task, Kind.CLOSE);
+                execute(task, Kind.RAG_PRUNE);
                 return;
             }
 
@@ -215,6 +219,10 @@ public class HarnessEngine {
                 }
                 task.setStatus(eval.getStatus());
             }
+            // RAG_STORE only on success (§11): EVALUATE score ≥ Schwelle (0-100 scale)
+            if (task.getScore() != null && task.getScore() >= RAG_STORE_MIN_SCORE) {
+                execute(task, Kind.RAG_STORE);
+            }
 
             CalcResult check = execute(task, Kind.CHECK);
             if (check != null && "retry".equals(check.getDecision())) {
@@ -229,6 +237,7 @@ public class HarnessEngine {
                 execute(task, Kind.SUMMARIZE);
             }
             execute(task, Kind.CLOSE);
+            execute(task, Kind.RAG_PRUNE); // prune runs e.g. after each CLOSE (§11)
             return;
         }
     }
@@ -258,8 +267,19 @@ public class HarnessEngine {
 
         String auftrag = task.getTitle()
                 + (task.getPromptSupplement().isEmpty() ? "" : "\n" + task.getPromptSupplement());
-        List<PromptSegment> resolved = relevanceRegistry.resolve(task.getTaskType(), task.getAttempt(),
-                kind, model.getVersion(), auftrag);
+        List<PromptSegment> resolved = new ArrayList<>(relevanceRegistry.resolve(task.getTaskType(),
+                task.getAttempt(), kind, model.getVersion(), auftrag));
+        // RAG_RETRIEVE feeds the DATA segments (§11): vector-similarity hits for the
+        // current task land in the prompt list before the budgets are enforced
+        if (kind == Kind.WORK || kind == Kind.CHECK || kind == Kind.COMPLETE) {
+            var hits = instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding())
+                    .retrieve(auftrag, instance.getRag().getDefaults().topK(),
+                            instance.getRag().getDefaults().minScore());
+            for (var h : hits) {
+                resolved.add(PromptSegment.of(PromptSegment.Category.DATA, "rag:chunk-" + h.chunk().getId(),
+                        h.chunk().getDocument()));
+            }
+        }
         List<String> prompts = PromptAssembler.toTexts(promptAssembler.assemble(resolved));
         CalcContext ctx = new CalcContext(this, instance, model, task, kind, slot.getId(), node, limits, prompts);
         ctx.setTools(tools);
