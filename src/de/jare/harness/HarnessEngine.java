@@ -10,10 +10,15 @@ import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
 import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
+import de.jare.harness.prompts.PromptAssembler;
+import de.jare.harness.prompts.PromptSegment;
+import de.jare.harness.prompts.RelevanceRegistry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 
 /**
@@ -33,6 +38,8 @@ public class HarnessEngine {
     private final Limits limits;
     private final Deque<CallLogEntry> callStack = new ArrayDeque<>();
     private final List<BiConsumer<TaskNode, String>> listeners = new ArrayList<>();
+    private final RelevanceRegistry relevanceRegistry;
+    private final PromptAssembler promptAssembler;
 
     public HarnessEngine(HarnessModel model, HarnessInstance instance, CalculatorFactory factory) {
         this.model = model;
@@ -40,6 +47,17 @@ public class HarnessEngine {
         this.factory = factory;
         this.limits = new Limits(model.getMaxIterations(), model.getMaxDepth(),
                 model.getMaxRetries(), model.getMaxToolCalls());
+        this.relevanceRegistry = new RelevanceRegistry();
+        Map<PromptSegment.Category, Integer> budgets = new EnumMap<>(PromptSegment.Category.class);
+        for (Map.Entry<String, Integer> e : model.getPromptBudgets().entrySet()) {
+            budgets.put(PromptSegment.Category.valueOf(e.getKey()), e.getValue());
+        }
+        this.promptAssembler = new PromptAssembler(budgets, model.getMaxTokensTotal(),
+                "sticky: harness " + model.getName() + " v" + model.getVersion());
+    }
+
+    public RelevanceRegistry getRelevanceRegistry() {
+        return relevanceRegistry;
     }
 
     public HarnessModel getModel() {
@@ -170,7 +188,11 @@ public class HarnessEngine {
                 : new CallLogEntry.Parent1(parent.getAufrufId(), parent.getScore(), parent.getStatus());
         Long p2 = parent == null || parent.getParent1() == null ? null : parent.getParent1().aufrufId;
 
-        List<String> prompts = List.of("SYSTEM:orchestrator", "AUFTRAG:" + task.getTitle());
+        String auftrag = task.getTitle()
+                + (task.getPromptSupplement().isEmpty() ? "" : "\n" + task.getPromptSupplement());
+        List<PromptSegment> resolved = relevanceRegistry.resolve(task.getTaskType(), task.getAttempt(),
+                kind, model.getVersion(), auftrag);
+        List<String> prompts = PromptAssembler.toTexts(promptAssembler.assemble(resolved));
         CalcContext ctx = new CalcContext(this, instance, model, task, kind, slot.getId(), node, limits, prompts);
 
         long start = System.currentTimeMillis();
