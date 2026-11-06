@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Maps the engine results to the visual marks of the tree diff view (concept CONCEPT_TreeDiffView.md section 4).
+ * Maps the engine results to the visual marks of the tree diff view (concept docs/koncepts/CONCEPT_TreeDiffView.md section 4).
  * W2 maps the {@link DiffReport} of ours against the frozen copy; W3 maps the {@link MergePlan}: ours deltas (the
  * user's own edits), the apply list (incoming theirs changes) and the conflicts.
  *

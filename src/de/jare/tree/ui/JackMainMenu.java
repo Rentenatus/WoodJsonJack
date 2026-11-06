@@ -98,7 +98,7 @@ public class JackMainMenu extends JMenuBar {
         bundleMenu.add(closeBundleItem);
         bundleMenu.add(showResourceItem);
 
-        // Project menu: the .wood/project.json scope (concept CONCEPT_ProjectView.md, sections 1 and 8)
+        // Project menu: the .wood/project.json scope (concept docs/koncepts/CONCEPT_ProjectView.md, sections 1 and 8)
         JMenu projectMenu = new JMenu("Project");
         projectMenu.setMnemonic(KeyEvent.VK_P);
 

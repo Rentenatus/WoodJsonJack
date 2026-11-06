@@ -95,7 +95,7 @@ public class JackMainActions {
 
     /**
      * Opens a bundle session with the main tree's editability decided by the caller: an
-     * ISOLATED source (concept CONCEPT_ProjectView.md, phase 9 - an old version to look at)
+     * ISOLATED source (concept docs/koncepts/CONCEPT_ProjectView.md, phase 9 - an old version to look at)
      * opens completely read-only, no editor action writes into it.
      *
      * @param file the bundle's main resource file
@@ -115,7 +115,7 @@ public class JackMainActions {
     }
 
     /**
-     * Lets the user choose a project folder and opens it (concept: CONCEPT_ProjectView.md,
+     * Lets the user choose a project folder and opens it (concept: docs/koncepts/CONCEPT_ProjectView.md,
      * sections 1 and 8). The folder must contain {@code .wood/project.json}; the document is
      * validated at load time and refused with the problems found.
      */
@@ -132,7 +132,7 @@ public class JackMainActions {
     }
 
     /**
-     * Lets the user pick a folder and makes it a wood project (concept CONCEPT_ProjectView.md,
+     * Lets the user pick a folder and makes it a wood project (concept docs/koncepts/CONCEPT_ProjectView.md,
      * section 1): {@code .wood/project.json} with an empty partition list is created, then the
      * project opens in the sidebar. A folder that already carries a project document is refused -
      * creating never overwrites. The save variant of the folder chooser deliberately, because it
@@ -234,7 +234,7 @@ public class JackMainActions {
     /**
      * Menu path of "Project > Add Folder > (type)": asks for the folder name (the type name as
      * the suggestion) and adds a partition of the given role to the open project (concept
-     * CONCEPT_ProjectView.md, section 2 - the role table). Folder on disk and project document
+     * docs/koncepts/CONCEPT_ProjectView.md, section 2 - the role table). Folder on disk and project document
      * grow together; an existing folder can be mounted this way, creating never overwrites.
      *
      * @param type the partition role of the new folder
@@ -907,7 +907,7 @@ public class JackMainActions {
             master.getFastLog().tryWrite("io", "Saved " + target.getName());
             // the save refreshed the fingerprint - the (outdated) markers may go
             woodWindow.refreshOutdatedMarkers();
-            // project document round trip (concept CONCEPT_ProjectView.md section 12, phase 4):
+            // project document round trip (concept docs/koncepts/CONCEPT_ProjectView.md section 12, phase 4):
             // a save of .wood/project.json re-projects the sidebar
             if (woodWindow.getProjectSidebar().isProjectDocumentFile(target)) {
                 woodWindow.getProjectSidebar().refreshProject();

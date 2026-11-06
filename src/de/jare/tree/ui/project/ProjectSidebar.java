@@ -42,7 +42,7 @@ import javax.swing.tree.TreeSelectionModel;
 
 /**
  * The project sidebar: the third panel far left of the Wood editor (concept:
- * CONCEPT_ProjectView.md, sections 1, 2, 3 and 8). It renders the project document as a
+ * docs/koncepts/CONCEPT_ProjectView.md, sections 1, 2, 3 and 8). It renders the project document as a
  * projection tree: partitions on level 1, physical structure below, lazy loading on expansion,
  * read-mostly state - opening a JSON file reuses the existing tab machinery.
  *

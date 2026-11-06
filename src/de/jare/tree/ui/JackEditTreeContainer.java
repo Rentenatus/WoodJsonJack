@@ -67,7 +67,7 @@ public class JackEditTreeContainer extends JPanel {
                 e -> { if (!syncingToggles) toggleLinkView(this.rightTree.getLinkCheckBox().isSelected()); }
         );
 
-        // The diff segment of the right pane mode (concept CONCEPT_TreeDiffView.md): geometry is the role, this
+        // The diff segment of the right pane mode (concept docs/koncepts/CONCEPT_TreeDiffView.md): geometry is the role, this
         // container's live left tree is ours, the remembered side freezes as theirs. Selecting Dependents or
         // deselecting Diff closes the diff view.
         this.leftTree.getDiffCheckBox().addActionListener(e -> onDiffToggle(this.leftTree.getDiffCheckBox().isSelected()));
@@ -192,7 +192,7 @@ public class JackEditTreeContainer extends JPanel {
     }
 
     /**
-     * Runs the take-all of the open W3 view and reports the outcome (concept CONCEPT_TreeDiffView.md section 7):
+     * Runs the take-all of the open W3 view and reports the outcome (concept docs/koncepts/CONCEPT_TreeDiffView.md section 7):
      * the batch applies as one undo step; radiating changes wait for individual picks.
      */
     private void takeAllIncoming() {
@@ -278,7 +278,7 @@ public class JackEditTreeContainer extends JPanel {
     }
 
     /**
-     * Updates the staleness summary of the open view's banner (concept CONCEPT_TreeDiffView.md section 5): the
+     * Updates the staleness summary of the open view's banner (concept docs/koncepts/CONCEPT_TreeDiffView.md section 5): the
      * left tree's tick counts its stale marks and hands the numbers over; the banner recomputes its line from the
      * controller state. Re-diff clears the line by itself (fresh marks).
      *

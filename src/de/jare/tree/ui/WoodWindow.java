@@ -71,7 +71,7 @@ public class WoodWindow extends JFrame {
     private JackFastLogPanel fastLogPanel;
     // The bundle session of the editor (concept doc/JSON_BUNDLE.md): null when no bundle session is open
     private EditBundle editBundle;
-    // The project sidebar: the projection of the open wood project (concept: CONCEPT_ProjectView.md)
+    // The project sidebar: the projection of the open wood project (concept: docs/koncepts/CONCEPT_ProjectView.md)
     private final de.jare.tree.ui.project.ProjectSidebar projectSidebar;
     // One shared instance for all save/diff actions of the window (the tab popup and the menu act together)
     private JackMainActions mainActions;
@@ -102,7 +102,7 @@ public class WoodWindow extends JFrame {
         JSplitPane horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         JSplitPane verticalSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
 
-        // Left: project sidebar (concept: CONCEPT_ProjectView.md section 8) - the projection
+        // Left: project sidebar (concept: docs/koncepts/CONCEPT_ProjectView.md section 8) - the projection
         // of .wood/project.json: partitions on level 1, physical structure below, lazy loading.
         projectSidebar = new de.jare.tree.ui.project.ProjectSidebar(this);
         projectSidebar.setPreferredSize(new Dimension(250, 0));
@@ -252,7 +252,7 @@ public class WoodWindow extends JFrame {
 
     /**
      * Opens the front entry of the project history at startup ({@code user-home/.wood/
-     * projects.json}, UX layer of CONCEPT_ProjectView.md). A folder that vanished or lost its
+     * projects.json}, UX layer of docs/koncepts/CONCEPT_ProjectView.md). A folder that vanished or lost its
      * project document is skipped silently - the history keeps the entry, "Open Recent" shows it
      * disabled; a dialog at startup would only state what the silent sidebar already does: no
      * project open.
@@ -352,7 +352,7 @@ public class WoodWindow extends JFrame {
 
     /**
      * The user global project history ({@code user-home/.wood/projects.json}, UX layer of
-     * CONCEPT_ProjectView.md): every opened or newly created project revises its front.
+     * docs/koncepts/CONCEPT_ProjectView.md): every opened or newly created project revises its front.
      *
      * @return the history, never null
      */
@@ -380,7 +380,7 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * The protection flip of an open file (concept CONCEPT_ProjectView.md, phase 20): every
+     * The protection flip of an open file (concept docs/koncepts/CONCEPT_ProjectView.md, phase 20): every
      * editor tab that shows this file changes its editability at once - a fence set does not
      * wait for the next open, a removed fence releases the working view immediately. File
      * identity is the canonical path.
@@ -437,7 +437,7 @@ public class WoodWindow extends JFrame {
 
     /**
      * Opens the bundle session with the main tree's editability decided by the caller. An
-     * isolated source (concept CONCEPT_ProjectView.md, phase 9 - an old version to look at)
+     * isolated source (concept docs/koncepts/CONCEPT_ProjectView.md, phase 9 - an old version to look at)
      * opens completely read-only: the main tree is a view like the provider trees, no editor
      * action writes into it.
      *
@@ -659,7 +659,7 @@ public class WoodWindow extends JFrame {
     }
 
     /**
-     * Returns the project sidebar (concept: CONCEPT_ProjectView.md) - the leftmost panel that
+     * Returns the project sidebar (concept: docs/koncepts/CONCEPT_ProjectView.md) - the leftmost panel that
      * projects the open wood project.
      *
      * @return the sidebar of this window

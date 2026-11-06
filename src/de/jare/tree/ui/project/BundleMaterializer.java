@@ -16,7 +16,7 @@ import java.nio.file.Files;
 
 /**
  * Executes the materialization of the implicit single-file bundle (concept:
- * CONCEPT_ProjectView.md, section 4, rule 4): a bare {@code *.json} directly inside a json
+ * docs/koncepts/CONCEPT_ProjectView.md, section 4, rule 4): a bare {@code *.json} directly inside a json
  * partition is accepted as an implicit single-file bundle - the first structural action
  * materializes it. The file moves into a sibling folder named after its stem and a bundle
  * descriptor declares it. No implicit state survives an explicit action.

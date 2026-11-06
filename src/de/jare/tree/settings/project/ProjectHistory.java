@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The user global project history (UX layer of CONCEPT_ProjectView.md): every project that was
+ * The user global project history (UX layer of docs/koncepts/CONCEPT_ProjectView.md): every project that was
  * opened or newly created lands at the front of this list, older entries move down. It lives
  * outside any single project as {@code user-home/.wood/projects.json} - the wood universe of the
  * user, next to but independent of the editor settings.

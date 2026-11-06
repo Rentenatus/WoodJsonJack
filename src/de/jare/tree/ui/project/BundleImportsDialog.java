@@ -18,7 +18,7 @@ import javax.swing.JTextArea;
 import javax.swing.WindowConstants;
 
 /**
- * The imports view of a bundle (concept: CONCEPT_ProjectView.md, section 6 - phase 7): the
+ * The imports view of a bundle (concept: docs/koncepts/CONCEPT_ProjectView.md, section 6 - phase 7): the
  * descriptor's imports with their resolutions - the reactor path hit, the project-local
  * convenience hit or the materialized repository stand, each with the channel it came through;
  * unresolved imports carry the guidance line. No transitive resolution (binding): the imported

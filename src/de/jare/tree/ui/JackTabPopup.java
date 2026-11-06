@@ -16,7 +16,7 @@ import javax.swing.JPopupMenu;
 /**
  * The popup of one editor tab (its header): the tab-wide actions - Save, Save As..., the disk diff of the tab's
  * tree - and the diff pair entries of the root popup: mark the tab's tree as left/right side, run the W2/W3
- * view with the remembered side. The pair semantics follow the root popup (concepts CONCEPT_TreeDiffView.md
+ * view with the remembered side. The pair semantics follow the root popup (concepts docs/koncepts/CONCEPT_TreeDiffView.md
  * and doc/JSON_PROJECT.md): the flag decides the roles, the view opens in the ours tab.
  *
  * @author Janusch Rentenatus

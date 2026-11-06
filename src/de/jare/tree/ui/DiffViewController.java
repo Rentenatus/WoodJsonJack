@@ -34,7 +34,7 @@ import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
 
 /**
- * The diff mode of an editor container's right pane (concept CONCEPT_TreeDiffView.md): the pane shows a frozen deep
+ * The diff mode of an editor container's right pane (concept docs/koncepts/CONCEPT_TreeDiffView.md): the pane shows a frozen deep
  * copy of the theirs tree next to the live ours tree, both carrying {@link DiffMark}s. Geometry is the role - the
  * left tree stays live and editable (ours), the right copy is readonly (theirs). The marks live here, never on the
  * node models; they validate themselves at paint time via the Merkle hash.
@@ -87,7 +87,7 @@ public final class DiffViewController {
     private EditTree oursTree;
     private EditNodeAbstract theirsSourceRoot;
     private EditTree theirsCopyTree;
-    // phase 10 (concept CONCEPT_ProjectView.md, question 10): the pick boundary translation of a
+    // phase 10 (concept docs/koncepts/CONCEPT_ProjectView.md, question 10): the pick boundary translation of a
     // cross-world pair - live session vs an isolated stand. Null on same-world pairs (then picks
     // apply verbatim as before).
     private de.jare.jsoncasted.editor.merge.PickIdentityTranslation pickTranslation;
@@ -144,7 +144,7 @@ public final class DiffViewController {
 
     /**
      * Opens the diff view with the pick boundary translation of a cross-world pair (phase 10,
-     * concept CONCEPT_ProjectView.md question 10): when theirs is a stand of a foreign identity
+     * concept docs/koncepts/CONCEPT_ProjectView.md question 10): when theirs is a stand of a foreign identity
      * world - typically an isolated source, an old version to look at - every pick runs through
      * the translation first: synonym check, conflict check, fresh ids for every picked element;
      * a refused pick applies nothing. Same-world pairs pass null and pick verbatim as before.

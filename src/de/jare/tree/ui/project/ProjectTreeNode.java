@@ -20,7 +20,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 
 /**
- * Node of the project sidebar (concept: CONCEPT_ProjectView.md, sections 2, 3 and 4). The sidebar is
+ * Node of the project sidebar (concept: docs/koncepts/CONCEPT_ProjectView.md, sections 2, 3 and 4). The sidebar is
  * a projection: virtual structure (partitions) mapped onto physical locations. Partitions sit on
  * level 1 only; everything below a partition is physical subfolder structure, loaded lazily on
  * first expansion. Inside a json partition the scan goes deeper in meaning: folders with a bundle
@@ -196,7 +196,7 @@ public class ProjectTreeNode extends DefaultMutableTreeNode {
         dirs.sort(byName);
         files.sort(byName);
         // bundle-aware inside json partitions AND isolated sources: an isolated mount is the
-        // view-only old world (concept CONCEPT_ProjectView.md, phase 9) - it renders like a json
+        // view-only old world (concept docs/koncepts/CONCEPT_ProjectView.md, phase 9) - it renders like a json
         // partition (bundles, descriptors, the grouping), it just never takes part in the
         // identity world of the project
         final PartitionType enclosing = enclosingPartitionType();

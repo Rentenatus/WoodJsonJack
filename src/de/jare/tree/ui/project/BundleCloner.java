@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Executes the bundle clone (concept: CONCEPT_ProjectView.md, section 5 - implementation plan
+ * Executes the bundle clone (concept: docs/koncepts/CONCEPT_ProjectView.md, section 5 - implementation plan
  * phase 6): a new sibling under the sibling convention (first free name), the folder copy carries
  * the descriptor whose {@code name} is rewritten to the new folder name. No ID remapping (Strategy
  * B, section 7): the Wood object IDs and provider synonyms stay exactly as they are.

@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The dry planning of a bundle clone (concept: CONCEPT_ProjectView.md, section 5): new sibling
+ * The dry planning of a bundle clone (concept: docs/koncepts/CONCEPT_ProjectView.md, section 5): new sibling
  * under the sibling convention with the first free name suffix, the descriptor travels with
  * the copy and its {@code name} is rewritten. Two modes: deep (default) copies the linked
  * files into the clone and rewrites the links, shallow references them in place. This class

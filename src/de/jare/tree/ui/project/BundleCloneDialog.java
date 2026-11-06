@@ -23,7 +23,7 @@ import javax.swing.JTextArea;
 import javax.swing.WindowConstants;
 
 /**
- * The clone dialog (concept: CONCEPT_ProjectView.md, section 5 - implementation plan phase 6):
+ * The clone dialog (concept: docs/koncepts/CONCEPT_ProjectView.md, section 5 - implementation plan phase 6):
  * shows the source, the sibling-convention destination and the two copy modes with their effects;
  * the preview follows the mode choice live. Cloning executes through the caller's action - the
  * dialog holds no io of its own.

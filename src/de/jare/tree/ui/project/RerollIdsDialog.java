@@ -45,7 +45,7 @@ import javax.swing.JTextArea;
 import javax.swing.WindowConstants;
 
 /**
- * The reroll dialog (concept: CONCEPT_ProjectView.md, section 7.1 - phase 8): the explicit,
+ * The reroll dialog (concept: docs/koncepts/CONCEPT_ProjectView.md, section 7.1 - phase 8): the explicit,
  * on-demand identity refresh of one bundle. The dialog lists every tree of the project - every
  * JSON file of every bundle plus every standalone JSON file - preselected (binding: a UI reroll
  * is always project-wide disjoint; a curated subset is possible only by explicit deselection).
