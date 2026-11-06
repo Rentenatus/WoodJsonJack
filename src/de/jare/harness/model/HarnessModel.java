@@ -27,7 +27,7 @@ public class HarnessModel {
     private final List<String> taskTypes = new ArrayList<>();
     private final Map<String, Integer> promptBudgets = new LinkedHashMap<>();
     private int maxTokensTotal = 4000;
-    private int maxIterations = 50;     // abortLimits - values ILLUSTRATIVE until §15 is decided
+    private int maxIterations = 50;     // abortLimits - final defaults, decided in CONCEPT_Harness.md §15
     private int maxDepth = 5;
     private int maxRetries = 3;
     private int maxToolCalls = 10;

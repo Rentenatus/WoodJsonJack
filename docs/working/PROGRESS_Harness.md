@@ -3,7 +3,7 @@
 **Stand:** 2026-11-06, Branch `feature/harness-impl` @ `b53a19f`
 **Konzept:** `docs/koncepts/CONCEPT_Harness.md` (16 Abschnitte)
 **Verifikation:** frischer Build (javac, WJJ + jsonCasted + jsonCasted_edit + ndimcol) und
-TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **225/225 bestanden, 0 Failures**
+TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **226/226 bestanden, 0 Failures**
 (Headless-Lauf am 2026-11-06; die beiden Asset-Tests brauchen das Repo-Root als Working-Dir)
 
 ---
@@ -41,7 +41,7 @@ TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **225/225 bestan
 
 ## 3. Teststand
 
-- Suite `test_assets/wjj_testng.xml`: **225 Tests, 225 grün** (frisch verifiziert, siehe Kopf).
+- Suite `test_assets/wjj_testng.xml`: **226 Tests, 226 grün** (frisch verifiziert, siehe Kopf).
 - 20 Harness-Testklassen (`test/de/jare/harness/`), inkl. Stub-Server-Tests für beide Provider
   (Ollama `/api/chat` + `/api/tags`, Hosted Chat-Completions mit `Authorization: Bearer`),
   Tool-Loop, RAG-Pipeline, Evolution, Feedback, Signale/Catch, AI-Answer, Codecs, Definition, View, Controller,
@@ -51,6 +51,6 @@ TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **225/225 bestan
 
 1. **Merge:** `feature/harness-impl` nach `develop`/`main` bringen (alle Harness-Commits fehlen dort).
 2. ~~Konzept-Statuszeile~~ **erledigt:** `CONCEPT_Harness.md` steht auf „221/221 grün“ mit Verweis auf dieses Dokument (Commit `d96c49b`).
-3. **§15 des Konzepts** ist noch als „offen“ markiert: finale Abbruch-Defaults (maxIterations/maxDepth/maxRetries/maxToolCalls) und UI-Details — die View existiert inzwischen als `HarnessViewPanel`, die Default-Werte sollten final festgezurrt und ins Konzept übernommen werden.
+3. ~~§15 finale Defaults~~ **erledigt:** Abbruch-Defaults festgezurrt auf `maxIterations 50 / maxDepth 5 / maxRetries 3 / maxToolCalls 10` (Code-Defaults in `HarnessModel` = gebündeltes Asset = `HarnessService.defaultModel()`, Guard-Test in `HarnessServiceNGTest`); UI entschieden als Dialog `HarnessViewPanel` + Harness-Menü. §15 im Konzept umgeschrieben von „offen“ auf „entschieden“. Verbleibend offen im Konzept: keine.
 4. ~~Globale Ebene `~/.wood/`~~ **erledigt:** `GlobalWood` verdrahtet `~/.wood/harness/metrics.json` + `lessons.json` und `~/.wood/mindset/` (Load vor Lauf, atomares Save nach Lauf, Lesson-Export bei signifikantem Vorsprung, Priors read-only via `ctx.metrics.globalPriors()`, Mindset via `ctx.mindset()`). Test-Override über System Property `de.jare.harness.woodHome` bzw. `HarnessService.setWoodHome()`.
 5. ~~SKILL-/Mindset-Segmente in der Prompt-Liste~~ **erledigt:** `HarnessEngine.buildSegments` (nutzt von `execute` und `onSignal`) matcht AUFTRAG gegen SKILL-Chunks pro Scope → SKILL-Segment als `skill:<id>`-Verweis (nie Volltext, nie als DATA), und zieht die Mindset-Kategorie als `SYSTEM:mindset:<cat>`-Segment (§12/§16). Test in `HarnessSkillsMindsetNGTest`.

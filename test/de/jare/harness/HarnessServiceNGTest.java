@@ -88,6 +88,27 @@ public class HarnessServiceNGTest {
     }
 
     @Test
+    public void testAbortLimitDefaultsAreDecidedPerConcept15() throws Exception {
+        // §15 decided: maxIterations 50, maxDepth 5, maxRetries 3, maxToolCalls 10 -
+        // code defaults, bundled asset and service default must all carry them
+        HarnessModel codeDefaults = new HarnessModel();
+        Assert.assertEquals(codeDefaults.getMaxIterations(), 50);
+        Assert.assertEquals(codeDefaults.getMaxDepth(), 5);
+        Assert.assertEquals(codeDefaults.getMaxRetries(), 3);
+        Assert.assertEquals(codeDefaults.getMaxToolCalls(), 10);
+
+        HarnessModel asset = HarnessModelCodec.load(new File("assets/harness/harness-model.json"));
+        Assert.assertEquals(asset.getMaxIterations(), 50, "bundled asset carries the decided defaults");
+        Assert.assertEquals(asset.getMaxDepth(), 5);
+        Assert.assertEquals(asset.getMaxRetries(), 3);
+        Assert.assertEquals(asset.getMaxToolCalls(), 10);
+
+        HarnessModel serviceDefault = HarnessService.defaultModel();
+        Assert.assertEquals(serviceDefault.getMaxIterations(), 50);
+        Assert.assertEquals(serviceDefault.getMaxToolCalls(), 10);
+    }
+
+    @Test
     public void testDefaultModelFallbackWhenNoProjectFile() throws Exception {
         Path project = Files.createTempDirectory("harness-project");
         HarnessService service = new HarnessService(project.toFile());

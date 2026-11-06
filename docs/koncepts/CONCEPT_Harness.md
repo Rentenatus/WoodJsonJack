@@ -122,7 +122,7 @@ Vorschlag der Treiber gegen Budgets + erlaubte Refs validiert und hart beschneid
   "version": "1.0.0",
   "taskTypes": ["RESEARCH", "CODE_EDIT", "TEST_RUN", "SUMMARIZE"],
   "promptBudgets": { "SYSTEM": 2, "SKILL": 1, "HISTORY": 3, "DATA": 2, "AUFTRAG": 1, "maxTokensTotal": 4000 },
-  "abortLimits": { "maxIterations": 50, "maxDepth": 5, "maxRetries": 3, "maxToolCalls": 10 },  // Werte ILLUSTRATIV, finale Defaults siehe §15
+  "abortLimits": { "maxIterations": 50, "maxDepth": 5, "maxRetries": 3, "maxToolCalls": 10 },  // finale Defaults, entschieden in §15
   "modelclasses": {
     "investigation": { "provider": "ollama", "model": "qwen2.5:3b",       "costFactor": 1.0, "toolCapable": true },
     "edit":          { "provider": "ollama", "model": "qwen2.5:7b",       "costFactor": 2.0, "toolCapable": true },
@@ -474,10 +474,17 @@ ctx.ui          // * neu: Harness-Fenster
   .notify(text) .focusTask(taskId) .askUser(question, options) → answer   // Genehmigung/Info
 ```
 
-## 15. Offene Punkte (bewusst noch nicht entschieden)
+## 15. Entschiedene Punkte (früher offen)
 
-1. Konkrete Abbruch-Defaults (max. Iterationen, Tiefe, Retries ohne Score-Anstieg, max. Tool-Calls) — die Werte im §5-Beispiel sind **illustrativ**, nicht entschieden.
-2. UI-Details des Harness-Fensters ( eigener View im WJJ? Andock-Panel? )
+1. **Abbruch-Defaults — entschieden:** `maxIterations: 50`, `maxDepth: 5`, `maxRetries: 3`,
+   `maxToolCalls: 10`. Diese finalen Defaults stehen im gebündelten Modell
+   (`assets/harness/harness-model.json`) und sind die Code-Defaults in `HarnessModel`;
+   pro Projekt überschreibbar via `abortLimits` im eigenen `harness-model.json`.
+   (Die Werte im §5-Beispiel waren illustrativ und sind jetzt genau diese finalen Defaults.)
+2. **UI des Harness-Fensters — entschieden:** eigener Dialog `HarnessViewPanel` (Live-Taskbaum
+   mit Status-Farben/Score-Badges, Detail-Pane mit Kalkulator-Protokoll pro Knoten), geöffnet
+   über das Harness-Menü in `JackMainMenu` („Show Harness Window“; „Run Task…“ startet einen
+   Lauf gegen das aktuelle Projekt). Kein eigenes Andock-Panel.
 
 ## 16. Mindset of the AI (nur global, analog zu Skills)
 
