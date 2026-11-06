@@ -1,6 +1,6 @@
 # PROGRESS_Harness — Fortschrittsdokument zur Harness-Implementierung
 
-**Stand:** 2026-11-06, Branch `feature/harness-impl` @ `b53a19f`
+**Stand:** 2026-11-06, Branch `feature/harness-impl` @ `a1ac8da`
 **Konzept:** `docs/koncepts/CONCEPT_Harness.md` (16 Abschnitte)
 **Verifikation:** frischer Build (javac, WJJ + jsonCasted + jsonCasted_edit + ndimcol) und
 TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **226/226 bestanden, 0 Failures**
@@ -10,13 +10,13 @@ TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **226/226 bestan
 
 ## 1. Branch-Lage
 
-| Branch | Commits vor `main` | Inhalt |
+| Branch | Stand | Inhalt |
 |---|---|---|
-| `feature/harness-impl` (aktuell) | 58 | komplette Implementierung `de.jare.harness` (48 Klassen), 20 Testklassen, 114 Dateien geändert (+13.592) |
-| `feature/projectview` | viele (eigene Linie) | Konzept-Ausbau von `CONCEPT_Harness.md` (Quest/Slot-Modell, Modelclasses als JsonMap, M×3-Metriken, RAG, Skills, Tooling, Mindset) + ProjectView-Phasen (Sidebar, Bundles, Reroll-ID) |
-| `develop` | 1 | nur JsonBundle-Rename in der UI; `main` = Merge von `develop` |
+| `feature/harness-impl` (aktuell) | 62 Commits, Working Tree sauber | komplette Implementierung `de.jare.harness` (49 Klassen), 20 Testklassen, 116 Dateien geändert (+13.993); `develop` ist vollständig enthalten (merge-base = develop-Tip) |
+| `feature/projectview` | eigene Linie | Konzept-Ausbau von `CONCEPT_Harness.md` (Quest/Slot-Modell, Modelclasses als JsonMap, M×3-Metriken, RAG, Skills, Tooling, Mindset) + ProjectView-Phasen (Sidebar, Bundles, Reroll-ID) |
+| `develop` | 1 Commit vor `main` | nur JsonBundle-Rename in der UI; `main` = Merge von `develop` |
 
-**Noch offen:** `feature/harness-impl` ist nicht nach `main`/`develop` gemerged — `main` fehlen alle 58 Harness-Commits.
+**Noch offen:** `feature/harness-impl` ist nicht nach `main` gemerged — dort fehlen alle 62 Harness-Commits.
 
 ## 2. Umsetzungsstand gegen das Konzept
 
@@ -49,8 +49,23 @@ TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **226/226 bestan
 
 ## 4. Offene Punkte / nächste Schritte
 
-1. **Merge:** `feature/harness-impl` nach `develop`/`main` bringen (alle Harness-Commits fehlen dort).
-2. ~~Konzept-Statuszeile~~ **erledigt:** `CONCEPT_Harness.md` steht auf „221/221 grün“ mit Verweis auf dieses Dokument (Commit `d96c49b`).
+1. **Merge:** `feature/harness-impl` nach `main` bringen (62 Commits fehlen dort; `develop` ist bereits enthalten).
+2. ~~Konzept-Statuszeile~~ **erledigt:** `CONCEPT_Harness.md` verweist auf dieses Dokument (Commit `d96c49b`).
 3. ~~§15 finale Defaults~~ **erledigt:** Abbruch-Defaults festgezurrt auf `maxIterations 50 / maxDepth 5 / maxRetries 3 / maxToolCalls 10` (Code-Defaults in `HarnessModel` = gebündeltes Asset = `HarnessService.defaultModel()`, Guard-Test in `HarnessServiceNGTest`); UI entschieden als Dialog `HarnessViewPanel` + Harness-Menü. §15 im Konzept umgeschrieben von „offen“ auf „entschieden“. Verbleibend offen im Konzept: keine.
 4. ~~Globale Ebene `~/.wood/`~~ **erledigt:** `GlobalWood` verdrahtet `~/.wood/harness/metrics.json` + `lessons.json` und `~/.wood/mindset/` (Load vor Lauf, atomares Save nach Lauf, Lesson-Export bei signifikantem Vorsprung, Priors read-only via `ctx.metrics.globalPriors()`, Mindset via `ctx.mindset()`). Test-Override über System Property `de.jare.harness.woodHome` bzw. `HarnessService.setWoodHome()`.
 5. ~~SKILL-/Mindset-Segmente in der Prompt-Liste~~ **erledigt:** `HarnessEngine.buildSegments` (nutzt von `execute` und `onSignal`) matcht AUFTRAG gegen SKILL-Chunks pro Scope → SKILL-Segment als `skill:<id>`-Verweis (nie Volltext, nie als DATA), und zieht die Mindset-Kategorie als `SYSTEM:mindset:<cat>`-Segment (§12/§16). Test in `HarnessSkillsMindsetNGTest`.
+
+## 5. Review 2026-11-06 (Code vs. Konzept, Branch geprüft)
+
+Branch sauber, Suite frisch **226/226 grün**. Umgesetzt und konform: alle 12 Kinds, Engine-Pipeline + harte Limits, Signale/Catch, Tool-Loop, Call-Log mit parent-Kette + persistiertem nextId, atomare Writes, Lineage/Evolution/Feedback, Provider-Outage an der Modelclass, strict-JSON-Antwortvertrag, globale `~/.wood`-Ebene, SKILL/Mindset-Segmente, §15 entschieden, UI.
+
+**Lücken gegen das Konzept (Review-Findings):**
+
+1. **§13 Tool-Katalog unvollständig** — registriert nur `fs.read/list/write`; `fs.delete`, `process.*`, `git.*`, `search.*`, `editor.*` fehlen. `PermissionPolicy` selbst korrekt (read = automode, destructive mind. „fragen“).
+2. **§4 HISTORY-Segmente fehlen** — `Category.HISTORY` existiert, aber `buildSegments` erzeugt keine HISTORY-Segmente aus dem calculatorLog (max. 3, gemeinsames Budget mit `compact`). Anti-Vergessen läuft nur über Sticky-Facts.
+3. **§11 RAG-Modellwechsel-Reset fehlt** — `ragModel` wird persistiert, aber `RagStore.load` vergleicht nicht/leert nicht beim Wechsel; Sperre „kein Wechsel bei laufender Bearbeitung“ nicht umgesetzt.
+4. **§14 CalcContext-Facaden unvollständig** — `ctx.skills`, `ctx.lineage`, `ctx.ui.focusTask/askUser`, `prompts.relevance()`, `ctx.model.modelclass()/isProviderAvailable()` fehlen; `parent1()/parent2()` sitzen am `CallLogEntry`, nicht an der Task.
+5. **§3 Entry Point (2) fehlt** — Selektion im Editor → Prompt ist nur Javadoc im `HarnessController`, implementiert nur der Dialog „Run Task…“.
+6. **§12 Skill-Partition im Projektbaum** — Sidebar-Mount der Skill-Ordner ist ProjectView-Feature (`feature/projectview`), auf diesem Branch nicht vorhanden (Cross-Branch-Abhängigkeit).
+
+**Nächste Schritte (Vorschlag):** zuerst Finding 1 (§13 Tool-Katalog: `git.*`/`process.*`/`search.*`/`editor.*`/`fs.delete`), dann Finding 2 (§4 HISTORY), danach 3–5, dann Merge nach `main`.
