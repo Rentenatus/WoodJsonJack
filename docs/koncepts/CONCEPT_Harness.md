@@ -3,7 +3,7 @@
 **Status:** Konzept beschlossen, Implementierung läuft auf Branch `feature/harness-impl`
 (Package `de.jare.harness` im WJJ: Engine, Modell + Codecs, Prompts, Metriken, Tooling,
 RAG, Skills, Mindset, Lineage/Evolution, Feedback-Loop, Provider ollama+hosted, HarnessViewPanel;
-Test-Suite WJJ 210/210 grün)
+Test-Suite WJJ 221/221 grün — Fortschritt siehe `docs/working/PROGRESS_Harness.md`)
 **Autor:** Konzept aus der Session-Diskussion
 **Geltungsbereich:** WoodJsonJack (WJJ), Package `de.jare.harness`
 
