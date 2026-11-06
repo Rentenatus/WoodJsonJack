@@ -8,9 +8,12 @@ package de.jare.harness;
 
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
+import de.jare.harness.tools.HarnessTools;
+import de.jare.harness.tools.ToolResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The facade context every calculator receives (CONCEPT_Harness.md §14): facades only,
@@ -31,6 +34,7 @@ public class CalcContext {
     private final CalculatorNode node;
     private final Limits limits;
     private final List<String> currentPrompts;
+    private HarnessTools tools;
 
     public CalcContext(HarnessEngine engine, HarnessInstance instance, HarnessModel model,
                        TaskNode task, Kind kind, String slotId, CalculatorNode node,
@@ -98,6 +102,24 @@ public class CalcContext {
     /** ctx.metrics - the aggregated metrics facade (§14). */
     public de.jare.harness.metrics.MetricsStore metrics() {
         return instance.getMetrics();
+    }
+
+    /** ctx.tools - the bounded tool facade (§13, §14). */
+    public HarnessTools tools() {
+        return tools;
+    }
+
+    public void setTools(HarnessTools tools) {
+        this.tools = tools;
+    }
+
+    /**
+     * ctx.tools.call with the driver-side tool-call counting (maxToolCalls limit, §13).
+     * Raises TOOL_ERROR via the facade; the engine's catch-mapping handles it.
+     */
+    public ToolResult callTool(String name, Map<String, String> args, String reason) {
+        limits.countToolCall();
+        return tools.call(name, args, reason);
     }
 
     /** ctx.ui.notify - info to the harness window (§14). */

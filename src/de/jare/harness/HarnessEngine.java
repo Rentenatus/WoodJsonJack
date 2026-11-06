@@ -13,6 +13,9 @@ import de.jare.harness.model.Slot;
 import de.jare.harness.prompts.PromptAssembler;
 import de.jare.harness.prompts.PromptSegment;
 import de.jare.harness.prompts.RelevanceRegistry;
+import de.jare.harness.tools.FsTools;
+import de.jare.harness.tools.HarnessTools;
+import de.jare.harness.tools.PermissionPolicy;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -40,6 +43,7 @@ public class HarnessEngine {
     private final List<BiConsumer<TaskNode, String>> listeners = new ArrayList<>();
     private final RelevanceRegistry relevanceRegistry;
     private final PromptAssembler promptAssembler;
+    private final HarnessTools tools;
 
     public HarnessEngine(HarnessModel model, HarnessInstance instance, CalculatorFactory factory) {
         this.model = model;
@@ -54,6 +58,17 @@ public class HarnessEngine {
         }
         this.promptAssembler = new PromptAssembler(budgets, model.getMaxTokensTotal(),
                 "sticky: harness " + model.getName() + " v" + model.getVersion());
+        this.tools = new HarnessTools(new PermissionPolicy());
+        if (instance.getProjectRoot() != null) {
+            java.nio.file.Path root = instance.getProjectRoot().toPath();
+            tools.register(FsTools.read(root));
+            tools.register(FsTools.list(root));
+            tools.register(FsTools.write(root));
+        }
+    }
+
+    public HarnessTools getTools() {
+        return tools;
     }
 
     public RelevanceRegistry getRelevanceRegistry() {
@@ -194,6 +209,7 @@ public class HarnessEngine {
                 kind, model.getVersion(), auftrag);
         List<String> prompts = PromptAssembler.toTexts(promptAssembler.assemble(resolved));
         CalcContext ctx = new CalcContext(this, instance, model, task, kind, slot.getId(), node, limits, prompts);
+        ctx.setTools(tools);
 
         long start = System.currentTimeMillis();
         CalcResult result;

@@ -23,6 +23,7 @@ public class HarnessInstance {
 
     private final String modelName;
     private final String modelVersion;
+    private java.io.File projectRoot;   // sandbox root for the fs.* tools (§13)
     private TaskNode root;
     private long nextTaskId = 1;
     private long nextAufrufId = 1;
@@ -40,6 +41,14 @@ public class HarnessInstance {
 
     public String getModelVersion() {
         return modelVersion;
+    }
+
+    public java.io.File getProjectRoot() {
+        return projectRoot;
+    }
+
+    public void setProjectRoot(java.io.File projectRoot) {
+        this.projectRoot = projectRoot;
     }
 
     public TaskNode getRoot() {
