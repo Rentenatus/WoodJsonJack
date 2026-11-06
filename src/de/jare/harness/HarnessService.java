@@ -20,6 +20,8 @@ import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * The entry point of the harness in WJJ (CONCEPT_Harness.md §3, §5): the model lives at
@@ -98,6 +100,18 @@ public class HarnessService {
         instance.setGlobalMetrics(globalMetrics);
         Lessons lessons = Lessons.load(GlobalWood.lessonsFile(wood));
         engine.setMindset(Mindset.load(GlobalWood.mindsetDir(wood)));
+
+        // §12 skills: global ~/.wood/skills/skill (browse/import) + project-local .wood/skills/skill
+        de.jare.harness.skills.SkillRegistry skills = new de.jare.harness.skills.SkillRegistry();
+        Path globalSkills = new File(wood, ".wood/skills/skill").toPath();
+        if (Files.isDirectory(globalSkills)) {
+            skills.loadFrom(globalSkills, "global");
+        }
+        Path localSkills = new File(projectDir, ".wood/skills/skill").toPath();
+        if (Files.isDirectory(localSkills)) {
+            skills.loadFrom(localSkills, "local");
+        }
+        engine.setSkillRegistry(skills);
 
         engine.run();
 

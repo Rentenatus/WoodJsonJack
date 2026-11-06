@@ -53,6 +53,8 @@ public class HarnessEngine {
     private final HarnessTools tools;
     private HarnessLineage lineage;   // set between runs; enables the feedback loop (§7.1)
     private de.jare.harness.mindset.Mindset mindset = new de.jare.harness.mindset.Mindset();   // global ~/.wood/mindset (§16)
+    private de.jare.harness.skills.SkillRegistry skillRegistry = new de.jare.harness.skills.SkillRegistry();   // §12
+    private java.util.function.BiFunction<String, List<String>, String> userAskHandler;   // §14 ctx.ui.askUser
 
     public HarnessEngine(HarnessModel model, HarnessInstance instance, CalculatorFactory factory) {
         this.model = model;
@@ -115,6 +117,33 @@ public class HarnessEngine {
 
     public void setMindset(de.jare.harness.mindset.Mindset mindset) {
         this.mindset = mindset == null ? new de.jare.harness.mindset.Mindset() : mindset;
+    }
+
+    /** The skill registry (§12); loaded by the service from the global + project skill dirs. */
+    public de.jare.harness.skills.SkillRegistry getSkillRegistry() {
+        return skillRegistry;
+    }
+
+    public void setSkillRegistry(de.jare.harness.skills.SkillRegistry skillRegistry) {
+        this.skillRegistry = skillRegistry == null ? new de.jare.harness.skills.SkillRegistry() : skillRegistry;
+    }
+
+    /** §14 ctx.ui.askUser - the UI installs this; default answers with the first option. */
+    public void setUserAskHandler(java.util.function.BiFunction<String, List<String>, String> handler) {
+        this.userAskHandler = handler;
+    }
+
+    /** §14 ctx.ui.focusTask - notifies the harness window to focus a task node. */
+    public void focusTask(TaskNode task) {
+        notify(task, null, "focus");
+    }
+
+    /** §14 ctx.ui.askUser - asks the user; default (no UI bound) picks the first option. */
+    public String askUser(String question, List<String> options) {
+        if (userAskHandler != null) {
+            return userAskHandler.apply(question, options);
+        }
+        return options.isEmpty() ? "" : options.get(0);
     }
 
     /**

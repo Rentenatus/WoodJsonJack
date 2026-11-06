@@ -148,6 +148,53 @@ public class HarnessSkillsMindsetNGTest {
     }
 
     @Test
+    public void testCalcContextFacadesPerConcept14() {
+        HarnessModel model = new HarnessModel().abortLimits(50, 5, 3, 10);
+        model.getPromptBudgets().put("SYSTEM", 2);
+        model.getPromptBudgets().put("SKILL", 1);
+        model.getPromptBudgets().put("HISTORY", 3);
+        model.getPromptBudgets().put("DATA", 2);
+        model.getPromptBudgets().put("AUFTRAG", 1);
+        model.addModelclass("edit", new de.jare.harness.model.Modelclass("ollama", "qwen2.5:7b", 2.0, true));
+        for (Kind kind : Kind.values()) {
+            model.addQuest(new Quest(kind).addSlot(new Slot(kind.name().toLowerCase() + ".base")
+                    .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+        }
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "facade check"));
+
+        List<CalcContext> seen = new ArrayList<>();
+        DefaultCalculatorFactory base = new DefaultCalculatorFactory(model);
+        CalculatorFactory capturing = (node, kind) -> {
+            HarnessCalculator inner = base.createAtomic(node, kind);
+            if (kind != Kind.WORK) {
+                return inner;
+            }
+            return new HarnessCalculator() {
+                @Override public Kind kind() { return Kind.WORK; }
+                @Override public CalcResult calculate(CalcContext ctx) {
+                    seen.add(ctx);
+                    return inner.calculate(ctx);
+                }
+            };
+        };
+        HarnessEngine engine = new HarnessEngine(model, instance, capturing);
+        engine.setSkillRegistry(new SkillRegistry());
+        engine.run();
+
+        Assert.assertFalse(seen.isEmpty());
+        CalcContext ctx = seen.get(0);
+        Assert.assertNotNull(ctx.skills(), "§14 ctx.skills");
+        Assert.assertNotNull(ctx.relevance("RESEARCH", 0), "§14 ctx.prompts.relevance");
+        Assert.assertFalse(ctx.relevance("RESEARCH", 0).isEmpty());
+        Assert.assertNull(ctx.modelclass(), "deterministic slot has no modelclass bound");
+        Assert.assertTrue(ctx.isProviderAvailable(), "no modelclass -> no outage");
+        Assert.assertEquals(ctx.askUser("which?", List.of("a", "b")), "a", "§14 default askUser picks first option");
+        engine.setUserAskHandler((q, opts) -> opts.get(1));
+        Assert.assertEquals(ctx.askUser("which?", List.of("a", "b")), "b", "§14 ctx.ui.askUser via UI handler");
+    }
+
+    @Test
     public void testGlobalWoodPathsRedirectableAndMindsetRoundTrip() throws Exception {
         Path fakeHome = Files.createTempDirectory("fake-wood-home");
         String old = System.getProperty(GlobalWood.WOOD_HOME_PROPERTY);

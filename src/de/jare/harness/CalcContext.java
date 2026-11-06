@@ -121,6 +121,43 @@ public class CalcContext {
         return engine.getMindset();
     }
 
+    /** ctx.skills (§12, §14): import/approve skills → SKILL chunks in the project RAG. */
+    public de.jare.harness.skills.SkillRegistry skills() {
+        return engine.getSkillRegistry();
+    }
+
+    /** ctx.lineage (§7, §14): only between runs - the service sets it after a run. */
+    public HarnessLineage lineage() {
+        return engine.getLineage();
+    }
+
+    /** ctx.prompts.relevance (§4, §14): resolve the segment list for this call's addressing. */
+    public List<de.jare.harness.prompts.PromptSegment> relevance(String taskType, int attempt) {
+        return engine.getRelevanceRegistry().resolve(taskType, attempt, kind, model.getVersion(),
+                task.getTitle());
+    }
+
+    /** ctx.model.modelclass (§2, §14): the modelclass bound to this calculator node. */
+    public de.jare.harness.model.Modelclass modelclass() {
+        return node != null && node.getModelclass() != null ? model.modelclass(node.getModelclass()) : null;
+    }
+
+    /** ctx.model.isProviderAvailable (§2, §14): false after a marked provider outage. */
+    public boolean isProviderAvailable() {
+        de.jare.harness.model.Modelclass mc = modelclass();
+        return mc == null || mc.isAvailable();
+    }
+
+    /** ctx.ui.focusTask (§14): focus a task in the harness window. */
+    public void focusTask(long taskId) {
+        engine.focusTask(task);
+    }
+
+    /** ctx.ui.askUser (§14): ask the user a question with options; default picks the first. */
+    public String askUser(String question, List<String> options) {
+        return engine.askUser(question, options);
+    }
+
     /** ctx.rag - the project-local RAG facade (§11, §14). */
     public de.jare.harness.rag.RagStore rag() {
         return instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding());
