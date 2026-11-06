@@ -18,8 +18,10 @@ import javax.swing.*;
  */
 public class JackEditTreeContainer extends JPanel {
 
-    private static final int COLLAPSED_DIVIDER_SIZE = 1;
-    private static final int EXPANDED_DIVIDER_SIZE = 8;
+    /** The split divider collapsed: zero - the right pane is REALLY gone, no pixel sliver stays. */
+    private static final int COLLAPSED_DIVIDER_SIZE = 0;
+    /** The split divider of the dependents side by side view: slim like the diff mode - one calm look. */
+    private static final int EXPANDED_DIVIDER_SIZE = 2;
     /** The split divider in diff mode: the pair reads as ONE merged view, not two glued trees. */
     private static final int DIFF_DIVIDER_SIZE = 2;
     private static final Dimension COLLAPSED_MIN_SIZE = new Dimension(0, 0);
@@ -366,9 +368,13 @@ public class JackEditTreeContainer extends JPanel {
     }
 
     /**
-     * Collapses the right pane: minimum size zero, the thin dead divider, all width to the left tree.
+     * Collapses the right pane: invisible (not a sliver - the component itself goes away),
+     * minimum size zero, the divider fully gone and dead, all width to the left tree. The ONE
+     * central method - the constructor's fresh tabs, the link toggle and the diff close all
+     * run through here, so the collapsed look stays uniform everywhere.
      */
     private void collapseRightPane() {
+        rightTree.setVisible(false);
         rightTree.setMinimumSize(COLLAPSED_MIN_SIZE);
         splitPane.setDividerSize(COLLAPSED_DIVIDER_SIZE);
         splitPane.setEnabled(false);
