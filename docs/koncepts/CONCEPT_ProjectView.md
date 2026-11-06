@@ -110,6 +110,12 @@ Rules (binding):
 | `gen` | output of a generator (e.g. Java models generated from JSON) — semantically build output that is meant to be *read* | default `readonly` |
 | `target` | build output, wiped by builds | collapsed, `readonly`, not indexed |
 | `isolated` | **isolated source** — a view-only old world (section 12, phase 9): bundles to *look at*, e.g. an older version of a project bundle | `readonly`, bundle-aware, fully outside the identity world |
+| `skill` | **skill partition** — home of skills (CONCEPT_Harness §12): the **local** mount `<project>/.wood/skills/skill/` (editable — the user manages skill files directly in the tree) plus a **global** mount `~/.wood/skills/skill/` (absolute path into the user home, `readonly` — browse and import from here) | local: editable; global: `readonly`, import-only |
+
+Under `.skills/` the first path segment is always the **doc type** (`skill` today; further types may
+follow later without changing the structure). The sidebar shows both skill folders — local and global —
+so the user has full control over skills from the project tree alone (create/edit/delete locally, browse
+globally, import into the project).
 
 Types are roles, not layouts: the UI derives icon, color and behavior from `type`, never from
 guessing path conventions.
@@ -125,6 +131,8 @@ myproject/
 │   ├── config1/          ← bundle (has .woodbundle.json)
 │   └── devConfig/        ← bundle
 ├── assets/     (mount ./assets)
+├── skills/     (mount ./.wood/skills/skill — local skills, editable, full user control)
+├── skills (global)  (mount ~/.wood/skills/skill, readonly — browse/import global skills)
 └── gen/        (mount D:/wood/generated, readonly)
 ```
 
