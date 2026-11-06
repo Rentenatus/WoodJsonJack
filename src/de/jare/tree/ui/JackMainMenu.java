@@ -227,9 +227,24 @@ public class JackMainMenu extends JMenuBar {
         );
         infoMenu.add(aboutItem);
 
+        // Harness menu: the agent entry points (CONCEPT_Harness.md §3, §15) - run a task
+        // against the current project, show the live task tree of the last run
+        JMenu harnessMenu = new JMenu("Harness");
+        harnessMenu.setMnemonic(KeyEvent.VK_H);
+        JMenuItem runTaskItem = new JMenuItem("Run Task...");
+        JMenuItem showHarnessItem = new JMenuItem("Show Harness Window");
+        de.jare.harness.ui.HarnessController harnessController =
+                new de.jare.harness.ui.HarnessController(woodWindow);
+        runTaskItem.addActionListener(e -> harnessController.runTaskInteractive(
+                woodWindow.getProjectSidebar().getProjectRoot()));
+        showHarnessItem.addActionListener(e -> harnessController.showView());
+        harnessMenu.add(runTaskItem);
+        harnessMenu.add(showHarnessItem);
+
         add(fileMenu);
         add(bundleMenu);
         add(projectMenu);
+        add(harnessMenu);
         add(editMenu);
         add(optionsMenu);
         add(infoMenu);
