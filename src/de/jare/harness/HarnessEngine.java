@@ -13,9 +13,13 @@ import de.jare.harness.model.Slot;
 import de.jare.harness.prompts.PromptAssembler;
 import de.jare.harness.prompts.PromptSegment;
 import de.jare.harness.prompts.RelevanceRegistry;
+import de.jare.harness.tools.EditorTools;
 import de.jare.harness.tools.FsTools;
+import de.jare.harness.tools.GitTools;
 import de.jare.harness.tools.HarnessTools;
 import de.jare.harness.tools.PermissionPolicy;
+import de.jare.harness.tools.ProcessTools;
+import de.jare.harness.tools.SearchTools;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -69,7 +73,27 @@ public class HarnessEngine {
             tools.register(FsTools.read(root));
             tools.register(FsTools.list(root));
             tools.register(FsTools.write(root));
+            tools.register(FsTools.delete(root));
+            tools.register(ProcessTools.run(root));
+            tools.register(GitTools.status(root));
+            tools.register(GitTools.diff(root));
+            tools.register(GitTools.log(root));
+            tools.register(GitTools.add(root));
+            tools.register(GitTools.commit(root));
+            tools.register(SearchTools.grep(root));
+            tools.register(EditorTools.open(root, rel -> {
+                if (editorOpenHandler != null) {
+                    editorOpenHandler.accept(rel);
+                }
+            }));
         }
+    }
+
+    private java.util.function.Consumer<String> editorOpenHandler;
+
+    /** The UI installs this so editor.open really opens a tab (HarnessController). */
+    public void setEditorOpenHandler(java.util.function.Consumer<String> editorOpenHandler) {
+        this.editorOpenHandler = editorOpenHandler;
     }
 
     public HarnessTools getTools() {

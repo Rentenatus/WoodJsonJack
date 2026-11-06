@@ -94,6 +94,48 @@ public final class FsTools {
         };
     }
 
+    /** fs.delete - destructive, always at least "fragen" (§13), category disk-in. */
+    public static HarnessTool delete(Path projectRoot) {
+        return new HarnessTool() {
+            @Override
+            public String name() {
+                return "fs.delete";
+            }
+
+            @Override
+            public String scope() {
+                return "fs";
+            }
+
+            @Override
+            public RiskLevel risk() {
+                return RiskLevel.DESTRUCTIVE;
+            }
+
+            @Override
+            public WriteCategory writeCategory() {
+                return WriteCategory.DISK_IN;
+            }
+
+            @Override
+            public ToolResult run(Map<String, String> args) {
+                try {
+                    Path p = projectRoot.resolve(args.getOrDefault("path", "")).normalize();
+                    if (!p.startsWith(projectRoot.normalize())) {
+                        return ToolResult.error("path escapes project root");
+                    }
+                    if (!Files.exists(p)) {
+                        return ToolResult.error("not found: " + p);
+                    }
+                    Files.delete(p);
+                    return ToolResult.ok("deleted " + p.getFileName());
+                } catch (IOException e) {
+                    return ToolResult.error(e.getMessage());
+                }
+            }
+        };
+    }
+
     /** fs.write - a writing tool, category disk-in (inside the project). */
     public static HarnessTool write(Path projectRoot) {
         return new HarnessTool() {

@@ -6,10 +6,14 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.tools.EditorTools;
 import de.jare.harness.tools.FsTools;
+import de.jare.harness.tools.GitTools;
 import de.jare.harness.tools.HarnessTool;
 import de.jare.harness.tools.HarnessTools;
 import de.jare.harness.tools.PermissionPolicy;
+import de.jare.harness.tools.ProcessTools;
+import de.jare.harness.tools.SearchTools;
 import de.jare.harness.tools.ToolResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -129,5 +133,90 @@ public class HarnessToolsNGTest {
         } catch (HarnessException e) {
             Assert.assertEquals(e.getType(), HarnessException.Type.TOOL_ERROR);
         }
+    }
+
+    private static HarnessTools toolsWithFullCatalog(Path root, PermissionPolicy policy,
+                                                     java.util.function.Consumer<String> editorHandler) {
+        HarnessTools tools = new HarnessTools(policy);
+        tools.register(FsTools.read(root));
+        tools.register(FsTools.list(root));
+        tools.register(FsTools.write(root));
+        tools.register(FsTools.delete(root));
+        tools.register(ProcessTools.run(root));
+        tools.register(GitTools.status(root));
+        tools.register(GitTools.diff(root));
+        tools.register(GitTools.log(root));
+        tools.register(GitTools.add(root));
+        tools.register(GitTools.commit(root));
+        tools.register(SearchTools.grep(root));
+        tools.register(EditorTools.open(root, editorHandler));
+        tools.exposeScopes("ALL", List.of("fs", "process", "git", "search", "editor"));
+        return tools;
+    }
+
+    @Test
+    public void testFullCatalogCoversAllScopesWithCorrectRiskAndCategory() throws Exception {
+        Path root = Files.createTempDirectory("harness-catalog");
+        HarnessTools tools = toolsWithFullCatalog(root, new PermissionPolicy(), rel -> { });
+        List<HarnessTool> all = tools.allowed("ALL", 100);
+        Assert.assertEquals(all.size(), 12, "fs x4 + process + git x5 + search + editor (§13)");
+        for (String scope : List.of("fs", "process", "git", "search", "editor")) {
+            Assert.assertTrue(all.stream().anyMatch(t -> t.scope().equals(scope)), "scope missing: " + scope);
+        }
+        java.util.function.Function<String, HarnessTool> byName = n -> all.stream()
+                .filter(t -> t.name().equals(n)).findFirst().orElseThrow();
+        Assert.assertEquals(byName.apply("fs.delete").risk(), HarnessTool.RiskLevel.DESTRUCTIVE);
+        Assert.assertEquals(byName.apply("fs.delete").writeCategory(), HarnessTool.WriteCategory.DISK_IN);
+        Assert.assertEquals(byName.apply("git.commit").risk(), HarnessTool.RiskLevel.DESTRUCTIVE);
+        Assert.assertEquals(byName.apply("process.run").writeCategory(), HarnessTool.WriteCategory.SYSTEM);
+        Assert.assertEquals(byName.apply("editor.open").writeCategory(), HarnessTool.WriteCategory.EDITOR);
+        Assert.assertEquals(byName.apply("search.grep").risk(), HarnessTool.RiskLevel.READ);
+        Assert.assertEquals(byName.apply("git.status").risk(), HarnessTool.RiskLevel.READ);
+    }
+
+    @Test
+    public void testFsDeleteDestructiveDeniedEvenInAutomode() throws Exception {
+        Path root = Files.createTempDirectory("harness-tools");
+        Files.writeString(root.resolve("doomed.txt"), "x");
+        PermissionPolicy automode = new PermissionPolicy()
+                .set(HarnessTool.WriteCategory.DISK_IN, PermissionPolicy.Setting.AUTOMODE);
+        HarnessTools tools = toolsWithFullCatalog(root, automode, rel -> { });
+        try {
+            tools.call("fs.delete", Map.of("path", "doomed.txt"), "test");
+            Assert.fail("destructive must be at least fragen even when the category is automode (§13)");
+        } catch (HarnessException e) {
+            Assert.assertEquals(e.getType(), HarnessException.Type.TOOL_ERROR);
+        }
+        Assert.assertTrue(Files.exists(root.resolve("doomed.txt")), "file must survive a denied delete");
+    }
+
+    @Test
+    public void testSearchGrepFindsMatchesSandboxedToProject() throws Exception {
+        Path root = Files.createTempDirectory("harness-search");
+        Files.writeString(root.resolve("Main.java"), "public class Main { void run() {} }");
+        Files.writeString(root.resolve("notes.md"), "nothing here");
+        HarnessTools tools = toolsWithFullCatalog(root, new PermissionPolicy(), rel -> { });
+        ToolResult r = tools.call("search.grep", Map.of("pattern", "void run"), "test");
+        Assert.assertTrue(r.ok());
+        Assert.assertTrue(r.output().contains("Main.java:1"), r.output());
+        try {
+            tools.call("search.grep", Map.of("pattern", "x", "path", ".."), "test");
+            Assert.fail("expected TOOL_ERROR for path escape");
+        } catch (HarnessException e) {
+            Assert.assertEquals(e.getType(), HarnessException.Type.TOOL_ERROR);
+        }
+    }
+
+    @Test
+    public void testEditorOpenDelegatesToUiHandler() throws Exception {
+        Path root = Files.createTempDirectory("harness-editor");
+        Files.writeString(root.resolve("a.json"), "{}");
+        java.util.List<String> opened = new java.util.ArrayList<>();
+        HarnessTools tools = toolsWithFullCatalog(root, new PermissionPolicy(), opened::add);
+        // editor category defaults to "fragen" - approve via callback
+        tools.getPolicy().onApprovalRequest((tool, reason) -> true);
+        ToolResult r = tools.call("editor.open", Map.of("path", "a.json"), "test");
+        Assert.assertTrue(r.ok());
+        Assert.assertEquals(opened, List.of("a.json"));
     }
 }
