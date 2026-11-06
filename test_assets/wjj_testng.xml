@@ -36,6 +36,7 @@
     <class name="de.jare.harness.HarnessHostedProviderNGTest"/>
     <class name="de.jare.harness.HarnessViewNGTest"/>
     <class name="de.jare.harness.HarnessRagPipelineNGTest"/>
+    <class name="de.jare.harness.HarnessToolLoopNGTest"/>
     </classes>
   </test>
 </suite>
