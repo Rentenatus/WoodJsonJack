@@ -3,7 +3,7 @@
 **Stand:** 2026-11-06, Branch `feature/harness-impl` @ `b53a19f`
 **Konzept:** `docs/koncepts/CONCEPT_Harness.md` (16 Abschnitte)
 **Verifikation:** frischer Build (javac, WJJ + jsonCasted + jsonCasted_edit + ndimcol) und
-TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **221/221 bestanden, 0 Failures**
+TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **224/224 bestanden, 0 Failures**
 (Headless-Lauf am 2026-11-06; die beiden Asset-Tests brauchen das Repo-Root als Working-Dir)
 
 ---
@@ -30,26 +30,27 @@ TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **221/221 bestan
 | §5 Modell (JsonItemDefinition) vs. Instanz | ✅ | `io/def/JsonHarnessModelDefinition` + Beans + `HarnessModelBeanConverter`; `harness-model.json` parst/validiert/editiert wie jedes Bundle; gebundeltes Asset `assets/harness/harness-model.json` |
 | §6 Metrik-only Call-Log, parent-Kette, persistierter nextId | ✅ | `CallLogEntry`, `metrics/MetricsStore` (M×3-Buckets), `CalcContext.nextTaskId/nextAufrufId` |
 | §7 Swap/Evolution/Stammbaum (nie mitten im Lauf) | ✅ | `HarnessLineage`, `EvolutionRunner` (3 Kandidaten, +15 Ø-Score & halbierte Fail-Rate), Feedback-Loop nach CLOSE des Root-Tasks; `.wood/harness/lineage.json` persistiert über Läufe |
-| §8 Globaler Metrik-Store (aggregiert, nie Events) | ✅ | `metrics/MetricsStore`, `Lessons` |
+| §8 Globaler Metrik-Store (aggregiert, nie Events) | ✅ inkl. globaler Ablage | `metrics/MetricsStore`, `Lessons`, `GlobalWood` — `~/.wood/harness/metrics.json` + `lessons.json` werden pro Lauf geladen/akkumuliert/atomar zurückgeschrieben; Lesson-Export bei Ø-Score-Vorsprung ≥ 10 über das globale Prior; Priors read-only via `ctx.metrics.globalPriors()` |
 | §11 Projekt-RAG | ✅ inkl. Pipeline | `rag/RagStore`, `RagChunk`, `EmbeddingProvider`; RAG_STORE nach EVALUATE ≥ 50, RAG_RETRIEVE als DATA-Segmente, RAG_PRUNE nach CLOSE |
 | §12 Skills | ✅ | `skills/Skill`, `SkillRegistry` |
 | §13 Tooling, Permission-Levels, ReAct-Loop, Signale, Catch | ✅ | `tools/HarnessTool`, `HarnessTools`, `FsTools`, `PermissionPolicy`; bounded Tool-Loop gegen `maxToolCalls`; `signals/Signal` + on-Mapping; Catch-Mapping inkl. `MODEL_UNAVAILABLE`/`SCHEMA_VIOLATION`; LIMIT-Ausnahme (max. 2 Extra-Zähler mit Begründung); `[compacted]`-HISTORY |
 | §14 Harness-API über `CalcContext` | ✅ Facade liegt vor | `task(), prompts(), tools()/callTool(), rag(), metrics(), emit(), approveExtraCounters(), compact(), abort(), limits(), notify()` … |
-| §16 Mindset (global, kategorisiert, 1024-Chars-Limit) | ✅ | `mindset/Mindset` |
+| §16 Mindset (global, kategorisiert, 1024-Chars-Limit) | ✅ inkl. `~/.wood/mindset/` | `mindset/Mindset` + `GlobalWood` — eine Datei pro Kategorie unter `~/.wood/mindset/`, Load/Save um den Lauf in `HarnessService`, Facade `ctx.mindset()` |
 | UI Harness-Fenster | ✅ | `ui/HarnessViewPanel` (Live-Taskbaum, Status-Farben, Score-Badges, Detail mit Kalkulator-Protokoll), `ui/HarnessController`, Harness-Menü in `JackMainMenu` (Run Task…, Show Harness Window) |
 | AI-Antwort-Vertrag (strict JSON) | ✅ | `impl/AiCalculator` — Parse-Fail → `SCHEMA_VIOLATION`, Provider down → `MODEL_UNAVAILABLE` |
 
 ## 3. Teststand
 
-- Suite `test_assets/wjj_testng.xml`: **221 Tests, 221 grün** (frisch verifiziert, siehe Kopf).
+- Suite `test_assets/wjj_testng.xml`: **224 Tests, 224 grün** (frisch verifiziert, siehe Kopf).
 - 20 Harness-Testklassen (`test/de/jare/harness/`), inkl. Stub-Server-Tests für beide Provider
   (Ollama `/api/chat` + `/api/tags`, Hosted Chat-Completions mit `Authorization: Bearer`),
-  Tool-Loop, RAG-Pipeline, Evolution, Feedback, Signale/Catch, AI-Answer, Codecs, Definition, View, Controller.
+  Tool-Loop, RAG-Pipeline, Evolution, Feedback, Signale/Catch, AI-Answer, Codecs, Definition, View, Controller,
+  globale Ebene (`GlobalWood`-Pfade, globaler Metrik-Record, Service schreibt `~/.wood/harness/*` + `~/.wood/mindset/`).
 
 ## 4. Offene Punkte / nächste Schritte
 
-1. **Merge:** `feature/harness-impl` nach `develop`/`main` bringen (58 Commits fehlen dort).
-2. **Konzept-Statuszeile** in `CONCEPT_Harness.md` aktualisieren (stand dort zuletzt auf „210/210“).
+1. **Merge:** `feature/harness-impl` nach `develop`/`main` bringen (alle Harness-Commits fehlen dort).
+2. ~~Konzept-Statuszeile~~ **erledigt:** `CONCEPT_Harness.md` steht auf „221/221 grün“ mit Verweis auf dieses Dokument (Commit `d96c49b`).
 3. **§15 des Konzepts** ist noch als „offen“ markiert: finale Abbruch-Defaults (maxIterations/maxDepth/maxRetries/maxToolCalls) und UI-Details — die View existiert inzwischen als `HarnessViewPanel`, die Default-Werte sollten final festgezurrt und ins Konzept übernommen werden.
-4. Nicht im Detail geprüft: globale Ebene `~/.wood/harness/` (lessons.json, metrics.json) und `~/.wood/mindset/` — `Lessons`/`Mindset` existieren als Klassen, die Home-Anbindung im Live-Betrieb verifizieren.
-5. Skills-Import in die Projekt-RAG (`docType=SKILL`, N Descriptions = N Chunks, §12) und Mindset-Segmente in der Prompt-Liste (RelevanceCalculator) sind konzeptionell beschlossen — Umsetzungsgrad im RelevanceCalculator prüfen.
+4. ~~Globale Ebene `~/.wood/`~~ **erledigt:** `GlobalWood` verdrahtet `~/.wood/harness/metrics.json` + `lessons.json` und `~/.wood/mindset/` (Load vor Lauf, atomares Save nach Lauf, Lesson-Export bei signifikantem Vorsprung, Priors read-only via `ctx.metrics.globalPriors()`, Mindset via `ctx.mindset()`). Test-Override über System Property `de.jare.harness.woodHome` bzw. `HarnessService.setWoodHome()`.
+5. Skills-Import in die Projekt-RAG ist umgesetzt (`SkillRegistry.importSkill`, `docType=SKILL`, N Descriptions = N Chunks ✅) — **fehlt noch:** SKILL- und Mindset-Segmente in der Prompt-Liste (`prompts/`-Paket erzeugt noch keine `SKILL`-Kategorie; RelevanceCalculator zieht Skill-Chunks/Mindset noch nicht, §12/§16).

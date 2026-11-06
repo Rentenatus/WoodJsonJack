@@ -81,4 +81,33 @@ public class HarnessSkillsMindsetNGTest {
         Assert.assertEquals(loaded.get("answer"), "wie ein Mathematiker");
         Assert.assertEquals(loaded.get("analysis"), "drei Rollen: technisch, kreativ, wirtschaftlich");
     }
+
+    @Test
+    public void testGlobalWoodPathsRedirectableAndMindsetRoundTrip() throws Exception {
+        Path fakeHome = Files.createTempDirectory("fake-wood-home");
+        String old = System.getProperty(GlobalWood.WOOD_HOME_PROPERTY);
+        System.setProperty(GlobalWood.WOOD_HOME_PROPERTY, fakeHome.toString());
+        try {
+            Assert.assertEquals(GlobalWood.woodHome(), fakeHome.toFile());
+            Assert.assertTrue(GlobalWood.metricsFile(GlobalWood.woodHome()).getPath()
+                    .endsWith(".wood/harness/metrics.json".replace('/', java.io.File.separatorChar)));
+            Assert.assertTrue(GlobalWood.lessonsFile(GlobalWood.woodHome()).getPath()
+                    .endsWith(".wood/harness/lessons.json".replace('/', java.io.File.separatorChar)));
+            Assert.assertTrue(GlobalWood.mindsetDir(GlobalWood.woodHome()).toString()
+                    .endsWith(".wood/mindset".replace('/', java.io.File.separatorChar)));
+
+            Mindset m = new Mindset();
+            m.set("answer", "wie ein Mathematiker");
+            m.save(GlobalWood.mindsetDir(GlobalWood.woodHome()));
+            Mindset loaded = Mindset.load(GlobalWood.mindsetDir(GlobalWood.woodHome()));
+            Assert.assertEquals(loaded.get("answer"), "wie ein Mathematiker",
+                    "mindset persists under the global ~/.wood/mindset/ (§16)");
+        } finally {
+            if (old == null) {
+                System.clearProperty(GlobalWood.WOOD_HOME_PROPERTY);
+            } else {
+                System.setProperty(GlobalWood.WOOD_HOME_PROPERTY, old);
+            }
+        }
+    }
 }

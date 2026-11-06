@@ -48,6 +48,7 @@ public class HarnessEngine {
     private final PromptAssembler promptAssembler;
     private final HarnessTools tools;
     private HarnessLineage lineage;   // set between runs; enables the feedback loop (§7.1)
+    private de.jare.harness.mindset.Mindset mindset = new de.jare.harness.mindset.Mindset();   // global ~/.wood/mindset (§16)
 
     public HarnessEngine(HarnessModel model, HarnessInstance instance, CalculatorFactory factory) {
         this.model = model;
@@ -81,6 +82,15 @@ public class HarnessEngine {
 
     public HarnessLineage getLineage() {
         return lineage;
+    }
+
+    /** The global AI mindset loaded from {@code ~/.wood/mindset/} (§16); set by the service. */
+    public de.jare.harness.mindset.Mindset getMindset() {
+        return mindset;
+    }
+
+    public void setMindset(de.jare.harness.mindset.Mindset mindset) {
+        this.mindset = mindset == null ? new de.jare.harness.mindset.Mindset() : mindset;
     }
 
     /**

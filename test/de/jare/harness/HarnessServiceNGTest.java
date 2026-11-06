@@ -7,6 +7,7 @@
 package de.jare.harness;
 
 import de.jare.harness.io.HarnessModelCodec;
+import de.jare.harness.metrics.MetricsStore;
 import de.jare.harness.model.HarnessModel;
 import java.io.File;
 import java.nio.file.Files;
@@ -57,6 +58,33 @@ public class HarnessServiceNGTest {
         Assert.assertEquals(model.questFor(Kind.WORK).getSlots().get(1).getMutation(), "Mutation-Resolve-01");
         Assert.assertTrue(model.questFor(Kind.WORK).getSlots().get(1).getCalculator().isPuzzle());
         Assert.assertNotNull(model.questFor(Kind.ABORT));
+    }
+
+    @Test
+    public void testRunTaskWritesGlobalWoodStores() throws Exception {
+        Path project = Files.createTempDirectory("harness-project");
+        Path fakeHome = Files.createTempDirectory("harness-wood-home");
+        HarnessService service = new HarnessService(project.toFile());
+        service.setWoodHome(fakeHome.toFile());
+
+        service.runTask("RESEARCH", "global stores");
+
+        // ~/.wood/harness/metrics.json: the global M x 3 aggregate accumulated this run (§8)
+        File metricsFile = GlobalWood.metricsFile(fakeHome.toFile());
+        Assert.assertTrue(metricsFile.exists(), "global metrics.json must be written");
+        MetricsStore global = MetricsStore.load(metricsFile);
+        Assert.assertFalse(global.getNodes().isEmpty(), "global aggregate must carry the run's slots");
+        Assert.assertFalse(new File(metricsFile.getPath() + ".tmp").exists(), "no temp file left behind");
+
+        // ~/.wood/harness/lessons.json: written (possibly still empty) and loadable
+        File lessonsFile = GlobalWood.lessonsFile(fakeHome.toFile());
+        Assert.assertTrue(lessonsFile.exists(), "global lessons.json must be written");
+        Assert.assertNotNull(Lessons.load(lessonsFile));
+
+        // ~/.wood/mindset/: directory exists and loads (empty mindset is valid)
+        Assert.assertTrue(GlobalWood.mindsetDir(fakeHome.toFile()).toFile().isDirectory(),
+                "global mindset dir must exist after the run");
+        Assert.assertNotNull(de.jare.harness.mindset.Mindset.load(GlobalWood.mindsetDir(fakeHome.toFile())));
     }
 
     @Test

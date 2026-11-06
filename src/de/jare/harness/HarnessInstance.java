@@ -31,6 +31,7 @@ public class HarnessInstance {
     private long nextAufrufId = 1;
     private final List<CallLogEntry> callLog = new ArrayList<>();
     private final MetricsStore metrics = new MetricsStore();
+    private MetricsStore globalMetrics;   // ~/.wood/harness/metrics.json aggregate (§8) - optional, read priors + accumulate
     private RagStore rag;   // project-local RAG (§11) - lazily created, never global
 
     public HarnessInstance(String modelName, String modelVersion) {
@@ -95,11 +96,23 @@ public class HarnessInstance {
     public void logCall(CallLogEntry entry) {
         callLog.add(entry);
         metrics.recordCall(entry);
+        if (globalMetrics != null) {
+            globalMetrics.recordCall(entry); // global aggregate: accumulate only, never events (§8)
+        }
     }
 
     /** The aggregated M x 3 metrics of this instance (§6, §8). */
     public MetricsStore getMetrics() {
         return metrics;
+    }
+
+    /** The global aggregate from {@code ~/.wood/harness/metrics.json} (§8); null when not wired. */
+    public MetricsStore getGlobalMetrics() {
+        return globalMetrics;
+    }
+
+    public void setGlobalMetrics(MetricsStore globalMetrics) {
+        this.globalMetrics = globalMetrics;
     }
 
     /** The project-local RAG (§11); created on first use with the given embedder. */

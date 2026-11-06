@@ -56,6 +56,7 @@ public class Mindset {
 
     /** One file per category under the mindset dir - the user has full file-level control. */
     public void save(Path mindsetDir) throws IOException {
+        Files.createDirectories(mindsetDir);
         for (Map.Entry<String, String> e : categories.entrySet()) {
             AtomicFileWrite.writeString(mindsetDir.resolve(safeFileName(e.getKey()) + ".txt"), e.getValue());
         }

@@ -98,6 +98,22 @@ public class HarnessMetricsNGTest {
         Assert.assertEquals(score.getEma(), 78.0, 1e-6);
     }
 
+    @Test
+    public void testLogCallRecordsIntoLocalAndGlobalStore() {
+        HarnessInstance instance = new HarnessInstance("m", "1.0.0");
+        MetricsStore global = new MetricsStore();
+        instance.setGlobalMetrics(global);
+
+        instance.logCall(entry("work.base", 80));
+
+        Assert.assertEquals(instance.getMetrics().stats("work.base", 1)
+                .get(MetricsStore.Category.SCORE).getCount(), 1, "local aggregate");
+        Assert.assertEquals(global.stats("work.base", 1)
+                .get(MetricsStore.Category.SCORE).getCount(), 1, "global aggregate accumulates too (§8)");
+        Assert.assertEquals(global.stats("work.base", 1)
+                .get(MetricsStore.Category.SCORE).getAvg(), 80.0, 1e-9);
+    }
+
     private static CallLogEntry entry(String slotId, int score) {
         return new CallLogEntry(1, 1, "RESEARCH", Kind.WORK, slotId, "1.0.0", 0,
                 5, 10, 20, score, Status.DONE, "worked", null, null);

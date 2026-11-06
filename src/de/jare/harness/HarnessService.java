@@ -10,6 +10,9 @@ import de.jare.harness.impl.DefaultCalculatorFactory;
 import de.jare.harness.impl.ollama.OllamaProvider;
 import de.jare.harness.io.HarnessInstanceCodec;
 import de.jare.harness.io.HarnessModelCodec;
+import de.jare.harness.metrics.MetricBucket;
+import de.jare.harness.metrics.MetricsStore;
+import de.jare.harness.mindset.Mindset;
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
 import de.jare.harness.model.Modelclass;
@@ -32,10 +35,19 @@ public class HarnessService {
     public static final String MODEL_FILE = ".wood/harness-model.json";
     public static final String INSTANCE_FILE = ".wood/harness.json";
 
+    /** Score advantage over the global prior that makes a slot config a lesson (§8). */
+    public static final double LESSON_ADVANTAGE = 10.0;
+
     private final File projectDir;
+    private File woodHome;   // null -> GlobalWood default (user.home); settable for tests
 
     public HarnessService(File projectDir) {
         this.projectDir = projectDir;
+    }
+
+    /** Redirects the global wood level (tests); null restores {@code user.home}. */
+    public void setWoodHome(File woodHome) {
+        this.woodHome = woodHome;
     }
 
     public File getProjectDir() {
@@ -78,6 +90,15 @@ public class HarnessService {
             }
         }
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
+
+        // global wood level (§8, §16): load ~/.wood/harness + ~/.wood/mindset before the run,
+        // write them back after - the coupling unit is the aggregated metric, never a harness
+        File wood = woodHome != null ? woodHome : GlobalWood.woodHome();
+        MetricsStore globalMetrics = MetricsStore.load(GlobalWood.metricsFile(wood));
+        instance.setGlobalMetrics(globalMetrics);
+        Lessons lessons = Lessons.load(GlobalWood.lessonsFile(wood));
+        engine.setMindset(Mindset.load(GlobalWood.mindsetDir(wood)));
+
         engine.run();
 
         // feedback loop between runs (§7.1): threshold check against the metrics,
@@ -89,8 +110,46 @@ public class HarnessService {
         engine.feedbackLoop(50.0, 1);
         lineage.save(lineageFile);
 
+        exportLessons(lessons, engine, LESSON_ADVANTAGE, 1);
+        globalMetrics.save(GlobalWood.metricsFile(wood));
+        lessons.save(GlobalWood.lessonsFile(wood));
+        engine.getMindset().save(GlobalWood.mindsetDir(wood));
+
         HarnessInstanceCodec.save(instance, instanceFile());
         return instance;
+    }
+
+    /**
+     * Lesson export (§8): when a base slot's average score beats the global prior by at
+     * least {@code advantage} over enough samples, the winning slot config - not prompts,
+     * not task data - is exported as a lesson to {@code ~/.wood/harness/lessons.json}.
+     */
+    private void exportLessons(Lessons lessons, HarnessEngine engine, double advantage, int minSamples) {
+        String projectHash = Integer.toHexString(projectDir.getAbsolutePath().hashCode());
+        for (Quest quest : engine.getModel().getQuests()) {
+            for (Slot slot : quest.getSlots()) {
+                if (!slot.isBase() || slot.getCalculator() == null) {
+                    continue;
+                }
+                MetricBucket local = engine.getInstance().getMetrics()
+                        .stats(slot.getId(), 1).get(MetricsStore.Category.SCORE);
+                if (local == null || local.getCount() < minSamples) {
+                    continue;
+                }
+                MetricBucket prior = engine.getInstance().getGlobalMetrics() != null
+                        ? engine.getInstance().getGlobalMetrics()
+                                .stats(slot.getId(), 1).get(MetricsStore.Category.SCORE)
+                        : null;
+                if (prior == null || prior.getCount() == 0) {
+                    continue;   // no global baseline yet - nothing to beat
+                }
+                double lead = local.getAvg() - prior.getAvg();
+                if (lead >= advantage) {
+                    lessons.add(new Lessons.Lesson(quest.getKind().name(), slot.getId(),
+                            slot.getCalculator(), lead, projectHash, System.currentTimeMillis()));
+                }
+            }
+        }
     }
 
     /** The bundled default model: all twelve quests deterministic, modelclasses per §5 example. */

@@ -105,6 +105,22 @@ public class CalcContext {
         return instance.getMetrics();
     }
 
+    /**
+     * ctx.metrics.globalPriors (§8, §14): read-only global view from
+     * {@code ~/.wood/harness/metrics.json} - feeds reliability thresholds and the
+     * evolution candidate choice; decisions stay local.
+     */
+    public Map<de.jare.harness.metrics.MetricsStore.Category, de.jare.harness.metrics.MetricBucket> globalPriors(
+            String slotSignature, int depth) {
+        de.jare.harness.metrics.MetricsStore global = instance.getGlobalMetrics();
+        return global == null ? Map.of() : global.stats(slotSignature, depth);
+    }
+
+    /** ctx.mindset (§16, §14): global mindset, categories via get/set; >1024 chars warns only. */
+    public de.jare.harness.mindset.Mindset mindset() {
+        return engine.getMindset();
+    }
+
     /** ctx.rag - the project-local RAG facade (§11, §14). */
     public de.jare.harness.rag.RagStore rag() {
         return instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding());
