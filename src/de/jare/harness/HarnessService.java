@@ -74,6 +74,16 @@ public class HarnessService {
         }
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
         engine.run();
+
+        // feedback loop between runs (§7.1): threshold check against the metrics,
+        // swap proposed as child version in the lineage, effective from the next run
+        File lineageFile = new File(projectDir, ".wood/harness/lineage.json");
+        HarnessLineage lineage = lineageFile.exists()
+                ? HarnessLineage.load(lineageFile) : new HarnessLineage(model);
+        engine.setLineage(lineage);
+        engine.feedbackLoop(50.0, 1);
+        lineage.save(lineageFile);
+
         HarnessInstanceCodec.save(instance, instanceFile());
         return instance;
     }

@@ -58,15 +58,16 @@ public class HarnessMetricsNGTest {
         new HarnessEngine(model, instance, new DefaultCalculatorFactory(model)).run();
 
         MetricsStore store = instance.getMetrics();
-        Map<MetricsStore.Category, MetricBucket> workStats = store.stats("work.base", 1);
-        Assert.assertEquals(workStats.size(), MetricsStore.Category.values().length, "M categories present");
+        // WORK carries no score - the SCORE bucket must stay empty for it (no false swaps, §7.1)
+        Assert.assertTrue(store.stats("work.base", 1).get(MetricsStore.Category.SCORE) == null
+                || store.stats("work.base", 1).get(MetricsStore.Category.SCORE).getCount() == 0);
+        // EVALUATE carries the deterministic score 80 and has all M categories
+        Map<MetricsStore.Category, MetricBucket> evalStats = store.stats("evaluate.base", 1);
+        Assert.assertEquals(evalStats.size(), MetricsStore.Category.values().length, "M categories present");
         for (int depth = 1; depth <= MetricsStore.DEPTHS; depth++) {
             Assert.assertFalse(store.stats("abort.base", depth).isEmpty(), "depth " + depth + " measured");
         }
-        Assert.assertTrue(workStats.get(MetricsStore.Category.SCORE).getCount() >= 1);
-        // the score is set by EVALUATE (80 deterministic), not by WORK
-        MetricBucket evalScore = store.stats("evaluate.base", 1).get(MetricsStore.Category.SCORE);
-        Assert.assertEquals(evalScore.getAvg(), 80.0, 1e-9);
+        Assert.assertEquals(evalStats.get(MetricsStore.Category.SCORE).getAvg(), 80.0, 1e-9);
     }
 
     @Test

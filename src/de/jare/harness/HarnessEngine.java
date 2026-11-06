@@ -44,6 +44,7 @@ public class HarnessEngine {
     private final RelevanceRegistry relevanceRegistry;
     private final PromptAssembler promptAssembler;
     private final HarnessTools tools;
+    private HarnessLineage lineage;   // set between runs; enables the feedback loop (§7.1)
 
     public HarnessEngine(HarnessModel model, HarnessInstance instance, CalculatorFactory factory) {
         this.model = model;
@@ -69,6 +70,58 @@ public class HarnessEngine {
 
     public HarnessTools getTools() {
         return tools;
+    }
+
+    public void setLineage(HarnessLineage lineage) {
+        this.lineage = lineage;
+    }
+
+    public HarnessLineage getLineage() {
+        return lineage;
+    }
+
+    /**
+     * The feedback loop after a run (CONCEPT_Harness.md §7.1): only between runs, never
+     * mid-run - the running tasks always finish the old model version. When a base slot's
+     * average score over at least minSamples calls falls below the threshold, a swap is
+     * proposed as a child version in the lineage, effective from the next run (the old
+     * model is then unloaded).
+     *
+     * @return the proposed swap versions (empty when all slots are healthy)
+     */
+    public List<HarnessLineage.Version> feedbackLoop(double scoreThreshold, int minSamples) {
+        List<HarnessLineage.Version> proposals = new ArrayList<>();
+        if (lineage == null) {
+            return proposals;
+        }
+        for (Quest quest : model.getQuests()) {
+            for (Slot slot : quest.getSlots()) {
+                if (!slot.isBase() || slot.getCalculator() == null) {
+                    continue;
+                }
+                var stats = instance.getMetrics().stats(slot.getId(), 1);
+                var bucket = stats.get(de.jare.harness.metrics.MetricsStore.Category.SCORE);
+                if (bucket == null || bucket.getCount() < minSamples || bucket.getAvg() >= scoreThreshold) {
+                    continue;
+                }
+                CalculatorNode alternative = alternativeFor(slot.getCalculator());
+                proposals.add(lineage.proposeSwap(slot.getId(), alternative,
+                        "avg score " + String.format("%.1f", bucket.getAvg()) + " over " + bucket.getCount()
+                                + " calls < threshold " + scoreThreshold));
+            }
+        }
+        return proposals;
+    }
+
+    /** The swap alternative: deterministic ↔ ai (first tool-capable modelclass). */
+    private CalculatorNode alternativeFor(CalculatorNode current) {
+        if (current.isPuzzle() || CalculatorNode.IMPL_DETERMINISTIC.equals(current.getImpl())) {
+            String mc = model.getModelclasses().entrySet().stream()
+                    .filter(e -> e.getValue().isToolCapable())
+                    .map(Map.Entry::getKey).findFirst().orElse("edit");
+            return CalculatorNode.atomic(CalculatorNode.IMPL_AI).modelclass(mc);
+        }
+        return CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC);
     }
 
     public RelevanceRegistry getRelevanceRegistry() {

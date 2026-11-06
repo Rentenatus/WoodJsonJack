@@ -47,7 +47,11 @@ public class MetricsStore {
                 e.getSlotId(), k -> new LinkedHashMap<>());
         for (int depth = 1; depth <= DEPTHS; depth++) {
             Map<Category, MetricBucket> buckets = byDepth.computeIfAbsent(depth, k -> new EnumMap<>(Category.class));
-            update(buckets, Category.SCORE, e.getScore() == null ? 0 : e.getScore());
+            // SCORE only when the call actually carried a score - a null score must not
+            // drag the average down (it would trigger false swap proposals in §7.1)
+            if (e.getScore() != null) {
+                update(buckets, Category.SCORE, e.getScore());
+            }
             update(buckets, Category.TOKENS_OUT, e.getTokensOut());
             update(buckets, Category.DAUER_MS, e.getDauerMs());
             update(buckets, Category.FAIL_RATE, e.getStatus() == Status.FAILED || e.getStatus() == Status.ABORTED ? 1 : 0);
