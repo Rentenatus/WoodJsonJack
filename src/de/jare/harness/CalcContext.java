@@ -104,6 +104,11 @@ public class CalcContext {
         return instance.getMetrics();
     }
 
+    /** ctx.rag - the project-local RAG facade (§11, §14). */
+    public de.jare.harness.rag.RagStore rag() {
+        return instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding());
+    }
+
     /** ctx.tools - the bounded tool facade (§13, §14). */
     public HarnessTools tools() {
         return tools;

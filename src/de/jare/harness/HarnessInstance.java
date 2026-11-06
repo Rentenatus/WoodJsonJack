@@ -7,6 +7,8 @@
 package de.jare.harness;
 
 import de.jare.harness.metrics.MetricsStore;
+import de.jare.harness.rag.EmbeddingProvider;
+import de.jare.harness.rag.RagStore;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,6 +31,7 @@ public class HarnessInstance {
     private long nextAufrufId = 1;
     private final List<CallLogEntry> callLog = new ArrayList<>();
     private final MetricsStore metrics = new MetricsStore();
+    private RagStore rag;   // project-local RAG (§11) - lazily created, never global
 
     public HarnessInstance(String modelName, String modelVersion) {
         this.modelName = modelName;
@@ -97,6 +100,22 @@ public class HarnessInstance {
     /** The aggregated M x 3 metrics of this instance (§6, §8). */
     public MetricsStore getMetrics() {
         return metrics;
+    }
+
+    /** The project-local RAG (§11); created on first use with the given embedder. */
+    public RagStore getRag(EmbeddingProvider embedder) {
+        if (rag == null) {
+            rag = new RagStore(embedder);
+        }
+        return rag;
+    }
+
+    public RagStore getRag() {
+        return rag;
+    }
+
+    public void setRag(RagStore rag) {
+        this.rag = rag;
     }
 
     public List<CallLogEntry> getCallLog() {

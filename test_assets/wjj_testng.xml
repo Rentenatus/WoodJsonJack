@@ -25,6 +25,7 @@
     <class name="de.jare.harness.HarnessPromptsNGTest"/>
     <class name="de.jare.harness.HarnessMetricsNGTest"/>
     <class name="de.jare.harness.HarnessToolsNGTest"/>
+    <class name="de.jare.harness.HarnessRagNGTest"/>
     </classes>
   </test>
 </suite>
