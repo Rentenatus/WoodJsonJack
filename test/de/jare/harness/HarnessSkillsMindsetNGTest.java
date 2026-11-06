@@ -6,7 +6,12 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.impl.DefaultCalculatorFactory;
 import de.jare.harness.mindset.Mindset;
+import de.jare.harness.model.CalculatorNode;
+import de.jare.harness.model.HarnessModel;
+import de.jare.harness.model.Quest;
+import de.jare.harness.model.Slot;
 import de.jare.harness.rag.EmbeddingProvider;
 import de.jare.harness.rag.RagChunk;
 import de.jare.harness.rag.RagStore;
@@ -14,7 +19,10 @@ import de.jare.harness.skills.Skill;
 import de.jare.harness.skills.SkillRegistry;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -80,6 +88,63 @@ public class HarnessSkillsMindsetNGTest {
         Mindset loaded = Mindset.load(dir);
         Assert.assertEquals(loaded.get("answer"), "wie ein Mathematiker");
         Assert.assertEquals(loaded.get("analysis"), "drei Rollen: technisch, kreativ, wirtschaftlich");
+    }
+
+    @Test
+    public void testSkillAndMindsetLandInPromptList() {
+        HarnessModel model = new HarnessModel().abortLimits(50, 5, 3, 10);
+        model.getPromptBudgets().put("SYSTEM", 2);
+        model.getPromptBudgets().put("SKILL", 1);
+        model.getPromptBudgets().put("HISTORY", 3);
+        model.getPromptBudgets().put("DATA", 2);
+        model.getPromptBudgets().put("AUFTRAG", 1);
+        for (Kind kind : Kind.values()) {
+            model.addQuest(new Quest(kind).addSlot(new Slot(kind.name().toLowerCase() + ".base")
+                    .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+        }
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "User sucht etwas analysieren"));
+
+        RagStore rag = instance.getRag(EmbeddingProvider.hashEmbedding());
+        rag.setDefaults(new RagStore.RagDefaults(5, 0.0, 1000, 7L * 24 * 3600 * 1000));
+        Map<String, String> meta = new HashMap<>();
+        meta.put("docType", "SKILL");
+        meta.put("skillId", "code-review");
+        meta.put("scope", "search");
+        rag.store("SKILL", "Greift wenn der User etwas sucht oder analysiert.", meta);
+        rag.store("RESULT", "irrelevanter Kontext", Map.of("taskType", "RESEARCH"));
+
+        List<List<String>> workPrompts = new ArrayList<>();
+        DefaultCalculatorFactory base = new DefaultCalculatorFactory(model);
+        CalculatorFactory capturing = (node, kind) -> {
+            HarnessCalculator inner = base.createAtomic(node, kind);
+            if (kind != Kind.WORK) {
+                return inner;
+            }
+            return new HarnessCalculator() {
+                @Override public Kind kind() { return Kind.WORK; }
+                @Override public CalcResult calculate(CalcContext ctx) {
+                    workPrompts.add(ctx.prompts());
+                    return inner.calculate(ctx);
+                }
+            };
+        };
+        HarnessEngine engine = new HarnessEngine(model, instance, capturing);
+        Mindset m = new Mindset();
+        m.set("answer", "Antworte wie ein Mathematiker");
+        engine.setMindset(m);
+        engine.run();
+
+        Assert.assertFalse(workPrompts.isEmpty(), "WORK must have run");
+        List<String> prompts = workPrompts.get(0);
+        Assert.assertTrue(prompts.stream().anyMatch(p -> p.startsWith("SKILL:skill:code-review")),
+                "SKILL segment references the skill id, got: " + prompts);
+        Assert.assertTrue(prompts.stream().anyMatch(p -> p.startsWith("SKILL:skill:code-review")
+                && p.contains("see RAG chunk")), "reference only, never the full skill text (§12)");
+        Assert.assertTrue(prompts.stream().noneMatch(p -> p.startsWith("DATA:")
+                && p.contains("Greift wenn der User")), "skill full text must not land as DATA segment");
+        Assert.assertTrue(prompts.stream().anyMatch(p -> p.startsWith("SYSTEM:mindset:answer")
+                && p.contains("Antworte wie ein Mathematiker")), "mindset category as SYSTEM segment (§16)");
     }
 
     @Test

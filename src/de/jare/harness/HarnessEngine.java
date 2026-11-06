@@ -277,19 +277,7 @@ public class HarnessEngine {
 
         String auftrag = task.getTitle()
                 + (task.getPromptSupplement().isEmpty() ? "" : "\n" + task.getPromptSupplement());
-        List<PromptSegment> resolved = new ArrayList<>(relevanceRegistry.resolve(task.getTaskType(),
-                task.getAttempt(), kind, model.getVersion(), auftrag));
-        // RAG_RETRIEVE feeds the DATA segments (§11): vector-similarity hits for the
-        // current task land in the prompt list before the budgets are enforced
-        if (kind == Kind.WORK || kind == Kind.CHECK || kind == Kind.COMPLETE) {
-            var hits = instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding())
-                    .retrieve(auftrag, instance.getRag().getDefaults().topK(),
-                            instance.getRag().getDefaults().minScore());
-            for (var h : hits) {
-                resolved.add(PromptSegment.of(PromptSegment.Category.DATA, "rag:chunk-" + h.chunk().getId(),
-                        h.chunk().getDocument()));
-            }
-        }
+        List<PromptSegment> resolved = buildSegments(task, kind, auftrag);
         List<String> prompts = PromptAssembler.toTexts(promptAssembler.assemble(resolved));
         CalcContext ctx = new CalcContext(this, instance, model, task, kind, slot.getId(), node, limits, prompts);
         ctx.setTools(tools);
@@ -324,6 +312,44 @@ public class HarnessEngine {
     }
 
     /**
+     * Builds the prompt segment list for one call: the relevance registry's refs, then
+     * RAG_RETRIEVE (§11) and SKILL matching (§12) for WORK/CHECK/COMPLETE - DATA segments
+     * carry the non-skill chunk texts, SKILL segments only the reference to the skill id
+     * (the full text stays in the RAG) - and finally the mindset category as a SYSTEM
+     * segment (§16). The assembler enforces the hard budgets afterwards (§4).
+     */
+    private List<PromptSegment> buildSegments(TaskNode task, Kind kind, String auftrag) {
+        List<PromptSegment> resolved = new ArrayList<>(relevanceRegistry.resolve(task.getTaskType(),
+                task.getAttempt(), kind, model.getVersion(), auftrag));
+        if (kind == Kind.WORK || kind == Kind.CHECK || kind == Kind.COMPLETE) {
+            var rag = instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding());
+            var hits = rag.retrieve(auftrag, rag.getDefaults().topK(), rag.getDefaults().minScore());
+            for (var h : hits) {
+                var chunk = h.chunk();
+                if (de.jare.harness.skills.SkillRegistry.DOC_TYPE_SKILL.equals(chunk.getDocType())) {
+                    // §12: reference only, never the full skill text in the prompt
+                    resolved.add(PromptSegment.of(PromptSegment.Category.SKILL,
+                            "skill:" + chunk.getMeta().get("skillId"),
+                            "skill " + chunk.getMeta().get("skillId") + " (scope "
+                                    + chunk.getMeta().get("scope") + ") - see RAG chunk " + chunk.getId()));
+                } else {
+                    resolved.add(PromptSegment.of(PromptSegment.Category.DATA,
+                            "rag:chunk-" + chunk.getId(), chunk.getDocument()));
+                }
+            }
+        }
+        // §16: the relevance calculator may pull a mindset category as SYSTEM segment
+        String mindsetCategory = (kind == Kind.RELEVANCE || kind == Kind.EVALUATE || kind == Kind.CHECK)
+                ? "analysis" : "answer";
+        String mindsetText = mindset.get(mindsetCategory);
+        if (mindsetText != null && !mindsetText.isEmpty()) {
+            resolved.add(PromptSegment.of(PromptSegment.Category.SYSTEM,
+                    "mindset:" + mindsetCategory, mindsetText));
+        }
+        return resolved;
+    }
+
+    /**
      * Fires a driver signal: when the node has an on-mapping for it, the mapped child
      * calculator runs (§13) - e.g. TOOL_ERROR → CHECK for a retry.
      */
@@ -335,8 +361,7 @@ public class HarnessEngine {
             Quest quest = model.questFor(kind);
             Slot slot = quest == null ? null : quest.baseSlot();
             List<String> prompts = PromptAssembler.toTexts(promptAssembler.assemble(
-                    relevanceRegistry.resolve(task.getTaskType(), task.getAttempt(), kind,
-                            model.getVersion(), task.getTitle())));
+                    buildSegments(task, kind, task.getTitle())));
             CalcContext ctx = new CalcContext(this, instance, model, task, kind, slotId, mapped, limits, prompts);
             ctx.setTools(tools);
             runNode(mapped, kind, ctx);
