@@ -6,8 +6,13 @@
  */
 package de.jare.harness.model;
 
+import de.jare.harness.HarnessException;
+import de.jare.harness.signals.Signal;
 import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The modelled element {@code HarnessCalculator} (CONCEPT_Harness.md §5): either
@@ -31,6 +36,8 @@ public class CalculatorNode {
     private String tool;                    // atomic deterministic only, e.g. "fs.read"
     private String strategy = "sequence";   // puzzle only: sequence | parallel
     private final List<CalculatorNode> children = new ArrayList<>();
+    private final Map<Signal, CalculatorNode> on = new EnumMap<>(Signal.class);          // §13 signal mapping
+    private final Map<HarnessException.Type, CalculatorNode> catchMapping = new EnumMap<>(HarnessException.Type.class); // §13 catch
 
     private CalculatorNode(String type) {
         this.type = type;
@@ -89,5 +96,48 @@ public class CalculatorNode {
     public CalculatorNode addChild(CalculatorNode child) {
         children.add(child);
         return this;
+    }
+
+    /** on-mapping: signal → child calculator invoked by the driver (§13). */
+    public CalculatorNode on(Signal signal, CalculatorNode child) {
+        on.put(signal, child);
+        return this;
+    }
+
+    public Map<Signal, CalculatorNode> getOn() {
+        return on;
+    }
+
+    /** catch-mapping: error type → catch calculator, analog to a catch block (§13). */
+    public CalculatorNode catchWith(HarnessException.Type type, CalculatorNode child) {
+        catchMapping.put(type, child);
+        return this;
+    }
+
+    public Map<HarnessException.Type, CalculatorNode> getCatchMapping() {
+        return catchMapping;
+    }
+
+    /** Deep copy for lineage snapshots. */
+    public CalculatorNode copy() {
+        CalculatorNode c = isPuzzle() ? puzzle(strategy) : atomic(impl);
+        if (!isPuzzle()) {
+            if (modelclass != null) {
+                c.modelclass(modelclass);
+            }
+            if (tool != null) {
+                c.tool(tool);
+            }
+        }
+        for (CalculatorNode child : children) {
+            c.addChild(child.copy());
+        }
+        for (Map.Entry<Signal, CalculatorNode> e : on.entrySet()) {
+            c.on(e.getKey(), e.getValue().copy());
+        }
+        for (Map.Entry<HarnessException.Type, CalculatorNode> e : catchMapping.entrySet()) {
+            c.catchWith(e.getKey(), e.getValue().copy());
+        }
+        return c;
     }
 }

@@ -28,6 +28,7 @@
     <class name="de.jare.harness.HarnessRagNGTest"/>
     <class name="de.jare.harness.HarnessLineageNGTest"/>
     <class name="de.jare.harness.HarnessSkillsMindsetNGTest"/>
+    <class name="de.jare.harness.HarnessSignalsNGTest"/>
     </classes>
   </test>
 </suite>

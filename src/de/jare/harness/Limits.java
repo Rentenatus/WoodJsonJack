@@ -28,6 +28,8 @@ public class Limits {
     private int iterations;
     private int retries;
     private int toolCalls;
+    private int extraCountersApproved;  // LIMIT-Ausnahme: bis zu 2 extra (§13)
+    private String extraJustification = "";
 
     public Limits(int maxIterations, int maxDepth, int maxRetries, int maxToolCalls) {
         this.maxIterations = maxIterations;
@@ -70,6 +72,29 @@ public class Limits {
 
     public boolean isAborted(int taskDepth) {
         return iterations >= maxIterations || retries >= maxRetries
-                || toolCalls >= maxToolCalls || taskDepth >= maxDepth;
+                || toolCalls >= maxToolCalls + extraCountersApproved || taskDepth >= maxDepth;
+    }
+
+    /**
+     * LIMIT-Ausnahme (§13): ein Kalkulator kann im Ausnahmefall bis zu 2 extra Zähler
+     * genehmigen, wenn er es begründet - die Begründung landet im Log.
+     *
+     * @return true when approved (n ≤ 2 and not already exhausted)
+     */
+    public boolean approveExtraCounters(int n, String justification) {
+        if (n < 1 || n > 2 || extraCountersApproved + n > 2) {
+            return false;
+        }
+        extraCountersApproved += n;
+        extraJustification = justification;
+        return true;
+    }
+
+    public int getExtraCountersApproved() {
+        return extraCountersApproved;
+    }
+
+    public String getExtraJustification() {
+        return extraJustification;
     }
 }

@@ -216,10 +216,17 @@ public class HarnessEngine {
         String decisionSuffix = "";
         try {
             result = runNode(node, kind, ctx);
+            ctx.emit(de.jare.harness.signals.Signal.ANSWER_RECEIVED);
         } catch (HarnessException e) {
             decisionSuffix = "catch:" + e.getType();
-            notify(task, kind, decisionSuffix + " -> deterministic fallback");
-            result = DeterministicFallback.run(kind, ctx, e);
+            notify(task, kind, decisionSuffix + " -> catch-mapping");
+            CalculatorNode catchNode = node.getCatchMapping().get(e.getType());
+            if (catchNode != null) {
+                result = runNode(catchNode, kind, ctx);
+                decisionSuffix += "+handled";
+            } else {
+                result = DeterministicFallback.run(kind, ctx, e);
+            }
         }
         long dauerMs = System.currentTimeMillis() - start;
 
@@ -231,6 +238,26 @@ public class HarnessEngine {
         instance.logCall(entry);
         callStack.push(entry); // stays on the stack until the owning task's process() ends
         return result;
+    }
+
+    /**
+     * Fires a driver signal: when the node has an on-mapping for it, the mapped child
+     * calculator runs (§13) - e.g. TOOL_ERROR → CHECK for a retry.
+     */
+    public void onSignal(TaskNode task, Kind kind, String slotId, CalculatorNode node,
+                         de.jare.harness.signals.Signal signal) {
+        CalculatorNode mapped = node == null ? null : node.getOn().get(signal);
+        if (mapped != null) {
+            notify(task, kind, "signal " + signal + " -> on-mapped calculator");
+            Quest quest = model.questFor(kind);
+            Slot slot = quest == null ? null : quest.baseSlot();
+            List<String> prompts = PromptAssembler.toTexts(promptAssembler.assemble(
+                    relevanceRegistry.resolve(task.getTaskType(), task.getAttempt(), kind,
+                            model.getVersion(), task.getTitle())));
+            CalcContext ctx = new CalcContext(this, instance, model, task, kind, slotId, mapped, limits, prompts);
+            ctx.setTools(tools);
+            runNode(mapped, kind, ctx);
+        }
     }
 
     /** Runs a calculator node; puzzle nodes run their children in sequence (§5 recursion). */

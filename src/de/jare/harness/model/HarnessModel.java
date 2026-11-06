@@ -148,20 +148,6 @@ public class HarnessModel {
     }
 
     private static CalculatorNode copyNode(CalculatorNode n) {
-        if (n.isPuzzle()) {
-            CalculatorNode p = CalculatorNode.puzzle(n.getStrategy());
-            for (CalculatorNode child : n.getChildren()) {
-                p.addChild(copyNode(child));
-            }
-            return p;
-        }
-        CalculatorNode a = CalculatorNode.atomic(n.getImpl());
-        if (n.getModelclass() != null) {
-            a.modelclass(n.getModelclass());
-        }
-        if (n.getTool() != null) {
-            a.tool(n.getTool());
-        }
-        return a;
+        return n.copy();
     }
 }

@@ -8,6 +8,7 @@ package de.jare.harness;
 
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
+import de.jare.harness.signals.Signal;
 import de.jare.harness.tools.HarnessTools;
 import de.jare.harness.tools.ToolResult;
 import java.util.ArrayList;
@@ -125,6 +126,40 @@ public class CalcContext {
     public ToolResult callTool(String name, Map<String, String> args, String reason) {
         limits.countToolCall();
         return tools.call(name, args, reason);
+    }
+
+    /** ctx.signals.emit - fires a driver signal, the on-mapping of the node answers (§13, §14). */
+    public void emit(Signal signal) {
+        engine.onSignal(task, kind, slotId, node, signal);
+    }
+
+    /**
+     * ctx.catch (§13, §14): LIMIT-Ausnahme - bis zu 2 extra Zähler mit Begründung,
+     * Begründung landet im Log. Alternativ compact() + abort().
+     */
+    public boolean approveExtraCounters(int n, String justification) {
+        boolean ok = limits.approveExtraCounters(n, justification);
+        if (ok) {
+            engine.notify(task, kind, "LIMIT exception: +" + n + " counters (" + justification + ")");
+        }
+        return ok;
+    }
+
+    /**
+     * ctx.catch.compact (§13): verdichtet die bisherigen Calls + Antworten nachträglich;
+     * das Ergebnis landet als [compacted]-HISTORY-Segment im nächsten Versuch.
+     */
+    public String compact(String condensed) {
+        String marked = "[compacted] " + condensed;
+        task.appendPromptSupplement(marked);
+        return marked;
+    }
+
+    /** ctx.catch.abort (§13): kontrollierten Abbruch einleiten. */
+    public void abort(String reason) {
+        task.setStatus(Status.ABORTED);
+        engine.notify(task, kind, "abort: " + reason);
+        throw new HarnessException(HarnessException.Type.ABORTED, reason);
     }
 
     /** ctx.ui.notify - info to the harness window (§14). */

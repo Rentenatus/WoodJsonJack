@@ -108,24 +108,37 @@ public final class HarnessModelCodec {
 
     private static CalculatorNode calculatorFromJson(JsonNode c) {
         String type = text(c, "type", CalculatorNode.TYPE_ATOMIC);
+        CalculatorNode node;
         if (CalculatorNode.TYPE_PUZZLE.equals(type)) {
-            CalculatorNode puzzle = CalculatorNode.puzzle(text(c, "strategy", "sequence"));
+            node = CalculatorNode.puzzle(text(c, "strategy", "sequence"));
             JsonNode children = child(c, "children");
             if (children != null && children.isArray()) {
                 for (JsonNode child : children.asArray()) {
-                    puzzle.addChild(calculatorFromJson(child));
+                    node.addChild(calculatorFromJson(child));
                 }
             }
-            return puzzle;
+        } else {
+            node = CalculatorNode.atomic(text(c, "impl", CalculatorNode.IMPL_DETERMINISTIC));
+            if (child(c, "modelclass") != null) {
+                node.modelclass(child(c, "modelclass").asText());
+            }
+            if (child(c, "tool") != null) {
+                node.tool(child(c, "tool").asText());
+            }
         }
-        CalculatorNode atomic = CalculatorNode.atomic(text(c, "impl", CalculatorNode.IMPL_DETERMINISTIC));
-        if (child(c, "modelclass") != null) {
-            atomic.modelclass(child(c, "modelclass").asText());
+        JsonNode on = child(c, "on");
+        if (on != null && on.isObject()) {
+            for (Map.Entry<String, JsonNode> e : on.asObjectValues().entrySet()) {
+                node.on(de.jare.harness.signals.Signal.valueOf(e.getKey()), calculatorFromJson(e.getValue()));
+            }
         }
-        if (child(c, "tool") != null) {
-            atomic.tool(child(c, "tool").asText());
+        JsonNode cat = child(c, "catch");
+        if (cat != null && cat.isObject()) {
+            for (Map.Entry<String, JsonNode> e : cat.asObjectValues().entrySet()) {
+                node.catchWith(de.jare.harness.HarnessException.Type.valueOf(e.getKey()), calculatorFromJson(e.getValue()));
+            }
         }
-        return atomic;
+        return node;
     }
 
     public static JsonNode toJson(HarnessModel model) {
@@ -203,6 +216,20 @@ public final class HarnessModelCodec {
             if (c.getTool() != null) {
                 node.put("tool", JsonNode.stringNode(c.getTool()));
             }
+        }
+        if (!c.getOn().isEmpty()) {
+            JsonNode on = JsonNode.objectNode();
+            for (Map.Entry<de.jare.harness.signals.Signal, CalculatorNode> e : c.getOn().entrySet()) {
+                on.put(e.getKey().name(), calculatorToJson(e.getValue()));
+            }
+            node.put("on", on);
+        }
+        if (!c.getCatchMapping().isEmpty()) {
+            JsonNode cat = JsonNode.objectNode();
+            for (Map.Entry<de.jare.harness.HarnessException.Type, CalculatorNode> e : c.getCatchMapping().entrySet()) {
+                cat.put(e.getKey().name(), calculatorToJson(e.getValue()));
+            }
+            node.put("catch", cat);
         }
         return node;
     }
