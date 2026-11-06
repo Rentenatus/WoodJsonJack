@@ -114,4 +114,54 @@ public class HarnessModel {
     public Quest questFor(Kind kind) {
         return quests.stream().filter(q -> q.getKind() == kind).findFirst().orElse(null);
     }
+
+    /** Deep copy for lineage snapshots and evolution clones (§7). */
+    public HarnessModel copy() {
+        HarnessModel c = new HarnessModel().name(name).version(version)
+                .abortLimits(maxIterations, maxDepth, maxRetries, maxToolCalls);
+        c.maxTokensTotal = maxTokensTotal;
+        c.taskTypes.addAll(taskTypes);
+        c.promptBudgets.putAll(promptBudgets);
+        for (Map.Entry<String, Modelclass> e : modelclasses.entrySet()) {
+            Modelclass mc = e.getValue();
+            Modelclass mcCopy = new Modelclass(mc.getProvider(), mc.getModel(), mc.getCostFactor(), mc.isToolCapable());
+            if (!mc.isAvailable()) {
+                mcCopy.markUnavailable();
+            }
+            c.modelclasses.put(e.getKey(), mcCopy);
+        }
+        for (Quest q : quests) {
+            Quest qCopy = new Quest(q.getKind()).evolvable(q.isEvolvable());
+            for (Slot s : q.getSlots()) {
+                Slot sCopy = new Slot(s.getId());
+                if (s.getMutation() != null) {
+                    sCopy.mutation(s.getMutation());
+                }
+                if (s.getCalculator() != null) {
+                    sCopy.calculator(copyNode(s.getCalculator()));
+                }
+                qCopy.addSlot(sCopy);
+            }
+            c.quests.add(qCopy);
+        }
+        return c;
+    }
+
+    private static CalculatorNode copyNode(CalculatorNode n) {
+        if (n.isPuzzle()) {
+            CalculatorNode p = CalculatorNode.puzzle(n.getStrategy());
+            for (CalculatorNode child : n.getChildren()) {
+                p.addChild(copyNode(child));
+            }
+            return p;
+        }
+        CalculatorNode a = CalculatorNode.atomic(n.getImpl());
+        if (n.getModelclass() != null) {
+            a.modelclass(n.getModelclass());
+        }
+        if (n.getTool() != null) {
+            a.tool(n.getTool());
+        }
+        return a;
+    }
 }
