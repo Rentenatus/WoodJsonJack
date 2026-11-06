@@ -47,7 +47,7 @@ public class HarnessAiAnswerNGTest {
     @Test
     public void testStrictJsonAnswerIsParsedIntoCalcResult() {
         HarnessModel model = new HarnessModel();
-        Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, false);
+        Modelclass mc = new Modelclass("hosted", "mistral-small", "test", 0, 3.0, false);
         AiCalculator calc = new AiCalculator(Kind.WORK, mc, providerReturning(
                 "{\"decision\":\"worked\",\"status\":\"DONE\",\"score\":88,\"message\":\"ok\",\"payload\":{\"artifact\":\"a1\"}}"));
         CalcResult r = calc.calculate(ctx(engineWith(model), null, model));
@@ -60,7 +60,7 @@ public class HarnessAiAnswerNGTest {
     @Test
     public void testNonJsonAnswerRaisesSchemaViolation() {
         HarnessModel model = new HarnessModel();
-        Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, false);
+        Modelclass mc = new Modelclass("hosted", "mistral-small", "test", 0, 3.0, false);
         AiCalculator calc = new AiCalculator(Kind.EVALUATE, mc, providerReturning("sure, here you go!"));
         try {
             calc.calculate(ctx(engineWith(model), null, model));
@@ -73,7 +73,7 @@ public class HarnessAiAnswerNGTest {
     @Test
     public void testMalformedJsonRaisesSchemaViolation() {
         HarnessModel model = new HarnessModel();
-        Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, false);
+        Modelclass mc = new Modelclass("hosted", "mistral-small", "test", 0, 3.0, false);
         AiCalculator calc = new AiCalculator(Kind.EVALUATE, mc, providerReturning("{\"decision\": broken"));
         try {
             calc.calculate(ctx(engineWith(model), null, model));
@@ -86,7 +86,7 @@ public class HarnessAiAnswerNGTest {
     @Test
     public void testUnavailableProviderRaisesModelUnavailable() {
         HarnessModel model = new HarnessModel();
-        Modelclass mc = new Modelclass("ollama", "qwen2.5:3b", 1.0, true);
+        Modelclass mc = new Modelclass("ollama", "qwen2.5:3b", "test", 0, 1.0, true);
         mc.markUnavailable();
         AiCalculator calc = new AiCalculator(Kind.WORK, mc, null);
         try {

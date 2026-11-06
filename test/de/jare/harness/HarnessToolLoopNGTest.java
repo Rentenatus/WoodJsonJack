@@ -54,7 +54,7 @@ public class HarnessToolLoopNGTest {
     @Test
     public void testToolCallThenAnswer() {
         HarnessModel model = new HarnessModel();
-        Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, true); // toolCapable
+        Modelclass mc = new Modelclass("hosted", "mistral-small", "test", 0, 3.0, true); // toolCapable
         AtomicInteger calls = new AtomicInteger();
         AtomicInteger providerCalls = new AtomicInteger();
         ModelProvider provider = new ModelProvider() {
@@ -94,7 +94,7 @@ public class HarnessToolLoopNGTest {
     @Test
     public void testToolErrorIsFedBackNotFatal() {
         HarnessModel model = new HarnessModel();
-        Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, true);
+        Modelclass mc = new Modelclass("hosted", "mistral-small", "test", 0, 3.0, true);
         AtomicInteger providerCalls = new AtomicInteger();
         ModelProvider provider = new ModelProvider() {
             @Override public Modelclass modelclass() { return mc; }
@@ -129,7 +129,7 @@ public class HarnessToolLoopNGTest {
     @Test
     public void testMaxToolCallsRaisesLimit() {
         HarnessModel model = new HarnessModel().abortLimits(50, 5, 3, 1); // only 1 tool call allowed
-        Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, true);
+        Modelclass mc = new Modelclass("hosted", "mistral-small", "test", 0, 3.0, true);
         ModelProvider alwaysTool = new ModelProvider() {
             @Override public Modelclass modelclass() { return mc; }
             @Override public boolean isAvailable() { return true; }

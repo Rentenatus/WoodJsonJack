@@ -4,18 +4,18 @@
   "taskTypes": ["RESEARCH", "CODE_EDIT", "TEST_RUN", "SUMMARIZE"],
   "promptBudgets": { "SYSTEM": 2, "SKILL": 1, "HISTORY": 3, "DATA": 2, "AUFTRAG": 1, "maxTokensTotal": 4000 },
   "abortLimits": { "maxIterations": 50, "maxDepth": 5, "maxRetries": 3, "maxToolCalls": 10 },
-  "modelclasses": {
-    "investigation": { "provider": "ollama", "model": "qwen3.8:27b",                  "costFactor": 1.0, "toolCapable": true },
-    "edit":          { "provider": "ollama", "model": "devstral-small-2:24b",         "costFactor": 2.0, "toolCapable": true },
-    "plan":          { "provider": "ollama", "model": "glm-4.7-flash:latest",         "costFactor": 1.0, "toolCapable": true },
-    "evaluation":    { "provider": "ollama", "model": "granite3.3:8b",                "costFactor": 0.5, "toolCapable": false },
-    "rag":           { "provider": "ollama", "model": "manutic/nomic-embed-code:latest", "costFactor": 0.2, "toolCapable": false },
-    "nemotron3":     { "provider": "ollama", "model": "nemotron3:33b",                "costFactor": 1.5, "toolCapable": true },
-    "gemma4":        { "provider": "ollama", "model": "gemma4:26b",                   "costFactor": 1.5, "toolCapable": true },
-    "muse-glimmer":  { "provider": "ollama", "model": "muse-glimmer:30b",             "costFactor": 1.5, "toolCapable": true },
-    "gemma3":        { "provider": "ollama", "model": "gemma3:27b",                   "costFactor": 1.5, "toolCapable": false },
-    "gpt-oss":       { "provider": "ollama", "model": "gpt-oss:20b",                  "costFactor": 1.0, "toolCapable": true }
-  },
+  "modelclasses": [
+    { "provider": "ollama", "model": "qwen3.8:27b",                   "purpose": "investigation", "size": 27,  "costFactor": 1.0, "toolCapable": true },
+    { "provider": "ollama", "model": "nemotron3:33b",                 "purpose": "investigation", "size": 33,  "costFactor": 1.5, "toolCapable": true },
+    { "provider": "ollama", "model": "muse-glimmer:30b",              "purpose": "investigation", "size": 30,  "costFactor": 1.5, "toolCapable": true },
+    { "provider": "ollama", "model": "devstral-small-2:24b",          "purpose": "edit",          "size": 24,  "costFactor": 2.0, "toolCapable": true },
+    { "provider": "ollama", "model": "gemma4:26b",                    "purpose": "edit",          "size": 26,  "costFactor": 1.5, "toolCapable": true },
+    { "provider": "ollama", "model": "glm-4.7-flash:latest",          "purpose": "plan",          "size": 30,  "costFactor": 1.0, "toolCapable": true },
+    { "provider": "ollama", "model": "gpt-oss:20b",                   "purpose": "plan",          "size": 20,  "costFactor": 1.0, "toolCapable": true },
+    { "provider": "ollama", "model": "granite3.3:8b",                 "purpose": "evaluation",    "size": 8,   "costFactor": 0.5, "toolCapable": false },
+    { "provider": "ollama", "model": "gemma3:27b",                    "purpose": "evaluation",    "size": 27,  "costFactor": 1.5, "toolCapable": false },
+    { "provider": "ollama", "model": "manutic/nomic-embed-code:latest", "purpose": "rag",        "size": 0,   "costFactor": 0.2, "toolCapable": false }
+  ],
   "quests": [
     {
       "kind": "WORK",

@@ -53,6 +53,15 @@ public class HarnessServiceNGTest {
         Assert.assertEquals(model.getModelclasses().size(), 10, "5 roles + 5 local extras (user ollama models)");
         Assert.assertEquals(model.modelclass("rag").getModel(), "manutic/nomic-embed-code:latest");
         Assert.assertEquals(model.modelclass("edit").getModel(), "devstral-small-2:24b");
+        // purpose is an attribute, not the key: several modelclasses share one purpose
+        Assert.assertEquals(model.modelclassesForPurpose("investigation").size(), 3);
+        Assert.assertEquals(model.modelclassesForPurpose("edit").size(), 2);
+        // size in B, integer; glm-4.7-flash is a 30B MoE (explicit attribute, name has no "Nb")
+        Assert.assertEquals(model.modelclass("plan").getSize(), 30);
+        Assert.assertEquals(model.modelclass("edit").getSize(), 24);
+        Assert.assertEquals(de.jare.harness.model.Modelclass.sizeOf("qwen3.8:27b"), 27);
+        Assert.assertEquals(de.jare.harness.model.Modelclass.sizeOf("granite3.3:8b"), 8);
+        Assert.assertEquals(de.jare.harness.model.Modelclass.sizeOf("glm-4.7-flash:latest"), 0);
         Assert.assertTrue(model.questFor(Kind.WORK).isEvolvable());
         Assert.assertEquals(model.questFor(Kind.WORK).getSlots().size(), 4,
                 "base + 3 Mutation-Resolve candidates");

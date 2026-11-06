@@ -68,7 +68,7 @@ public class OllamaProviderNGTest {
 
     @Test
     public void testProbeAndCompleteViaPostJsonClient() throws Exception {
-        Modelclass mc = new Modelclass("ollama", "qwen2.5:3b", 1.0, true);
+        Modelclass mc = new Modelclass("ollama", "qwen2.5:3b", "test", 0, 1.0, true);
         OllamaProvider provider = new OllamaProvider(baseUrl, mc);
 
         Assert.assertTrue(provider.isAvailable(), "GET /api/tags probe must succeed");
@@ -81,7 +81,7 @@ public class OllamaProviderNGTest {
 
     @Test
     public void testClosedPortMarksUnavailable() {
-        Modelclass mc = new Modelclass("ollama", "qwen2.5:3b", 1.0, true);
+        Modelclass mc = new Modelclass("ollama", "qwen2.5:3b", "test", 0, 1.0, true);
         OllamaProvider provider = new OllamaProvider("http://127.0.0.1:1", mc);
         Assert.assertFalse(provider.isAvailable());
         Assert.assertFalse(mc.isAvailable(), "outage marked on the modelclass");

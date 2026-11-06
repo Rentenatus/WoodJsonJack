@@ -80,8 +80,7 @@ public class HarnessService {
         instance.setRoot(new TaskNode(instance.nextTaskId(), taskType, title));
 
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
-        for (var e : model.getModelclasses().entrySet()) {
-            Modelclass mc = e.getValue();
+        for (Modelclass mc : model.getModelclasses()) {
             if ("ollama".equals(mc.getProvider())) {
                 factory.registerProvider("ollama", new OllamaProvider(mc));
             } else if ("hosted".equals(mc.getProvider())) {
@@ -179,16 +178,16 @@ public class HarnessService {
         model.getPromptBudgets().put("HISTORY", 3);
         model.getPromptBudgets().put("DATA", 2);
         model.getPromptBudgets().put("AUFTRAG", 1);
-        model.addModelclass("investigation", new Modelclass("ollama", "qwen3.8:27b", 1.0, true));
-        model.addModelclass("edit", new Modelclass("ollama", "devstral-small-2:24b", 2.0, true));
-        model.addModelclass("plan", new Modelclass("ollama", "glm-4.7-flash:latest", 1.0, true));
-        model.addModelclass("evaluation", new Modelclass("ollama", "granite3.3:8b", 0.5, false));
-        model.addModelclass("rag", new Modelclass("ollama", "manutic/nomic-embed-code:latest", 0.2, false));
-        model.addModelclass("nemotron3", new Modelclass("ollama", "nemotron3:33b", 1.5, true));
-        model.addModelclass("gemma4", new Modelclass("ollama", "gemma4:26b", 1.5, true));
-        model.addModelclass("muse-glimmer", new Modelclass("ollama", "muse-glimmer:30b", 1.5, true));
-        model.addModelclass("gemma3", new Modelclass("ollama", "gemma3:27b", 1.5, false));
-        model.addModelclass("gpt-oss", new Modelclass("ollama", "gpt-oss:20b", 1.0, true));
+        model.addModelclass(new Modelclass("ollama", "qwen3.8:27b", "investigation", 27, 1.0, true));
+        model.addModelclass(new Modelclass("ollama", "nemotron3:33b", "investigation", 33, 1.5, true));
+        model.addModelclass(new Modelclass("ollama", "muse-glimmer:30b", "investigation", 30, 1.5, true));
+        model.addModelclass(new Modelclass("ollama", "devstral-small-2:24b", "edit", 24, 2.0, true));
+        model.addModelclass(new Modelclass("ollama", "gemma4:26b", "edit", 26, 1.5, true));
+        model.addModelclass(new Modelclass("ollama", "glm-4.7-flash:latest", "plan", 30, 1.0, true));
+        model.addModelclass(new Modelclass("ollama", "gpt-oss:20b", "plan", 20, 1.0, true));
+        model.addModelclass(new Modelclass("ollama", "granite3.3:8b", "evaluation", 8, 0.5, false));
+        model.addModelclass(new Modelclass("ollama", "gemma3:27b", "evaluation", 27, 1.5, false));
+        model.addModelclass(new Modelclass("ollama", "manutic/nomic-embed-code:latest", "rag", 0, 0.2, false));
 
         for (Kind kind : Kind.values()) {
             Quest quest = new Quest(kind).evolvable(kind == Kind.WORK);

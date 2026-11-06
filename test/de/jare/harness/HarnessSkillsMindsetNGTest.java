@@ -155,7 +155,7 @@ public class HarnessSkillsMindsetNGTest {
         model.getPromptBudgets().put("HISTORY", 3);
         model.getPromptBudgets().put("DATA", 2);
         model.getPromptBudgets().put("AUFTRAG", 1);
-        model.addModelclass("edit", new de.jare.harness.model.Modelclass("ollama", "qwen2.5:7b", 2.0, true));
+        model.addModelclass(new de.jare.harness.model.Modelclass("ollama", "qwen2.5:7b", "edit", 0, 2.0, true));
         for (Kind kind : Kind.values()) {
             model.addQuest(new Quest(kind).addSlot(new Slot(kind.name().toLowerCase() + ".base")
                     .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));

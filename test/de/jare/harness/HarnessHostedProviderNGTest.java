@@ -23,7 +23,7 @@ public class HarnessHostedProviderNGTest {
 
     @Test
     public void testNoApiKeyMeansUnavailableAndMarked() {
-        Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, true);
+        Modelclass mc = new Modelclass("hosted", "mistral-small", "test", 0, 3.0, true);
         HostedProvider p = new HostedProvider("", mc);
         Assert.assertFalse(p.isAvailable());
         try {
@@ -36,7 +36,7 @@ public class HarnessHostedProviderNGTest {
 
     @Test
     public void testApiKeyMeansAvailable() {
-        Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, true);
+        Modelclass mc = new Modelclass("hosted", "mistral-small", "test", 0, 3.0, true);
         HostedProvider p = new HostedProvider("dummy-key", mc);
         Assert.assertTrue(p.isAvailable());
         Assert.assertEquals(p.modelclass().getModel(), "mistral-small");
@@ -62,7 +62,7 @@ public class HarnessHostedProviderNGTest {
         server.start();
         try {
             String base = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1/chat/completions";
-            Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, true);
+            Modelclass mc = new Modelclass("hosted", "mistral-small", "test", 0, 3.0, true);
             HostedProvider p = new HostedProvider(base, "secret-key", mc);
             String answer = p.complete(java.util.List.of("SYSTEM: orchestrator", "AUFTRAG: do it"));
 

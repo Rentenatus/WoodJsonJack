@@ -48,8 +48,11 @@ interface HarnessCalculator {
 | `RAG_PRUNE` | Veraltete RAG-Chunks entfernen (Dedup, Supersede, Score, Budget) — Details §11 |
 
 **Modell-Binding pro Kalkulator:** Jedes Kalkulator-Exemplar bindet über **`modelclass`** (z. B.
-`"work": {"impl":"ai","modelclass":"edit"}`, `"abort": {"impl":"deterministic"}`) — die Auflösung
-`modelclass → {provider, model, costFactor}` steht nur im Top-Level-Mapping des Modells (§5), nie im Slot.
+`"work": {"impl":"ai","modelclass":"edit"}`, `"abort": {"impl":"deterministic"}`) — der Wert ist der
+**purpose** (z. B. `"edit"`), nicht der Modellname; die Auflösung `purpose → [{provider, model, size,
+costFactor, toolCapable}]` steht nur in der Top-Level-Liste `modelclasses[]` des Modells (§5), nie im
+Slot. Mehrere Modelclasses können denselben purpose tragen — bei Mehrfachbelegung wählt der Kalkulator
+anhand von `size` (B, ganzzahlig).
 Provider `ollama` defaultet auf `http://localhost:11434`.
 **Deterministische Implementierung bleibt immer als Fallback** erhalten — auch für AI-Kalkulatoren bei
 JSON-Schema-Verstoß (Parse-Fail → Fallback, Event im Log).
@@ -123,13 +126,13 @@ Vorschlag der Treiber gegen Budgets + erlaubte Refs validiert und hart beschneid
   "taskTypes": ["RESEARCH", "CODE_EDIT", "TEST_RUN", "SUMMARIZE"],
   "promptBudgets": { "SYSTEM": 2, "SKILL": 1, "HISTORY": 3, "DATA": 2, "AUFTRAG": 1, "maxTokensTotal": 4000 },
   "abortLimits": { "maxIterations": 50, "maxDepth": 5, "maxRetries": 3, "maxToolCalls": 10 },  // finale Defaults, entschieden in §15
-  "modelclasses": {
-    "investigation": { "provider": "ollama", "model": "qwen2.5:3b",       "costFactor": 1.0, "toolCapable": true },
-    "edit":          { "provider": "ollama", "model": "qwen2.5:7b",       "costFactor": 2.0, "toolCapable": true },
-    "plan":          { "provider": "ollama", "model": "llama3.2:3b",      "costFactor": 1.0, "toolCapable": true },
-    "evaluation":    { "provider": "ollama", "model": "llama3.2:3b",      "costFactor": 0.5, "toolCapable": false },
-    "rag":           { "provider": "ollama", "model": "nomic-embed-text", "costFactor": 0.2, "toolCapable": false }
-  },
+  "modelclasses": [
+    { "provider": "ollama", "model": "qwen3.8:27b",  "purpose": "investigation", "size": 27, "costFactor": 1.0, "toolCapable": true },
+    { "provider": "ollama", "model": "devstral-small-2:24b", "purpose": "edit",   "size": 24, "costFactor": 2.0, "toolCapable": true },
+    { "provider": "ollama", "model": "glm-4.7-flash:latest", "purpose": "plan",   "size": 30, "costFactor": 1.0, "toolCapable": true },
+    { "provider": "ollama", "model": "granite3.3:8b", "purpose": "evaluation",     "size": 8,  "costFactor": 0.5, "toolCapable": false },
+    { "provider": "ollama", "model": "manutic/nomic-embed-code:latest", "purpose": "rag", "size": 0, "costFactor": 0.2, "toolCapable": false }
+  ],
   "quests": [
     {
       "kind": "WORK",
@@ -163,8 +166,11 @@ Vorschlag der Treiber gegen Budgets + erlaubte Refs validiert und hart beschneid
 ```
 HarnessModel  (harness-model.json, JsonItemDefinition)
 ├── taskTypes[], promptBudgets{}, abortLimits{}
-├── modelclasses{}   ← **JsonMap**: key = Modelclass-Name → value = { provider, model, costFactor, toolCapable }
-│     (Modellnamen nur hier, nie in Slots; inkl. "rag" für die Projekt-RAG, §11)
+├── modelclasses[]   ← **Liste** (kein JsonMap-Key mehr): value = { provider, model, purpose, size, costFactor, toolCapable }
+│     `purpose` ist die Rolle (z. B. "investigation") und **nicht eindeutig** — mehrere Modelclasses
+│     dürfen denselben Zweck tragen; Slots adressieren den Zweck, Kalkulatoren wählen bei Mehrfach-
+│     belegung über `size` (Parameter in B, ganzzahlig, 0 = unbekannt; aus "27b" im Namen parsebar).
+│     Modellnamen nur hier, nie in Slots; inkl. purpose "rag" für die Projekt-RAG, §11
 └── quests[]
     └── Quest  (kind, evolvable)
         └── slots[]

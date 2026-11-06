@@ -150,7 +150,7 @@ public class HarnessEngineNGTest {
     @Test
     public void testAiProviderOutageFallsBackToDeterministicViaCatchMapping() {
         HarnessModel model = modelWithAllQuests();
-        model.addModelclass("edit", new Modelclass("ollama", "qwen2.5:7b", 2.0, true));
+        model.addModelclass(new Modelclass("ollama", "qwen2.5:7b", "edit", 0, 2.0, true));
         // WORK quest uses an AI calculator on an unreachable ollama
         Quest work = model.questFor(Kind.WORK);
         work.getSlots().clear();

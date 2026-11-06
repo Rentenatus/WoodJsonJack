@@ -54,11 +54,10 @@ public class JsonHarnessModelDefinition implements JsonItemDefinition {
         JsonClass modelclass = model.newJsonReflect(ModelclassBean.class);
         modelclass.addField("provider", asString);
         modelclass.addField("model", asString);
+        modelclass.addField("purpose", asString);
+        modelclass.addField("size", asInt);
         modelclass.addField("costFactor", asDouble);
         modelclass.addField("toolCapable", asBoolean);
-
-        JsonMap modelclasses = model.newRawJsonMapIndividually(
-                (new JsonInstance<ModelclassBean>()).getClass(), null, modelclass);
 
         JsonClass calculator = model.newJsonReflect(CalculatorBean.class);
         calculator.addField("type", asString);
@@ -91,7 +90,7 @@ public class JsonHarnessModelDefinition implements JsonItemDefinition {
         root.addField("taskTypes", asString, LIST);
         root.addField("promptBudgets", promptBudgets);
         root.addField("abortLimits", abortLimits);
-        root.addField("modelclasses", modelclasses);
+        root.addField("modelclasses", modelclass, LIST);
         root.addField("quests", quest, LIST);
 
         model.setRootNodeCast(root.getcName());

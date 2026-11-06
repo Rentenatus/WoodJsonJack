@@ -71,7 +71,7 @@ public class HarnessSignalsNGTest {
         HarnessModel model = modelWithAllQuests();
         // WORK: ai on unreachable provider, catch MODEL_UNAVAILABLE -> deterministic tool-marked node
         Quest work = model.questFor(Kind.WORK);
-        model.addModelclass("edit", new de.jare.harness.model.Modelclass("ollama", "qwen2.5:7b", 2.0, true));
+        model.addModelclass(new de.jare.harness.model.Modelclass("ollama", "qwen2.5:7b", "edit", 0, 2.0, true));
         CalculatorNode ai = CalculatorNode.atomic(CalculatorNode.IMPL_AI).modelclass("edit");
         ai.catchWith(HarnessException.Type.MODEL_UNAVAILABLE,
                 CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).tool("catch-fallback"));

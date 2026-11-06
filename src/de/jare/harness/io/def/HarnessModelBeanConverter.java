@@ -41,10 +41,9 @@ public final class HarnessModelBeanConverter {
         if (al != null) {
             model.abortLimits(al.getMaxIterations(), al.getMaxDepth(), al.getMaxRetries(), al.getMaxToolCalls());
         }
-        for (Map.Entry<String, ModelclassBean> e : bean.getModelclasses().entrySet()) {
-            ModelclassBean b = e.getValue();
-            model.addModelclass(e.getKey(), new Modelclass(b.getProvider(), b.getModel(),
-                    b.getCostFactor(), b.isToolCapable()));
+        for (ModelclassBean b : bean.getModelclasses()) {
+            model.addModelclass(new Modelclass(b.getProvider(), b.getModel(), b.getPurpose(),
+                    b.getSize(), b.getCostFactor(), b.isToolCapable()));
         }
         for (QuestBean qb : bean.getQuests()) {
             Quest quest = new Quest(Kind.valueOf(qb.getKind())).evolvable(qb.isEvolvable());

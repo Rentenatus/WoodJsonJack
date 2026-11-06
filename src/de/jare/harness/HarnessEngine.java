@@ -182,9 +182,9 @@ public class HarnessEngine {
     /** The swap alternative: deterministic ↔ ai (first tool-capable modelclass). */
     private CalculatorNode alternativeFor(CalculatorNode current) {
         if (current.isPuzzle() || CalculatorNode.IMPL_DETERMINISTIC.equals(current.getImpl())) {
-            String mc = model.getModelclasses().entrySet().stream()
-                    .filter(e -> e.getValue().isToolCapable())
-                    .map(Map.Entry::getKey).findFirst().orElse("edit");
+            String mc = model.getModelclasses().stream()
+                    .filter(de.jare.harness.model.Modelclass::isToolCapable)
+                    .map(de.jare.harness.model.Modelclass::getPurpose).findFirst().orElse("edit");
             return CalculatorNode.atomic(CalculatorNode.IMPL_AI).modelclass(mc);
         }
         return CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC);

@@ -68,13 +68,14 @@ public final class HarnessModelCodec {
                     (int) longOf(limits, "maxToolCalls", model.getMaxToolCalls()));
         }
         JsonNode mcs = child(root, "modelclasses");
-        if (mcs != null && mcs.isObject()) {
-            for (Map.Entry<String, JsonNode> e : mcs.asObjectValues().entrySet()) {
-                JsonNode mc = e.getValue();
-                model.addModelclass(e.getKey(), new Modelclass(
+        if (mcs != null && mcs.isArray()) {
+            for (JsonNode mc : mcs.asArray()) {
+                model.addModelclass(new Modelclass(
                         text(mc, "provider", "ollama"),
                         text(mc, "model", ""),
-                        child(mc, "costFactor") != null ? child(mc, "costFactor").asNumber() : 1.0,
+                        text(mc, "purpose", ""),
+                        (int) longOf(mc, "size", 0),
+                        doubleOf(mc, "costFactor", 1.0),
                         child(mc, "toolCapable") != null && child(mc, "toolCapable").asBoolean()));
             }
         }
@@ -161,15 +162,16 @@ public final class HarnessModelCodec {
         limits.put("maxRetries", JsonNode.longNode(model.getMaxRetries()));
         limits.put("maxToolCalls", JsonNode.longNode(model.getMaxToolCalls()));
         root.put("abortLimits", limits);
-        JsonNode mcs = JsonNode.objectNode();
-        for (Map.Entry<String, Modelclass> e : model.getModelclasses().entrySet()) {
-            Modelclass mc = e.getValue();
+        JsonNode mcs = JsonNode.arrayNode();
+        for (Modelclass mc : model.getModelclasses()) {
             JsonNode m = JsonNode.objectNode();
             m.put("provider", JsonNode.stringNode(mc.getProvider()));
             m.put("model", JsonNode.stringNode(mc.getModel()));
+            m.put("purpose", JsonNode.stringNode(mc.getPurpose()));
+            m.put("size", JsonNode.longNode(mc.getSize()));
             m.put("costFactor", JsonNode.numberNode(mc.getCostFactor()));
             m.put("toolCapable", JsonNode.booleanNode(mc.isToolCapable()));
-            mcs.put(e.getKey(), m);
+            mcs.add(m);
         }
         root.put("modelclasses", mcs);
         JsonNode quests = JsonNode.arrayNode();
@@ -249,5 +251,14 @@ public final class HarnessModelCodec {
     private static long longOf(JsonNode node, String key, long def) {
         JsonNode v = child(node, key);
         return v == null || v.isNull() ? def : v.asLong();
+    }
+
+    private static double doubleOf(JsonNode node, String key, double def) {
+        JsonNode v = child(node, key);
+        if (v == null || v.isNull()) {
+            return def;
+        }
+        Double d = v.asNumber();
+        return d != null ? d : v.asLong();
     }
 }

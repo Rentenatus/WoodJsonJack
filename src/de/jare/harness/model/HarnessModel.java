@@ -31,7 +31,7 @@ public class HarnessModel {
     private int maxDepth = 5;
     private int maxRetries = 3;
     private int maxToolCalls = 10;
-    private final Map<String, Modelclass> modelclasses = new LinkedHashMap<>();
+    private final List<Modelclass> modelclasses = new ArrayList<>();
     private final List<Quest> quests = new ArrayList<>();
 
     public String getName() {
@@ -88,18 +88,24 @@ public class HarnessModel {
         return this;
     }
 
-    /** The modelclasses JsonMap: key = modelclass name. Never referenced from slots by model name. */
-    public Map<String, Modelclass> getModelclasses() {
+    /** The modelclasses list - entries carry their purpose, the former map key is gone. */
+    public List<Modelclass> getModelclasses() {
         return modelclasses;
     }
 
-    public HarnessModel addModelclass(String name, Modelclass mc) {
-        modelclasses.put(name, mc);
+    public HarnessModel addModelclass(Modelclass mc) {
+        modelclasses.add(mc);
         return this;
     }
 
-    public Modelclass modelclass(String name) {
-        return modelclasses.get(name);
+    /** First modelclass with this purpose (slots reference a purpose, not a model name). */
+    public Modelclass modelclass(String purpose) {
+        return modelclasses.stream().filter(m -> m.getPurpose().equals(purpose)).findFirst().orElse(null);
+    }
+
+    /** All modelclasses of one purpose - several may share a purpose, pick by size. */
+    public List<Modelclass> modelclassesForPurpose(String purpose) {
+        return modelclasses.stream().filter(m -> m.getPurpose().equals(purpose)).toList();
     }
 
     public List<Quest> getQuests() {
@@ -122,13 +128,13 @@ public class HarnessModel {
         c.maxTokensTotal = maxTokensTotal;
         c.taskTypes.addAll(taskTypes);
         c.promptBudgets.putAll(promptBudgets);
-        for (Map.Entry<String, Modelclass> e : modelclasses.entrySet()) {
-            Modelclass mc = e.getValue();
-            Modelclass mcCopy = new Modelclass(mc.getProvider(), mc.getModel(), mc.getCostFactor(), mc.isToolCapable());
+        for (Modelclass mc : modelclasses) {
+            Modelclass mcCopy = new Modelclass(mc.getProvider(), mc.getModel(), mc.getPurpose(),
+                    mc.getSize(), mc.getCostFactor(), mc.isToolCapable());
             if (!mc.isAvailable()) {
                 mcCopy.markUnavailable();
             }
-            c.modelclasses.put(e.getKey(), mcCopy);
+            c.modelclasses.add(mcCopy);
         }
         for (Quest q : quests) {
             Quest qCopy = new Quest(q.getKind()).evolvable(q.isEvolvable());

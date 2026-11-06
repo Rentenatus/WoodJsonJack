@@ -40,6 +40,8 @@ public class HarnessModelBeans {
     public static class ModelclassBean {
         private String provider;
         private String model;
+        private String purpose;
+        private int size;
         private double costFactor;
         private boolean toolCapable;
 
@@ -47,6 +49,10 @@ public class HarnessModelBeans {
         public void setProvider(String v) { this.provider = v; }
         public String getModel() { return model; }
         public void setModel(String v) { this.model = v; }
+        public String getPurpose() { return purpose; }
+        public void setPurpose(String v) { this.purpose = v; }
+        public int getSize() { return size; }
+        public void setSize(int v) { this.size = v; }
         public double getCostFactor() { return costFactor; }
         public void setCostFactor(double v) { this.costFactor = v; }
         public boolean isToolCapable() { return toolCapable; }
@@ -113,7 +119,7 @@ public class HarnessModelBeans {
         private List<String> taskTypes = new ArrayList<>();
         private Map<String, Integer> promptBudgets = new LinkedHashMap<>();
         private AbortLimitsBean abortLimits;
-        private Map<String, ModelclassBean> modelclasses = new LinkedHashMap<>();
+        private List<ModelclassBean> modelclasses = new ArrayList<>();
         private List<QuestBean> quests = new ArrayList<>();
 
         public String getName() { return name; }
@@ -126,8 +132,8 @@ public class HarnessModelBeans {
         public void setPromptBudgets(Map<String, Integer> v) { this.promptBudgets = v; }
         public AbortLimitsBean getAbortLimits() { return abortLimits; }
         public void setAbortLimits(AbortLimitsBean v) { this.abortLimits = v; }
-        public Map<String, ModelclassBean> getModelclasses() { return modelclasses; }
-        public void setModelclasses(Map<String, ModelclassBean> v) { this.modelclasses = v; }
+        public List<ModelclassBean> getModelclasses() { return modelclasses; }
+        public void setModelclasses(List<ModelclassBean> v) { this.modelclasses = v; }
         public List<QuestBean> getQuests() { return quests; }
         public void setQuests(List<QuestBean> v) { this.quests = v; }
     }

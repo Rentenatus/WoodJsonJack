@@ -31,7 +31,7 @@ public class HarnessFeedbackNGTest {
 
     private static HarnessModel modelWithAllQuests() {
         HarnessModel model = new HarnessModel().abortLimits(50, 5, 3, 10);
-        model.addModelclass("edit", new Modelclass("ollama", "qwen2.5:7b", 2.0, true));
+        model.addModelclass(new Modelclass("ollama", "qwen2.5:7b", "edit", 0, 2.0, true));
         for (Kind kind : Kind.values()) {
             model.addQuest(new Quest(kind).addSlot(new Slot(kind.name().toLowerCase() + ".base")
                     .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));

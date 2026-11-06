@@ -36,8 +36,8 @@ public class HarnessCodecNGTest {
         model.getTaskTypes().add("CODE_EDIT");
         model.getPromptBudgets().put("SYSTEM", 2);
         model.getPromptBudgets().put("HISTORY", 3);
-        model.addModelclass("edit", new Modelclass("ollama", "qwen2.5:7b", 2.0, true));
-        model.addModelclass("rag", new Modelclass("ollama", "nomic-embed-text", 0.2, false));
+        model.addModelclass(new Modelclass("ollama", "qwen2.5:7b", "edit", 0, 2.0, true));
+        model.addModelclass(new Modelclass("ollama", "nomic-embed-text", "rag", 0, 0.2, false));
 
         Quest work = new Quest(Kind.WORK).evolvable(true);
         work.addSlot(new Slot("work.base").calculator(
@@ -102,7 +102,7 @@ public class HarnessCodecNGTest {
             }
         }
         // WORK slot: ai on unreachable ollama -> catch fallback to deterministic
-        loaded.addModelclass("edit", new Modelclass("ollama", "qwen2.5:7b", 2.0, true));
+        loaded.addModelclass(new Modelclass("ollama", "qwen2.5:7b", "edit", 0, 2.0, true));
         HarnessInstance instance = new HarnessInstance(loaded.getName(), loaded.getVersion());
         instance.setRoot(new TaskNode(instance.nextTaskId(), "CODE_EDIT", "edit via loaded model"));
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(loaded);
