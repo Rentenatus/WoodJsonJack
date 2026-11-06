@@ -50,8 +50,9 @@ public class HarnessServiceNGTest {
         HarnessModel model = HarnessModelCodec.load(asset);
 
         Assert.assertEquals(model.getName(), "default-harness");
-        Assert.assertEquals(model.getModelclasses().size(), 5);
-        Assert.assertEquals(model.modelclass("rag").getModel(), "nomic-embed-text");
+        Assert.assertEquals(model.getModelclasses().size(), 10, "5 roles + 5 local extras (user ollama models)");
+        Assert.assertEquals(model.modelclass("rag").getModel(), "manutic/nomic-embed-code:latest");
+        Assert.assertEquals(model.modelclass("edit").getModel(), "devstral-small-2:24b");
         Assert.assertTrue(model.questFor(Kind.WORK).isEvolvable());
         Assert.assertEquals(model.questFor(Kind.WORK).getSlots().size(), 4,
                 "base + 3 Mutation-Resolve candidates");

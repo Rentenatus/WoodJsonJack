@@ -179,11 +179,16 @@ public class HarnessService {
         model.getPromptBudgets().put("HISTORY", 3);
         model.getPromptBudgets().put("DATA", 2);
         model.getPromptBudgets().put("AUFTRAG", 1);
-        model.addModelclass("investigation", new Modelclass("ollama", "qwen2.5:3b", 1.0, true));
-        model.addModelclass("edit", new Modelclass("ollama", "qwen2.5:7b", 2.0, true));
-        model.addModelclass("plan", new Modelclass("ollama", "llama3.2:3b", 1.0, true));
-        model.addModelclass("evaluation", new Modelclass("ollama", "llama3.2:3b", 0.5, false));
-        model.addModelclass("rag", new Modelclass("ollama", "nomic-embed-text", 0.2, false));
+        model.addModelclass("investigation", new Modelclass("ollama", "qwen3.8:27b", 1.0, true));
+        model.addModelclass("edit", new Modelclass("ollama", "devstral-small-2:24b", 2.0, true));
+        model.addModelclass("plan", new Modelclass("ollama", "glm-4.7-flash:latest", 1.0, true));
+        model.addModelclass("evaluation", new Modelclass("ollama", "granite3.3:8b", 0.5, false));
+        model.addModelclass("rag", new Modelclass("ollama", "manutic/nomic-embed-code:latest", 0.2, false));
+        model.addModelclass("nemotron3", new Modelclass("ollama", "nemotron3:33b", 1.5, true));
+        model.addModelclass("gemma4", new Modelclass("ollama", "gemma4:26b", 1.5, true));
+        model.addModelclass("muse-glimmer", new Modelclass("ollama", "muse-glimmer:30b", 1.5, true));
+        model.addModelclass("gemma3", new Modelclass("ollama", "gemma3:27b", 1.5, false));
+        model.addModelclass("gpt-oss", new Modelclass("ollama", "gpt-oss:20b", 1.0, true));
 
         for (Kind kind : Kind.values()) {
             Quest quest = new Quest(kind).evolvable(kind == Kind.WORK);
