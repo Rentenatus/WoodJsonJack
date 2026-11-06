@@ -8,11 +8,8 @@ package de.jare.harness.impl.hosted;
 
 import de.jare.harness.impl.ModelProvider;
 import de.jare.harness.model.Modelclass;
+import de.jare.jsonpost.PostJsonClient;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -31,15 +28,21 @@ public class HostedProvider implements ModelProvider {
     private final String baseUrl;
     private final String apiKey;
     private final Modelclass modelclass;
+    private final PostJsonClient client;
 
     public HostedProvider(String apiKey, Modelclass modelclass) {
         this(MISTRAL_URL, apiKey, modelclass);
     }
 
     public HostedProvider(String baseUrl, String apiKey, Modelclass modelclass) {
+        this(baseUrl, apiKey, modelclass, new PostJsonClient());
+    }
+
+    public HostedProvider(String baseUrl, String apiKey, Modelclass modelclass, PostJsonClient client) {
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
         this.modelclass = modelclass;
+        this.client = client;
     }
 
     @Override
@@ -58,62 +61,60 @@ public class HostedProvider implements ModelProvider {
             modelclass.markUnavailable();
             throw new IOException("no api key configured for hosted provider");
         }
-        String prompt = String.join("\n\n", segments);
-        String body = "{\"model\":\"" + modelclass.getModel() + "\",\"messages\":[{\"role\":\"user\",\"content\":"
-                + jsonString(prompt) + "}],\"response_format\":{\"type\":\"json_object\"}}";
-        HttpURLConnection conn = (HttpURLConnection) URI.create(baseUrl).toURL().openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setRequestProperty("Authorization", "Bearer " + apiKey);
-        conn.setConnectTimeout(5000);
-        conn.setReadTimeout(120000);
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(body.getBytes(StandardCharsets.UTF_8));
+        // typed chat request via jsonpost (jsonpost.item + jsonpost.def), Bearer header,
+        // JSON-strict via response_format - hosted chat-completions shape
+        de.jare.jsonpost.item.PostChatRequest request =
+                new de.jare.jsonpost.item.PostChatRequest(modelclass.getModel());
+        StringBuilder user = new StringBuilder();
+        for (String seg : segments) {
+            if (seg.startsWith("SYSTEM:")) {
+                request.addMessage("system", seg.substring("SYSTEM:".length()).trim());
+            } else {
+                if (user.length() > 0) {
+                    user.append("\n\n");
+                }
+                user.append(seg);
+            }
         }
-        if (conn.getResponseCode() != 200) {
+        request.addMessage("user", user.toString());
+        request.setStream(false);
+        request.setResponseFormat("{\"type\":\"json_object\"}");
+
+        de.jare.jsonpost.def.JsonPostDefinition def = de.jare.jsonpost.def.JsonPostDefinition.INSTANCE;
+        java.util.Map<String, String> headers = java.util.Map.of("Authorization", "Bearer " + apiKey);
+        final String response;
+        try {
+            response = client.post(request, baseUrl, 120000, def, def.getChatRequestRoot(), headers);
+        } catch (IOException e) {
             modelclass.markUnavailable();
-            throw new IOException("hosted provider HTTP " + conn.getResponseCode());
+            throw e;
         }
         modelclass.markAvailable();
-        String response = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         return extractContent(response);
     }
 
-    /** Extracts choices[0].message.content from the chat completion response. */
-    private static String extractContent(String json) {
-        String key = "\"content\":\"";
-        int i = json.indexOf(key);
-        if (i < 0) {
-            return json;
-        }
-        StringBuilder sb = new StringBuilder();
-        for (int j = i + key.length(); j < json.length(); j++) {
-            char c = json.charAt(j);
-            if (c == '\\' && j + 1 < json.length()) {
-                char n = json.charAt(j + 1);
-                sb.append(n == 'n' ? '\n' : n == 't' ? '\t' : n);
-                j++;
-            } else if (c == '"') {
-                break;
-            } else {
-                sb.append(c);
+    /** Extracts choices[0].message.content from the hosted chat-completion response. */
+    static String extractContent(String json) {
+        for (String key : new String[]{"\"content\": \"", "\"content\":\""}) {
+            int i = json.indexOf(key);
+            if (i < 0) {
+                continue;
             }
-        }
-        return sb.toString();
-    }
-
-    private static String jsonString(String s) {
-        StringBuilder sb = new StringBuilder("\"");
-        for (char c : s.toCharArray()) {
-            switch (c) {
-                case '"' -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default -> sb.append(c);
+            StringBuilder sb = new StringBuilder();
+            for (int j = i + key.length(); j < json.length(); j++) {
+                char c = json.charAt(j);
+                if (c == '\\' && j + 1 < json.length()) {
+                    char n = json.charAt(j + 1);
+                    sb.append(n == 'n' ? '\n' : n == 't' ? '\t' : n);
+                    j++;
+                } else if (c == '"') {
+                    return sb.toString();
+                } else {
+                    sb.append(c);
+                }
             }
+            return sb.toString();
         }
-        return sb.append('"').toString();
+        return json;
     }
 }

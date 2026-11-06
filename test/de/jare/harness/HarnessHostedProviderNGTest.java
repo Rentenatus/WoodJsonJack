@@ -41,4 +41,38 @@ public class HarnessHostedProviderNGTest {
         Assert.assertTrue(p.isAvailable());
         Assert.assertEquals(p.modelclass().getModel(), "mistral-small");
     }
+
+    @Test
+    public void testCompleteUsesTypedChatRequestWithBearerHeader() throws Exception {
+        com.sun.net.httpserver.HttpServer server =
+                com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        final String[] auth = new String[1];
+        final String[] body = new String[1];
+        server.createContext("/v1/chat/completions", exchange -> {
+            auth[0] = exchange.getRequestHeaders().getFirst("Authorization");
+            body[0] = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            String resp = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"decision\\\":\\\"worked\\\"}\"}}]}";
+            byte[] out = resp.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, out.length);
+            try (java.io.OutputStream os = exchange.getResponseBody()) {
+                os.write(out);
+            }
+        });
+        server.start();
+        try {
+            String base = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1/chat/completions";
+            Modelclass mc = new Modelclass("hosted", "mistral-small", 3.0, true);
+            HostedProvider p = new HostedProvider(base, "secret-key", mc);
+            String answer = p.complete(java.util.List.of("SYSTEM: orchestrator", "AUFTRAG: do it"));
+
+            Assert.assertEquals(auth[0], "Bearer secret-key", "bearer header sent");
+            Assert.assertTrue(body[0].contains("\"model\": \"mistral-small\""), "typed request serialized");
+            Assert.assertTrue(body[0].contains("json_object"), "response_format pin sent");
+            Assert.assertTrue(body[0].contains("\"role\": \"system\""), "system segment mapped");
+            Assert.assertEquals(answer, "{\"decision\":\"worked\"}", "choices[0].message.content extracted");
+        } finally {
+            server.stop(0);
+        }
+    }
 }
