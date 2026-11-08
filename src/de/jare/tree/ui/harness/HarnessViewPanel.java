@@ -4,7 +4,7 @@
  * http://www.eclipse.org/legal/epl-v20.html
  * </copyright>
  */
-package de.jare.harness.ui;
+package de.jare.tree.ui.harness;
 
 import de.jare.harness.CallLogEntry;
 import de.jare.harness.HarnessEngine;
@@ -33,7 +33,7 @@ import javax.swing.tree.DefaultTreeModel;
  *
  * @author Janusch Rentenatus
  */
-public class HarnessViewPanel extends JPanel {
+public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.HarnessView {
 
     private final JTree tree;
     private final DefaultTreeModel treeModel;

@@ -1,6 +1,7 @@
 # PROGRESS_Harness — Fortschrittsdokument zur Harness-Implementierung
 
-**Stand:** 2026-11-06, Branch `feature/harness-impl` @ `a7cbfc7`
+**Stand:** 2026-11-06, Branch `feature/harness-impl` @ `a7cbfc7` + Working Tree (Trennung, uncommittet)
+**Produktname:** WoodHarness — Architektur `jsonCasted → jsonCasted_edit → WoodHarness (src_jh/) → WoodJsonJack (src/)`
 **Konzept:** `docs/koncepts/CONCEPT_Harness.md` (16 Abschnitte)
 **Verifikation:** frischer Build (javac, WJJ + jsonCasted + jsonCasted_edit + ndimcol) und
 TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **233/233 bestanden, 0 Failures**
@@ -69,3 +70,13 @@ Branch sauber, Suite frisch **226/226 grün**. Umgesetzt und konform: alle 12 Ki
 6. **§12 Skill-Partition im Projektbaum** — weiterhin offen, aber **Cross-Branch**: Sidebar-Mount der Skill-Ordner ist ProjectView-Feature (`feature/projectview`), nicht Teil dieses Branches.
 
 **Nächste Schritte:** Merge nach `main` (68 Commits); Skill-Partition im Sidebar-Tree auf dem ProjectView-Branch.
+
+## 6. Trennung WoodHarness vom Editor (Working Tree, uncommittet)
+
+- **Quellen nach `src_jh/`** (Package `de.jare.harness` bleibt); `src_jh` importiert **nichts** aus WJJ-`src` und **kein Swing/AWT** — allein kompilierbar gegen jsonCasted/jsonpost (verifiziert, 0 Fehler).
+- **Neue SPI in `src_jh/de/jare/harness/spi/`:** `HarnessHost` (hostedApiKey, `harnessModelJson(File)` als JsonEdit-Handover, openInEditor, askUser, addRunListener, `wireInto(engine)`) und `HarnessView` (bind/setVisible, ohne Swing-Typen).
+- **`HarnessService`** nimmt `HarnessHost` injiziert (WoodSettings-Zugriff eliminiert); `loadModel()` nimmt zuerst das vom Host übergebene JsonNode.
+- **Swing-UI host-seitig:** `ui/` → `src/de/jare/tree/ui/harness/` (`HarnessController` als WJJ-Host-Impl, `HarnessViewPanel implements HarnessView`); `JackMainMenu` angepasst.
+- **Tests** nach `test_jh/` verschoben (20 Klassen), UI-Test-Imports aktualisiert.
+- **Verifiziert:** `src_jh` standalone grün, `src`+`src_jh` grün, **Suite 233/233 grün**. Noch nicht committet.
+- **Ziel erreicht:** TUI ohne Swing möglich — zweiter Host implementiert nur `HarnessHost` + `HarnessView`.

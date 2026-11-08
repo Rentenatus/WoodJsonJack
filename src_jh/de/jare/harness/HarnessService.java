@@ -41,10 +41,17 @@ public class HarnessService {
     public static final double LESSON_ADVANTAGE = 10.0;
 
     private final File projectDir;
+    private final de.jare.harness.spi.HarnessHost host;   // embedding application (WJJ/TUI); never a host class import
     private File woodHome;   // null -> GlobalWood default (user.home); settable for tests
 
     public HarnessService(File projectDir) {
+        this(projectDir, null);
+    }
+
+    /** The host SPI: provides api key, model handover, editor open, askUser, run listeners. */
+    public HarnessService(File projectDir, de.jare.harness.spi.HarnessHost host) {
         this.projectDir = projectDir;
+        this.host = host;
     }
 
     /** Redirects the global wood level (tests); null restores {@code user.home}. */
@@ -64,8 +71,18 @@ public class HarnessService {
         return new File(projectDir, INSTANCE_FILE);
     }
 
-    /** Loads the project model, or falls back to the bundled default model. */
+    /**
+     * Loads the project model: first the host's handed-over JsonEdit structure
+     * ({@link de.jare.harness.spi.HarnessHost#harnessModelJson(File)}), then the project file,
+     * else the bundled default model.
+     */
     public HarnessModel loadModel() throws IOException, de.jare.jsoncasted.io.JsonParseException {
+        if (host != null) {
+            de.jare.jsoncasted.lang.JsonNode handedOver = host.harnessModelJson(projectDir);
+            if (handedOver != null) {
+                return HarnessModelCodec.fromJson(handedOver);
+            }
+        }
         if (modelFile().exists()) {
             return HarnessModelCodec.load(modelFile());
         }
@@ -84,13 +101,14 @@ public class HarnessService {
             if ("ollama".equals(mc.getProvider())) {
                 factory.registerProvider("ollama", new OllamaProvider(mc));
             } else if ("hosted".equals(mc.getProvider())) {
-                String apiKey = de.jare.tree.settings.WoodSettings.INSTANCE.getAgentPreferences() != null
-                        ? de.jare.tree.settings.WoodSettings.INSTANCE.getAgentPreferences().getApiKey()
-                        : "";
+                String apiKey = host != null ? host.hostedApiKey() : "";
                 factory.registerProvider("hosted", new de.jare.harness.impl.hosted.HostedProvider(apiKey, mc));
             }
         }
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        if (host != null) {
+            host.wireInto(engine);   // askUser, editor.open, run listeners - via SPI only
+        }
 
         // global wood level (§8, §16): load ~/.wood/harness + ~/.wood/mindset before the run,
         // write them back after - the coupling unit is the aggregated metric, never a harness
@@ -188,6 +206,7 @@ public class HarnessService {
         model.addModelclass(new Modelclass("ollama", "granite3.3:8b", "evaluation", 8, 0.5, false));
         model.addModelclass(new Modelclass("ollama", "gemma3:27b", "evaluation", 27, 1.5, false));
         model.addModelclass(new Modelclass("ollama", "manutic/nomic-embed-code:latest", "rag", 0, 0.2, false));
+        model.addModelclass(new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false));
 
         for (Kind kind : Kind.values()) {
             Quest quest = new Quest(kind).evolvable(kind == Kind.WORK);

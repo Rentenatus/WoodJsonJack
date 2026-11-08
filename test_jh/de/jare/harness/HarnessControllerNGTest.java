@@ -6,7 +6,7 @@
  */
 package de.jare.harness;
 
-import de.jare.harness.ui.HarnessController;
+import de.jare.tree.ui.harness.HarnessController;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.testng.Assert;

@@ -234,8 +234,8 @@ public class JackMainMenu extends JMenuBar {
         JMenuItem runTaskItem = new JMenuItem("Run Task...");
         JMenuItem runSelectionItem = new JMenuItem("Run Task from Selection...");
         JMenuItem showHarnessItem = new JMenuItem("Show Harness Window");
-        de.jare.harness.ui.HarnessController harnessController =
-                new de.jare.harness.ui.HarnessController(woodWindow);
+        de.jare.tree.ui.harness.HarnessController harnessController =
+                new de.jare.tree.ui.harness.HarnessController(woodWindow);
         runTaskItem.addActionListener(e -> harnessController.runTaskInteractive(
                 woodWindow.getProjectSidebar().getProjectRoot()));
         // §3 entry point 2: the editor selection is turned into a prompt and continued here

@@ -1,11 +1,15 @@
-# CONCEPT_Harness — Der Harness: Orchestrierung kleiner lokaler Modelle (Ollama)
+# CONCEPT_Harness — WoodHarness: Orchestrierung kleiner lokaler Modelle (Ollama)
 
+**Produktname:** **WoodHarness** — die Harness-Ebene ist eigenes Produkt/Projekt zwischen
+jsonCasted_edit und WoodJsonJack (Architektur: `jsonCasted → jsonCasted_edit → WoodHarness → WoodJsonJack`).
 **Status:** Konzept beschlossen, Implementierung läuft auf Branch `feature/harness-impl`
-(Package `de.jare.harness` im WJJ: Engine, Modell + Codecs, Prompts, Metriken, Tooling,
-RAG, Skills, Mindset, Lineage/Evolution, Feedback-Loop, Provider ollama+hosted, HarnessViewPanel;
-Test-Suite WJJ 221/221 grün — Fortschritt siehe `docs/working/PROGRESS_Harness.md`)
+(WoodHarness-Quellen in `src_jh/`, Package `de.jare.harness`: Engine, Modell + Codecs, Prompts, Metriken,
+Tooling, RAG, Skills, Mindset, Lineage/Evolution, Feedback-Loop, Provider ollama+hosted, SPI `spi/`;
+Swing-View liegt host-seitig im WJJ unter `de.jare.tree.ui.harness`; Test-Suite 233/233 grün —
+Fortschritt siehe `docs/working/PROGRESS_Harness.md`)
 **Autor:** Konzept aus der Session-Diskussion
-**Geltungsbereich:** WoodJsonJack (WJJ), Package `de.jare.harness`
+**Geltungsbereich:** WoodHarness (Produkt, Quellen in `src_jh/`), Package `de.jare.harness`; host-agnostisch
+(WJJ/Swing heute, TUI später) über die SPI `de.jare.harness.spi`
 
 ---
 
@@ -54,6 +58,9 @@ costFactor, toolCapable}]` steht nur in der Top-Level-Liste `modelclasses[]` des
 Slot. Mehrere Modelclasses können denselben purpose tragen — bei Mehrfachbelegung wählt der Kalkulator
 anhand von `size` (B, ganzzahlig).
 Provider `ollama` defaultet auf `http://localhost:11434`.
+**Sonderzweck `scoring`:** sehr kleines Modell (z. B. `phi4-mini`, size 4) für schnelle Einschätzungen
+ohne Tooling — ob ein Thema ins Fachgebiet X fällt, welche Aufgabenart Y, Score auf Skala 0..1 oder
+nur die Anzahl der Tasks in einem Prompt. Billig und schnell, daher eigener purpose.
 **Deterministische Implementierung bleibt immer als Fallback** erhalten — auch für AI-Kalkulatoren bei
 JSON-Schema-Verstoß (Parse-Fail → Fallback, Event im Log).
 **Provider & Nebenläufigkeit:** `provider` in der Modelclass ist `ollama` (lokal) **oder `hosted`**
@@ -262,29 +269,32 @@ Store sammelt **keine Einträge** (kein append-only Log, keine nachträgliche Ge
 - **Holdout-Tasks** im Projekt: nie zur Kandidatenwahl, nur zur finalen Bewertung einer Generation.
 - **Explizit ausgeschlossen:** Die Ollama-Modelle selbst werden NICHT fine-tuned.
 
-## 10. Package-Layout (Java, fest im WJJ)
+## 10. Package-Layout und Schichtenarchitektur (WoodHarness als eigenes Produkt)
+
+**Ecosystem-Schichten:** `jsonCasted` (Base-Lib) → `jsonCasted_edit` (Editor-Framework) → **WoodHarness** → WoodJsonJack.
+WoodHarness ist host-agnostisch: Es liegt in `src_jh/` und darf **nichts** aus dem WJJ-`src` importieren
+(nur jsonCasted-Base, jsonpost, debug). Die Kopplung an den Host läuft ausschließlich über die SPI:
 
 ```
-de.jare.harness/
+src_jh/de/jare/harness/          // WoodHarness (Produkt), host-agnostisch, kein Swing, kein WJJ-src
   HarnessCalculator.java, CalcContext.java, CalcResult.java, Kind.java
-  TaskNode.java            // jsonCasted-persistiert
-  HarnessModel.java        // JsonItemDefinition-Blaupause
-  HarnessInstance.java, HarnessEngine.java   // Engine = deterministischer Treiber
-  CallLog.java, Metrics.java, HarnessLineage.java, EvolutionSlot.java
-  prompts/                 // versionierte Prompt-Segment-Ressourcen
-  rag/                     // §11: RagStore, RagIndex (Embeddings), RagChunk (docType SKILL/…)
-  skills/                  // §12: SkillRegistry (global ~/.wood/skills/skill + lokal), SkillImport
-  tools/                   // §13: HarnessTool, HarnessTools-Facade, FsTools/GitTools/ProcessTools/SearchTools
-  signals/                 // §13: Signal-Vokabel + on-Mapping (TOOL_RESULT, TOOL_ERROR, …, compact)
-  impl/deterministic/      // regelbasiert (Default + Fallback)
-  impl/ollama/             // Ollama-Client, JSON-strict
-  impl/hosted/             // gehostete Provider (z. B. Mistral-API) — gleiche Schnittstelle wie ollama
+  TaskNode.java, HarnessModel.java, HarnessInstance.java, HarnessEngine.java   // Engine = deterministischer Treiber
+  CallLogEntry, metrics/, HarnessLineage.java, EvolutionRunner.java, GlobalWood.java, Lessons.java
+  prompts/  rag/  skills/  tools/  signals/  mindset/  io/  model/
+  impl/deterministic/  impl/ollama/  impl/hosted/
+  spi/HarnessHost.java       // Host-SPI: hostedApiKey, harnessModelJson (JsonEdit-Handover), openInEditor,
+                             // askUser, addRunListener — implementiert vom Host (WJJ oder TUI)
+  spi/HarnessView.java       // View-SPI: bind(instance, engine) — implementiert vom Host (kein Swing hier)
 ```
+
+Der Host startet den Harness und übergibt seine JsonEdit-Strukturen:
+**WoodJsonJack** (`src/`, Swing) stellt `de.jare.tree.ui.harness.HarnessController` (Host-Impl: WoodSettings-Api-Key,
+`loadJsonFile` für editor.open, JOptionPane für askUser) und `HarnessViewPanel implements HarnessView` (Dialog).
+Eine **TUI** implementiert später nur `HarnessHost` + `HarnessView` — ohne Swing.
 
 **Plugin-Landschaft (Ausblick, NICHT in diesem Konzept):** WJJ soll langfristig eine Plugin-Plattform werden
-(weitere Editoren wie ein LaTeX-Editor mit Plaintext/Parse-Tree/gerenderter Ansicht ladbar). Der Harness ist
-plugin-fähig designed, in dieser Ausbaustufe aber fest im WJJ verankert — die spätere Herauslösung soll nur
-ein Interface drumherum erfordern, keine Umbauten.
+(weitere Editoren wie ein LaTeX-Editor ladbar). WoodHarness ist durch die SPI-Grenze bereits herauslösbar;
+die TUI ist der zweite Host.
 
 ## 11. Projekt-RAG (projekt-lokal, nie global)
 

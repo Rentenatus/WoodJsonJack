@@ -11,7 +11,7 @@ import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
 import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
-import de.jare.harness.ui.HarnessViewPanel;
+import de.jare.tree.ui.harness.HarnessViewPanel;
 import javax.swing.tree.DefaultMutableTreeNode;
 import org.testng.Assert;
 import org.testng.annotations.Test;

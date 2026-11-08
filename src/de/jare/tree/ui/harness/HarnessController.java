@@ -4,13 +4,20 @@
  * http://www.eclipse.org/legal/epl-v20.html
  * </copyright>
  */
-package de.jare.harness.ui;
+package de.jare.tree.ui.harness;
 
 import de.jare.harness.HarnessEngine;
 import de.jare.harness.HarnessInstance;
 import de.jare.harness.HarnessService;
+import de.jare.harness.TaskNode;
+import de.jare.harness.spi.HarnessHost;
+import de.jare.tree.settings.WoodSettings;
+import de.jare.tree.ui.WoodWindow;
 import java.awt.HeadlessException;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiConsumer;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -31,9 +38,44 @@ public class HarnessController {
     private HarnessInstance lastInstance;
     private HarnessEngine lastEngine;
     private JDialog viewDialog;
+    private final List<BiConsumer<TaskNode, String>> runListeners = new ArrayList<>();
 
     public HarnessController(JFrame owner) {
         this.owner = owner;
+    }
+
+    /**
+     * The WJJ side of the host SPI: the harness core (src_jh) never imports WJJ classes -
+     * api key, editor open, askUser and run listeners all flow through this implementation.
+     */
+    private HarnessHost wjjHost(File projectRoot) {
+        return new HarnessHost() {
+            @Override
+            public String hostedApiKey() {
+                return WoodSettings.INSTANCE.getAgentPreferences() != null
+                        ? WoodSettings.INSTANCE.getAgentPreferences().getApiKey() : "";
+            }
+
+            @Override
+            public void openInEditor(String projectRelativePath) {
+                if (owner instanceof WoodWindow w) {
+                    w.getMainActions().loadJsonFile(new File(projectRoot, projectRelativePath));
+                }
+            }
+
+            @Override
+            public String askUser(String question, List<String> options) {
+                String answer = JOptionPane.showInputDialog(owner, question + "\n" + String.join(" | ", options),
+                        "Harness", JOptionPane.QUESTION_MESSAGE);
+                return answer != null && options.contains(answer) ? answer
+                        : options.isEmpty() ? "" : options.get(0);
+            }
+
+            @Override
+            public void addRunListener(BiConsumer<TaskNode, String> listener) {
+                runListeners.add(listener);
+            }
+        };
     }
 
     public HarnessInstance getLastInstance() {
@@ -87,7 +129,7 @@ public class HarnessController {
         new SwingWorker<HarnessInstance, Void>() {
             @Override
             protected HarnessInstance doInBackground() throws Exception {
-                HarnessService service = new HarnessService(projectRoot);
+                HarnessService service = new HarnessService(projectRoot, wjjHost(projectRoot));
                 HarnessInstance instance = service.runTask(type, task);
                 lastInstance = instance;
                 lastEngine = null; // engine is local to the run; view rebinds from the instance

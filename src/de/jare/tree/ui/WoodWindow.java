@@ -274,13 +274,7 @@ public class WoodWindow extends JFrame {
     }
 
     private JPanel createKIAssistant() {
-        JPanel borderedPanel = new JPanel(new BorderLayout());
-        JTextArea prompt = new JTextArea(5, 20);
-        prompt.setText("AI prompt here...");
-        JButton askBtn = new JButton("Ask AI");
-        borderedPanel.add(new JScrollPane(prompt), BorderLayout.CENTER);
-        borderedPanel.add(askBtn, BorderLayout.SOUTH);
-        return borderedPanel;
+        return new KIAssistantPanel();
     }
 
     private JPanel createJackClipboardPanel() {
