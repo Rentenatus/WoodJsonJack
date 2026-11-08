@@ -35,6 +35,7 @@ import javax.swing.SwingWorker;
 public class HarnessController {
 
     private final JFrame owner;
+    private HarnessService service;   // the main harness control instance of this window, reused across runs
     private HarnessInstance lastInstance;
     private HarnessEngine lastEngine;
     private JDialog viewDialog;
@@ -42,6 +43,35 @@ public class HarnessController {
 
     public HarnessController(JFrame owner) {
         this.owner = owner;
+    }
+
+    /** The main harness control instance (lazy, one per window); the host SPI is wired into it. */
+    private HarnessService service(File projectRoot) {
+        if (service == null) {
+            service = new HarnessService(projectRoot, wjjHost(projectRoot));
+        }
+        return service;
+    }
+
+    /** The MemoryQuest (WorkOrder/WorkCache/WorkResponse) of the last harness run, created by the core. */
+    public de.jare.harness.memory.MemoryQuest getLastMemoryQuest() {
+        return service == null ? null : service.getLastMemoryQuest();
+    }
+
+    /**
+     * AskAi entry from the KI pane (Enter / "Ask AI"): runs the main AskAi quest with the user
+     * prompt. The harness core (HarnessService.runTask) creates the MemoryQuest + WorkOrder -
+     * this controller only triggers, it never builds TaskNode/WorkOrder itself.
+     */
+    public void runAskAi(File projectRoot, String prompt) {
+        if (projectRoot == null) {
+            JOptionPane.showMessageDialog(owner, "Open a project first.", "Harness", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (prompt == null || prompt.isBlank()) {
+            return;
+        }
+        runTask(projectRoot, de.jare.harness.model.HarnessModel.QUEST_ASK_AI, prompt);
     }
 
     /**
@@ -129,8 +159,7 @@ public class HarnessController {
         new SwingWorker<HarnessInstance, Void>() {
             @Override
             protected HarnessInstance doInBackground() throws Exception {
-                HarnessService service = new HarnessService(projectRoot, wjjHost(projectRoot));
-                HarnessInstance instance = service.runTask(type, task);
+                HarnessInstance instance = service(projectRoot).runTask(type, task);
                 lastInstance = instance;
                 lastEngine = null; // engine is local to the run; view rebinds from the instance
                 return instance;

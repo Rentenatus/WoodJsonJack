@@ -91,13 +91,22 @@ public class KIAssistantPanel extends JPanel {
         return row;
     }
 
+    private java.util.function.Consumer<String> thinkingHandler;
+
+    /** The host (JackMainMenu via HarnessController) installs this: input text -> WoodHarness AskAi run. */
+    public void setThinkingHandler(java.util.function.Consumer<String> thinkingHandler) {
+        this.thinkingHandler = thinkingHandler;
+    }
+
     /**
-     * Empty "Thinking" action for now - Enter in the input and the play button both land
-     * here. Later this starts the WoodHarness run with the input text (via HarnessHost);
-     * today there is no wiring from this pane to the harness yet.
+     * "Thinking" action - Enter in the input and "Ask AI" both land here. The input text is
+     * handed to the installed handler, which starts the WoodHarness AskAi run (the harness core
+     * creates the MemoryQuest/WorkOrder; this pane knows no TaskNode logic).
      */
     private void onThinking() {
-        // TODO: wire to WoodHarness (HarnessHost) - start a run with inputArea.getText()
+        if (thinkingHandler != null) {
+            thinkingHandler.accept(inputArea.getText());
+        }
     }
 
     /** Recompute the input height: clamped to 1..5 rows, then revalidate. */

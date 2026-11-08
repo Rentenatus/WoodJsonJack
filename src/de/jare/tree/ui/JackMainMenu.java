@@ -243,6 +243,11 @@ public class JackMainMenu extends JMenuBar {
                 woodWindow.getProjectSidebar().getProjectRoot(),
                 lastSelectedNode == null ? "" : String.valueOf(lastSelectedNode)));
         showHarnessItem.addActionListener(e -> harnessController.showView());
+        // KI pane (Enter / "Ask AI") -> main harness control instance -> AskAi run with the prompt
+        if (woodWindow.getKIAssistantPanel() != null) {
+            woodWindow.getKIAssistantPanel().setThinkingHandler(prompt -> harnessController.runAskAi(
+                    woodWindow.getProjectSidebar().getProjectRoot(), prompt));
+        }
         harnessMenu.add(runTaskItem);
         harnessMenu.add(runSelectionItem);
         harnessMenu.add(showHarnessItem);

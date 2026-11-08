@@ -273,8 +273,16 @@ public class WoodWindow extends JFrame {
         return jackPanel;
     }
 
+    private KIAssistantPanel kiAssistantPanel;
+
     private JPanel createKIAssistant() {
-        return new KIAssistantPanel();
+        kiAssistantPanel = new KIAssistantPanel();
+        return kiAssistantPanel;
+    }
+
+    /** The AI assistant bottom tab - JackMainMenu installs the thinking handler here. */
+    public KIAssistantPanel getKIAssistantPanel() {
+        return kiAssistantPanel;
     }
 
     private JPanel createJackClipboardPanel() {
