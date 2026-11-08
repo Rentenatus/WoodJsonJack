@@ -27,6 +27,8 @@ public class CalculatorPrintQuests implements HarnessCalculator {
         this.kind = kind;
     }
 
+    // Instances are built by PrintQuestsBuilder (Builder pattern) via the CalculatorBuilder interface.
+
     @Override
     public Kind kind() {
         return kind;

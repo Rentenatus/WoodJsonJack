@@ -9,8 +9,8 @@ package de.jare.harness.impl;
 import de.jare.harness.CalculatorFactory;
 import de.jare.harness.HarnessCalculator;
 import de.jare.harness.Kind;
-import de.jare.harness.impl.deterministic.CalculatorPrintQuests;
 import de.jare.harness.impl.deterministic.DeterministicCalculators;
+import de.jare.harness.impl.deterministic.PrintQuestsBuilder;
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
 import de.jare.harness.model.Modelclass;
@@ -39,45 +39,20 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
         return registry;
     }
 
-    public DefaultCalculatorFactory registerNamed(String name, de.jare.harness.CalculatorRegistry.NamedCalculator creator) {
-        registry.register(name, creator);
+    public DefaultCalculatorFactory registerNamed(String name, java.util.function.Supplier<de.jare.harness.CalculatorBuilder> builderSupplier) {
+        registry.register(name, builderSupplier);
         return this;
     }
 
     /**
-     * Built-in named calculators. "scoring.countQuests": counts the quests in the prompt
-     * with the scoring modelclass (phi4-mini) before decomposition; "askai.decompose":
-     * splits the prompt into the matching subtasks (investigation modelclass).
+     * Built-in named calculators - registered as builder suppliers only. The factory fills each
+     * builder with the config params via the CalculatorBuilder interface and builds; it never
+     * knows a calculator's internals.
      */
     private void registerNamedDefaults() {
-        registerNamed("scoring.countQuests", (kind, m, self, params) -> {
-            // params {"model": "phi4-mini:latest"} pick the concrete model; fallback: purpose "scoring"
-            de.jare.harness.model.Modelclass mc = modelByName(m, params.get("model"));
-            if (mc == null) {
-                mc = m.modelclass("scoring");
-            }
-            ModelProvider p = mc == null ? null : providers.get(mc.getProvider() == null ? "ollama" : mc.getProvider());
-            return new AiCalculator(kind, mc, p);
-        });
-        registerNamed("askai.decompose", (kind, m, self, params) -> {
-            de.jare.harness.model.Modelclass mc = modelByName(m, params.get("model"));
-            if (mc == null) {
-                mc = m.modelclass("investigation");
-            }
-            ModelProvider p = mc == null ? null : providers.get(mc.getProvider() == null ? "ollama" : mc.getProvider());
-            return new AiCalculator(kind, mc, p);
-        });
-        // deterministic: prints the N quests with their single prompts to the output
-        registerNamed("printig", (kind, m, self, params) -> new CalculatorPrintQuests(kind));
-    }
-
-    /** Resolves a modelclass by its concrete model name (params "model"), null when absent/unknown. */
-    private static de.jare.harness.model.Modelclass modelByName(HarnessModel model, String modelName) {
-        if (modelName == null || modelName.isBlank()) {
-            return null;
-        }
-        return model.getModelclasses().stream()
-                .filter(m -> modelName.equals(m.getModel())).findFirst().orElse(null);
+        registerNamed("scoring.countQuests", de.jare.harness.main.calculator.ScoringCountQuestsBuilder::new);
+        registerNamed("askai.decompose", de.jare.harness.main.calculator.AskAiDecomposeBuilder::new);
+        registerNamed("printig", PrintQuestsBuilder::new);
     }
 
     /** Register a provider, keyed by provider name (e.g. "ollama"). */
@@ -94,7 +69,8 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
     public HarnessCalculator createAtomic(CalculatorNode node, Kind kind) {
         // a named calculator wins over impl: "calculator": "scoring.countQuests"
         if (node.getCalculator() != null) {
-            HarnessCalculator named = registry.create(node.getCalculator(), kind, model, this, node.getParams());
+            HarnessCalculator named = registry.create(node.getCalculator(),
+                    new de.jare.harness.CalculatorCreationContext(kind, model, this), node.getParams());
             if (named != null) {
                 return named;
             }

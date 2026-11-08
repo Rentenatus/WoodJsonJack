@@ -73,9 +73,11 @@ public class HarnessServiceNGTest {
         List<String> childNames = askAi.baseSlot().getCalculator().getChildren().stream()
                 .map(c -> c.getCalculator()).toList();
         Assert.assertEquals(childNames, List.of("scoring.countQuests", "askai.decompose", "printig"));
-        // the scoring child carries its params: {"model": "phi4-mini:latest"}
-        Assert.assertEquals(askAi.baseSlot().getCalculator().getChildren().get(0).getParams(),
-                java.util.Map.of("model", "phi4-mini:latest"));
+        // the scoring child carries its params: model + systemPrompt (mutable at config level)
+        java.util.Map<String, String> scoringParams = askAi.baseSlot().getCalculator().getChildren().get(0).getParams();
+        Assert.assertEquals(scoringParams.get("model"), "phi4-mini:latest");
+        Assert.assertTrue(scoringParams.get("systemPrompt").contains("questCount"),
+                "systemPrompt is a config param of scoring.countQuests");
         // the decompose child uses the strongest local genAI: nemotron3:33b
         Assert.assertEquals(askAi.baseSlot().getCalculator().getChildren().get(1).getParams(),
                 java.util.Map.of("model", "nemotron3:33b"));

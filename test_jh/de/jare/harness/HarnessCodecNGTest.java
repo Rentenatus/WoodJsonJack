@@ -146,8 +146,10 @@ public class HarnessCodecNGTest {
         // the factory resolves the name to a real AiCalculator bound via params to phi4-mini
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(loadedParams);
         HarnessCalculator calc = factory.createAtomic(pn, Kind.SPLIT);
-        Assert.assertTrue(calc instanceof de.jare.harness.impl.AiCalculator, "named calculator = real instance");
-        Assert.assertEquals(((de.jare.harness.impl.AiCalculator) calc).getModelclass().getModel(), "phi4-mini:latest");
+        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuests,
+                "scoring.countQuests resolves to its real calculator class");
+        Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuests) calc).getModelclass().getModel(),
+                "phi4-mini:latest");
 
         // unknown name falls back to the impl-based deterministic calculator
         CalculatorNode unknown = CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("does.not.exist");
@@ -179,6 +181,72 @@ public class HarnessCodecNGTest {
         Assert.assertTrue(notes.stream().anyMatch(n -> n.contains("RESEARCH") && n.contains("first single prompt")),
                 "the N quests with their single prompts land in the output");
         Assert.assertTrue(notes.stream().anyMatch(n -> n.contains("CODE_EDIT") && n.contains("second single prompt")));
+    }
+
+    @Test
+    public void testScoringCountQuestsUsesConfigSystemPromptAndReturnsCount() {
+        HarnessModel model = sampleModel();
+        if (model.questFor(Kind.SPLIT) == null) {
+            model.addQuest(new Quest(Kind.SPLIT).addSlot(new Slot("split.base")
+                    .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+        }
+        Modelclass scoring = new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false);
+        model.addModelclass(scoring);
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        List<String> sentSegments = new java.util.ArrayList<>();
+        factory.registerProvider("ollama", new de.jare.harness.impl.ModelProvider() {
+            @Override public Modelclass modelclass() { return scoring; }
+            @Override public boolean isAvailable() { return true; }
+            @Override public String complete(List<String> segments) {
+                sentSegments.addAll(segments);
+                return "{\"status\":\"DONE\",\"decision\":\"counted\",\"score\":100,\"payload\":{\"questCount\":3}}";
+            }
+        });
+        String customPrompt = "Count the quests! Custom mutation prompt.";
+        CalculatorNode node = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
+                .params(java.util.Map.of("model", "phi4-mini:latest", "systemPrompt", customPrompt));
+        model.questFor(Kind.SPLIT).baseSlot().calculator(node);
+
+        HarnessCalculator calc = factory.createAtomic(node, Kind.SPLIT);
+        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuests);
+
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        TaskNode root = new TaskNode(instance.nextTaskId(), "AskAi", "please do research AND write code AND test");
+        instance.setRoot(root);
+        HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        CalcContext ctx = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
+                node, engine.getLimits(), List.of("AUFTRAG:inline:task\nplease do research AND write code AND test"));
+
+        CalcResult r = calc.calculate(ctx);
+        Assert.assertEquals(r.getPayload().get("questCount"), "3");
+        Assert.assertEquals(r.getStatus(), Status.DONE);
+        Assert.assertTrue(sentSegments.get(0).contains(customPrompt),
+                "the systemPrompt param is sent as SYSTEM segment: " + sentSegments.get(0));
+    }
+
+    @Test
+    public void testBuilderPatternUniformCreation() {
+        HarnessModel model = sampleModel();
+        model.addModelclass(new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false));
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        de.jare.harness.CalculatorCreationContext ctx =
+                new de.jare.harness.CalculatorCreationContext(Kind.SPLIT, model, factory);
+
+        // the factory only uses the builder interface: newBuilder -> withParams -> build
+        de.jare.harness.CalculatorBuilder b = factory.getRegistry().newBuilder("scoring.countQuests");
+        Assert.assertTrue(b instanceof de.jare.harness.main.calculator.ScoringCountQuestsBuilder);
+        b.withParam("model", "phi4-mini:latest").withParam("systemPrompt", "custom mutation prompt");
+        HarnessCalculator calc = b.build(ctx);
+        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuests);
+        Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuests) calc).getSystemPrompt(),
+                "custom mutation prompt", "builder understood the params");
+        Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuests) calc).getModelclass().getModel(),
+                "phi4-mini:latest");
+
+        // printig builder ignores params, still builds
+        HarnessCalculator p = factory.getRegistry().newBuilder("printig")
+                .withParams(java.util.Map.of("ignored", "x")).build(ctx);
+        Assert.assertTrue(p instanceof de.jare.harness.impl.deterministic.CalculatorPrintQuests);
     }
 
     @Test

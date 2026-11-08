@@ -73,10 +73,13 @@ Branch sauber, Suite frisch **226/226 grün**. Umgesetzt und konform: alle 12 Ki
 
 ## 6. Runtime-Modell: Quest umschließt WorkOrder + WorkCache + WorkResponse
 
-Entschieden (engl. Design-Doc: `docs/working/DESIGN_Quest_WorkOrder.md`): `HarnessInstance` = **Rezept**;
-die **Quest** (z. B. `AskAi`/SPLIT, slot `askai.base`) umschließt pro Lauf einen **WorkOrder** (Memory der
-Berechnung: id, `userPrompt`-Feld, Taskbaum, Call-Log, Status), einen **WorkCache** (Zwischenergebnisse:
-RAG-Chunks, Tool-Outputs) und eine **WorkResponse** (lebende, sich ändernde Antwort an die UI).
+Entschieden (engl. Design-Docs: `docs/working/DESIGN_Quest_WorkOrder.md` und
+`docs/working/DESIGN_Calculator_Factory_Builder.md`): `HarnessInstance` = **Rezept**;
+die **MemoryQuest** (Package `de.jare.harness.memory`, pro Lauf) umschließt einen **WorkOrder**
+(Memory der Berechnung: id, `userPrompt`-Feld, Taskbaum, Call-Log, Status), einen **WorkCache**
+(Zwischenergebnisse) und eine **WorkResponse** (lebende Antwort an die UI). Benannte Kalkulatoren
+(`"calculator": "scoring.countQuests", "params": {…}}`) werden über Registry + `CalculatorBuilder`
+uniform aus den Config-Params gebaut — die Fabrik kennt keine Kalkulator-Details.
 
 ## 7. Trennung WoodHarness vom Editor (committet in `74a4ce4`)
 

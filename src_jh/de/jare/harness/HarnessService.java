@@ -244,7 +244,9 @@ public class HarnessService {
         // the main AskAi quest (SPLIT): scoring counts the quests, investigation decomposes, printig prints
         CalculatorNode askAiCalc = CalculatorNode.puzzle("sequence")
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
-                        .params(java.util.Map.of("model", "phi4-mini:latest")))
+                        .params(java.util.Map.of(
+                                "model", "phi4-mini:latest",
+                                "systemPrompt", de.jare.harness.main.calculator.ScoringCountQuests.DEFAULT_SYSTEM_PROMPT)))
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
                         .params(java.util.Map.of("model", "nemotron3:33b")))
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig"));

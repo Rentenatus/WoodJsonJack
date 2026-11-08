@@ -26,7 +26,8 @@
           "calculator": { "type": "puzzle", "strategy": "sequence",
             "children": [
               { "type": "atomic", "impl": "ai", "calculator": "scoring.countQuests",
-                "params": { "model": "phi4-mini:latest" } },
+                "params": { "model": "phi4-mini:latest",
+                            "systemPrompt": "You count how many distinct quests/tasks the user prompt contains. Answer with strict JSON only: {\"status\":\"DONE\",\"decision\":\"counted\",\"score\":100,\"payload\":{\"questCount\":N}} where N is the number of quests (0..n)." } },
               { "type": "atomic", "impl": "ai", "calculator": "askai.decompose",
                 "params": { "model": "nemotron3:33b" } },
               { "type": "atomic", "impl": "deterministic", "calculator": "printig" }

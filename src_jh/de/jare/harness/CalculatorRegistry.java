@@ -20,31 +20,35 @@ import java.util.Map;
  */
 public class CalculatorRegistry {
 
-    /** Creates one calculator instance from its name with full model/factory context and the node's params. */
-    @FunctionalInterface
-    public interface NamedCalculator {
-        HarnessCalculator create(Kind kind, HarnessModel model, CalculatorFactory factory, Map<String, String> params);
-    }
+    private final Map<String, java.util.function.Supplier<CalculatorBuilder>> builders = new LinkedHashMap<>();
 
-    private final Map<String, NamedCalculator> named = new LinkedHashMap<>();
-
-    public CalculatorRegistry register(String name, NamedCalculator creator) {
-        named.put(name, creator);
+    /** Registers a named calculator by its builder supplier (e.g. {@code ScoringCountQuestsBuilder::new}). */
+    public CalculatorRegistry register(String name, java.util.function.Supplier<CalculatorBuilder> builderSupplier) {
+        builders.put(name, builderSupplier);
         return this;
     }
 
     public boolean knows(String name) {
-        return name != null && named.containsKey(name);
+        return name != null && builders.containsKey(name);
     }
 
-    /** @return the instance, or null when the name is unknown (caller falls back to impl) */
-    public HarnessCalculator create(String name, Kind kind, HarnessModel model, CalculatorFactory factory,
-                                    Map<String, String> params) {
-        NamedCalculator nc = name == null ? null : named.get(name);
-        return nc == null ? null : nc.create(kind, model, factory, params);
+    /** A fresh builder for the name, or null when unknown (caller falls back to impl). */
+    public CalculatorBuilder newBuilder(String name) {
+        java.util.function.Supplier<CalculatorBuilder> s = name == null ? null : builders.get(name);
+        return s == null ? null : s.get();
     }
 
-    public Map<String, NamedCalculator> getNamed() {
-        return named;
+    /**
+     * Uniform creation through the builder interface: fill with the params map, then build.
+     *
+     * @return the instance, or null when the name is unknown (caller falls back to impl)
+     */
+    public HarnessCalculator create(String name, CalculatorCreationContext ctx, Map<String, String> params) {
+        CalculatorBuilder b = newBuilder(name);
+        return b == null ? null : b.withParams(params).build(ctx);
+    }
+
+    public Map<String, java.util.function.Supplier<CalculatorBuilder>> getBuilders() {
+        return builders;
     }
 }
