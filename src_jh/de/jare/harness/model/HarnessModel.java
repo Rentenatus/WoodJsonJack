@@ -22,6 +22,9 @@ import java.util.Map;
  */
 public class HarnessModel {
 
+    /** The main quest: the UI's Ask-AI entry - checks which quest(s) the user actually entered. */
+    public static final String QUEST_ASK_AI = "AskAi";
+
     private String name = "default-harness";
     private String version = "1.0.0";
     private final List<String> taskTypes = new ArrayList<>();

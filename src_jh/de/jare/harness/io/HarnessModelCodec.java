@@ -19,6 +19,7 @@ import de.jare.jsoncasted.io.parserservice.JsonParserService;
 import de.jare.jsoncasted.lang.JsonNode;
 import java.io.File;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -120,6 +121,17 @@ public final class HarnessModelCodec {
             }
         } else {
             node = CalculatorNode.atomic(text(c, "impl", CalculatorNode.IMPL_DETERMINISTIC));
+            if (child(c, "calculator") != null) {
+                node.calculator(child(c, "calculator").asText());
+            }
+            JsonNode params = child(c, "params");
+            if (params != null && params.isObject()) {
+                Map<String, String> pm = new LinkedHashMap<>();
+                for (Map.Entry<String, JsonNode> pe : params.asObjectValues().entrySet()) {
+                    pm.put(pe.getKey(), pe.getValue().asText());
+                }
+                node.params(pm);
+            }
             if (child(c, "modelclass") != null) {
                 node.modelclass(child(c, "modelclass").asText());
             }
@@ -212,6 +224,16 @@ public final class HarnessModelCodec {
             node.put("children", children);
         } else {
             node.put("impl", JsonNode.stringNode(c.getImpl()));
+            if (c.getCalculator() != null) {
+                node.put("calculator", JsonNode.stringNode(c.getCalculator()));
+            }
+            if (!c.getParams().isEmpty()) {
+                JsonNode params = JsonNode.objectNode();
+                for (Map.Entry<String, String> pe : c.getParams().entrySet()) {
+                    params.put(pe.getKey(), JsonNode.stringNode(pe.getValue()));
+                }
+                node.put("params", params);
+            }
             if (c.getModelclass() != null) {
                 node.put("modelclass", JsonNode.stringNode(c.getModelclass()));
             }

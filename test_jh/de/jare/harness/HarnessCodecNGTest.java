@@ -8,6 +8,9 @@ package de.jare.harness;
 
 import de.jare.harness.impl.DefaultCalculatorFactory;
 import de.jare.harness.io.HarnessInstanceCodec;
+import de.jare.harness.CalcContext;
+import de.jare.harness.CalcResult;
+import de.jare.harness.HarnessCalculator;
 import de.jare.harness.io.HarnessModelCodec;
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
@@ -16,6 +19,7 @@ import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
 import java.io.File;
 import java.nio.file.Files;
+import java.util.List;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -113,6 +117,68 @@ public class HarnessCodecNGTest {
         Assert.assertEquals(instance.getRoot().getStatus(), Status.DONE);
         Assert.assertTrue(instance.getRoot().getCalculatorLog().stream()
                 .anyMatch(e -> e.getKind() == Kind.WORK && e.getDecision().contains("catch:MODEL_UNAVAILABLE")));
+    }
+
+    @Test
+    public void testNamedCalculatorResolvesViaRegistry() {
+        HarnessModel model = sampleModel();
+        model.addModelclass(new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false));
+        if (model.questFor(Kind.SPLIT) == null) {
+            model.addQuest(new Quest(Kind.SPLIT).addSlot(new Slot("split.base")
+                    .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+        }
+        CalculatorNode named = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests");
+        model.questFor(Kind.SPLIT).baseSlot().calculator(named);
+
+        // codec round trip keeps the calculator name
+        HarnessModel loaded = HarnessModelCodec.fromJson(HarnessModelCodec.toJson(model));
+        CalculatorNode loadedNode = loaded.questFor(Kind.SPLIT).baseSlot().getCalculator();
+        Assert.assertEquals(loadedNode.getCalculator(), "scoring.countQuests");
+
+        // params survive the codec round trip
+        CalculatorNode withParams = CalculatorNode.atomic(CalculatorNode.IMPL_AI)
+                .calculator("scoring.countQuests").params(java.util.Map.of("model", "phi4-mini:latest"));
+        model.questFor(Kind.SPLIT).baseSlot().calculator(withParams);
+        HarnessModel loadedParams = HarnessModelCodec.fromJson(HarnessModelCodec.toJson(model));
+        CalculatorNode pn = loadedParams.questFor(Kind.SPLIT).baseSlot().getCalculator();
+        Assert.assertEquals(pn.getParams(), java.util.Map.of("model", "phi4-mini:latest"));
+
+        // the factory resolves the name to a real AiCalculator bound via params to phi4-mini
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(loadedParams);
+        HarnessCalculator calc = factory.createAtomic(pn, Kind.SPLIT);
+        Assert.assertTrue(calc instanceof de.jare.harness.impl.AiCalculator, "named calculator = real instance");
+        Assert.assertEquals(((de.jare.harness.impl.AiCalculator) calc).getModelclass().getModel(), "phi4-mini:latest");
+
+        // unknown name falls back to the impl-based deterministic calculator
+        CalculatorNode unknown = CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("does.not.exist");
+        HarnessCalculator fallback = factory.createAtomic(unknown, Kind.SPLIT);
+        Assert.assertFalse(fallback instanceof de.jare.harness.impl.AiCalculator);
+    }
+
+    @Test
+    public void testPrintigNamedCalculatorPrintsQuestsWithPrompts() {
+        HarnessModel model = sampleModel();
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        CalculatorNode printigNode = CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig");
+        HarnessCalculator printig = factory.createAtomic(printigNode, Kind.SPLIT);
+        Assert.assertTrue(printig instanceof de.jare.harness.impl.deterministic.CalculatorPrintQuests);
+
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        TaskNode root = new TaskNode(instance.nextTaskId(), "AskAi", "user prompt");
+        root.addSubtask(instance.nextTaskId(), "RESEARCH", "first single prompt");
+        root.addSubtask(instance.nextTaskId(), "CODE_EDIT", "second single prompt");
+        instance.setRoot(root);
+        HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        List<String> notes = new java.util.ArrayList<>();
+        engine.addListener((t, s) -> notes.add(s));
+        CalcContext ctx = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
+                printigNode, engine.getLimits(), List.of());
+
+        CalcResult r = printig.calculate(ctx);
+        Assert.assertTrue(r.getPayload().get("printedQuests").contains("Quests (2)"));
+        Assert.assertTrue(notes.stream().anyMatch(n -> n.contains("RESEARCH") && n.contains("first single prompt")),
+                "the N quests with their single prompts land in the output");
+        Assert.assertTrue(notes.stream().anyMatch(n -> n.contains("CODE_EDIT") && n.contains("second single prompt")));
     }
 
     @Test

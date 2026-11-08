@@ -9,9 +9,11 @@ package de.jare.harness;
 import de.jare.harness.io.HarnessModelCodec;
 import de.jare.harness.metrics.MetricsStore;
 import de.jare.harness.model.HarnessModel;
+import de.jare.harness.model.Quest;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -64,6 +66,19 @@ public class HarnessServiceNGTest {
         Assert.assertEquals(de.jare.harness.model.Modelclass.sizeOf("qwen3.8:27b"), 27);
         Assert.assertEquals(de.jare.harness.model.Modelclass.sizeOf("granite3.3:8b"), 8);
         Assert.assertEquals(de.jare.harness.model.Modelclass.sizeOf("glm-4.7-flash:latest"), 0);
+        // the main AskAi quest: SPLIT with the named puzzle children scoring -> decompose -> printig
+        Assert.assertEquals(model.getTaskTypes().get(0), "AskAi");
+        Quest askAi = model.questFor(Kind.SPLIT);
+        Assert.assertNotNull(askAi, "AskAi quest (SPLIT) must be in the bundled asset");
+        List<String> childNames = askAi.baseSlot().getCalculator().getChildren().stream()
+                .map(c -> c.getCalculator()).toList();
+        Assert.assertEquals(childNames, List.of("scoring.countQuests", "askai.decompose", "printig"));
+        // the scoring child carries its params: {"model": "phi4-mini:latest"}
+        Assert.assertEquals(askAi.baseSlot().getCalculator().getChildren().get(0).getParams(),
+                java.util.Map.of("model", "phi4-mini:latest"));
+        // the decompose child uses the strongest local genAI: nemotron3:33b
+        Assert.assertEquals(askAi.baseSlot().getCalculator().getChildren().get(1).getParams(),
+                java.util.Map.of("model", "nemotron3:33b"));
         Assert.assertTrue(model.questFor(Kind.WORK).isEvolvable());
         Assert.assertEquals(model.questFor(Kind.WORK).getSlots().size(), 4,
                 "base + 3 Mutation-Resolve candidates");
@@ -97,6 +112,25 @@ public class HarnessServiceNGTest {
         Assert.assertTrue(GlobalWood.mindsetDir(fakeHome.toFile()).toFile().isDirectory(),
                 "global mindset dir must exist after the run");
         Assert.assertNotNull(de.jare.harness.mindset.Mindset.load(GlobalWood.mindsetDir(fakeHome.toFile())));
+    }
+
+    @Test
+    public void testRunTaskCreatesMemoryQuestWithWorkOrder() throws Exception {
+        Path project = Files.createTempDirectory("harness-project");
+        HarnessService service = new HarnessService(project.toFile());
+
+        HarnessInstance inst = service.runTask("RESEARCH", "the user prompt of this run");
+
+        de.jare.harness.memory.MemoryQuest mq = service.getLastMemoryQuest();
+        Assert.assertNotNull(mq, "each run creates a de.jare.harness.memory.MemoryQuest in memory (DESIGN_Quest_WorkOrder.md)");
+        Assert.assertNotNull(mq.getRecipe(), "references the recipe quest");
+        Assert.assertEquals(mq.getWorkOrder().getId(), "work.base");
+        Assert.assertEquals(mq.getWorkOrder().getUserPrompt(), "the user prompt of this run",
+                "the user prompt is its own field on the WorkOrder");
+        Assert.assertSame(mq.getWorkOrder().getRoot(), inst.getRoot(), "WorkOrder wraps the run's task tree");
+        Assert.assertNotNull(mq.getWorkCache());
+        Assert.assertEquals(mq.getWorkResponse().getStatus(), Status.DONE, "live answer after the run");
+        Assert.assertEquals(mq.getWorkOrder().getStatus(), Status.DONE);
     }
 
     @Test

@@ -62,6 +62,10 @@ public class JsonHarnessModelDefinition implements JsonItemDefinition {
         JsonClass calculator = model.newJsonReflect(CalculatorBean.class);
         calculator.addField("type", asString);
         calculator.addField("impl", asString);
+        calculator.addField("calculator", asString);
+        JsonMap params = model.newRawJsonMapIndividually(
+                (new JsonInstance<String>()).getClass(), null, asString);
+        calculator.addField("params", params);
         calculator.addField("modelclass", asString);
         calculator.addField("tool", asString);
         calculator.addField("strategy", asString);

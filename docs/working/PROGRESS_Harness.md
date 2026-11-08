@@ -71,7 +71,14 @@ Branch sauber, Suite frisch **226/226 grün**. Umgesetzt und konform: alle 12 Ki
 
 **Nächste Schritte:** Merge nach `main` (68 Commits); Skill-Partition im Sidebar-Tree auf dem ProjectView-Branch.
 
-## 6. Trennung WoodHarness vom Editor (Working Tree, uncommittet)
+## 6. Runtime-Modell: Quest umschließt WorkOrder + WorkCache + WorkResponse
+
+Entschieden (engl. Design-Doc: `docs/working/DESIGN_Quest_WorkOrder.md`): `HarnessInstance` = **Rezept**;
+die **Quest** (z. B. `AskAi`/SPLIT, slot `askai.base`) umschließt pro Lauf einen **WorkOrder** (Memory der
+Berechnung: id, `userPrompt`-Feld, Taskbaum, Call-Log, Status), einen **WorkCache** (Zwischenergebnisse:
+RAG-Chunks, Tool-Outputs) und eine **WorkResponse** (lebende, sich ändernde Antwort an die UI).
+
+## 7. Trennung WoodHarness vom Editor (committet in `74a4ce4`)
 
 - **Quellen nach `src_jh/`** (Package `de.jare.harness` bleibt); `src_jh` importiert **nichts** aus WJJ-`src` und **kein Swing/AWT** — allein kompilierbar gegen jsonCasted/jsonpost (verifiziert, 0 Fehler).
 - **Neue SPI in `src_jh/de/jare/harness/spi/`:** `HarnessHost` (hostedApiKey, `harnessModelJson(File)` als JsonEdit-Handover, openInEditor, askUser, addRunListener, `wireInto(engine)`) und `HarnessView` (bind/setVisible, ohne Swing-Typen).

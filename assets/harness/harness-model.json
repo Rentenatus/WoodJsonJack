@@ -1,7 +1,7 @@
 {
   "name": "default-harness",
   "version": "1.0.0",
-  "taskTypes": ["RESEARCH", "CODE_EDIT", "TEST_RUN", "SUMMARIZE"],
+  "taskTypes": ["AskAi", "RESEARCH", "CODE_EDIT", "TEST_RUN", "SUMMARIZE"],
   "promptBudgets": { "SYSTEM": 2, "SKILL": 1, "HISTORY": 3, "DATA": 2, "AUFTRAG": 1, "maxTokensTotal": 4000 },
   "abortLimits": { "maxIterations": 50, "maxDepth": 5, "maxRetries": 3, "maxToolCalls": 10 },
   "modelclasses": [
@@ -18,6 +18,21 @@
     { "provider": "ollama", "model": "phi4-mini:latest",               "purpose": "scoring",    "size": 4,   "costFactor": 0.3, "toolCapable": false }
   ],
   "quests": [
+    {
+      "kind": "SPLIT",
+      "evolvable": false,
+      "slots": [
+        { "id": "askai.base", "mutation": null,
+          "calculator": { "type": "puzzle", "strategy": "sequence",
+            "children": [
+              { "type": "atomic", "impl": "ai", "calculator": "scoring.countQuests",
+                "params": { "model": "phi4-mini:latest" } },
+              { "type": "atomic", "impl": "ai", "calculator": "askai.decompose",
+                "params": { "model": "nemotron3:33b" } },
+              { "type": "atomic", "impl": "deterministic", "calculator": "printig" }
+            ] } }
+      ]
+    },
     {
       "kind": "WORK",
       "evolvable": true,

@@ -16,6 +16,7 @@ import de.jare.harness.mindset.Mindset;
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
 import de.jare.harness.model.Modelclass;
+import de.jare.harness.memory.MemoryQuest;
 import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
 import java.io.File;
@@ -43,6 +44,7 @@ public class HarnessService {
     private final File projectDir;
     private final de.jare.harness.spi.HarnessHost host;   // embedding application (WJJ/TUI); never a host class import
     private File woodHome;   // null -> GlobalWood default (user.home); settable for tests
+    private de.jare.harness.memory.MemoryQuest lastMemoryQuest;   // the memory-side quest instance of the last run
 
     public HarnessService(File projectDir) {
         this(projectDir, null);
@@ -57,6 +59,11 @@ public class HarnessService {
     /** Redirects the global wood level (tests); null restores {@code user.home}. */
     public void setWoodHome(File woodHome) {
         this.woodHome = woodHome;
+    }
+
+    /** The memory-side quest instance (WorkOrder + WorkCache + WorkResponse) of the last run. */
+    public de.jare.harness.memory.MemoryQuest getLastMemoryQuest() {
+        return lastMemoryQuest;
     }
 
     public File getProjectDir() {
@@ -94,7 +101,19 @@ public class HarnessService {
         HarnessModel model = loadModel();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
         instance.setProjectRoot(projectDir);
-        instance.setRoot(new TaskNode(instance.nextTaskId(), taskType, title));
+
+        // runtime model (DESIGN_Quest_WorkOrder.md): the MemoryQuest creates the WorkOrder AND the
+        // root TaskNode itself in memory - id = slot id (e.g. "askai.base"), user prompt as its own
+        // field; the host only passes taskType + prompt text, no TaskNode logic
+        Kind questKind = de.jare.harness.model.HarnessModel.QUEST_ASK_AI.equals(taskType) ? Kind.SPLIT : Kind.WORK;
+        Quest recipeQuest = model.questFor(questKind);
+        if (recipeQuest != null && recipeQuest.baseSlot() != null) {
+            lastMemoryQuest = new de.jare.harness.memory.MemoryQuest(recipeQuest, recipeQuest.baseSlot().getId(),
+                    title, taskType, instance::nextTaskId);
+            instance.setRoot(lastMemoryQuest.getWorkOrder().getRoot());
+        } else {
+            instance.setRoot(new TaskNode(instance.nextTaskId(), taskType, title));
+        }
 
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
         for (Modelclass mc : model.getModelclasses()) {
@@ -146,6 +165,13 @@ public class HarnessService {
         lessons.save(GlobalWood.lessonsFile(wood));
         engine.getMindset().save(GlobalWood.mindsetDir(wood));
 
+        // the live answer of the run lands in the de.jare.harness.memory.MemoryQuest's WorkResponse
+        if (lastMemoryQuest != null) {
+            lastMemoryQuest.getWorkResponse().update("done: " + instance.getRoot().getStatus(),
+                    instance.getRoot().getScore(), instance.getRoot().getStatus());
+            lastMemoryQuest.getWorkOrder().setStatus(instance.getRoot().getStatus());
+        }
+
         HarnessInstanceCodec.save(instance, instanceFile());
         return instance;
     }
@@ -187,6 +213,7 @@ public class HarnessService {
     public static HarnessModel defaultModel() {
         HarnessModel model = new HarnessModel().name("default-harness").version("1.0.0")
                 .abortLimits(50, 5, 3, 10);
+        model.getTaskTypes().add(de.jare.harness.model.HarnessModel.QUEST_ASK_AI);
         model.getTaskTypes().add("RESEARCH");
         model.getTaskTypes().add("CODE_EDIT");
         model.getTaskTypes().add("TEST_RUN");
@@ -214,6 +241,14 @@ public class HarnessService {
                     .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC)));
             model.addQuest(quest);
         }
+        // the main AskAi quest (SPLIT): scoring counts the quests, investigation decomposes, printig prints
+        CalculatorNode askAiCalc = CalculatorNode.puzzle("sequence")
+                .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
+                        .params(java.util.Map.of("model", "phi4-mini:latest")))
+                .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
+                        .params(java.util.Map.of("model", "nemotron3:33b")))
+                .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig"));
+        model.questFor(Kind.SPLIT).baseSlot().calculator(askAiCalc);
         return model;
     }
 }

@@ -16,6 +16,10 @@ import java.util.List;
  * alternative calculators; the three {@code Mutation-Resolve-*} slots of an
  * evolvable quest are the three parallel candidates of one evolution step (§7).
  *
+ * This class is the RECIPE side only - pure blueprint, copied into lineage snapshots.
+ * The runtime memory of a run lives in {@link de.jare.harness.memory.MemoryQuest}, never here
+ * (docs/working/DESIGN_Quest_WorkOrder.md).
+ *
  * @author Janusch Rentenatus
  */
 public class Quest {

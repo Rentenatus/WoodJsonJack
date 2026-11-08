@@ -42,6 +42,14 @@ public class AiCalculator implements HarnessCalculator {
         return kind;
     }
 
+    public Modelclass getModelclass() {
+        return modelclass;
+    }
+
+    public ModelProvider getProvider() {
+        return provider;
+    }
+
     @Override
     public CalcResult calculate(CalcContext ctx) {
         if (modelclass != null && !modelclass.isAvailable()) {
@@ -117,6 +125,26 @@ public class AiCalculator implements HarnessCalculator {
         }
     }
 
+    /**
+     * Tolerant status parsing for small models: case-insensitive, blanks → underscores,
+     * common synonyms (COMPLETED → DONE, IN PROGRESS → RUNNING); anything else is a
+     * SCHEMA_VIOLATION (a HarnessException, so the catch-mapping handles it).
+     */
+    private static Status parseStatus(String raw) {
+        String s = raw == null ? "" : raw.trim().toUpperCase().replace(' ', '_');
+        switch (s) {
+            case "COMPLETED": return Status.DONE;
+            case "IN_PROGRESS": return Status.RUNNING;
+            default:
+                try {
+                    return Status.valueOf(s);
+                } catch (IllegalArgumentException e) {
+                    throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
+                            "unknown status in answer: " + raw);
+                }
+        }
+    }
+
     private static de.jare.jsoncasted.lang.JsonNode parseStrict(String answer) {
         String trimmed = answer.trim();
         if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
@@ -140,7 +168,7 @@ public class AiCalculator implements HarnessCalculator {
 
     private CalcResult toResult(de.jare.jsoncasted.lang.JsonNode root) {
         CalcResult result = CalcResult.of(kind, text(root, "decision", "answered"))
-                .status(Status.valueOf(text(root, "status", "DONE")))
+                .status(parseStatus(text(root, "status", "DONE")))
                 .message(text(root, "message", ""));
         if (root.asObjectValues().get("score") != null) {
             result.score(root.asObjectValues().get("score").asLong().intValue());

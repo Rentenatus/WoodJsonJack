@@ -32,7 +32,9 @@ public class CalculatorNode {
 
     private final String type;              // atomic | puzzle
     private String impl;                    // atomic only: deterministic | ai
-    private String modelclass;              // atomic ai only: key into modelclasses map
+    private String modelclass;              // atomic ai only: purpose in the modelclasses list
+    private String calculator;              // atomic only: NAME of a registered calculator (wins over impl)
+    private Map<String, String> params = new LinkedHashMap<>();   // named-calculator parameters, e.g. {"model": "phi4-mini:latest"}
     private String tool;                    // atomic deterministic only, e.g. "fs.read"
     private String strategy = "sequence";   // puzzle only: sequence | parallel
     private final List<CalculatorNode> children = new ArrayList<>();
@@ -70,6 +72,26 @@ public class CalculatorNode {
     public CalculatorNode modelclass(String modelclass) {
         this.modelclass = modelclass;
         return this;
+    }
+
+    /** Reference a registered calculator by name: {@code "calculator": "scoring.countQuests"}. */
+    public CalculatorNode calculator(String name) {
+        this.calculator = name;
+        return this;
+    }
+
+    public String getCalculator() {
+        return calculator;
+    }
+
+    /** Parameters for a named calculator, e.g. {"model": "phi4-mini:latest"}. */
+    public CalculatorNode params(Map<String, String> params) {
+        this.params = params == null ? new LinkedHashMap<>() : new LinkedHashMap<>(params);
+        return this;
+    }
+
+    public Map<String, String> getParams() {
+        return params;
     }
 
     public String getModelclass() {
@@ -124,6 +146,12 @@ public class CalculatorNode {
         if (!isPuzzle()) {
             if (modelclass != null) {
                 c.modelclass(modelclass);
+            }
+            if (calculator != null) {
+                c.calculator(calculator);
+            }
+            if (!params.isEmpty()) {
+                c.params(params);
             }
             if (tool != null) {
                 c.tool(tool);

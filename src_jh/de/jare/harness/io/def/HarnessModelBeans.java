@@ -62,6 +62,8 @@ public class HarnessModelBeans {
     public static class CalculatorBean {
         private String type;
         private String impl;
+        private String calculator;
+        private Map<String, String> params = new LinkedHashMap<>();
         private String modelclass;
         private String tool;
         private String strategy;
@@ -73,6 +75,10 @@ public class HarnessModelBeans {
         public void setType(String v) { this.type = v; }
         public String getImpl() { return impl; }
         public void setImpl(String v) { this.impl = v; }
+        public String getCalculator() { return calculator; }
+        public void setCalculator(String v) { this.calculator = v; }
+        public Map<String, String> getParams() { return params; }
+        public void setParams(Map<String, String> v) { this.params = v; }
         public String getModelclass() { return modelclass; }
         public void setModelclass(String v) { this.modelclass = v; }
         public String getTool() { return tool; }

@@ -71,6 +71,12 @@ public final class HarnessModelBeanConverter {
             }
         } else {
             node = CalculatorNode.atomic(b.getImpl() == null ? CalculatorNode.IMPL_DETERMINISTIC : b.getImpl());
+            if (b.getCalculator() != null) {
+                node.calculator(b.getCalculator());
+            }
+            if (b.getParams() != null && !b.getParams().isEmpty()) {
+                node.params(b.getParams());
+            }
             if (b.getModelclass() != null) {
                 node.modelclass(b.getModelclass());
             }
