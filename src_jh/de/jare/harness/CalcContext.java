@@ -29,7 +29,7 @@ public class CalcContext {
     private final HarnessEngine engine;
     private final HarnessInstance instance;
     private final HarnessModel model;
-    private final TaskNode task;
+    private final TaskData task;
     private final Kind kind;
     private final String slotId;
     private final CalculatorNode node;
@@ -38,7 +38,7 @@ public class CalcContext {
     private HarnessTools tools;
 
     public CalcContext(HarnessEngine engine, HarnessInstance instance, HarnessModel model,
-                       TaskNode task, Kind kind, String slotId, CalculatorNode node,
+                       TaskData task, Kind kind, String slotId, CalculatorNode node,
                        Limits limits, List<String> currentPrompts) {
         this.engine = engine;
         this.instance = instance;
@@ -52,7 +52,7 @@ public class CalcContext {
     }
 
     /** ctx.task - the task node of the current call. */
-    public TaskNode task() {
+    public TaskData task() {
         return task;
     }
 

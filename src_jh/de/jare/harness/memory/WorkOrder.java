@@ -9,7 +9,8 @@ package de.jare.harness.memory;
 import de.jare.harness.CallLogEntry;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
-import de.jare.harness.TaskNode;
+import de.jare.harness.TaskData;
+import de.jare.harness.TaskTree;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,15 +28,17 @@ public class WorkOrder {
     private final String id;            // slot id, e.g. "askai.base"
     private final Kind questKind;
     private final String userPrompt;    // the raw user input of this run
-    private final TaskNode root;        // task tree of this run
+    private final TaskTree taskTree;    // the task tree as a real EditTree (shared with the JTree)
+    private final TaskData root;        // root task of this run
     private final List<CallLogEntry> callLog = new ArrayList<>();
     private Status status = Status.PENDING;
     private final long createdTs = System.currentTimeMillis();
 
-    public WorkOrder(String id, Kind questKind, String userPrompt, TaskNode root) {
+    public WorkOrder(String id, Kind questKind, String userPrompt, TaskTree taskTree, TaskData root) {
         this.id = id;
         this.questKind = questKind;
         this.userPrompt = userPrompt == null ? "" : userPrompt;
+        this.taskTree = taskTree;
         this.root = root;
     }
 
@@ -52,7 +55,12 @@ public class WorkOrder {
         return userPrompt;
     }
 
-    public TaskNode getRoot() {
+    /** The task tree of this run as a real EditTree - the same instances the editor shows. */
+    public TaskTree getTaskTree() {
+        return taskTree;
+    }
+
+    public TaskData getRoot() {
         return root;
     }
 

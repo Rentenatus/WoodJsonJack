@@ -33,7 +33,7 @@ public class HarnessViewNGTest {
                     .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
         }
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "view test?"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "view test?");
         HarnessEngine engine = new HarnessEngine(model, instance, new DefaultCalculatorFactory(model));
         HarnessViewPanel view = new HarnessViewPanel();
         view.bind(instance, engine);
@@ -43,11 +43,11 @@ public class HarnessViewNGTest {
         DefaultMutableTreeNode viewRoot = (DefaultMutableTreeNode) viewTreeRoot(view);
         Assert.assertEquals(viewRoot.getChildCount(), 1, "root task visible in the tree");
         DefaultMutableTreeNode rootTask = (DefaultMutableTreeNode) viewRoot.getChildAt(0);
-        Assert.assertEquals(((TaskNode) rootTask.getUserObject()).getTitle(), "view test?");
+        Assert.assertEquals(((TaskData) rootTask.getUserObject()).getTitle(), "view test?");
         Assert.assertEquals(rootTask.getChildCount(), 1, "reasoning subtask visible in the tree");
         DefaultMutableTreeNode child = (DefaultMutableTreeNode) rootTask.getChildAt(0);
-        Assert.assertTrue(child.getUserObject() instanceof TaskNode);
-        Assert.assertEquals(((TaskNode) child.getUserObject()).getTaskType(), "REASONING");
+        Assert.assertTrue(child.getUserObject() instanceof TaskData);
+        Assert.assertEquals(((TaskData) child.getUserObject()).getTaskType(), "REASONING");
     }
 
     private static Object viewTreeRoot(HarnessViewPanel view) throws Exception {

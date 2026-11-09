@@ -90,3 +90,29 @@ uniform aus den Config-Params gebaut — die Fabrik kennt keine Kalkulator-Detai
 - **Tests** nach `test_jh/` verschoben (20 Klassen), UI-Test-Imports aktualisiert.
 - **Verifiziert:** `src_jh` standalone grün, `src`+`src_jh` grün, **Suite 233/233 grün**. Noch nicht committet.
 - **Ziel erreicht:** TUI ohne Swing möglich — zweiter Host implementiert nur `HarnessHost` + `HarnessView`.
+
+## 8. Reroll-Semantik invertiert (ProjectView §7.1, uncommittet)
+
+Umgesetzt in `git_jsonCasted` (`BundleReroller.plan(..., rerollIds, rerollSynonyms)`),
+`git_WoodJsonJack` (`RerollIdsDialog`: zwei Checkboxen): **Synonym-Reroll ist Default (an)**,
+**ID-Reroll nur als Ausnahme (aus)**. Begründung: IDs sind bundle-scoped — Kopien einer Datei
+dürfen dieselben Nummern behalten (starker Hinweis für den Compare); Synonyme sind Wiring-Namen
+im gemeinsamen Namensraum und müssen pro Baum frisch sein. 5-arg-`plan` = Default
+(`rerollIds=false, rerollSynonyms=true`); interne Links werden nur umgeschrieben, wenn sich etwas
+ändert; dangling-Validierung bleibt in jeder Schalterstellung. Tests: `BundleRerollerNGTest` 8/8,
+`RerollCommandsNGTest` 1/1 grün. Konzept: `CONCEPT_ProjectView.md` §7.1 + Entscheidung 8.
+
+## 9. Umgesetzt (nicht committet): Task-Baum als EditTree im Harness
+
+Entschieden in `CONCEPT_Harness.md` §3/§10/§15 (Diskussion ViewNode vs. EditNode-Ableitung vs. JsonNode-Speicher):
+
+1. **Build:** src_jh gegen jsonCasted_edit kompilieren lassen (Sourcepath um `D:\git_jsonCasted_edit\src` erweitern; jsonCasted_edit ist Swing-frei — verifiziert 0 AWT/Swing-Imports).
+2. **TaskNode → TaskData (Facade mit Back-Reference, §3/§15 Konzept):** `TaskData` hält den belegten `EditNodeObject`; Getter/Setter (status, score, attempt, close, logCall, appendPromptSupplement, rewriteAsSummary, addSubtask) lesen/schreiben durch in die Captured Attributes (`getAttributes()`, primitive Werte) und feuern das Change-Event — kein manuelles Attach. Kein parent/children/depth mehr in TaskData; children/parent navigieren über den EditNode + Registry. Umbenennen nach `TaskData` (Name klärt die zwei Node-Ebenen: fachlicher Task vs. EditNode der Anzeige).
+3. **WorkOrder/MemoryQuest halten eine EditTree** als Task-Baum plus eine Registry `IdentityHashMap<EditNode, TaskData>` (Node→TaskData). Codec (`HarnessInstanceCodec.taskToJson/taskFromJson`) entfällt für den Baum — Persistierung läuft über die JsonNode-Wurzel der EditTree; Attributes serialisieren als primitive Werte.
+4. **Sync-Brücke:** Harness mutiert EditTree über deren notify-API (`TypeParserListener`, `notifyChildAdded/Removed/…`); WJJ hängt sich als Listener ein und ruft `JackTreeModel.rebuildFromDomain()`/`structureChanged` — DefaultMutableTreeNode bleibt dünne Shell um dieselben EditNode-Instanzen (kein Kopieren). EDT-Marshalling via `SwingUtilities.invokeLater` im Host-Listener.
+5. **Read-only-Schutz:** Harness-Bäume sind für die UI nicht editierbar — `readOnly`-Flag an der EditTree (jede `CommandAvailability` verweigert) oder Harness-Panel ohne Edit-Commands; einziger Mutationspfad = Harness-API.
+6. **Verifikations-/Testplan:** Engine-Tests (TaskData-Payload statt TaskNode), Codec-Test, Sync-Test (Harness-Mutation → Listener-Event), Read-only-Test (Command verweigert auf Harness-Baum); danach volle WJJ-Suite.
+
+**Verworfene Alternativen (festgehalten):** TaskNode extends EditNode (sealed permits), ViewNode als 5. permit in jsonCasted_edit (src_jh dürfte ihn nicht nutzen), ViewNode als eigener Baum in jsonCasted (Editor müsste konvertieren), TaskNode als JsonNode-Facade (Zwei-Welten-Problem bleibt für die Anzeige bestehen).
+
+**Umgesetzt in §9 (Working Tree, uncommittet):** `TaskNode` ist gelöscht, ersetzt durch **`TaskData`** (Facade mit Back-Reference auf `EditNodeObject`, Attach intern in jedem Setter) + **`TaskTree`** (EditTree + `IdentityHashMap`-Registry + Change-Listener). WorkOrder/MemoryQuest/HarnessInstance halten den Baum als echte EditTree (`getTaskTree()`); Payload als primitive Member-Properties des Task-Objekts, Subtasks als Objekte im `tasks`-Array-Member. Codec persistiert die EditTree-Form (`taskId`/`tasks`), Legacy-`id`/`children`-Dateien werden beim Load normalisiert. Sync-Brücke: `TaskTree.fireChanged` → Change-Lovable + `TypeParserListener`; `HarnessViewPanel.bind` hängt sich ein (EDT via invokeLater), Read-only host-seitig (kein Command-Wiring am Harness-Baum). `CallLogEntry` trägt jetzt `toJson/fromJson`. Tests: neuer `TaskTreeNGTest` (4 Tests: Root=Tree-Root, Subtasks+Events, Codec-Roundtrip, Legacy-Load). **Suite 242/242 grün**, src_jh kompiliert gegen jsonCasted_edit.

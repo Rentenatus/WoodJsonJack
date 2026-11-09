@@ -54,7 +54,7 @@ public class HarnessMetricsNGTest {
     public void testRunProducesMx3AggregatePerSlot() {
         HarnessModel model = modelWithAllQuests();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "metrics check"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "metrics check");
         new HarnessEngine(model, instance, new DefaultCalculatorFactory(model)).run();
 
         MetricsStore store = instance.getMetrics();

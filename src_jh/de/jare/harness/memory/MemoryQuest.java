@@ -6,7 +6,8 @@
  */
 package de.jare.harness.memory;
 
-import de.jare.harness.TaskNode;
+import de.jare.harness.TaskData;
+import de.jare.harness.TaskTree;
 import de.jare.harness.model.Quest;
 
 /**
@@ -28,16 +29,19 @@ public class MemoryQuest {
     private final WorkResponse workResponse = new WorkResponse();
 
     /**
-     * Creates the memory quest AND its root TaskNode itself - the UI/host only passes the raw
-     * user prompt and the task type, it knows nothing about TaskNode logic.
+     * Creates the memory quest AND its task tree (a real EditTree) with the root task itself -
+     * the UI/host only passes the raw user prompt and the task type, it knows nothing about
+     * the tree logic.
      *
      * @param idSupplier supplies the fresh task id (persisted counter of the instance)
      */
     public MemoryQuest(Quest recipe, String slotId, String userPrompt, String taskType,
                        java.util.function.LongSupplier idSupplier) {
         this.recipe = recipe;
-        TaskNode root = new TaskNode(idSupplier.getAsLong(), taskType, userPrompt);
-        this.workOrder = new WorkOrder(slotId, recipe == null ? null : recipe.getKind(), userPrompt, root);
+        TaskTree taskTree = new TaskTree();
+        TaskData root = taskTree.newRoot(idSupplier.getAsLong(), taskType, userPrompt);
+        this.workOrder = new WorkOrder(slotId, recipe == null ? null : recipe.getKind(), userPrompt,
+                taskTree, root);
     }
 
     /** The recipe-side quest (blueprint) this memory instance executes. */

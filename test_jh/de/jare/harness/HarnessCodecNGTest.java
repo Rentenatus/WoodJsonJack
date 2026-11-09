@@ -108,7 +108,7 @@ public class HarnessCodecNGTest {
         // WORK slot: ai on unreachable ollama -> catch fallback to deterministic
         loaded.addModelclass(new Modelclass("ollama", "qwen2.5:7b", "edit", 0, 2.0, true));
         HarnessInstance instance = new HarnessInstance(loaded.getName(), loaded.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "CODE_EDIT", "edit via loaded model"));
+        instance.newRootTask(instance.nextTaskId(), "CODE_EDIT", "edit via loaded model");
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(loaded);
         factory.registerProvider("ollama", new de.jare.harness.impl.ollama.OllamaProvider(
                 "http://127.0.0.1:1", loaded.modelclass("edit")));
@@ -166,7 +166,7 @@ public class HarnessCodecNGTest {
         Assert.assertTrue(printig instanceof de.jare.harness.impl.deterministic.CalculatorPrintQuests);
 
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        TaskNode root = new TaskNode(instance.nextTaskId(), "AskAi", "user prompt");
+        TaskData root = instance.newRootTask(instance.nextTaskId(), "AskAi", "user prompt");
         root.addSubtask(instance.nextTaskId(), "RESEARCH", "first single prompt");
         root.addSubtask(instance.nextTaskId(), "CODE_EDIT", "second single prompt");
         instance.setRoot(root);
@@ -211,7 +211,7 @@ public class HarnessCodecNGTest {
         Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuests);
 
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        TaskNode root = new TaskNode(instance.nextTaskId(), "AskAi", "please do research AND write code AND test");
+        TaskData root = instance.newRootTask(instance.nextTaskId(), "AskAi", "please do research AND write code AND test");
         instance.setRoot(root);
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
         CalcContext ctx = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
@@ -259,7 +259,7 @@ public class HarnessCodecNGTest {
             }
         }
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "persist me?"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "persist me?");
         new HarnessEngine(model, instance, new DefaultCalculatorFactory(model)).run();
 
         File tmp = Files.createTempDirectory("harness-inst").resolve("harness.json").toFile();
@@ -268,7 +268,7 @@ public class HarnessCodecNGTest {
 
         Assert.assertEquals(loaded.getModelName(), model.getName());
         Assert.assertEquals(loaded.getModelVersion(), model.getVersion());
-        TaskNode root = loaded.getRoot();
+        TaskData root = loaded.getRoot();
         Assert.assertEquals(root.getStatus(), Status.DONE);
         Assert.assertEquals(root.getChildren().size(), 1, "reasoning subtask must survive");
         Assert.assertEquals(root.getChildren().get(0).getParent(), root, "parent link must be rebuilt");

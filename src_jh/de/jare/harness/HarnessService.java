@@ -103,8 +103,8 @@ public class HarnessService {
         instance.setProjectRoot(projectDir);
 
         // runtime model (DESIGN_Quest_WorkOrder.md): the MemoryQuest creates the WorkOrder AND the
-        // root TaskNode itself in memory - id = slot id (e.g. "askai.base"), user prompt as its own
-        // field; the host only passes taskType + prompt text, no TaskNode logic
+        // root TaskData itself in memory - id = slot id (e.g. "askai.base"), user prompt as its own
+        // field; the host only passes taskType + prompt text, no TaskData logic
         Kind questKind = de.jare.harness.model.HarnessModel.QUEST_ASK_AI.equals(taskType) ? Kind.SPLIT : Kind.WORK;
         Quest recipeQuest = model.questFor(questKind);
         if (recipeQuest != null && recipeQuest.baseSlot() != null) {
@@ -112,7 +112,7 @@ public class HarnessService {
                     title, taskType, instance::nextTaskId);
             instance.setRoot(lastMemoryQuest.getWorkOrder().getRoot());
         } else {
-            instance.setRoot(new TaskNode(instance.nextTaskId(), taskType, title));
+            instance.newRootTask(instance.nextTaskId(), taskType, title);
         }
 
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);

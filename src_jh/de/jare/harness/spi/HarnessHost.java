@@ -7,7 +7,7 @@
 package de.jare.harness.spi;
 
 import de.jare.harness.HarnessEngine;
-import de.jare.harness.TaskNode;
+import de.jare.harness.TaskData;
 import de.jare.jsoncasted.lang.JsonNode;
 import java.io.File;
 import java.util.List;
@@ -45,7 +45,7 @@ public interface HarnessHost {
     }
 
     /** Live updates of the run (task tree changes, notifications) for the host's view. */
-    default void addRunListener(BiConsumer<TaskNode, String> listener) {
+    default void addRunListener(BiConsumer<TaskData, String> listener) {
     }
 
     /** Convenience: wire this host into an engine (askUser, editor.open). Run listeners stay

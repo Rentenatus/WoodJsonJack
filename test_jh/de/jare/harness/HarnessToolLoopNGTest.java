@@ -43,7 +43,7 @@ public class HarnessToolLoopNGTest {
 
     private static CalcContext ctxFor(HarnessEngine engine, HarnessInstance instance, HarnessModel model,
                                       HarnessTools tools, Kind kind) {
-        TaskNode task = new TaskNode(1, "CODE_EDIT", "tool loop test");
+        TaskData task = TaskData.create(1, "CODE_EDIT", "tool loop test");
         CalcContext ctx = new CalcContext(engine, instance, model, task, kind, "work.ai",
                 CalculatorNode.atomic(CalculatorNode.IMPL_AI).modelclass("edit"),
                 engine.getLimits(), List.of("AUFTRAG: read the file and answer"));

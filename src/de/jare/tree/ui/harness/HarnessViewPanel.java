@@ -10,7 +10,7 @@ import de.jare.harness.CallLogEntry;
 import de.jare.harness.HarnessEngine;
 import de.jare.harness.HarnessInstance;
 import de.jare.harness.Status;
-import de.jare.harness.TaskNode;
+import de.jare.harness.TaskData;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -57,10 +57,16 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
         tree.addTreeSelectionListener(e -> showSelectedProtocol());
     }
 
-    /** Binds the view to a running instance and engine notifications. */
+    /**
+     * Binds the view to a running instance and engine notifications. The task tree is a real
+     * EditTree (CONCEPT_Harness.md §3) - the panel also listens to its change events, the same
+     * events a JackTreeModel over the EditTree would consume, so both views show the same
+     * node instances. Read-only by construction: this tree is never wired to edit commands.
+     */
     public void bind(HarnessInstance instance, HarnessEngine engine) {
         this.instance = instance;
         engine.addListener((task, msg) -> SwingUtilities.invokeLater(this::refresh));
+        instance.getTaskTree().addChangeListener(n -> SwingUtilities.invokeLater(this::refresh));
         refresh();
     }
 
@@ -76,9 +82,9 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
         }
     }
 
-    private static DefaultMutableTreeNode buildNode(TaskNode t) {
+    private static DefaultMutableTreeNode buildNode(TaskData t) {
         DefaultMutableTreeNode n = new DefaultMutableTreeNode(t);
-        for (TaskNode c : t.getChildren()) {
+        for (TaskData c : t.getChildren()) {
             n.add(buildNode(c));
         }
         return n;
@@ -86,7 +92,7 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
 
     private void showSelectedProtocol() {
         Object sel = tree.getLastSelectedPathComponent();
-        if (!(sel instanceof DefaultMutableTreeNode dn) || !(dn.getUserObject() instanceof TaskNode t)) {
+        if (!(sel instanceof DefaultMutableTreeNode dn) || !(dn.getUserObject() instanceof TaskData t)) {
             return;
         }
         StringBuilder sb = new StringBuilder();
@@ -114,7 +120,7 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
                 boolean expanded, boolean leaf, int row, boolean hasFocus) {
             JLabel label = (JLabel) super.getTreeCellRendererComponent(
                     tree, value, sel, expanded, leaf, row, hasFocus);
-            if (value instanceof DefaultMutableTreeNode dn && dn.getUserObject() instanceof TaskNode t) {
+            if (value instanceof DefaultMutableTreeNode dn && dn.getUserObject() instanceof TaskData t) {
                 String score = t.getScore() == null ? "" : " [" + t.getScore() + "]";
                 label.setText("#" + t.getId() + " " + t.getTitle() + score);
                 label.setForeground(colorFor(t.getStatus()));

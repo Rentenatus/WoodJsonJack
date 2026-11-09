@@ -38,10 +38,10 @@ public class HarnessRagPipelineNGTest {
     public void testStoreAfterEvaluateAndPruneAfterClose() {
         HarnessModel model = modelWithAllQuests();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "java streams pipeline"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "java streams pipeline");
         new HarnessEngine(model, instance, new DefaultCalculatorFactory(model)).run();
 
-        TaskNode root = instance.getRoot();
+        TaskData root = instance.getRoot();
         Assert.assertTrue(root.getCalculatorLog().stream().anyMatch(e -> e.getKind() == Kind.RAG_STORE),
                 "score 80 >= 50: RAG_STORE must run");
         Assert.assertTrue(root.getCalculatorLog().stream().anyMatch(e -> e.getKind() == Kind.RAG_PRUNE),
@@ -58,7 +58,7 @@ public class HarnessRagPipelineNGTest {
     public void testNoStoreBelowThreshold() {
         HarnessModel model = modelWithAllQuests();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "weak task"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "weak task");
         DefaultCalculatorFactory base = new DefaultCalculatorFactory(model);
         CalculatorFactory lowScore = (node, kind) -> {
             if (kind == Kind.EVALUATE) {
@@ -82,7 +82,7 @@ public class HarnessRagPipelineNGTest {
     public void testRetrieveFeedsSecondRun() {
         HarnessModel model = modelWithAllQuests();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "java streams pipeline"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "java streams pipeline");
         HarnessEngine engine = new HarnessEngine(model, instance, new DefaultCalculatorFactory(model));
         engine.run();
 

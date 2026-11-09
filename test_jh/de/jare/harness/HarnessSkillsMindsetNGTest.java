@@ -103,7 +103,7 @@ public class HarnessSkillsMindsetNGTest {
                     .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
         }
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "User sucht etwas analysieren"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "User sucht etwas analysieren");
 
         RagStore rag = instance.getRag(EmbeddingProvider.hashEmbedding());
         rag.setDefaults(new RagStore.RagDefaults(5, 0.0, 1000, 7L * 24 * 3600 * 1000));
@@ -161,7 +161,7 @@ public class HarnessSkillsMindsetNGTest {
                     .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
         }
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "facade check"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "facade check");
 
         List<CalcContext> seen = new ArrayList<>();
         DefaultCalculatorFactory base = new DefaultCalculatorFactory(model);

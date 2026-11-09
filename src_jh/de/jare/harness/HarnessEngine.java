@@ -47,7 +47,7 @@ public class HarnessEngine {
     private final CalculatorFactory factory;
     private final Limits limits;
     private final Deque<CallLogEntry> callStack = new ArrayDeque<>();
-    private final List<BiConsumer<TaskNode, String>> listeners = new ArrayList<>();
+    private final List<BiConsumer<TaskData, String>> listeners = new ArrayList<>();
     private final RelevanceRegistry relevanceRegistry;
     private final PromptAssembler promptAssembler;
     private final HarnessTools tools;
@@ -134,7 +134,7 @@ public class HarnessEngine {
     }
 
     /** §14 ctx.ui.focusTask - notifies the harness window to focus a task node. */
-    public void focusTask(TaskNode task) {
+    public void focusTask(TaskData task) {
         notify(task, null, "focus");
     }
 
@@ -206,13 +206,13 @@ public class HarnessEngine {
         return limits;
     }
 
-    public void addListener(BiConsumer<TaskNode, String> listener) {
+    public void addListener(BiConsumer<TaskData, String> listener) {
         listeners.add(listener);
     }
 
-    public void notify(TaskNode task, Kind kind, String text) {
+    public void notify(TaskData task, Kind kind, String text) {
         String msg = "[task " + task.getId() + " / " + kind + "] " + text;
-        for (BiConsumer<TaskNode, String> l : listeners) {
+        for (BiConsumer<TaskData, String> l : listeners) {
             l.accept(task, msg);
         }
     }
@@ -226,7 +226,7 @@ public class HarnessEngine {
     }
 
     /** The deterministic pipeline for one task (§3). */
-    private void process(TaskNode task) {
+    private void process(TaskData task) {
         task.setStatus(Status.RUNNING);
         int stackBase = callStack.size();
         try {
@@ -238,7 +238,7 @@ public class HarnessEngine {
         }
     }
 
-    private void processLoop(TaskNode task) {
+    private void processLoop(TaskData task) {
         while (true) {
             limits.countIteration();
             if (limits.isAborted(task.depth())) {
@@ -312,7 +312,7 @@ public class HarnessEngine {
      * A {@link HarnessException} is caught here (catch-mapping §13) and falls back to
      * the deterministic calculator of the same kind.
      */
-    private CalcResult execute(TaskNode task, Kind kind) {
+    private CalcResult execute(TaskData task, Kind kind) {
         Quest quest = model.questFor(kind);
         if (quest == null) {
             return null; // kind not modelled - skipped deterministically
@@ -371,7 +371,7 @@ public class HarnessEngine {
      * (the full text stays in the RAG) - and finally the mindset category as a SYSTEM
      * segment (§16). The assembler enforces the hard budgets afterwards (§4).
      */
-    private List<PromptSegment> buildSegments(TaskNode task, Kind kind, String auftrag) {
+    private List<PromptSegment> buildSegments(TaskData task, Kind kind, String auftrag) {
         List<PromptSegment> resolved = new ArrayList<>(relevanceRegistry.resolve(task.getTaskType(),
                 task.getAttempt(), kind, model.getVersion(), auftrag));
         if (kind == Kind.WORK || kind == Kind.CHECK || kind == Kind.COMPLETE) {
@@ -417,7 +417,7 @@ public class HarnessEngine {
      * Fires a driver signal: when the node has an on-mapping for it, the mapped child
      * calculator runs (§13) - e.g. TOOL_ERROR → CHECK for a retry.
      */
-    public void onSignal(TaskNode task, Kind kind, String slotId, CalculatorNode node,
+    public void onSignal(TaskData task, Kind kind, String slotId, CalculatorNode node,
                          de.jare.harness.signals.Signal signal) {
         CalculatorNode mapped = node == null ? null : node.getOn().get(signal);
         if (mapped != null) {

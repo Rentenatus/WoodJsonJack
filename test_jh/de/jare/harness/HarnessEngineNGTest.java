@@ -42,7 +42,7 @@ public class HarnessEngineNGTest {
 
     private static HarnessEngine engineFor(HarnessModel model, String rootTitle) {
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", rootTitle));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", rootTitle);
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
         return new HarnessEngine(model, instance, factory);
     }
@@ -52,7 +52,7 @@ public class HarnessEngineNGTest {
         HarnessEngine engine = engineFor(modelWithAllQuests(), "research topic");
         engine.run();
 
-        TaskNode root = engine.getInstance().getRoot();
+        TaskData root = engine.getInstance().getRoot();
         Assert.assertEquals(root.getStatus(), Status.DONE);
         Assert.assertEquals(root.getArtifact(), "closed:research topic");
         Assert.assertEquals(root.getScore(), Integer.valueOf(80));
@@ -100,9 +100,9 @@ public class HarnessEngineNGTest {
         HarnessEngine engine = engineFor(modelWithAllQuests(), "open question?");
         engine.run();
 
-        TaskNode root = engine.getInstance().getRoot();
+        TaskData root = engine.getInstance().getRoot();
         Assert.assertEquals(root.getChildren().size(), 1);
-        TaskNode reasoning = root.getChildren().get(0);
+        TaskData reasoning = root.getChildren().get(0);
         Assert.assertEquals(reasoning.getTaskType(), "REASONING");
         Assert.assertEquals(reasoning.getStatus(), Status.DONE);
         Assert.assertEquals(root.getStatus(), Status.DONE);
@@ -112,7 +112,7 @@ public class HarnessEngineNGTest {
     public void testSplitRewritesTaskAsSummaryAndClosesChildren() {
         HarnessModel model = modelWithAllQuests();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "split:big topic"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "split:big topic");
         // custom factory seam: deterministic split when the title starts with "split:"
         DefaultCalculatorFactory base = new DefaultCalculatorFactory(model);
         CalculatorFactory factory = (node, kind) -> {
@@ -137,10 +137,10 @@ public class HarnessEngineNGTest {
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
         engine.run();
 
-        TaskNode root = instance.getRoot();
+        TaskData root = instance.getRoot();
         Assert.assertTrue(root.isSummaryTask());
         Assert.assertEquals(root.getChildren().size(), 3);
-        for (TaskNode child : root.getChildren()) {
+        for (TaskData child : root.getChildren()) {
             Assert.assertEquals(child.getStatus(), Status.DONE);
         }
         Assert.assertEquals(root.getStatus(), Status.DONE);
@@ -158,14 +158,14 @@ public class HarnessEngineNGTest {
                 .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_AI).modelclass("edit")));
 
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "CODE_EDIT", "edit something"));
+        instance.newRootTask(instance.nextTaskId(), "CODE_EDIT", "edit something");
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
         factory.registerProvider("ollama",
                 new OllamaProvider("http://127.0.0.1:1", model.modelclass("edit"))); // nothing listens there
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
         engine.run();
 
-        TaskNode root = instance.getRoot();
+        TaskData root = instance.getRoot();
         Assert.assertEquals(root.getStatus(), Status.DONE, "fallback must still close the task");
         CallLogEntry workCall = root.getCalculatorLog().stream()
                 .filter(e -> e.getKind() == Kind.WORK).findFirst().orElseThrow();
@@ -181,7 +181,7 @@ public class HarnessEngineNGTest {
         HarnessEngine engine = engineFor(model, "loop forever?");
         engine.run();
 
-        TaskNode root = engine.getInstance().getRoot();
+        TaskData root = engine.getInstance().getRoot();
         Assert.assertEquals(root.getStatus(), Status.ABORTED);
         Assert.assertTrue(engine.getLimits().getCounter(Limits.ITERATIONS) >= 3);
     }

@@ -11,7 +11,7 @@ import de.jare.harness.CalcResult;
 import de.jare.harness.HarnessCalculator;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
-import de.jare.harness.TaskNode;
+import de.jare.harness.TaskData;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -76,7 +76,7 @@ public final class DeterministicCalculators {
     }
 
     private static CalcResult work(CalcContext ctx) {
-        TaskNode t = ctx.task();
+        TaskData t = ctx.task();
         String artifact = "worked:" + t.getTitle();
         return CalcResult.of(Kind.WORK, "worked").put("artifact", artifact).status(Status.DONE);
     }
@@ -99,7 +99,7 @@ public final class DeterministicCalculators {
 
     private static CalcResult summarize(CalcContext ctx) {
         List<String> parts = new ArrayList<>();
-        for (TaskNode c : ctx.task().getChildren()) {
+        for (TaskData c : ctx.task().getChildren()) {
             if (c.getArtifact() != null) {
                 parts.add(c.getArtifact());
             }
@@ -114,7 +114,7 @@ public final class DeterministicCalculators {
      * driver (after EVALUATE), the store itself just stores + dedups by contentHash.
      */
     private static CalcResult ragStore(CalcContext ctx) {
-        TaskNode t = ctx.task();
+        TaskData t = ctx.task();
         String document = (t.getArtifact() == null ? "worked:" + t.getTitle() : t.getArtifact())
                 + (t.getPromptSupplement().isEmpty() ? "" : "\n" + t.getPromptSupplement());
         java.util.Map<String, String> meta = new java.util.LinkedHashMap<>();

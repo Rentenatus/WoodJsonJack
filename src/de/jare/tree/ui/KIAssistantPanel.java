@@ -101,7 +101,7 @@ public class KIAssistantPanel extends JPanel {
     /**
      * "Thinking" action - Enter in the input and "Ask AI" both land here. The input text is
      * handed to the installed handler, which starts the WoodHarness AskAi run (the harness core
-     * creates the MemoryQuest/WorkOrder; this pane knows no TaskNode logic).
+     * creates the MemoryQuest/WorkOrder; this pane knows no TaskData logic).
      */
     private void onThinking() {
         if (thinkingHandler != null) {

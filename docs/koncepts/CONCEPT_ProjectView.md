@@ -314,10 +314,13 @@ explicit, on-demand action instead of a forced tax on every copy:
 RerollID(bundle, disjoint_to_bundles: [bundle1, …, bundleN])   ← N optional, may be empty
 ```
 
-- **Semantics:** every Wood object ID and provider synonym inside the bundle is replaced by a
-  newly generated one; every internal reference to a rerolled ID (`_woodLink`, `syn::id` targets)
-  is rewritten consistently. The rewrite scope is the bundle itself — well-defined precisely
-  *because* of Strategy B.
+- **Semantics:** every provider synonym inside the bundle is replaced by a newly generated one
+  (the default — the wiring names must be fresh per tree, a shared resolution scope rejects a
+  duplicate synonym); the Wood object IDs reroll only on explicit request (the exception — same
+  IDs across bundle copies are a strong hint for the compare, ids are bundle-scoped anyway).
+  Every internal reference to a rerolled identity (`_woodLink`, `syn::id` targets) is rewritten
+  consistently. The rewrite scope is the bundle itself — well-defined precisely *because* of
+  Strategy B.
 - **`disjunct_to_bundles`:** the engine-level tool — a list of trees whose ID sets the new values
   must not collide with. Empty list = fresh within the bundle. It stays a parameter so non-UI
   callers (scripts, later shared-scope setups) can pick subsets deliberately.
@@ -412,13 +415,16 @@ keep their names because the bundle rename freed the word *project* for exactly 
    `WoodProxyResolver` (owner-relative resolution, no cwd fallback); the fixtures carry
    file-relative paths now. Downstream consumers (clone deep relocation, reroll classification,
    the imports resolver) already lived by this convention.
-8. **Synonym reroll as a switch (decided - amendment of section 7.1):** the wood object IDs always
-   reroll (the point of RerollID), the provider synonyms reroll only with the switch on. The dialog
-   carries the checkbox, default ON (the binding original), the engine takes the flag
-   (`BundleReroller.plan(..., rerollSynonyms)`). With the switch off: the bundle keeps its wiring
-   names, the ids still reroll project-wide disjoint, the internal references only exchange their
-   id part - dangling validation is not optional. Use case: keep readable wiring names when only
-   the identities must become fresh (a shared scope without a rename).
+8. **Reroll scope inverted (decided - amendment of section 7.1):** the provider synonyms are the
+   default reroll (switch ON), the wood object IDs reroll only as the exception (switch OFF).
+   Rationale: ids are bundle-scoped (Strategy B), so copies of one file may keep the same numbers -
+   a strong hint for the compare - while a synonym is a wiring name in the shared namespace and a
+   duplicate on another path is a parse conflict. The dialog carries both checkboxes, the engine
+   takes both flags (`BundleReroller.plan(..., rerollIds, rerollSynonyms)`; the 5-arg overload is
+   the binding default `rerollIds=false, rerollSynonyms=true`). With the id switch off: the ids
+   stay, the internal references only exchange their synonym part, a self reference
+   (`this::`/`self::`) needs no rewrite at all. External references stay untouched in every switch
+   position - dangling validation is not optional.
 9. **Isolated sources (decided - phase 9):** an `isolated` partition mounts a view-only old world:
    bundles a user wants to *look at* - typically an older version of a project bundle (from git,
    a worktree or a copy; the extraction from git itself is a later comfort, v1 mounts a folder the

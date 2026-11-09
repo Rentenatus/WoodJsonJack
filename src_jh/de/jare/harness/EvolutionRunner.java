@@ -89,7 +89,7 @@ public class EvolutionRunner {
         MetricsStore aggregate = new MetricsStore();
         for (String[] spec : sampleTasks) {
             HarnessInstance single = new HarnessInstance(model.getName(), model.getVersion());
-            single.setRoot(new TaskNode(single.nextTaskId(), spec[0], spec[1]));
+            single.newRootTask(single.nextTaskId(), spec[0], spec[1]);
             new HarnessEngine(measurementModel, single, factory).run();
             for (CallLogEntry entry : single.getCallLog()) {
                 aggregate.recordCall(entry);

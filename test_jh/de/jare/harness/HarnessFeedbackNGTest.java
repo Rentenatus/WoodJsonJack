@@ -43,7 +43,7 @@ public class HarnessFeedbackNGTest {
     public void testHealthyRunProposesNoSwap() {
         HarnessModel model = modelWithAllQuests();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "healthy run"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "healthy run");
         HarnessEngine engine = new HarnessEngine(model, instance, new DefaultCalculatorFactory(model));
         HarnessLineage lineage = new HarnessLineage(model);
         engine.setLineage(lineage);
@@ -58,7 +58,7 @@ public class HarnessFeedbackNGTest {
     public void testPoorScoreProposesSwapAsChildVersion() {
         HarnessModel model = modelWithAllQuests();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "poor run"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "poor run");
         // factory seam: EVALUATE scores only 20 -> below threshold
         DefaultCalculatorFactory base = new DefaultCalculatorFactory(model);
         CalculatorFactory factory = (node, kind) -> {

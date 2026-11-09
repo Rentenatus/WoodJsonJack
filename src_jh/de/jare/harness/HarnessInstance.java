@@ -26,7 +26,8 @@ public class HarnessInstance {
     private final String modelName;
     private final String modelVersion;
     private java.io.File projectRoot;   // sandbox root for the fs.* tools (§13)
-    private TaskNode root;
+    private TaskTree taskTree = new TaskTree();  // the task tree as a real EditTree (§3)
+    private TaskData root;
     private long nextTaskId = 1;
     private long nextAufrufId = 1;
     private final List<CallLogEntry> callLog = new ArrayList<>();
@@ -55,11 +56,28 @@ public class HarnessInstance {
         this.projectRoot = projectRoot;
     }
 
-    public TaskNode getRoot() {
+    /** The task tree of this instance as a real EditTree - the same instances the editor shows. */
+    public TaskTree getTaskTree() {
+        return taskTree;
+    }
+
+    /** Adopts a loaded task tree (codec) and sets its root task. */
+    public void adoptTaskTree(TaskTree taskTree) {
+        this.taskTree = taskTree;
+        this.root = taskTree.getRootTask();
+    }
+
+    /** Creates the root task on this instance's own task tree. */
+    public TaskData newRootTask(long id, String taskType, String title) {
+        this.root = taskTree.newRoot(id, taskType, title);
+        return this.root;
+    }
+
+    public TaskData getRoot() {
         return root;
     }
 
-    public void setRoot(TaskNode root) {
+    public void setRoot(TaskData root) {
         this.root = root;
     }
 

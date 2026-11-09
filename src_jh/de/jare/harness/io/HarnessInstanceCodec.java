@@ -10,7 +10,8 @@ import de.jare.harness.CallLogEntry;
 import de.jare.harness.HarnessInstance;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
-import de.jare.harness.TaskNode;
+import de.jare.harness.TaskData;
+import de.jare.harness.TaskTree;
 import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.io.JsonNodeWriter;
 import de.jare.jsoncasted.io.JsonParseException;
@@ -49,8 +50,12 @@ public final class HarnessInstanceCodec {
         long maxAufrufId = 0;
         JsonNode task = child(root, "rootTask");
         if (task != null) {
-            instance.setRoot(taskFromJson(task));
-            maxTaskId = deepestTaskId(instance.getRoot());
+            try {
+                instance.adoptTaskTree(TaskTree.fromJson(normalizeLegacyTask(task)));
+                maxTaskId = deepestTaskId(instance.getRoot());
+            } catch (JsonParseException e) {
+                throw new IllegalStateException("rootTask is no parseable task tree: " + e.getMessage(), e);
+            }
         }
         JsonNode log = child(root, "callLog");
         if (log != null && log.isArray()) {
@@ -87,127 +92,92 @@ public final class HarnessInstanceCodec {
         return root;
     }
 
-    private static JsonNode taskToJson(TaskNode t) {
+    /**
+     * Serializes a task into the EditTree-shaped JsonNode (member properties + "tasks"
+     * array of subtasks) - the same shape the EditTree writer produces, so a saved
+     * harness.json is directly re-importable via {@link TaskTree#fromJson}.
+     */
+    private static JsonNode taskToJson(TaskData t) {
         JsonNode n = JsonNode.objectNode();
-        n.put("id", JsonNode.longNode(t.getId()));
-        n.put("taskType", JsonNode.stringNode(t.getTaskType()));
-        n.put("title", JsonNode.stringNode(t.getTitle()));
-        n.put("status", JsonNode.stringNode(t.getStatus().name()));
+        n.put(TaskData.M_ID, JsonNode.longNode(t.getId()));
+        n.put(TaskData.M_TYPE, JsonNode.stringNode(t.getTaskType()));
+        n.put(TaskData.M_TITLE, JsonNode.stringNode(t.getTitle()));
+        n.put(TaskData.M_STATUS, JsonNode.stringNode(t.getStatus().name()));
         if (t.getScore() != null) {
-            n.put("score", JsonNode.longNode(t.getScore()));
+            n.put(TaskData.M_SCORE, JsonNode.longNode(t.getScore()));
         }
-        n.put("attempt", JsonNode.longNode(t.getAttempt()));
-        n.put("summaryTask", JsonNode.booleanNode(t.isSummaryTask()));
-        n.put("promptSupplement", JsonNode.stringNode(t.getPromptSupplement()));
+        n.put(TaskData.M_ATTEMPT, JsonNode.longNode(t.getAttempt()));
+        n.put(TaskData.M_SUMMARY, JsonNode.booleanNode(t.isSummaryTask()));
+        n.put(TaskData.M_SUPPLEMENT, JsonNode.stringNode(t.getPromptSupplement()));
         if (t.getArtifact() != null) {
-            n.put("artifact", JsonNode.stringNode(t.getArtifact()));
+            n.put(TaskData.M_ARTIFACT, JsonNode.stringNode(t.getArtifact()));
         }
         JsonNode children = JsonNode.arrayNode();
-        for (TaskNode c : t.getChildren()) {
+        for (TaskData c : t.getChildren()) {
             children.add(taskToJson(c));
         }
-        n.put("children", children);
+        n.put(TaskTree.TASK_ARRAY, children);
         JsonNode log = JsonNode.arrayNode();
         for (CallLogEntry e : t.getCalculatorLog()) {
-            log.add(entryToJson(e));
+            log.add(e.toJson());
         }
-        n.put("calculatorLog", log);
+        try {
+            n.put(TaskData.M_LOG, JsonNode.stringNode(JsonNodeWriter.writeToString(log)));
+        } catch (Exception e) {
+            throw new IllegalStateException("calculatorLog is not serializable: " + e.getMessage(), e);
+        }
         return n;
     }
 
-    private static TaskNode taskFromJson(JsonNode n) {
-        TaskNode t = new TaskNode(longOf(n, "id", 0), text(n, "taskType", ""), text(n, "title", ""));
-        t.setStatus(Status.valueOf(text(n, "status", "PENDING")));
-        if (child(n, "score") != null) {
-            t.setScore(child(n, "score").asLong().intValue());
+    /**
+     * Converts the legacy persisted shape ("id"/"children") into the EditTree shape
+     * (member names + "tasks" array) so old harness.json files still load.
+     */
+    private static JsonNode normalizeLegacyTask(JsonNode n) {
+        if (n == null || !n.isObject()) {
+            return n;
         }
-        for (int i = 0; i < longOf(n, "attempt", 0); i++) {
-            t.incrementAttempt();
-        }
-        if (child(n, "summaryTask") != null && child(n, "summaryTask").asBoolean()) {
-            t.rewriteAsSummary();
-        }
-        t.appendPromptSupplement(text(n, "promptSupplement", ""));
-        if (child(n, "artifact") != null) {
-            t.close(child(n, "artifact").asText());
-            t.setStatus(Status.valueOf(text(n, "status", "DONE")));
-        }
-        JsonNode children = child(n, "children");
-        if (children != null && children.isArray()) {
-            for (JsonNode c : children.asArray()) {
-                TaskNode child = taskFromJson(c);
-                // parent link is rebuilt via addSubtask semantics
-                t.getChildren().add(child);
-                setParent(child, t);
+        JsonNode out = JsonNode.objectNode();
+        for (Map.Entry<String, JsonNode> e : n.asObjectValues().entrySet()) {
+            String key = e.getKey();
+            if ("id".equals(key)) {
+                key = TaskData.M_ID;
+            } else if ("children".equals(key)) {
+                key = TaskTree.TASK_ARRAY;
+            }
+            JsonNode v = e.getValue();
+            if (TaskTree.TASK_ARRAY.equals(key) && v != null && v.isArray()) {
+                JsonNode arr = JsonNode.arrayNode();
+                for (JsonNode c : v.asArray()) {
+                    arr.add(normalizeLegacyTask(c));
+                }
+                out.put(key, arr);
+            } else if (TaskData.M_LOG.equals(key) && v != null && v.isArray()) {
+                // legacy stored the log as a JSON array; the EditTree shape stores it as a
+                // string member - without this conversion the log would be lost on load
+                try {
+                    out.put(key, JsonNode.stringNode(JsonNodeWriter.writeToString(v)));
+                } catch (Exception ex) {
+                    throw new IllegalStateException("legacy calculatorLog is not serializable", ex);
+                }
+            } else {
+                out.put(key, v);
             }
         }
-        JsonNode log = child(n, "calculatorLog");
-        if (log != null && log.isArray()) {
-            for (JsonNode e : log.asArray()) {
-                t.logCall(entryFromJson(e));
-            }
-        }
-        return t;
-    }
-
-    private static void setParent(TaskNode node, TaskNode parent) {
-        node.setParentInternal(parent);
+        return out;
     }
 
     private static JsonNode entryToJson(CallLogEntry e) {
-        JsonNode n = JsonNode.objectNode();
-        n.put("aufrufId", JsonNode.longNode(e.getAufrufId()));
-        n.put("taskId", JsonNode.longNode(e.getTaskId()));
-        n.put("taskType", JsonNode.stringNode(e.getTaskType()));
-        n.put("kind", JsonNode.stringNode(e.getKind().name()));
-        n.put("slotId", JsonNode.stringNode(e.getSlotId()));
-        n.put("modelVersion", JsonNode.stringNode(e.getModelVersion()));
-        n.put("attempt", JsonNode.longNode(e.getAttempt()));
-        n.put("dauerMs", JsonNode.longNode(e.getDauerMs()));
-        n.put("tokensIn", JsonNode.longNode(e.getTokensIn()));
-        n.put("tokensOut", JsonNode.longNode(e.getTokensOut()));
-        if (e.getScore() != null) {
-            n.put("score", JsonNode.longNode(e.getScore()));
-        }
-        n.put("status", JsonNode.stringNode(e.getStatus().name()));
-        n.put("decision", JsonNode.stringNode(e.getDecision()));
-        if (e.getParent1() != null) {
-            JsonNode p1 = JsonNode.objectNode();
-            p1.put("aufrufId", JsonNode.longNode(e.getParent1().aufrufId));
-            if (e.getParent1().score != null) {
-                p1.put("score", JsonNode.longNode(e.getParent1().score));
-            }
-            p1.put("status", JsonNode.stringNode(e.getParent1().status.name()));
-            n.put("parent1", p1);
-        }
-        if (e.getParent2() != null) {
-            n.put("parent2", JsonNode.longNode(e.getParent2()));
-        }
-        return n;
+        return e.toJson();
     }
 
     private static CallLogEntry entryFromJson(JsonNode n) {
-        CallLogEntry.Parent1 p1 = null;
-        JsonNode p1n = child(n, "parent1");
-        if (p1n != null) {
-            p1 = new CallLogEntry.Parent1(
-                    longOf(p1n, "aufrufId", 0),
-                    child(p1n, "score") == null ? null : child(p1n, "score").asLong().intValue(),
-                    Status.valueOf(text(p1n, "status", "DONE")));
-        }
-        Long p2 = child(n, "parent2") == null ? null : child(n, "parent2").asLong();
-        return new CallLogEntry(
-                longOf(n, "aufrufId", 0), longOf(n, "taskId", 0), text(n, "taskType", ""),
-                Kind.valueOf(text(n, "kind", "WORK")), text(n, "slotId", ""),
-                text(n, "modelVersion", ""), (int) longOf(n, "attempt", 0),
-                longOf(n, "dauerMs", 0), (int) longOf(n, "tokensIn", 0), (int) longOf(n, "tokensOut", 0),
-                child(n, "score") == null ? null : child(n, "score").asLong().intValue(),
-                Status.valueOf(text(n, "status", "DONE")), text(n, "decision", ""), p1, p2);
+        return CallLogEntry.fromJson(n);
     }
 
-    private static long deepestTaskId(TaskNode t) {
+    private static long deepestTaskId(TaskData t) {
         long max = t.getId();
-        for (TaskNode c : t.getChildren()) {
+        for (TaskData c : t.getChildren()) {
             max = Math.max(max, deepestTaskId(c));
         }
         return max;

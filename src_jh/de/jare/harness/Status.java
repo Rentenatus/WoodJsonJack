@@ -7,7 +7,7 @@
 package de.jare.harness;
 
 /**
- * Lifecycle status of a {@link TaskNode}. EVALUATE sets it, CLOSE rolls it upwards
+ * Lifecycle status of a {@link TaskData}. EVALUATE sets it, CLOSE rolls it upwards
  * (CONCEPT_Harness.md §3).
  *
  * @author Janusch Rentenatus

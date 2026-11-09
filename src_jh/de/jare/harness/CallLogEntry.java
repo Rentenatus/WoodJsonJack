@@ -6,6 +6,8 @@
  */
 package de.jare.harness;
 
+import de.jare.jsoncasted.lang.JsonNode;
+
 /**
  * Metrics-only entry of the call log (CONCEPT_Harness.md §6): never prompt texts,
  * only the structured key figure set. {@code parent1} is stored redundantly
@@ -81,4 +83,74 @@ public class CallLogEntry {
     public String getDecision() { return decision; }
     public Parent1 getParent1() { return parent1; }
     public Long getParent2() { return parent2; }
+
+    /** Serializes this entry to its JsonNode form (persisted in the call log / node log member). */
+    public JsonNode toJson() {
+        JsonNode n = JsonNode.objectNode();
+        n.put("aufrufId", JsonNode.longNode(aufrufId));
+        n.put("taskId", JsonNode.longNode(taskId));
+        n.put("taskType", JsonNode.stringNode(taskType));
+        n.put("kind", JsonNode.stringNode(kind.name()));
+        n.put("slotId", JsonNode.stringNode(slotId));
+        n.put("modelVersion", JsonNode.stringNode(modelVersion));
+        n.put("attempt", JsonNode.longNode(attempt));
+        n.put("dauerMs", JsonNode.longNode(dauerMs));
+        n.put("tokensIn", JsonNode.longNode(tokensIn));
+        n.put("tokensOut", JsonNode.longNode(tokensOut));
+        if (score != null) {
+            n.put("score", JsonNode.longNode(score));
+        }
+        n.put("status", JsonNode.stringNode(status.name()));
+        n.put("decision", JsonNode.stringNode(decision));
+        if (parent1 != null) {
+            JsonNode p1 = JsonNode.objectNode();
+            p1.put("aufrufId", JsonNode.longNode(parent1.aufrufId));
+            if (parent1.score != null) {
+                p1.put("score", JsonNode.longNode(parent1.score));
+            }
+            p1.put("status", JsonNode.stringNode(parent1.status.name()));
+            n.put("parent1", p1);
+        }
+        if (parent2 != null) {
+            n.put("parent2", JsonNode.longNode(parent2));
+        }
+        return n;
+    }
+
+    /** Reads an entry back from its JsonNode form. */
+    public static CallLogEntry fromJson(JsonNode n) {
+        Parent1 p1 = null;
+        JsonNode p1n = child(n, "parent1");
+        if (p1n != null) {
+            p1 = new Parent1(
+                    longOf(p1n, "aufrufId", 0),
+                    child(p1n, "score") == null ? null : child(p1n, "score").asLong().intValue(),
+                    Status.valueOf(text(p1n, "status", "DONE")));
+        }
+        Long p2 = child(n, "parent2") == null ? null : child(n, "parent2").asLong();
+        return new CallLogEntry(
+                longOf(n, "aufrufId", 0), longOf(n, "taskId", 0), text(n, "taskType", ""),
+                Kind.valueOf(text(n, "kind", "WORK")), text(n, "slotId", ""),
+                text(n, "modelVersion", ""), (int) longOf(n, "attempt", 0),
+                longOf(n, "dauerMs", 0), (int) longOf(n, "tokensIn", 0), (int) longOf(n, "tokensOut", 0),
+                child(n, "score") == null ? null : child(n, "score").asLong().intValue(),
+                Status.valueOf(text(n, "status", "DONE")), text(n, "decision", ""), p1, p2);
+    }
+
+    private static JsonNode child(JsonNode node, String key) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+        return node.asObjectValues().get(key);
+    }
+
+    private static String text(JsonNode node, String key, String def) {
+        JsonNode v = child(node, key);
+        return v == null || v.isNull() ? def : v.asText();
+    }
+
+    private static long longOf(JsonNode node, String key, long def) {
+        JsonNode v = child(node, key);
+        return v == null || v.isNull() ? def : v.asLong();
+    }
 }

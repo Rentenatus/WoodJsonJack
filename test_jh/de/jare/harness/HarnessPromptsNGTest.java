@@ -113,7 +113,7 @@ public class HarnessPromptsNGTest {
                     .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
         }
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "history check"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "history check");
 
         List<List<String>> workPrompts = new ArrayList<>();
         DefaultCalculatorFactory base = new DefaultCalculatorFactory(model);

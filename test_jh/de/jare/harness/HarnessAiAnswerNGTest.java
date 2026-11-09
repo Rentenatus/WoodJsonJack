@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 public class HarnessAiAnswerNGTest {
 
     private static CalcContext ctx(HarnessEngine engine, HarnessInstance instance, HarnessModel model) {
-        TaskNode task = new TaskNode(1, "RESEARCH", "ai answer test");
+        TaskData task = TaskData.create(1, "RESEARCH", "ai answer test");
         return new CalcContext(engine, instance, model, task, Kind.WORK, "work.ai",
                 CalculatorNode.atomic(CalculatorNode.IMPL_AI).modelclass("edit"),
                 engine.getLimits(), List.of("AUFTRAG: test"));

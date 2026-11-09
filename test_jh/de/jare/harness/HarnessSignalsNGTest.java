@@ -46,7 +46,7 @@ public class HarnessSignalsNGTest {
         base.on(Signal.ANSWER_RECEIVED, CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).tool("count"));
 
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "RESEARCH", "signal test"));
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "signal test");
         HarnessEngine engine = new HarnessEngine(model, instance, new DefaultCalculatorFactory(model) {
             @Override
             public HarnessCalculator createAtomic(CalculatorNode node, Kind kind) {
@@ -79,7 +79,7 @@ public class HarnessSignalsNGTest {
         work.addSlot(new Slot("work.ai").calculator(ai));
 
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        instance.setRoot(new TaskNode(instance.nextTaskId(), "CODE_EDIT", "catch me"));
+        instance.newRootTask(instance.nextTaskId(), "CODE_EDIT", "catch me");
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
         factory.registerProvider("ollama", new de.jare.harness.impl.ollama.OllamaProvider(
                 "http://127.0.0.1:1", model.modelclass("edit")));
@@ -113,7 +113,7 @@ public class HarnessSignalsNGTest {
     public void testCompactLandsAsMarkedHistorySupplement() {
         HarnessModel model = modelWithAllQuests();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
-        TaskNode task = new TaskNode(instance.nextTaskId(), "RESEARCH", "compact me");
+        TaskData task = TaskData.create(instance.nextTaskId(), "RESEARCH", "compact me");
         instance.setRoot(task);
         HarnessEngine engine = new HarnessEngine(model, instance, new DefaultCalculatorFactory(model));
         CalcContext ctx = new CalcContext(engine, instance, model, task, Kind.WORK, "work.base",

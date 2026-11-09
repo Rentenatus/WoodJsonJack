@@ -9,7 +9,7 @@ package de.jare.tree.ui.harness;
 import de.jare.harness.HarnessEngine;
 import de.jare.harness.HarnessInstance;
 import de.jare.harness.HarnessService;
-import de.jare.harness.TaskNode;
+import de.jare.harness.TaskData;
 import de.jare.harness.spi.HarnessHost;
 import de.jare.tree.settings.WoodSettings;
 import de.jare.tree.ui.WoodWindow;
@@ -39,7 +39,7 @@ public class HarnessController {
     private HarnessInstance lastInstance;
     private HarnessEngine lastEngine;
     private JDialog viewDialog;
-    private final List<BiConsumer<TaskNode, String>> runListeners = new ArrayList<>();
+    private final List<BiConsumer<TaskData, String>> runListeners = new ArrayList<>();
 
     public HarnessController(JFrame owner) {
         this.owner = owner;
@@ -61,7 +61,7 @@ public class HarnessController {
     /**
      * AskAi entry from the KI pane (Enter / "Ask AI"): runs the main AskAi quest with the user
      * prompt. The harness core (HarnessService.runTask) creates the MemoryQuest + WorkOrder -
-     * this controller only triggers, it never builds TaskNode/WorkOrder itself.
+     * this controller only triggers, it never builds TaskData/WorkOrder itself.
      */
     public void runAskAi(File projectRoot, String prompt) {
         if (projectRoot == null) {
@@ -102,7 +102,7 @@ public class HarnessController {
             }
 
             @Override
-            public void addRunListener(BiConsumer<TaskNode, String> listener) {
+            public void addRunListener(BiConsumer<TaskData, String> listener) {
                 runListeners.add(listener);
             }
         };

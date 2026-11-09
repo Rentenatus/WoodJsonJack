@@ -79,6 +79,29 @@ Die Daten des Harness-Fensters werden **als Baum gespeichert** und via jsonCaste
 Das Harness-Fenster zeigt den Baum live (Status-Farben, Score-Badges); Klick auf einen Knoten zeigt dessen
 Kalkulator-Protokoll. Pro Aufruf wird im Knoten gespeichert: `kind, attempt, segmentRefs[], promptHash, result`.
 
+**Baumstruktur = EditTree (entschieden, Umsetzungsplanung siehe PROGRESS_Harness.md §9):** Der Task-Baum
+ist **keine parallele Welt**, sondern eine echte `EditTree` (jsonCasted_edit) im Harness. `TaskNode` wird
+zu **`TaskData`** — einer **Facade mit Back-Reference**: TaskData hält den belegten `EditNodeObject` und
+führt das Attach intern aus (`setStatus/close/logCall/…` schreiben durch in die Captured Attributes des
+Node und feuern das Change-Event). Die Attributes bleiben primitive, serialisierbare Werte (Status-String,
+Score-long …), damit Persistierung via JsonNode und Anzeige via `rightString()` ohne Sonder-Codec laufen.
+Die Node→TaskData-Richtung läuft über eine Registry pro WorkOrder (`IdentityHashMap<EditNode, TaskData>`) —
+Struktur (parent/children) lebt im EditNode, Payload in der Registry; keine zwei Sources of Truth.
+Die Swing-Seite kopiert nichts: `JackTreeModel` hängt die EditNode-Instanzen
+direkt als `userObject` in die `DefaultMutableTreeNode` — Harness und JTree zeigen **dieselben Instanzen**.
+Sync: Der Harness mutiert die EditTree und feuert die bestehenden Events (`TypeParserListener` /
+`notifyChildAdded/Removed/…`); der Host (WJJ) hängt sich als Listener ein und stößt
+`rebuildFromDomain()`/`structureChanged` an (EDT-Marshalling via `SwingUtilities.invokeLater`, da der
+Harness nicht auf dem EDT läuft). **Schutz vor Fremdeinwirkung:** Harness-Bäume sind read-only für die UI —
+entweder `readOnly`-Flag an der EditTree, das jede `CommandAvailability` verweigert, oder das Harness-Panel
+führt keine Edit-Commands aus; einziger Mutationspfad ist die TaskData-Facade. Das Read-only schützt auch
+den Node-Lebenszyklus (kein deepCopy/Undo/Cut auf Harness-Bäumen, sonst zeigt die Back-Reference ins Leere).
+Verworfene Alternativen:
+TaskNode-extends-EditNode (sealed interface, 4 permits), ViewNode als 5. permit (src_jh dürfte ihn nicht
+benutzen), ViewNode in jsonCasted als eigener Baum (Editor müsste konvertieren), TaskData als reine
+JsonNode-Facade ohne Back-Reference (zwei Mutationspfade), TaskData als Instanz in den Attributes
+(nicht serialisierbar, Persistierung bräuchte Sonder-Codec).
+
 Pipeline pro Task (deterministischer Treiber): CHECK → COMPLETE/SPLIT → WORK → EVALUATE → CHECK
 (Retry mit Prompt-Supplement | Subtasks) → SUMMARIZE → CLOSE. ABORT wird in jedem Durchlauf konsultiert.
 
@@ -272,8 +295,11 @@ Store sammelt **keine Einträge** (kein append-only Log, keine nachträgliche Ge
 ## 10. Package-Layout und Schichtenarchitektur (WoodHarness als eigenes Produkt)
 
 **Ecosystem-Schichten:** `jsonCasted` (Base-Lib) → `jsonCasted_edit` (Editor-Framework) → **WoodHarness** → WoodJsonJack.
-WoodHarness ist host-agnostisch: Es liegt in `src_jh/` und darf **nichts** aus dem WJJ-`src` importieren
-(nur jsonCasted-Base, jsonpost, debug). Die Kopplung an den Host läuft ausschließlich über die SPI:
+WoodHarness ist host-agnostisch: Es liegt in `src_jh/` und darf **nichts** aus dem WJJ-`src` importieren und
+**kein Swing/AWT** — wohl aber `jsonCasted` **und `jsonCasted_edit`** (verifiziert: jsonCasted_edit hat 0
+Swing-Imports, ist reiner Editor-Kern; die Schichtordnung erlaubt die Abhängigkeit, und eine TUI ohne Swing
+kann jsonCasted_edit mitbenutzen). Die Kopplung an den Host (WJJ-Swing, Settings, Dialoge) läuft ausschließlich
+über die SPI:
 
 ```
 src_jh/de/jare/harness/          // WoodHarness (Produkt), host-agnostisch, kein Swing, kein WJJ-src
@@ -501,6 +527,12 @@ ctx.ui          // * neu: Harness-Fenster
    mit Status-Farben/Score-Badges, Detail-Pane mit Kalkulator-Protokoll pro Knoten), geöffnet
    über das Harness-Menü in `JackMainMenu` („Show Harness Window“; „Run Task…“ startet einen
    Lauf gegen das aktuelle Projekt). Kein eigenes Andock-Panel.
+3. **Task-Baum als EditTree im Harness (entschieden, §3):** kein eigener Node-Typ, kein ViewNode —
+   die EditTree ist die Baumstruktur, `TaskNode` wird zur Facade `TaskData` **mit Back-Reference** auf
+   ihren `EditNodeObject` (Attach läuft intern, Attributes bleiben primitive Werte, Node→TaskData über
+   eine Registry pro WorkOrder). Gleiche Instanzen im Harness und im JTree
+   (`DefaultMutableTreeNode.userObject` = EditNode), Sync über die bestehenden EditTree-Events,
+   read-only für die UI (§3). src_jh darf dafür jsonCasted_edit abhängen (§10).
 
 ## 16. Mindset of the AI (nur global, analog zu Skills)
 

@@ -15,7 +15,7 @@ Status: decided 2026-11-08, implementation follows in `src_jh/de/jare/harness/`.
 ## Flow at AskAi
 
 1. UI AskAi action (`onThinking`, Enter or "Ask AI") calls the harness with the input text.
-2. The harness creates a new **MemoryQuest** in memory: it creates the **WorkOrder** AND the root TaskNode itself — `id = "askai.base"`, `userPrompt` = the raw input. The UI only passes the prompt text, it knows no TaskNode logic.
+2. The harness creates a new **MemoryQuest** in memory: it creates the **WorkOrder** AND the root task (TaskData on the EditTree) itself — `id = "askai.base"`, `userPrompt` = the raw input. The UI only passes the prompt text, it knows no tree logic.
 3. The MemoryQuest (recipe: kind `SPLIT`, slot `askai.base`) also carries `memory/WorkCache` + `memory/WorkResponse`.
 4. Run: `scoring.countQuests` (phi4-mini) counts the quests in the prompt → `askai.decompose` (nemotron3:33b) generates the N atomic user prompts → `printig` writes them to the output. Intermediate results go to the WorkCache, the live answer to the WorkResponse.
 5. The UI attaches to the Quest's WorkResponse via the host SPI (`HarnessHost.addRunListener` / `HarnessView`).
