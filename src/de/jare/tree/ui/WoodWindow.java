@@ -65,6 +65,9 @@ public class WoodWindow extends JFrame {
     private final Map<JackEditTreeContainer, String> containerTitles = new HashMap<>();
     private PreferencesDialog preferencesDialog;
     private final List<Consumer<Boolean>> darkModeListeners = new ArrayList<>();
+    // History/EventBus holds listeners only weakly (Orator) - keep strong refs here or the
+    // change propagation listener would be garbage collected
+    private final List<HistoryListener> changePropagationListeners = new ArrayList<>();
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
     private SearchResultPanel searchResultPanel;
@@ -276,12 +279,18 @@ public class WoodWindow extends JFrame {
     private KIAssistantPanel kiAssistantPanel;
 
     private JPanel createKIAssistant() {
-        kiAssistantPanel = new KIAssistantPanel();
-        return kiAssistantPanel;
+        return getKIAssistantPanel();
     }
 
-    /** The AI assistant bottom tab - JackMainMenu installs the thinking handler here. */
+    /**
+     * The AI assistant bottom tab - JackMainMenu installs the thinking handler here.
+     * Lazy singleton: the menu bar is built before the tab (constructor order), so the
+     * handler must be installable before createKIAssistant() runs - both share one instance.
+     */
     public KIAssistantPanel getKIAssistantPanel() {
+        if (kiAssistantPanel == null) {
+            kiAssistantPanel = new KIAssistantPanel();
+        }
         return kiAssistantPanel;
     }
 
@@ -501,8 +510,7 @@ public class WoodWindow extends JFrame {
             if (synonym == null) {
                 continue;
             }
-            jackmaster.getUndoManager().getManagerFor(container.getLeftTree().getModel()).getHistory()
-                    .addListener(new HistoryListener() {
+            HistoryListener propagationListener = new HistoryListener() {
                         @Override
                         public void onClear(HistoryEvent event) {
                             // the propagation reacts to changes, not to clears
@@ -516,7 +524,10 @@ public class WoodWindow extends JFrame {
                                 propagateChangeOf(bundle, synonym);
                             }
                         }
-                    });
+                    };
+            changePropagationListeners.add(propagationListener); // strong ref: the orator holds weak refs only
+            jackmaster.getUndoManager().getManagerFor(container.getLeftTree().getModel()).getHistory()
+                    .addListener(propagationListener);
         }
     }
 
