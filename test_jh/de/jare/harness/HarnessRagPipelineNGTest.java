@@ -73,8 +73,12 @@ public class HarnessRagPipelineNGTest {
         };
         new HarnessEngine(model, instance, lowScore).run();
 
+        // §15.6: the loop runs every item, the RAG_STORE calculator guards itself (minScore param,
+        // default 50) - the call is logged with decision "skipped", nothing is stored
         Assert.assertTrue(instance.getRoot().getCalculatorLog().stream()
-                .noneMatch(e -> e.getKind() == Kind.RAG_STORE), "score 20 < 50: no RAG_STORE");
+                .filter(e -> e.getKind() == Kind.RAG_STORE)
+                .allMatch(e -> e.getDecision().contains("skipped")),
+                "score 20 < 50: RAG_STORE must be skipped by the calculator guard");
         Assert.assertTrue(instance.getRag(EmbeddingProvider.hashEmbedding()).getChunks().isEmpty());
     }
 

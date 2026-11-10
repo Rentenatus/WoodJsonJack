@@ -9,6 +9,7 @@ package de.jare.harness.impl.deterministic;
 import de.jare.harness.CalcContext;
 import de.jare.harness.CalcResult;
 import de.jare.harness.HarnessCalculator;
+import de.jare.harness.HarnessEngine;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
 import de.jare.harness.TaskData;
@@ -98,6 +99,10 @@ public final class DeterministicCalculators {
     }
 
     private static CalcResult summarize(CalcContext ctx) {
+        // guard moved from the engine into the calculator (§15.6): nothing to summarize without children
+        if (ctx.task().getChildren().isEmpty()) {
+            return CalcResult.of(Kind.SUMMARIZE, "skipped").put("reason", "no-children").status(Status.DONE);
+        }
         List<String> parts = new ArrayList<>();
         for (TaskData c : ctx.task().getChildren()) {
             if (c.getArtifact() != null) {
@@ -110,11 +115,25 @@ public final class DeterministicCalculators {
 
     /**
      * RAG_STORE (§11): writes the task's result as a RESULT chunk with meta
-     * {taskId, taskType, kind, score, ts}. The score ≥ minScore gating is done by the
-     * driver (after EVALUATE), the store itself just stores + dedups by contentHash.
+     * {taskId, taskType, kind, score, ts}. Guard (§15.6): only on success - score ≥ minScore
+     * (slot param {@code minScore}, default 50 on the 0-100 scale); the loop runs every item,
+     * so the calculator decides. The store itself just stores + dedups by contentHash.
      */
     private static CalcResult ragStore(CalcContext ctx) {
         TaskData t = ctx.task();
+        int minScore = HarnessEngine.RAG_STORE_MIN_SCORE;
+        String p = ctx.calculatorNode() == null ? null : ctx.calculatorNode().getParams().get("minScore");
+        if (p != null) {
+            try {
+                minScore = Integer.parseInt(p);
+            } catch (NumberFormatException ignored) {
+                // keep default
+            }
+        }
+        if (t.getScore() == null || t.getScore() < minScore) {
+            return CalcResult.of(Kind.RAG_STORE, "skipped")
+                    .put("reason", "below-minScore").status(Status.DONE);
+        }
         String document = (t.getArtifact() == null ? "worked:" + t.getTitle() : t.getArtifact())
                 + (t.getPromptSupplement().isEmpty() ? "" : "\n" + t.getPromptSupplement());
         java.util.Map<String, String> meta = new java.util.LinkedHashMap<>();

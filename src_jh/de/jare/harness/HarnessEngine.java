@@ -6,10 +6,15 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.main.actions.LoopSubLoop;
+import de.jare.harness.main.actions.LoopThrowError;
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
+import de.jare.harness.model.Loop;
+import de.jare.harness.model.LoopItem;
 import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
+import de.jare.harness.model.Trigger;
 import de.jare.harness.prompts.PromptAssembler;
 import de.jare.harness.prompts.PromptSegment;
 import de.jare.harness.prompts.RelevanceRegistry;
@@ -29,17 +34,19 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 
 /**
- * The deterministic driver (CONCEPT_Harness.md §1, §3): the KI never orchestrates -
+ * The deterministic driver (CONCEPT_Harness.md §1, §3, §15.6): the KI never orchestrates -
  * this engine walks the task tree and consults exactly one encapsulated calculator
- * per step. Pipeline per task: ABORT (every loop) → SPLIT → COMPLETE → WORK →
- * EVALUATE → CHECK (retry | subtasks) → SUMMARIZE → CLOSE. State lives only in the
- * task tree; every call lands metrics-only in the call log (§6).
+ * per step. The loop is NOT hard-coded anymore: it is configured as named loops
+ * ({@code loops[]} in the model, DESIGN_Loops.md) - the engine only executes per
+ * prescription (START/EXECUTE/CATCH/CLOSE lifecycle) and evaluates the calculator's
+ * {@link LoopAction}. State lives only in the task tree; every call lands
+ * metrics-only in the call log (§6).
  *
  * @author Janusch Rentenatus
  */
 public class HarnessEngine implements HarnessDriver {
 
-    /** RAG_STORE threshold on the 0-100 score scale (§11, konfigurierbar am RAG-Default). */
+    /** Legacy RAG_STORE threshold on the 0-100 score scale (§11); the guard now lives in the RAG_STORE calculator (param {@code minScore}, default this value). */
     public static final int RAG_STORE_MIN_SCORE = 50;
 
     private final HarnessModel model;
@@ -56,6 +63,9 @@ public class HarnessEngine implements HarnessDriver {
     private de.jare.harness.skills.SkillRegistry skillRegistry = new de.jare.harness.skills.SkillRegistry();   // §12
     private de.jare.harness.memory.WorkCache workCache;   // result channel between calculators (§3 layering)
     private java.util.function.BiFunction<String, List<String>, String> userAskHandler;   // §14 ctx.ui.askUser
+    private int loopDepth;                                  // subloop nesting, bounded by maxDepth (§15.6)
+    private ErrorSignal pendingTechnical;                   // TECHNICAL unwinds all loops to the top (§15.6)
+    private ErrorSignal pendingDomain;                      // DOMAIN thrown inside CATCH unwinds one loop up (§15.6)
 
     public HarnessEngine(HarnessModel model, HarnessInstance instance, CalculatorFactory factory) {
         this.model = model;
@@ -223,20 +233,37 @@ public class HarnessEngine implements HarnessDriver {
         }
     }
 
-    /** Runs the whole task tree starting at the instance root. */
+    /**
+     * Runs the whole task tree starting at the instance root. Outermost safety net
+     * (§15.6): no Throwable ever leaves the engine - a technical disturbance becomes
+     * an ErrorSignal and a clean FAILED on the root task.
+     */
     public void run() {
         if (instance.getRoot() == null) {
             throw new IllegalStateException("instance has no root task");
         }
-        process(instance.getRoot());
+        try {
+            process(instance.getRoot());
+        } catch (Throwable t) {
+            ErrorSignal sig = t instanceof HarnessException he
+                    ? ErrorSignal.fromHarnessException(he, "engine")
+                    : ErrorSignal.fromThrowable(t, "engine");
+            instance.getRoot().setStatus(Status.FAILED);
+            notify(instance.getRoot(), Kind.ABORT, "technical error: " + sig.reason() + " (" + sig.severity() + ")");
+        }
+        if (pendingTechnical != null) {
+            instance.getRoot().setStatus(Status.FAILED);
+            notify(instance.getRoot(), Kind.ABORT, "technical error: " + pendingTechnical.reason());
+            pendingTechnical = null;
+        }
     }
 
-    /** The deterministic pipeline for one task (§3). */
+    /** Starts the configured entry loop ({@code "main"}) for one task (§15.6). */
     private void process(TaskData task) {
         task.setStatus(Status.RUNNING);
         int stackBase = callStack.size();
         try {
-            processLoop(task);
+            runLoop(task, Loop.MAIN);
         } finally {
             while (callStack.size() > stackBase) {
                 callStack.pop();
@@ -244,56 +271,187 @@ public class HarnessEngine implements HarnessDriver {
         }
     }
 
-    private void processLoop(TaskData task) {
-        while (true) {
-            limits.countIteration();
-            if (limits.isAborted(task.depth())) {
-                task.setStatus(Status.ABORTED);
-                notify(task, Kind.ABORT, "hard stop: limits exceeded");
-                return;
-            }
-            // steering is object-oriented now: the calculator's HarnessAction executes itself
-            // on this driver - no decision-string if-cascades (§15.5)
-            if (step(task, Kind.ABORT) == HarnessAction.Control.STOP) {
-                return;
-            }
-            if (step(task, Kind.SPLIT) == HarnessAction.Control.STOP) {
-                return;
-            }
-            if (step(task, Kind.COMPLETE) == HarnessAction.Control.LOOP) {
-                continue;
-            }
+    /** What one loop item did to the loop flow (§15.6, DESIGN_Loops.md §3). */
+    private enum ItemFlow {
+        CONTINUE,   // next item
+        RESTART,    // current loop from its first EXECUTE item
+        EXIT        // leave the current loop (CLOSE fires in finally)
+    }
 
-            execute(task, Kind.WORK);
-            CalcResult eval = execute(task, Kind.EVALUATE);
-            if (eval != null) {
-                if (eval.getScore() != null) {
-                    task.setScore(eval.getScore());
-                }
-                task.setStatus(eval.getStatus());
-            }
-            // RAG_STORE only on success (§11): EVALUATE score ≥ Schwelle (0-100 scale)
-            if (task.getScore() != null && task.getScore() >= RAG_STORE_MIN_SCORE) {
-                execute(task, Kind.RAG_STORE);
-            }
-
-            if (step(task, Kind.CHECK) == HarnessAction.Control.LOOP) {
-                continue;
-            }
-
-            if (!task.getChildren().isEmpty()) {
-                execute(task, Kind.SUMMARIZE);
-            }
-            execute(task, Kind.CLOSE);
-            execute(task, Kind.RAG_PRUNE); // prune runs e.g. after each CLOSE (§11)
+    /**
+     * Executes a configured loop per prescription (CONCEPT_Harness.md §15.6,
+     * docs/working/DESIGN_Loops.md §3): START items fire exactly once on entry,
+     * EXECUTE items once per iteration in list order, CATCH items on a DOMAIN
+     * error, CLOSE items exactly once on exit (finally - they always fire).
+     * The engine decides nothing semantically - it only interprets the
+     * calculator's {@link LoopAction}.
+     */
+    private void runLoop(TaskData task, String loopId) {
+        Loop loop = model.getLoop(loopId);
+        if (loop == null && Loop.MAIN.equals(loopId)) {
+            loop = HarnessModel.defaultMainLoop(); // programmatically built model without loops[]
+            model.addLoop(loop);
+        }
+        if (loop == null) {
+            task.setStatus(Status.FAILED);
+            notify(task, Kind.ABORT, "unknown loop \"" + loopId + "\"");
             return;
+        }
+        loopDepth++;
+        try {
+            if (loopDepth > model.getMaxDepth()) {
+                task.setStatus(Status.ABORTED);
+                notify(task, Kind.ABORT, "hard stop: loop depth exceeded (loop \"" + loopId + "\")");
+                return;
+            }
+            // START: exactly once when entering this loop - never again, not even on RESTART
+            for (LoopItem item : loop.itemsFor(Trigger.START)) {
+                ItemFlow f = runItem(task, loop, item);
+                if (f != ItemFlow.CONTINUE || pendingTechnical != null) {
+                    return;
+                }
+            }
+            // EXECUTE: one iteration = the whole EXECUTE list in order; RESTART repeats it
+            while (true) {
+                limits.countIteration();
+                if (limits.isAborted(task.depth())) {
+                    task.setStatus(Status.ABORTED);
+                    notify(task, Kind.ABORT, "hard stop: limits exceeded");
+                    return;
+                }
+                boolean restart = false;
+                for (LoopItem item : loop.itemsFor(Trigger.EXECUTE)) {
+                    ItemFlow f = runItem(task, loop, item);
+                    if (f == ItemFlow.RESTART) {
+                        restart = true;
+                        break;
+                    }
+                    if (f == ItemFlow.EXIT || pendingTechnical != null) {
+                        return;
+                    }
+                }
+                if (!restart) {
+                    return; // EXECUTE list completed without RESTART -> leave the loop
+                }
+            }
+        } finally {
+            loopDepth--;
+            // CLOSE: exactly once on exit - always, also after BREAK, CATCH and technical errors
+            for (LoopItem item : loop.itemsFor(Trigger.CLOSE)) {
+                try {
+                    runItem(task, loop, item);
+                } catch (Throwable t) {
+                    notify(task, Kind.CLOSE, "close item failed: " + t.getMessage());
+                }
+            }
         }
     }
 
-    /** Runs one pipeline kind and executes the returned action; null result = no steering. */
-    private HarnessAction.Control step(TaskData task, Kind kind) {
-        CalcResult r = execute(task, kind);
-        return r == null ? HarnessAction.Control.CONTINUE : r.getAction().execute(this, task, r);
+    /** Runs one loop item: subloop call or quest execution + action/loopAction evaluation. */
+    private ItemFlow runItem(TaskData task, Loop loop, LoopItem item) {
+        if (item.isSubLoop()) {
+            runLoop(task, item.getLoop());
+            return afterSubLoop(task, loop);
+        }
+        CalcResult r = execute(task, item.getKind());
+        if (r == null) {
+            return ItemFlow.CONTINUE; // kind not modelled - skipped deterministically
+        }
+        // domain action side effects (split/retry/abort) - object-oriented, §15.5
+        r.getAction().execute(this, task, r);
+        if (item.getKind() == Kind.EVALUATE) {
+            if (r.getScore() != null) {
+                task.setScore(r.getScore());
+            }
+            task.setStatus(r.getStatus());
+        }
+        LoopAction la = r.getLoopAction();
+        switch (la.flow()) {
+            case RESTART -> {
+                return ItemFlow.RESTART;
+            }
+            case BREAK -> {
+                return ItemFlow.EXIT;
+            }
+            case SUBLOOP -> {
+                runLoop(task, ((LoopSubLoop) la).loopId());
+                return afterSubLoop(task, loop);
+            }
+            case THROW -> {
+                return handleThrow(task, loop, (LoopThrowError) la);
+            }
+            case CONTINUE -> {
+                return ItemFlow.CONTINUE;
+            }
+        }
+        return ItemFlow.CONTINUE;
+    }
+
+    /** After a subloop returned: propagate pending error signals to this loop's CATCH. */
+    private ItemFlow afterSubLoop(TaskData task, Loop loop) {
+        if (pendingTechnical != null) {
+            return ItemFlow.EXIT;
+        }
+        if (pendingDomain != null) {
+            ErrorSignal sig = pendingDomain;
+            pendingDomain = null;
+            return handleThrow(task, loop, new LoopThrowError(sig));
+        }
+        return ItemFlow.CONTINUE;
+    }
+
+    /**
+     * THROW handling (§15.6): DOMAIN fires the CATCH items of the current loop once
+     * (a THROW inside CATCH unwinds one loop level up via {@link #pendingDomain});
+     * TECHNICAL bypasses CATCH, fails the task hard and unwinds to the top via
+     * {@link #pendingTechnical}. After CATCH the loop is left.
+     */
+    private ItemFlow handleThrow(TaskData task, Loop loop, LoopThrowError t) {
+        ErrorSignal sig = t.signal() == null ? ErrorSignal.domain("throw", "loop") : t.signal();
+        if (!sig.isDomain()) {
+            task.setStatus(Status.FAILED);
+            notify(task, Kind.ABORT, "technical error: " + sig.reason() + " -> unwind (CATCH bypassed)");
+            pendingTechnical = sig;
+            return ItemFlow.EXIT;
+        }
+        task.setStatus(Status.FAILED);
+        List<LoopItem> catchItems = loop.itemsFor(Trigger.CATCH);
+        if (catchItems.isEmpty()) {
+            // no handler in this loop - unwind one level up so the caller loop's CATCH can handle it
+            pendingDomain = sig;
+            return ItemFlow.EXIT;
+        }
+        notify(task, Kind.ABORT, "domain error: " + sig.reason() + " -> CATCH of loop \"" + loop.getId() + "\"");
+        for (LoopItem c : catchItems) {
+            if (c.isSubLoop()) {
+                runLoop(task, c.getLoop());
+            } else {
+                CalcResult r = execute(task, c.getKind());
+                if (r != null) {
+                    r.getAction().execute(this, task, r);
+                    LoopAction cla = r.getLoopAction();
+                    if (cla.flow() == LoopAction.Flow.RESTART) {
+                        return ItemFlow.RESTART;
+                    }
+                    if (cla.flow() == LoopAction.Flow.THROW) {
+                        // Throw inside CATCH: unwind one loop level up, do not re-fire CATCH here
+                        pendingDomain = ((LoopThrowError) cla).signal();
+                        return ItemFlow.EXIT;
+                    }
+                    if (cla.flow() == LoopAction.Flow.SUBLOOP) {
+                        runLoop(task, ((LoopSubLoop) cla).loopId());
+                    }
+                    // CONTINUE / BREAK inside CATCH: BREAK leaves the loop
+                    if (cla.flow() == LoopAction.Flow.BREAK) {
+                        return ItemFlow.EXIT;
+                    }
+                }
+            }
+            if (pendingTechnical != null) {
+                return ItemFlow.EXIT;
+            }
+        }
+        return ItemFlow.EXIT; // CATCH handled - leave the loop (CLOSE fires in finally)
     }
 
     //
@@ -381,6 +539,15 @@ public class HarnessEngine implements HarnessDriver {
             } else {
                 result = DeterministicFallback.run(kind, ctx, e);
             }
+        } catch (Throwable t) {
+            // Fangnetz 1 (§15.6): a raw Throwable never crosses the loop boundary - it becomes
+            // a TECHNICAL ErrorSignal carried as LoopAction, so the loop unwinds cleanly
+            ErrorSignal sig = ErrorSignal.fromThrowable(t, kind.name());
+            notify(task, kind, "technical error: " + sig.reason() + " -> ThrowError(TECHNICAL)");
+            result = CalcResult.of(kind, "throw")
+                    .status(Status.FAILED)
+                    .message(sig.reason())
+                    .loopAction(new LoopThrowError(sig));
         }
         long dauerMs = System.currentTimeMillis() - start;
 

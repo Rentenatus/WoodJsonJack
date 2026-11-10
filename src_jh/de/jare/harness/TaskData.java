@@ -228,7 +228,11 @@ public class TaskData {
     /** CLOSE: finalize and write the artifact. */
     public void close(String artifact) {
         setMember(M_ARTIFACT, artifact == null ? "" : artifact);
-        setStatus(Status.DONE);
+        // CLOSE fires in the loop's finally (§15.6) - it finalizes the artifact but must
+        // never resurrect a terminal failure status (ABORTED/FAILED stay)
+        if (getStatus() != Status.ABORTED && getStatus() != Status.FAILED) {
+            setStatus(Status.DONE);
+        }
     }
 
     /** The parent task - the task object above the "tasks" array (null for the tree root). */

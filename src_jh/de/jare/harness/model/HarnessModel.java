@@ -151,6 +151,7 @@ public class HarnessModel {
             main.addItem(new LoopItem(k.name().toLowerCase(), k).trigger(Trigger.EXECUTE));
         }
         main.addItem(new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE));
+        main.addItem(new LoopItem("rag_prune", Kind.RAG_PRUNE).trigger(Trigger.CLOSE)); // prune after CLOSE (§11)
         return main;
     }
 
