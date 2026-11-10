@@ -23,6 +23,7 @@ public class CalcResult {
     private String decision = "";
     private String message = "";
     private HarnessAction action;   // the OO steering object; derived from decision if not set explicitly
+    private LoopAction loopAction;  // the FLOW channel (§15.6); derived from the action's Control if not set explicitly
     private final Map<String, String> payload = new LinkedHashMap<>();
 
     public CalcResult(Kind kind) {
@@ -80,6 +81,36 @@ public class CalcResult {
         if (action != null && (decision == null || decision.isEmpty())) {
             this.decision = action.type();
         }
+        return this;
+    }
+
+    /**
+     * The loop-flow action (CONCEPT_Harness.md §15.6): where the loop goes after this item.
+     * If not set explicitly, derived from the legacy decision / the domain action's Control.
+     * Never null - the default is {@code LoopContinue}.
+     */
+    public LoopAction getLoopAction() {
+        if (loopAction != null) {
+            return loopAction;
+        }
+        if (action != null) {
+            return de.jare.harness.main.actions.LoopActions.fromControl(controlOf(action));
+        }
+        return de.jare.harness.main.actions.LoopActions.fromDecision(decision, message);
+    }
+
+    private static HarnessAction.Control controlOf(HarnessAction a) {
+        // the Control is what the action's execute() returns on the driver; for derivation we
+        // ask the built-in factory - unknown custom actions fall back to CONTINUE
+        return switch (a.type()) {
+            case "abort" -> HarnessAction.Control.STOP;
+            case "retry", "incomplete" -> HarnessAction.Control.LOOP;
+            default -> HarnessAction.Control.CONTINUE;
+        };
+    }
+
+    public CalcResult loopAction(LoopAction loopAction) {
+        this.loopAction = loopAction;
         return this;
     }
 

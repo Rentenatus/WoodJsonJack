@@ -1,0 +1,20 @@
+/* <copyright>
+ * Copyright (c) 2026, Janusch Rentenatus. This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v2.0 which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v20.html
+ * </copyright>
+ */
+package de.jare.harness.main.actions;
+
+import de.jare.harness.LoopAction;
+
+/**
+ * Leave the current loop: its CLOSE items fire (finally), control returns to the
+ * caller loop's next item. Does not abort the task.
+ *
+ * @author Janusch Rentenatus
+ */
+public record LoopBreak() implements LoopAction {
+    @Override public String type() { return "break"; }
+    @Override public Flow flow() { return Flow.BREAK; }
+}
