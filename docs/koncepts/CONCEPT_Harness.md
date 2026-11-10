@@ -303,6 +303,16 @@ Der Roh-Log bleibt lokal; **global** landet nur die aggregierte Kennzahlenliste 
    - **Hauptquelle: feste Kandidatenliste** (im Modell/Repo versioniert) — am meisten Kandidaten.
    - **Selten: zwei zufällige Mutationen** — fallen sie schlechter aus, verfallen sie einfach (ins Archiv).
    - **Per Ollama vorgeschlagen** (z. B. 3. Vorschlag: `{in-prompt learning | guardrails | in drei Aufrufe je Kategorie splitten}`) — höhere Komplexität, braucht eine eigene Logik-Welt; optional, nie ohne Validierung durch den Treiber.
+   - **Konkretes Beispiel (manuell vorgemacht, läuft künftig automatisch als Evolution):** Mutation des
+     Slot-Params `systemPrompt` von `scoring.countQuests` (phi4-mini, 3.8B). Baseline-Prompt („count how
+     many distinct quests…“) lieferte auf dem Benchmark-Prompt „wie viel ist 2*4 und wie viel 7*8 ?“ nur
+     7/12 korrekt (der Joined-Clause wurde als 1 gezählt). Mutations-Kandidat: regelbasierter Prompt ohne
+     Few-Shot-Beispiele (jede fragende/auffordernde Klausel = 1 Quest, auch mit „und“ verbunden; Grüße = 0;
+     striktes JSON) — 12/12 auf dem Benchmark, 8/8 auf jedem Kontrollfall (1er, 2er-de, Greeting+Task), da
+     kleine Modelle Few-Shot-Beispiele eher reproduzieren als den Userprompt analysieren. Gemessen im
+     Messfenster gegen einen Holdout-Prompt-Set, Gewinner wird als Kind-Version in die Lineage übernommen
+     (Commit `d846a30`). Dieselbe Messung (Mutationen eines Slot-Params gegeneinander scoren) ist genau das,
+     was der Evolutions-Schritt im laufenden Betrieb automatisiert.
 3. **Stammbaum:** Jede Modell-Änderung (Swap, Evolution, manuelles Editieren) erzeugt eine neue Modell-Version mit Parent-Verweis — persistiert projekt-lokal in `<projekt>/.wood/harness/lineage.json` (versionId, parentId, created, changeDescription, statsSnapshot, slots). Rollback = Instanz auf ältere Version zeigen; Weiterschreiben = Kind-Version vom aktuellen Stand.
 
 ## 8. Kopplung lokal ↔ global: aggregierte Kennzahlen, nie Harnesses, keine Event-Sammlung

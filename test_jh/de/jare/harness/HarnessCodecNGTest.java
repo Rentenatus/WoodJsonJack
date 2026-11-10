@@ -225,6 +225,52 @@ public class HarnessCodecNGTest {
     }
 
     @Test
+    public void testScoringCountQuestsEmphasisRetryOnNonJsonAnswer() {
+        HarnessModel model = sampleModel();
+        if (model.questFor(Kind.SPLIT) == null) {
+            model.addQuest(new Quest(Kind.SPLIT).addSlot(new Slot("split.base")
+                    .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+        }
+        Modelclass scoring = new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false);
+        model.addModelclass(scoring);
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        List<List<String>> calls = new java.util.ArrayList<>();
+        factory.registerProvider("ollama", new de.jare.harness.impl.ModelProvider() {
+            @Override public Modelclass modelclass() { return scoring; }
+            @Override public boolean isAvailable() { return true; }
+            @Override public String complete(List<String> segments) {
+                calls.add(new java.util.ArrayList<>(segments));
+                if (calls.size() == 1) {
+                    return "I think there are 2 quests.";   // prose, not strict JSON
+                }
+                return "{\"status\":\"DONE\",\"decision\":\"counted\",\"score\":100,\"payload\":{\"questCount\":2}}";
+            }
+        });
+        CalculatorNode node = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
+                .params(java.util.Map.of("model", "phi4-mini:latest",
+                        "emphasisPrompt", "Attention: You must strictly adhere to the JSON structure!"));
+        model.questFor(Kind.SPLIT).baseSlot().calculator(node);
+
+        HarnessCalculator calc = factory.createAtomic(node, Kind.SPLIT);
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        TaskData root = instance.newRootTask(instance.nextTaskId(), "AskAi", "wie viel ist 2*4 und wie viel 7*8 ?");
+        instance.setRoot(root);
+        HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        CalcContext ctx = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
+                node, engine.getLimits(), List.of("AUFTRAG:inline:task\nwie viel ist 2*4 und wie viel 7*8 ?"));
+
+        CalcResult r = calc.calculate(ctx);
+        Assert.assertEquals(calls.size(), 2, "one emphasis retry after the non-JSON answer");
+        Assert.assertFalse(calls.get(0).get(0).contains("strictly adhere"),
+                "first call carries only the system prompt");
+        Assert.assertTrue(calls.get(1).get(0).contains("strictly adhere"),
+                "retry appends the emphasisPrompt to the SYSTEM segment");
+        Assert.assertEquals(r.getPayload().get("questCount"), "2");
+        Assert.assertEquals(r.getPayload().get("emphasisRetry"), "true");
+        Assert.assertEquals(r.getStatus(), Status.DONE);
+    }
+
+    @Test
     public void testBuilderPatternUniformCreation() {
         HarnessModel model = sampleModel();
         model.addModelclass(new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false));

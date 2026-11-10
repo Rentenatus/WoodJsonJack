@@ -41,17 +41,30 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
             // tends to parrot examples instead of analysing the user prompt
             ;
 
+    /**
+     * Appended to the system prompt for ONE retry when the first answer is not strict JSON
+     * (small models sometimes answer with prose or markdown fences first). Config param
+     * {@code "emphasisPrompt"} overrides it.
+     */
+    public static final String DEFAULT_EMPHASIS_PROMPT =
+            "Attention: You must strictly adhere to the JSON structure! "
+            + "Answer with strict JSON only, no other text, no markdown fences.";
+
     private final Kind kind;
     private final Modelclass modelclass;
     private final ModelProvider provider;
     private final String systemPrompt;
+    private final String emphasisPrompt;
 
-    public ScoringCountQuestsCalculator(Kind kind, Modelclass modelclass, ModelProvider provider, String systemPrompt) {
+    public ScoringCountQuestsCalculator(Kind kind, Modelclass modelclass, ModelProvider provider,
+                                        String systemPrompt, String emphasisPrompt) {
         this.kind = kind;
         this.modelclass = modelclass;
         this.provider = provider;
         this.systemPrompt = systemPrompt == null || systemPrompt.isBlank()
                 ? DEFAULT_SYSTEM_PROMPT : systemPrompt;
+        this.emphasisPrompt = emphasisPrompt == null || emphasisPrompt.isBlank()
+                ? DEFAULT_EMPHASIS_PROMPT : emphasisPrompt;
     }
 
     // Instances are built by ScoringCountQuestsBuilder (Builder pattern): the factory fills the
@@ -70,6 +83,10 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
         return systemPrompt;
     }
 
+    public String getEmphasisPrompt() {
+        return emphasisPrompt;
+    }
+
     @Override
     public CalcResult calculate(CalcContext ctx) {
         if (provider == null || modelclass != null && !modelclass.isAvailable()) {
@@ -79,18 +96,23 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
         List<String> segments = new ArrayList<>();
         segments.add("SYSTEM:scoring.countQuests\n" + systemPrompt);   // system prompt as config param
         segments.addAll(ctx.prompts());
-        String answer;
+        String answer = callProvider(segments);
+        boolean emphasisRetry = false;
+        de.jare.jsoncasted.lang.JsonNode root;
         try {
-            answer = provider.complete(segments);
+            root = parseStrict(answer);
         } catch (HarnessException e) {
-            throw e;
-        } catch (Exception e) {
-            if (modelclass != null) {
-                modelclass.markUnavailable();
+            if (e.getType() != HarnessException.Type.SCHEMA_VIOLATION) {
+                throw e;
             }
-            throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE, "provider call failed", e);
+            // emphasis retry: small models sometimes answer with prose/fences first - append the
+            // emphasisPrompt to the system segment and ask exactly once more
+            emphasisRetry = true;
+            List<String> retrySegments = new ArrayList<>(segments);
+            retrySegments.set(0, segments.get(0) + "\n\n" + emphasisPrompt);
+            answer = callProvider(retrySegments);
+            root = parseStrict(answer);   // still not strict JSON -> SCHEMA_VIOLATION propagates
         }
-        de.jare.jsoncasted.lang.JsonNode root = parseStrict(answer);
         int questCount = 0;
         var payload = root.asObjectValues().get("payload");
         if (payload != null && payload.asObjectValues().get("questCount") != null) {
@@ -105,7 +127,21 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
         return CalcResult.of(kind, text(root, "decision", "counted"))
                 .status(parseStatus(status))
                 .put("questCount", String.valueOf(questCount))
+                .put("emphasisRetry", String.valueOf(emphasisRetry))
                 .put("rawAnswer", abbrev(answer));
+    }
+
+    private String callProvider(List<String> segments) {
+        try {
+            return provider.complete(segments);
+        } catch (HarnessException e) {
+            throw e;
+        } catch (Exception e) {
+            if (modelclass != null) {
+                modelclass.markUnavailable();
+            }
+            throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE, "provider call failed", e);
+        }
     }
 
     private static de.jare.jsoncasted.lang.JsonNode parseStrict(String answer) {
