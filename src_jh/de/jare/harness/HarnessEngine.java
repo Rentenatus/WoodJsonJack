@@ -6,6 +6,7 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.main.actions.LoopSplit;
 import de.jare.harness.main.actions.LoopSubLoop;
 import de.jare.harness.main.actions.LoopThrowError;
 import de.jare.harness.model.CalculatorNode;
@@ -298,6 +299,7 @@ public class HarnessEngine implements HarnessDriver {
             return;
         }
         loopDepth++;
+        Limits.Snapshot loopEntry = limits.snapshot();   // slot consumption base for SPLIT deltas
         try {
             if (loopDepth > model.getMaxDepth()) {
                 task.setStatus(Status.ABORTED);
@@ -306,7 +308,7 @@ public class HarnessEngine implements HarnessDriver {
             }
             // START: exactly once when entering this loop - never again, not even on RESTART
             for (LoopItem item : loop.itemsFor(Trigger.START)) {
-                ItemFlow f = runItem(task, loop, item);
+                ItemFlow f = runItem(task, loop, item, loopEntry);
                 if (f != ItemFlow.CONTINUE || pendingTechnical != null) {
                     return;
                 }
@@ -321,7 +323,7 @@ public class HarnessEngine implements HarnessDriver {
                 }
                 boolean restart = false;
                 for (LoopItem item : loop.itemsFor(Trigger.EXECUTE)) {
-                    ItemFlow f = runItem(task, loop, item);
+                    ItemFlow f = runItem(task, loop, item, loopEntry);
                     if (f == ItemFlow.RESTART) {
                         restart = true;
                         break;
@@ -339,7 +341,7 @@ public class HarnessEngine implements HarnessDriver {
             // CLOSE: exactly once on exit - always, also after BREAK, CATCH and technical errors
             for (LoopItem item : loop.itemsFor(Trigger.CLOSE)) {
                 try {
-                    runItem(task, loop, item);
+                    runItem(task, loop, item, loopEntry);
                 } catch (Throwable t) {
                     notify(task, Kind.CLOSE, "close item failed: " + t.getMessage());
                 }
@@ -348,7 +350,7 @@ public class HarnessEngine implements HarnessDriver {
     }
 
     /** Runs one loop item: subloop call or quest execution + action/loopAction evaluation. */
-    private ItemFlow runItem(TaskData task, Loop loop, LoopItem item) {
+    private ItemFlow runItem(TaskData task, Loop loop, LoopItem item, Limits.Snapshot loopEntry) {
         if (item.isSubLoop()) {
             runLoop(task, item.getLoop());
             return afterSubLoop(task, loop);
@@ -357,15 +359,19 @@ public class HarnessEngine implements HarnessDriver {
         if (r == null) {
             return ItemFlow.CONTINUE; // kind not modelled - skipped deterministically
         }
-        // domain action side effects (split/retry/abort) - object-oriented, §15.5
-        r.getAction().execute(this, task, r);
+        LoopAction la = r.getLoopAction();
+        // domain action side effects (retry/abort) - object-oriented, §15.5. A LoopSplit carries the
+        // split itself as loop action, so the derived domain Split action must NOT also execute
+        // (no double split)
+        if (la.flow() != LoopAction.Flow.SPLIT) {
+            r.getAction().execute(this, task, r);
+        }
         if (item.getKind() == Kind.EVALUATE) {
             if (r.getScore() != null) {
                 task.setScore(r.getScore());
             }
             task.setStatus(r.getStatus());
         }
-        LoopAction la = r.getLoopAction();
         switch (la.flow()) {
             case RESTART -> {
                 return ItemFlow.RESTART;
@@ -377,6 +383,9 @@ public class HarnessEngine implements HarnessDriver {
                 runLoop(task, ((LoopSubLoop) la).loopId());
                 return afterSubLoop(task, loop);
             }
+            case SPLIT -> {
+                return handleSplit(task, (LoopSplit) la, loopEntry);
+            }
             case THROW -> {
                 return handleThrow(task, loop, (LoopThrowError) la);
             }
@@ -385,6 +394,43 @@ public class HarnessEngine implements HarnessDriver {
             }
         }
         return ItemFlow.CONTINUE;
+    }
+
+    /**
+     * SPLIT as loop action (§15.6): creates the N subtasks (task starts) from the carried
+     * sub-prompts, starts one loop per subtask (the shared {@link Limits} instance is inherited,
+     * so every subloop sees the last counter state), and after the N loops return computes the
+     * consumption deltas: slot delta (loop entry → split point) plus the N per-child deltas are
+     * summed and written as the current output (WorkCache consumption + notify).
+     */
+    private ItemFlow handleSplit(TaskData task, LoopSplit split, Limits.Snapshot loopEntry) {
+        List<String> prompts = split.prompts();
+        if (prompts == null || prompts.isEmpty()) {
+            return ItemFlow.CONTINUE;
+        }
+        Limits.Snapshot splitPoint = limits.snapshot();
+        List<TaskData> children = new ArrayList<>();
+        for (String p : prompts) {
+            children.add(task.addSubtask(instance.nextTaskId(), task.getTaskType(), p)); // task starts
+        }
+        Limits.Delta total = limits.deltaSince(loopEntry);   // slot delta up to the split point
+        List<String> childDeltas = new ArrayList<>();
+        for (TaskData child : children) {
+            Limits.Snapshot childBase = limits.snapshot();   // inherited state = last counters
+            process(child);                                   // one new loop per subtask
+            Limits.Delta d = limits.deltaSince(childBase);
+            childDeltas.add("child " + child.getId() + ": " + d);
+            total = total.plus(d);                            // slot + N deltas summed
+        }
+        // current output: summed consumption lands in the runtime WorkCache + listener notify
+        if (workCache != null) {
+            workCache.put("subloops", String.valueOf(children.size()));
+            workCache.put("consumption", total.toString());
+            workCache.put("consumptionDeltas", String.join(" | ", childDeltas));
+        }
+        notify(task, Kind.SPLIT, "split into " + children.size() + " subloops (task starts created), "
+                + "consumption = slot+children " + total);
+        return ItemFlow.EXIT; // the N loops returned - leave this loop (CLOSE fires in finally)
     }
 
     /** After a subloop returned: propagate pending error signals to this loop's CATCH. */
@@ -636,15 +682,25 @@ public class HarnessEngine implements HarnessDriver {
     private CalcResult runNode(CalculatorNode node, Kind kind, CalcContext ctx) {
         if (node.isPuzzle()) {
             CalcResult last = CalcResult.of(kind, "puzzle");
+            LoopAction steering = null;
             for (CalculatorNode child : node.getChildren()) {
-                last = runNode(child, kind, ctx);
+                CalcResult r = runNode(child, kind, ctx);
                 // result channel (§3 layering): thread each child's CalcResult through the
                 // runtime WorkCache - the next sibling reads it via ctx.workCache()
                 if (ctx.workCache() != null) {
                     String name = child.getCalculator() != null ? child.getCalculator()
                             : (child.getImpl() != null ? child.getImpl() : child.getType());
-                    ctx.workCache().putResult(name, last).setLastResult(last);
+                    ctx.workCache().putResult(name, r).setLastResult(r);
                 }
+                // a steering loop action of ANY child (e.g. the LoopSplit of askai.decompose)
+                // must survive the puzzle - the loop acts on it, not on the last child's plain result
+                if (steering == null && r.getLoopAction().flow() != LoopAction.Flow.CONTINUE) {
+                    steering = r.getLoopAction();
+                }
+                last = r;
+            }
+            if (steering != null && last.getLoopAction().flow() == LoopAction.Flow.CONTINUE) {
+                last.loopAction(steering);
             }
             return last;
         }

@@ -97,4 +97,29 @@ public class Limits {
     public String getExtraJustification() {
         return extraJustification;
     }
+
+    /** Immutable point-in-time view of the counters (§15.6: consumption inheritance/deltas). */
+    public record Snapshot(int iterations, int retries, int toolCalls) {
+    }
+
+    /** Difference of two snapshots - the consumption of a loop run. */
+    public record Delta(int iterations, int retries, int toolCalls) {
+        public Delta plus(Delta o) {
+            return new Delta(iterations + o.iterations, retries + o.retries, toolCalls + o.toolCalls);
+        }
+
+        @Override
+        public String toString() {
+            return "iterations+" + iterations + ",retries+" + retries + ",toolCalls+" + toolCalls;
+        }
+    }
+
+    public Snapshot snapshot() {
+        return new Snapshot(iterations, retries, toolCalls);
+    }
+
+    public Delta deltaSince(Snapshot before) {
+        return new Delta(iterations - before.iterations(), retries - before.retries(),
+                toolCalls - before.toolCalls());
+    }
 }
