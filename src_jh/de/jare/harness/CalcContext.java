@@ -69,6 +69,26 @@ public class CalcContext {
         return node;
     }
 
+    /**
+     * The sampling temperature from the calculator node's config params
+     * ({@code "temperature"}, e.g. {@code 0.0} for deterministic scoring, higher for
+     * creative tasks). Null when absent or not parseable - providers then use their default.
+     */
+    public Double temperature() {
+        if (node == null) {
+            return null;
+        }
+        String t = node.getParams().get("temperature");
+        if (t == null || t.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.valueOf(t.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     public HarnessModel model() {
         return model;
     }

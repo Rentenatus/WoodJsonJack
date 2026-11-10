@@ -30,6 +30,7 @@ public class OllamaProviderNGTest {
 
     private HttpServer server;
     private String baseUrl;
+    static volatile String lastChatBody;
 
     @BeforeClass
     public void startServer() throws IOException {
@@ -44,6 +45,7 @@ public class OllamaProviderNGTest {
         server.createContext("/api/chat", exchange -> {
             byte[] req = exchange.getRequestBody().readAllBytes();
             String body = new String(req, StandardCharsets.UTF_8);
+            lastChatBody = body;
             Assert.assertTrue(body.contains("\"format\": \"json\""), "json-strict requested: " + body);
             Assert.assertTrue(body.contains("\"role\": \"system\""), "system segment as system message: " + body);
             Assert.assertFalse(body.contains("_woodObjectId"), "INLINE wood id level: clean API payload");
@@ -77,6 +79,23 @@ public class OllamaProviderNGTest {
         String answer = provider.complete(List.of("SYSTEM: orchestrator", "AUFTRAG: do it"));
         Assert.assertEquals(answer, "{\"decision\":\"worked\",\"score\":91}",
                 "response field extracted from the generate answer");
+    }
+
+    @Test
+    public void testCompleteWithTemperatureSendsOptions() throws Exception {
+        Modelclass mc = new Modelclass("ollama", "qwen2.5:3b", "test", 0, 1.0, true);
+        OllamaProvider provider = new OllamaProvider(baseUrl, mc);
+
+        String answer = provider.complete(List.of("SYSTEM: scoring", "AUFTRAG: count"), 0.0);
+        Assert.assertEquals(answer, "{\"decision\":\"worked\",\"score\":91}");
+        Assert.assertNotNull(lastChatBody);
+        Assert.assertTrue(lastChatBody.contains("\"options\": {\"temperature\": 0.0}"),
+                "temperature must be sent as options.temperature: " + lastChatBody);
+
+        // null temperature -> plain typed path without options
+        provider.complete(List.of("SYSTEM: scoring", "AUFTRAG: count"), null);
+        Assert.assertFalse(lastChatBody.contains("options"),
+                "no options object without a temperature: " + lastChatBody);
     }
 
     @Test

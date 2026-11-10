@@ -28,10 +28,12 @@
               { "type": "atomic", "impl": "ai", "calculator": "scoring.countQuests",
                 "params": { "model": "phi4-mini:latest",
                             "systemPrompt": "Count the distinct questions or tasks in the user prompt. Each clause that asks for something or requests an action is ONE quest, even when clauses are joined with \"and\"/\"und\"/\",\". Never merge joined clauses into one. Pure greetings or statements without a question or instruction count as 0. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"counted\",\"score\":100,\"payload\":{\"questCount\":N}} where N is the total number of quests.",
-                            "emphasisPrompt": "Attention: You must strictly adhere to the JSON structure! Answer with strict JSON only, no other text, no markdown fences." } },
+                            "emphasisPrompt": "Attention: You must strictly adhere to the JSON structure! Answer with strict JSON only, no other text, no markdown fences.",
+                            "temperature": "0.0" } },
               { "type": "atomic", "impl": "ai", "calculator": "askai.decompose",
                 "params": { "model": "nemotron3:33b",
-                            "systemPrompt": "You decompose the user prompt into {data.count} atomic quests ({data.count} = the questCount from the scoring call). Answer with strict JSON only: {\"status\":\"DONE\",\"decision\":\"decomposed\",\"score\":100,\"payload\":{\"quests\":[\"...\",\"...\"]}} where quests is the list of atomic user prompts." } },
+                            "systemPrompt": "You decompose the user prompt into {data.count} atomic quests ({data.count} = the questCount from the scoring call). Answer with strict JSON only: {\"status\":\"DONE\",\"decision\":\"decomposed\",\"score\":100,\"payload\":{\"quests\":[\"...\",\"...\"]}} where quests is the list of atomic user prompts.",
+                            "temperature": "0.3" } },
               { "type": "atomic", "impl": "deterministic", "calculator": "printig" }
             ] } }
       ]

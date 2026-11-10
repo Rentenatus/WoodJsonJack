@@ -30,4 +30,14 @@ public interface ModelProvider {
      * No conversation history across calls - every call is stateless (§4).
      */
     String complete(List<String> segments) throws Exception;
+
+    /**
+     * Same call with a sampling temperature (config param {@code "temperature"} on the
+     * calculator node, e.g. 0.0 for deterministic scoring, higher for creative tasks).
+     * Default: ignores the temperature and delegates to {@link #complete(List)} -
+     * providers without temperature support behave exactly as before.
+     */
+    default String complete(List<String> segments, Double temperature) throws Exception {
+        return complete(segments);
+    }
 }

@@ -106,6 +106,67 @@ public class OllamaProvider implements ModelProvider {
         return response.getMessage() == null ? "" : response.getMessage().getContent();
     }
 
+    /**
+     * Call with a sampling temperature (config param {@code "temperature"} on the calculator
+     * node): ollama takes it as {@code options.temperature}. The typed PostChatRequest carries no
+     * options field, so this path posts a raw JSON body via {@link PostJsonClient#postRaw} and
+     * parses the response through the same typed definition. Null temperature = the plain
+     * {@link #complete(List)} path above.
+     */
+    @Override
+    public String complete(List<String> segments, Double temperature) throws Exception {
+        if (temperature == null) {
+            return complete(segments);
+        }
+        StringBuilder user = new StringBuilder();
+        StringBuilder sys = new StringBuilder();
+        for (String seg : segments) {
+            if (seg.startsWith("SYSTEM:")) {
+                if (sys.length() > 0) {
+                    sys.append("\n\n");
+                }
+                sys.append(seg.substring("SYSTEM:".length()).trim());
+            } else {
+                if (user.length() > 0) {
+                    user.append("\n\n");
+                }
+                user.append(seg);
+            }
+        }
+        // same shape as the typed writer (spaces after colons) so stub servers see one format
+        StringBuilder body = new StringBuilder();
+        body.append("{\"model\": \"").append(esc(modelclass.getModel())).append("\", \"messages\": [");
+        if (sys.length() > 0) {
+            body.append("{\"role\": \"system\", \"content\": \"").append(esc(sys.toString())).append("\"}, ");
+        }
+        body.append("{\"role\": \"user\", \"content\": \"").append(esc(user.toString())).append("\"}]");
+        body.append(", \"stream\": false, \"format\": \"json\", \"options\": {\"temperature\": ")
+                .append(temperature).append("}}");
+        String raw = client.postRaw(body.toString(), baseUrl + "/api/chat", 120000);
+        availableCache = true;
+        modelclass.markAvailable();
+        de.jare.jsonpost.def.JsonPostDefinition def = de.jare.jsonpost.def.JsonPostDefinition.INSTANCE;
+        de.jare.jsonpost.item.PostChatResponse response = (de.jare.jsonpost.item.PostChatResponse)
+                client.buildObject(raw, def, def.getChatResponseRoot());
+        return response.getMessage() == null ? "" : response.getMessage().getContent();
+    }
+
+    private static String esc(String s) {
+        StringBuilder sb = new StringBuilder(s.length() + 16);
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '"' -> sb.append("\\\"");
+                case '\\' -> sb.append("\\\\");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                default -> sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
     /** Minimal extraction of the "response" field - full JSON parsing happens in the AiCalculator. */
     static String extractResponse(String json) {
         String key = "\"response\":\"";

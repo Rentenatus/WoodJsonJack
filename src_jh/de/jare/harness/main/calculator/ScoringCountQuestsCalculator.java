@@ -96,7 +96,7 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
         List<String> segments = new ArrayList<>();
         segments.add("SYSTEM:scoring.countQuests\n" + systemPrompt);   // system prompt as config param
         segments.addAll(ctx.prompts());
-        String answer = callProvider(segments);
+        String answer = callProvider(ctx, segments);
         boolean emphasisRetry = false;
         de.jare.jsoncasted.lang.JsonNode root;
         try {
@@ -110,7 +110,7 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
             emphasisRetry = true;
             List<String> retrySegments = new ArrayList<>(segments);
             retrySegments.set(0, segments.get(0) + "\n\n" + emphasisPrompt);
-            answer = callProvider(retrySegments);
+            answer = callProvider(ctx, retrySegments);
             root = parseStrict(answer);   // still not strict JSON -> SCHEMA_VIOLATION propagates
         }
         int questCount = 0;
@@ -131,9 +131,9 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
                 .put("rawAnswer", abbrev(answer));
     }
 
-    private String callProvider(List<String> segments) {
+    private String callProvider(CalcContext ctx, List<String> segments) {
         try {
-            return provider.complete(segments);
+            return provider.complete(segments, ctx.temperature());
         } catch (HarnessException e) {
             throw e;
         } catch (Exception e) {

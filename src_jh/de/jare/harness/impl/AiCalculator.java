@@ -114,7 +114,7 @@ public class AiCalculator implements HarnessCalculator {
 
     private String callProvider(CalcContext ctx, List<String> segments) {
         try {
-            return provider.complete(segments);
+            return provider.complete(segments, ctx.temperature());
         } catch (HarnessException e) {
             throw e;
         } catch (Exception e) {

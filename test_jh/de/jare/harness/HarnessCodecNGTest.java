@@ -225,6 +225,51 @@ public class HarnessCodecNGTest {
     }
 
     @Test
+    public void testTemperatureParamReachesProvider() {
+        HarnessModel model = sampleModel();
+        if (model.questFor(Kind.SPLIT) == null) {
+            model.addQuest(new Quest(Kind.SPLIT).addSlot(new Slot("split.base")
+                    .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+        }
+        Modelclass scoring = new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false);
+        model.addModelclass(scoring);
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        java.util.List<Double> seenTemperatures = new java.util.ArrayList<>();
+        factory.registerProvider("ollama", new de.jare.harness.impl.ModelProvider() {
+            @Override public Modelclass modelclass() { return scoring; }
+            @Override public boolean isAvailable() { return true; }
+            @Override public String complete(List<String> segments) {
+                return "{\"status\":\"DONE\",\"decision\":\"counted\",\"score\":100,\"payload\":{\"questCount\":1}}";
+            }
+            @Override public String complete(List<String> segments, Double temperature) {
+                seenTemperatures.add(temperature);
+                return complete(segments);
+            }
+        });
+        CalculatorNode node = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
+                .params(java.util.Map.of("model", "phi4-mini:latest", "temperature", "0.0"));
+        model.questFor(Kind.SPLIT).baseSlot().calculator(node);
+
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        TaskData root = instance.newRootTask(instance.nextTaskId(), "AskAi", "one task");
+        instance.setRoot(root);
+        HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        CalcContext ctx = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
+                node, engine.getLimits(), List.of("AUFTRAG:inline:task\none task"));
+        Assert.assertEquals(ctx.temperature(), Double.valueOf(0.0), "temperature parsed from node params");
+
+        factory.createAtomic(node, Kind.SPLIT).calculate(ctx);
+        Assert.assertEquals(seenTemperatures, List.of(0.0), "calculator passed the config temperature to the provider");
+
+        // absent param -> null -> provider default
+        CalculatorNode noTemp = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
+                .params(java.util.Map.of("model", "phi4-mini:latest"));
+        CalcContext ctx2 = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
+                noTemp, engine.getLimits(), List.of());
+        Assert.assertNull(ctx2.temperature());
+    }
+
+    @Test
     public void testScoringCountQuestsEmphasisRetryOnNonJsonAnswer() {
         HarnessModel model = sampleModel();
         if (model.questFor(Kind.SPLIT) == null) {

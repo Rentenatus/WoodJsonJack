@@ -119,7 +119,7 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
         List<String> segments = new ArrayList<>();
         segments.add("SYSTEM:askai.decompose\n" + sys);
         segments.addAll(ctx.prompts());
-        String answer = callProvider(segments);
+        String answer = callProvider(ctx, segments);
         de.jare.jsoncasted.lang.JsonNode root = parseStrict(answer);
         List<String> quests = new ArrayList<>();
         var payload = root.asObjectValues().get("payload");
@@ -147,13 +147,13 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
                 .loopAction(new LoopSplit(quests));
     }
 
-    private String callProvider(List<String> segments) {
+    private String callProvider(CalcContext ctx, List<String> segments) {
         if (provider == null || modelclass != null && !modelclass.isAvailable()) {
             throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE,
                     "decompose provider unavailable");
         }
         try {
-            return provider.complete(segments);
+            return provider.complete(segments, ctx.temperature());
         } catch (HarnessException e) {
             throw e;
         } catch (Exception e) {

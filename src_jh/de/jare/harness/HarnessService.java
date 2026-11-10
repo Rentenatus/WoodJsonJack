@@ -251,11 +251,14 @@ public class HarnessService {
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
                         .params(java.util.Map.of(
                                 "model", "phi4-mini:latest",
-                                "systemPrompt", de.jare.harness.main.calculator.ScoringCountQuestsCalculator.DEFAULT_SYSTEM_PROMPT)))
+                                "systemPrompt", de.jare.harness.main.calculator.ScoringCountQuestsCalculator.DEFAULT_SYSTEM_PROMPT,
+                                "emphasisPrompt", de.jare.harness.main.calculator.ScoringCountQuestsCalculator.DEFAULT_EMPHASIS_PROMPT,
+                                "temperature", "0.0")))
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
                         .params(java.util.Map.of(
                                 "model", "nemotron3:33b",
-                                "systemPrompt", askAiDecomposeSystemPrompt())))
+                                "systemPrompt", askAiDecomposeSystemPrompt(),
+                                "temperature", "0.3")))
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig"));
         model.questFor(Kind.SPLIT).baseSlot().calculator(askAiCalc);
         // the entry loop (§15.6): legacy order + a CATCH handler on the ABORT quest
