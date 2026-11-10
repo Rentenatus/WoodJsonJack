@@ -31,9 +31,15 @@ import java.util.List;
 public class ScoringCountQuestsCalculator implements HarnessCalculator {
 
     public static final String DEFAULT_SYSTEM_PROMPT =
-            "You count how many distinct quests/tasks the user prompt contains. "
-            + "Answer with strict JSON only: {\"status\":\"DONE\",\"decision\":\"counted\","
-            + "\"score\":100,\"payload\":{\"questCount\":N}} where N is the number of quests (0..n).";
+            "Count the distinct questions or tasks in the user prompt. "
+            + "Each clause that asks for something or requests an action is ONE quest, even when "
+            + "clauses are joined with \"and\"/\"und\"/\",\". Never merge joined clauses into one. "
+            + "Pure greetings or statements without a question or instruction count as 0. "
+            + "Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"counted\","
+            + "\"score\":100,\"payload\":{\"questCount\":N}} where N is the total number of quests. "
+            // tuned against phi4-mini (3.8B): rule-based, NO few-shot examples - a tiny model
+            // tends to parrot examples instead of analysing the user prompt
+            ;
 
     private final Kind kind;
     private final Modelclass modelclass;
