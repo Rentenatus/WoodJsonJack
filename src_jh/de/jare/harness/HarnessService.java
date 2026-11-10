@@ -246,11 +246,21 @@ public class HarnessService {
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
                         .params(java.util.Map.of(
                                 "model", "phi4-mini:latest",
-                                "systemPrompt", de.jare.harness.main.calculator.ScoringCountQuests.DEFAULT_SYSTEM_PROMPT)))
+                                "systemPrompt", de.jare.harness.main.calculator.ScoringCountQuestsCalculator.DEFAULT_SYSTEM_PROMPT)))
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
-                        .params(java.util.Map.of("model", "nemotron3:33b")))
+                        .params(java.util.Map.of(
+                                "model", "nemotron3:33b",
+                                "systemPrompt", askAiDecomposeSystemPrompt())))
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig"));
         model.questFor(Kind.SPLIT).baseSlot().calculator(askAiCalc);
         return model;
+    }
+
+    /**
+     * The system prompt of the askai.decompose call - handed to the builder via the config
+     * params, so mutations can be tried purely at the config level (asset harness-model.json).
+     */
+    private static String askAiDecomposeSystemPrompt() {
+        return de.jare.harness.main.calculator.AskAiDecomposeCalculator.DEFAULT_SYSTEM_PROMPT;
     }
 }

@@ -12,7 +12,7 @@ import de.jare.harness.HarnessCalculator;
 import de.jare.harness.model.Modelclass;
 
 /**
- * The builder of {@link ScoringCountQuests} - understands exactly its params:
+ * The builder of {@link ScoringCountQuestsCalculator} - understands exactly its params:
  * {@code "model"} (concrete model, fallback purpose "scoring") and {@code "systemPrompt"}
  * (the scoring prompt; mutable purely at config level for mutation trials).
  *
@@ -51,6 +51,6 @@ public class ScoringCountQuestsBuilder implements CalculatorBuilder {
         if (mc == null) {
             mc = ctx.modelclassByPurpose("scoring");
         }
-        return new ScoringCountQuests(ctx.kind(), mc, ctx.providerFor(mc), systemPrompt);
+        return new ScoringCountQuestsCalculator(ctx.kind(), mc, ctx.providerFor(mc), systemPrompt);
     }
 }

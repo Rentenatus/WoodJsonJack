@@ -78,9 +78,12 @@ public class HarnessServiceNGTest {
         Assert.assertEquals(scoringParams.get("model"), "phi4-mini:latest");
         Assert.assertTrue(scoringParams.get("systemPrompt").contains("questCount"),
                 "systemPrompt is a config param of scoring.countQuests");
-        // the decompose child uses the strongest local genAI: nemotron3:33b
-        Assert.assertEquals(askAi.baseSlot().getCalculator().getChildren().get(1).getParams(),
-                java.util.Map.of("model", "nemotron3:33b"));
+        // the decompose child uses the strongest local genAI: nemotron3:33b, and its
+        // systemPrompt is a config param too (mutable at config level)
+        java.util.Map<String, String> decomposeParams = askAi.baseSlot().getCalculator().getChildren().get(1).getParams();
+        Assert.assertEquals(decomposeParams.get("model"), "nemotron3:33b");
+        Assert.assertTrue(decomposeParams.get("systemPrompt").contains("quests"),
+                "systemPrompt is a config param of askai.decompose");
         Assert.assertTrue(model.questFor(Kind.WORK).isEvolvable());
         Assert.assertEquals(model.questFor(Kind.WORK).getSlots().size(), 4,
                 "base + 3 Mutation-Resolve candidates");

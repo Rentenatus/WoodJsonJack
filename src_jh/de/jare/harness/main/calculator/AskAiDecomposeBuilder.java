@@ -9,22 +9,30 @@ package de.jare.harness.main.calculator;
 import de.jare.harness.CalculatorBuilder;
 import de.jare.harness.CalculatorCreationContext;
 import de.jare.harness.HarnessCalculator;
-import de.jare.harness.impl.AiCalculator;
 import de.jare.harness.model.Modelclass;
 
 /**
- * The builder of the {@code "askai.decompose"} calculator (AskAiDecompose): understands the
- * param {@code "model"} - the strong genAI (e.g. nemotron3:33b) that generates the N atomic
- * user prompts from the big user prompt. Fallback: purpose "investigation".
+ * The builder of {@link AskAiDecomposeCalculator} - understands exactly its params:
+ * {@code "model"} (the strong genAI, e.g. nemotron3:33b, that generates the N atomic user
+ * prompts from the big user prompt; fallback purpose "investigation") and
+ * {@code "systemPrompt"} (the decompose prompt; mutable purely at config level).
  *
  * @author Janusch Rentenatus
  */
 public class AskAiDecomposeBuilder implements CalculatorBuilder {
 
     private String model;
+    private String systemPrompt;
 
+    /** Typed setter: the concrete model, e.g. "nemotron3:33b". */
     public AskAiDecomposeBuilder withModel(String model) {
         this.model = model;
+        return this;
+    }
+
+    /** Typed setter: the system prompt of the decompose call. */
+    public AskAiDecomposeBuilder withSystemPrompt(String systemPrompt) {
+        this.systemPrompt = systemPrompt;
         return this;
     }
 
@@ -32,6 +40,8 @@ public class AskAiDecomposeBuilder implements CalculatorBuilder {
     public CalculatorBuilder withParam(String key, String value) {
         if ("model".equals(key)) {
             withModel(value);
+        } else if ("systemPrompt".equals(key)) {
+            withSystemPrompt(value);
         }
         return this;
     }
@@ -42,6 +52,6 @@ public class AskAiDecomposeBuilder implements CalculatorBuilder {
         if (mc == null) {
             mc = ctx.modelclassByPurpose("investigation");
         }
-        return new AiCalculator(ctx.kind(), mc, ctx.providerFor(mc));
+        return new AskAiDecomposeCalculator(ctx.kind(), mc, ctx.providerFor(mc), systemPrompt);
     }
 }

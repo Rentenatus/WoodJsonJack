@@ -146,9 +146,9 @@ public class HarnessCodecNGTest {
         // the factory resolves the name to a real AiCalculator bound via params to phi4-mini
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(loadedParams);
         HarnessCalculator calc = factory.createAtomic(pn, Kind.SPLIT);
-        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuests,
+        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuestsCalculator,
                 "scoring.countQuests resolves to its real calculator class");
-        Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuests) calc).getModelclass().getModel(),
+        Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuestsCalculator) calc).getModelclass().getModel(),
                 "phi4-mini:latest");
 
         // unknown name falls back to the impl-based deterministic calculator
@@ -208,7 +208,7 @@ public class HarnessCodecNGTest {
         model.questFor(Kind.SPLIT).baseSlot().calculator(node);
 
         HarnessCalculator calc = factory.createAtomic(node, Kind.SPLIT);
-        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuests);
+        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuestsCalculator);
 
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
         TaskData root = instance.newRootTask(instance.nextTaskId(), "AskAi", "please do research AND write code AND test");
@@ -237,10 +237,10 @@ public class HarnessCodecNGTest {
         Assert.assertTrue(b instanceof de.jare.harness.main.calculator.ScoringCountQuestsBuilder);
         b.withParam("model", "phi4-mini:latest").withParam("systemPrompt", "custom mutation prompt");
         HarnessCalculator calc = b.build(ctx);
-        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuests);
-        Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuests) calc).getSystemPrompt(),
+        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.ScoringCountQuestsCalculator);
+        Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuestsCalculator) calc).getSystemPrompt(),
                 "custom mutation prompt", "builder understood the params");
-        Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuests) calc).getModelclass().getModel(),
+        Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuestsCalculator) calc).getModelclass().getModel(),
                 "phi4-mini:latest");
 
         // printig builder ignores params, still builds

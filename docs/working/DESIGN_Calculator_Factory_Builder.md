@@ -29,7 +29,7 @@ config (harness-model.json)                src_jh
 ## Built-in named calculators (main/calculator + impl/deterministic)
 | Name | Class | Builder | Params |
 |---|---|---|---|
-| `scoring.countQuests` | `main.calculator.ScoringCountQuests` | `ScoringCountQuestsBuilder` | `model`, `systemPrompt` |
+| `scoring.countQuests` | `main.calculator.ScoringCountQuestsCalculator` | `ScoringCountQuestsBuilder` | `model`, `systemPrompt` |
 | `askai.decompose` | `main.calculator.AskAiDecomposeBuilder` → `AiCalculator` | `AskAiDecomposeBuilder` | `model` |
 | `printig` | `impl.deterministic.CalculatorPrintQuests` | `PrintQuestsBuilder` | — |
 

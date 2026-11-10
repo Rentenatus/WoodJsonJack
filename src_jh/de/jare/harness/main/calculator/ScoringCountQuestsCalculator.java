@@ -28,7 +28,7 @@ import java.util.List;
  *
  * @author Janusch Rentenatus
  */
-public class ScoringCountQuests implements HarnessCalculator {
+public class ScoringCountQuestsCalculator implements HarnessCalculator {
 
     public static final String DEFAULT_SYSTEM_PROMPT =
             "You count how many distinct quests/tasks the user prompt contains. "
@@ -40,7 +40,7 @@ public class ScoringCountQuests implements HarnessCalculator {
     private final ModelProvider provider;
     private final String systemPrompt;
 
-    public ScoringCountQuests(Kind kind, Modelclass modelclass, ModelProvider provider, String systemPrompt) {
+    public ScoringCountQuestsCalculator(Kind kind, Modelclass modelclass, ModelProvider provider, String systemPrompt) {
         this.kind = kind;
         this.modelclass = modelclass;
         this.provider = provider;
