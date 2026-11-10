@@ -157,6 +157,23 @@ public class HarnessServiceNGTest {
         HarnessModel serviceDefault = HarnessService.defaultModel();
         Assert.assertEquals(serviceDefault.getMaxIterations(), 50);
         Assert.assertEquals(serviceDefault.getMaxToolCalls(), 10);
+
+        assertMainLoop(asset, "bundled asset");
+        assertMainLoop(serviceDefault, "service default model");
+    }
+
+    /** Guard (§15.6): both default models carry the configured entry loop "main". */
+    private static void assertMainLoop(HarnessModel model, String what) {
+        de.jare.harness.model.Loop main = model.getLoop(de.jare.harness.model.Loop.MAIN);
+        Assert.assertNotNull(main, what + " must carry loops.main");
+        Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.START).get(0).getKind(), Kind.ABORT);
+        Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.CATCH).get(0).getKind(), Kind.ABORT);
+        Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.CLOSE).stream()
+                .map(i -> i.getKind()).toList(), List.of(Kind.CLOSE, Kind.RAG_PRUNE));
+        Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.EXECUTE).stream()
+                .map(i -> i.getKind()).toList(),
+                List.of(Kind.SPLIT, Kind.COMPLETE, Kind.WORK, Kind.EVALUATE,
+                        Kind.RAG_STORE, Kind.CHECK, Kind.SUMMARIZE));
     }
 
     @Test

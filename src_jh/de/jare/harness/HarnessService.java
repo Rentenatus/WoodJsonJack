@@ -258,6 +258,11 @@ public class HarnessService {
                                 "systemPrompt", askAiDecomposeSystemPrompt())))
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig"));
         model.questFor(Kind.SPLIT).baseSlot().calculator(askAiCalc);
+        // the entry loop (§15.6): legacy order + a CATCH handler on the ABORT quest
+        de.jare.harness.model.Loop main = HarnessModel.defaultMainLoop();
+        main.addItem(new de.jare.harness.model.LoopItem("err", Kind.ABORT)
+                .trigger(de.jare.harness.model.Trigger.CATCH));
+        model.addLoop(main);
         return model;
     }
 

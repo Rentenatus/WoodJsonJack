@@ -60,5 +60,20 @@
           "calculator": { "type": "atomic", "impl": "deterministic" } }
       ]
     }
+  ],
+  "loops": [
+    { "id": "main", "items": [
+      { "id": "abort",     "kind": "ABORT",     "trigger": "START"   },
+      { "id": "split",     "kind": "SPLIT",     "trigger": "EXECUTE" },
+      { "id": "complete",  "kind": "COMPLETE",  "trigger": "EXECUTE" },
+      { "id": "work",      "kind": "WORK",      "trigger": "EXECUTE" },
+      { "id": "evaluate",  "kind": "EVALUATE",  "trigger": "EXECUTE" },
+      { "id": "rag_store", "kind": "RAG_STORE", "trigger": "EXECUTE" },
+      { "id": "check",     "kind": "CHECK",     "trigger": "EXECUTE" },
+      { "id": "summarize", "kind": "SUMMARIZE", "trigger": "EXECUTE" },
+      { "id": "err",       "kind": "ABORT",     "trigger": "CATCH"   },
+      { "id": "close",     "kind": "CLOSE",     "trigger": "CLOSE"   },
+      { "id": "rag_prune", "kind": "RAG_PRUNE", "trigger": "CLOSE"   }
+    ] }
   ]
 }
