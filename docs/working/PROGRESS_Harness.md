@@ -55,11 +55,15 @@ TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **233/233 bestan
 3. ~~§15 finale Defaults~~ **erledigt:** Abbruch-Defaults festgezurrt auf `maxIterations 50 / maxDepth 5 / maxRetries 3 / maxToolCalls 10` (Code-Defaults in `HarnessModel` = gebündeltes Asset = `HarnessService.defaultModel()`, Guard-Test in `HarnessServiceNGTest`); UI entschieden als Dialog `HarnessViewPanel` + Harness-Menü. §15 im Konzept umgeschrieben von „offen“ auf „entschieden“. Verbleibend offen im Konzept: keine.
 4. ~~Globale Ebene `~/.wood/`~~ **erledigt:** `GlobalWood` verdrahtet `~/.wood/harness/metrics.json` + `lessons.json` und `~/.wood/mindset/` (Load vor Lauf, atomares Save nach Lauf, Lesson-Export bei signifikantem Vorsprung, Priors read-only via `ctx.metrics.globalPriors()`, Mindset via `ctx.mindset()`). Test-Override über System Property `de.jare.harness.woodHome` bzw. `HarnessService.setWoodHome()`.
 5. ~~SKILL-/Mindset-Segmente in der Prompt-Liste~~ **erledigt:** `HarnessEngine.buildSegments` (nutzt von `execute` und `onSignal`) matcht AUFTRAG gegen SKILL-Chunks pro Scope → SKILL-Segment als `skill:<id>`-Verweis (nie Volltext, nie als DATA), und zieht die Mindset-Kategorie als `SYSTEM:mindset:<cat>`-Segment (§12/§16). Test in `HarnessSkillsMindsetNGTest`.
-6. **Freie Loop-Konfiguration — Konzept entschieden (CONCEPT §5 Loop-Regel + §15.6), Umsetzung geplant:**
+6. ~~Freie Loop-Konfiguration~~ **erledigt** (CONCEPT §5 Loop-Regel + §15.6, Spec in
+   `docs/working/DESIGN_Loops.md`, Commits `c05f360`, `3a2d13e`, `28cdf1a`, `8786625`):
    `loops[]` (benannte Loops) + LoopItem `{id, kind, loop?, trigger}` (START/EXECUTE/CATCH/CLOSE) in der
-   Modell-JSON; LoopAction als Flow-Kanal neben HarnessAction; ErrorSignal DOMAIN/TECHNICAL, kein
-   Throwable über die Loop-Grenze. Voll-Spec + schrittweiser Plan in `docs/working/DESIGN_Loops.md`.
-   Code noch nicht umgebaut.
+   Modell-JSON inkl. Codec-Validierung; LoopAction als Flow-Kanal neben HarnessAction
+   (Continue/Restart/Break/SubLoop/ThrowError in `main.actions`); ErrorSignal DOMAIN/TECHNICAL, kein
+   Throwable über die Loop-Grenze (Fangnetz in `runNode` + `run`); Engine führt Loops nur aus
+   (`runLoop`, START einmalig, CLOSE immer im finally, CATCH nur bei DOMAIN, TECHNICAL unwindet);
+   Guards (RAG_STORE minScore, SUMMARIZE no-children) sitzen in den Kalkulatoren; Asset + Service-Default
+   tragen `loops.main`. Tests: `LoopConfigCodecNGTest`, `LoopActionNGTest`, `LoopEngineNGTest`.
 
 ## 5. Review 2026-11-06 (Code vs. Konzept, Branch geprüft)
 

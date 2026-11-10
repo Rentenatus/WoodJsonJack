@@ -2,7 +2,9 @@
 
 Beschlossen in `CONCEPT_Harness.md` §5 (Loop-Regel) und §15.6. Dieses Dokument ist die
 Ausführungs-Spec: Datenmodell, Lifecycle-Semantik, Fehlerkanäle und der schrittweise
-Umsetzungsplan. Stand: Konzept entschieden, Code noch nicht umgebaut.
+Umsetzungsplan. **Stand: umgesetzt** (Commits `c05f360` Modell+Codec, `3a2d13e` LoopAction/ErrorSignal,
+`28cdf1a` Engine-`runLoop`, `8786625` Asset-Migration; Tests `LoopConfigCodecNGTest`,
+`LoopActionNGTest`, `LoopEngineNGTest`).
 
 ## 1. Ziel
 
