@@ -9,9 +9,12 @@ package de.jare.harness.io;
 import de.jare.harness.Kind;
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
+import de.jare.harness.model.Loop;
+import de.jare.harness.model.LoopItem;
 import de.jare.harness.model.Modelclass;
 import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
+import de.jare.harness.model.Trigger;
 import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.io.JsonNodeWriter;
 import de.jare.jsoncasted.io.JsonParseException;
@@ -19,8 +22,10 @@ import de.jare.jsoncasted.io.parserservice.JsonParserService;
 import de.jare.jsoncasted.lang.JsonNode;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Codec between the {@link HarnessModel} and its JSON form ({@code harness-model.json},
@@ -86,7 +91,72 @@ public final class HarnessModelCodec {
                 model.addQuest(questFromJson(q));
             }
         }
+        JsonNode loops = child(root, "loops");
+        if (loops != null && loops.isArray() && !loops.asArray().isEmpty()) {
+            Set<String> loopIds = new HashSet<>();
+            for (JsonNode l : loops.asArray()) {
+                String loopId = text(l, "id", null);
+                if (loopId == null || loopId.isBlank()) {
+                    throw new IllegalArgumentException("loops[]: every loop needs an \"id\"");
+                }
+                if (!loopIds.add(loopId)) {
+                    throw new IllegalArgumentException("loops[]: duplicate loop id \"" + loopId + "\"");
+                }
+                model.addLoop(loopFromJson(loopId, l));
+            }
+            validateLoopRefs(model, loopIds);
+        } else {
+            // backward compat: no loops[] in the JSON -> the legacy hard-coded order as default "main"
+            model.addLoop(HarnessModel.defaultMainLoop());
+        }
         return model;
+    }
+
+    private static Loop loopFromJson(String loopId, JsonNode l) {
+        Loop loop = new Loop(loopId);
+        Set<String> itemIds = new HashSet<>();
+        JsonNode items = child(l, "items");
+        if (items != null && items.isArray()) {
+            for (JsonNode it : items.asArray()) {
+                String itemId = text(it, "id", "");
+                if (!itemIds.add(itemId)) {
+                    throw new IllegalArgumentException("loop \"" + loopId + "\": duplicate item id \"" + itemId + "\"");
+                }
+                Kind kind;
+                try {
+                    kind = Kind.valueOf(text(it, "kind", ""));
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalArgumentException("loop \"" + loopId + "\" item \"" + itemId
+                            + "\": unknown kind \"" + text(it, "kind", "") + "\"", e);
+                }
+                LoopItem item = new LoopItem(itemId, kind);
+                if (child(it, "loop") != null && !child(it, "loop").isNull()) {
+                    item.loop(child(it, "loop").asText());
+                }
+                String trig = text(it, "trigger", null);
+                if (trig != null) {
+                    try {
+                        item.trigger(Trigger.valueOf(trig));
+                    } catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException("loop \"" + loopId + "\" item \"" + itemId
+                                + "\": unknown trigger \"" + trig + "\" (START|EXECUTE|CATCH|CLOSE)", e);
+                    }
+                }
+                loop.addItem(item);
+            }
+        }
+        return loop;
+    }
+
+    private static void validateLoopRefs(HarnessModel model, Set<String> loopIds) {
+        for (Loop loop : model.getLoops().values()) {
+            for (LoopItem item : loop.getItems()) {
+                if (item.isSubLoop() && !loopIds.contains(item.getLoop())) {
+                    throw new IllegalArgumentException("loop \"" + loop.getId() + "\" item \"" + item.getId()
+                            + "\": unknown loop ref \"" + item.getLoop() + "\"");
+                }
+            }
+        }
     }
 
     private static Quest questFromJson(JsonNode q) {
@@ -191,7 +261,28 @@ public final class HarnessModelCodec {
             quests.add(questToJson(q));
         }
         root.put("quests", quests);
+        JsonNode loops = JsonNode.arrayNode();
+        for (Loop l : model.getLoops().values()) {
+            loops.add(loopToJson(l));
+        }
+        root.put("loops", loops);
         return root;
+    }
+
+    private static JsonNode loopToJson(Loop l) {
+        JsonNode node = JsonNode.objectNode();
+        node.put("id", JsonNode.stringNode(l.getId()));
+        JsonNode items = JsonNode.arrayNode();
+        for (LoopItem item : l.getItems()) {
+            JsonNode in = JsonNode.objectNode();
+            in.put("id", JsonNode.stringNode(item.getId()));
+            in.put("kind", JsonNode.stringNode(item.getKind().name()));
+            in.put("loop", item.getLoop() == null ? JsonNode.nullNode() : JsonNode.stringNode(item.getLoop()));
+            in.put("trigger", JsonNode.stringNode(item.getTrigger().name()));
+            items.add(in);
+        }
+        node.put("items", items);
+        return node;
     }
 
     private static JsonNode questToJson(Quest q) {

@@ -208,6 +208,19 @@ Vorschlag der Treiber gegen Budgets + erlaubte Refs validiert und hart beschneid
           "calculator": { "type": "atomic", "impl": "deterministic" } }
       ]
     }
+  ],
+  "loops": [
+    { "id": "main", "items": [
+      { "id": "abort", "kind": "ABORT",     "trigger": "START"   },
+      { "id": "split", "kind": "SPLIT",     "trigger": "EXECUTE" },
+      { "id": "work",  "kind": "WORK",      "trigger": "EXECUTE" },
+      { "id": "eval",  "kind": "EVALUATE",  "trigger": "EXECUTE" },
+      { "id": "rag",   "kind": "RAG_STORE", "trigger": "EXECUTE" },
+      { "id": "check", "kind": "CHECK",     "trigger": "EXECUTE" },
+      { "id": "sum",   "kind": "SUMMARIZE", "trigger": "EXECUTE" },
+      { "id": "err",   "kind": "ABORT",     "trigger": "CATCH"   },
+      { "id": "close", "kind": "CLOSE",     "trigger": "CLOSE"   }
+    ] }
   ]
 }
 ```
@@ -220,14 +233,17 @@ HarnessModel  (harness-model.json, JsonItemDefinition)
 │     dürfen denselben Zweck tragen; Slots adressieren den Zweck, Kalkulatoren wählen bei Mehrfach-
 │     belegung über `size` (Parameter in B, ganzzahlig, 0 = unbekannt; aus "27b" im Namen parsebar).
 │     Modellnamen nur hier, nie in Slots; inkl. purpose "rag" für die Projekt-RAG, §11
-└── quests[]
-    └── Quest  (kind, evolvable)
-        └── slots[]
-            └── Slot  (id, mutation — default null/unbelegt; benennt die Evolutions-Variante)
-                └── calculator: HarnessCalculator
-                    ├── "atomic"  → impl: deterministic | ai (+ modelclass: <klasse aus modelclasses>)
-                    └── "puzzle"  → HarnessCalculatorPuzzle
-                        └── children: HarnessCalculator[]   ← rekursiv: jeder Eintrag wieder atomar ODER Puzzle
+├── quests[]
+│   └── Quest  (kind, evolvable)
+│       └── slots[]
+│           └── Slot  (id, mutation — default null/unbelegt; benennt die Evolutions-Variante)
+│               └── calculator: HarnessCalculator
+│                   ├── "atomic"  → impl: deterministic | ai (+ modelclass: <klasse aus modelclasses>)
+│                   └── "puzzle"  → HarnessCalculatorPuzzle
+│                       └── children: HarnessCalculator[]   ← rekursiv: jeder Eintrag wieder atomar ODER Puzzle
+└── loops[]          ← benannte Loops (id eindeutig); "main" ist der Einstieg des Laufs.
+    └── Loop  (id)   fehlte `loops[]`, gilt die Legacy-Reihenfolge als default "main" (§15.6)
+        └── items[]  ← LoopItem: { id, kind, loop? (SubLoop-Ref), trigger: START|EXECUTE|CATCH|CLOSE (default EXECUTE) }
 ```
 
 **Rekursionsregel (binding):** Das Element `HarnessCalculator` ist entweder **atomar** (`impl` + optional
@@ -239,6 +255,17 @@ trägt nur `id`, `mutation` (default unbelegt) und den `calculator`. Die drei `M
 im Beispiel sind die drei parallelen Kandidaten eines Evolutions-Schritts (§7) an einer `evolvable` Quest.
 Damit ist §13 (Composite Calculators) im Modell selbst abbildbar: ein Slot kann einen ganzen
 Kalkulator-Teilbaum tragen.
+
+**Loop-Regel (binding, Details in §15.6 und `docs/working/DESIGN_Loops.md`):** `loops[]` definiert
+benannte Abläufe. Ein **LoopItem** trägt feste Attribute: `id` (Log-/Debug-Label), `kind` (Quest-Kind,
+dessen Slots ausgeführt werden), optional `loop` (Ref auf einen anderen Loop — SubLoop-Aufruf statt
+Quest-Ausführung) und `trigger` (`START` einmalig beim Loop-Eintritt, `EXECUTE` pro Iteration in
+Listenreihenfolge, `CATCH` bei fachlichem Fehler, `CLOSE` einmalig beim Verlassen im finally;
+default `EXECUTE`). Zwei Namensräume bleiben sauber getrennt: `quests[]` definiert pro **Kind** das
+„Was“ (Slots), `loops[]` das „Wann/In welcher Reihenfolge“ (Lifecycle). Alle fachlichen
+Entscheidungen (Guards, Schwellen, Steueraktionen) bleiben in den Kalkulatoren bzw. deren
+Slot-Params — der Loop führt nur nach Vorschrift aus und wertet die **LoopAction** des jeweiligen
+Kalkulators aus.
 
 ## 6. Aufruflog: Kennzahlen statt Texte
 
@@ -572,6 +599,30 @@ ctx.ui          // * neu: Harness-Fenster
    `HarnessEngine`) — keine if-Kaskaden auf Strings. Der `decision`-String bleibt nur als
    serialisierte Log-Form; `HarnessAction.fromDecision` mappt ihn zurück. Ergebnisse zwischen
    Kalkulatoren einer Puzzle-Sequenz laufen über den WorkCache (`ctx.workCache()`).
+6. **Freie Loop-Konfiguration (entschieden, Details + Umsetzungsplan in `docs/working/DESIGN_Loops.md`):**
+   Die Main-Loop des Treibers ist nicht mehr hartkodiert, sondern als benannte **Loops** in der
+   Modell-JSON konfigurierbar (`loops[]`, §5); fehlt sie, gilt die bisherige harte Reihenfolge als
+   default `"main"`. Jeder Loop ist eine Liste von **LoopItems** `{ id, kind, loop?, trigger }` mit
+   festem Attributsatz; `trigger` ∈ `START | EXECUTE | CATCH | CLOSE` (default `EXECUTE`) steuert den
+   Lifecycle: START einmalig beim Eintritt, EXECUTE pro Iteration, CATCH bei **fachlichem** Fehler,
+   CLOSE einmalig beim Verlassen (finally — CLOSE feuert immer, auch nach CATCH und Break).
+   **Zwei Action-Kanäle, klar getrennt:** die fachliche `HarnessAction` (Was passiert am Task —
+   Split/Retry/Abort, §15.5) und die neue **LoopAction** (Wohin geht der Flow) im `CalcResult` —
+   `Continue` (nächstes Item), `Restart` (aktueller Loop ab erstem EXECUTE-Item neu; START feuert
+   nicht erneut), `Break` (aktueller Loop verlassen, CLOSE läuft, Rückgabe an den Aufrufer),
+   `SubLoop(loopId)` (benannten Loop auf den Call-Stack pushen, Depth-Check), `ThrowError(errorSignal)`.
+   Interface `LoopAction` in `de.jare.harness`, Repräsentanten in `de.jare.harness.main.actions`.
+   **Fehlerkanäle als Daten, nie als Throwable:** `ErrorSignal { kind: DOMAIN | TECHNICAL, reason,
+   source }` — DOMAIN (Kalkulator meldet fachlichen Fehler, z. B. kein valides JSON vom Modell)
+   feuert CATCH; TECHNICAL (Bug/Infrastruktur — Provider nicht erreichbar, NPE, Codec-Fehler)
+   überspringt CATCH, setzt die Quest hart auf FAILED und entrollt bis ganz oben. Kein `Throwable`
+   überschreitet die Loop-Grenze: Die Engine fängt in genau einer Stelle (Kalkulator-Aufruf in
+   `runNode`) und verpackt in ein TECHNICAL-`ErrorSignal` (ggf. aus `HarnessException`, §13-Typen
+   bleiben das Vokabular); ein äußerster Fang in `HarnessEngine.run` garantiert das auch für Code
+   außerhalb des Loops. `maxIterations` zählt EXECUTE-Iterationen global über alle verschachtelten
+   Loops, `maxDepth` begrenzt die SubLoop-Verschachtelung. Guards (z. B. RAG_STORE erst ab
+   `minScore`, SUMMARIZE nur mit Children) sitzen in den Kalkulatoren, Schwellen als Slot-Params —
+   nicht mehr als Konstanten in der Engine.
 
 ## 16. Mindset of the AI (nur global, analog zu Skills)
 

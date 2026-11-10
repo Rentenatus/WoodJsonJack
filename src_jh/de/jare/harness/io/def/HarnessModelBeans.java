@@ -119,6 +119,32 @@ public class HarnessModelBeans {
         public void setSlots(List<SlotBean> v) { this.slots = v; }
     }
 
+    public static class LoopItemBean {
+        private String id;
+        private String kind;
+        private String loop;
+        private String trigger = "EXECUTE";
+
+        public String getId() { return id; }
+        public void setId(String v) { this.id = v; }
+        public String getKind() { return kind; }
+        public void setKind(String v) { this.kind = v; }
+        public String getLoop() { return loop; }
+        public void setLoop(String v) { this.loop = v; }
+        public String getTrigger() { return trigger; }
+        public void setTrigger(String v) { this.trigger = v; }
+    }
+
+    public static class LoopBean {
+        private String id;
+        private List<LoopItemBean> items = new ArrayList<>();
+
+        public String getId() { return id; }
+        public void setId(String v) { this.id = v; }
+        public List<LoopItemBean> getItems() { return items; }
+        public void setItems(List<LoopItemBean> v) { this.items = v; }
+    }
+
     public static class HarnessModelBean {
         private String name;
         private String version;
@@ -127,6 +153,7 @@ public class HarnessModelBeans {
         private AbortLimitsBean abortLimits;
         private List<ModelclassBean> modelclasses = new ArrayList<>();
         private List<QuestBean> quests = new ArrayList<>();
+        private List<LoopBean> loops = new ArrayList<>();
 
         public String getName() { return name; }
         public void setName(String v) { this.name = v; }
@@ -142,5 +169,7 @@ public class HarnessModelBeans {
         public void setModelclasses(List<ModelclassBean> v) { this.modelclasses = v; }
         public List<QuestBean> getQuests() { return quests; }
         public void setQuests(List<QuestBean> v) { this.quests = v; }
+        public List<LoopBean> getLoops() { return loops; }
+        public void setLoops(List<LoopBean> v) { this.loops = v; }
     }
 }

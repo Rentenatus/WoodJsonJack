@@ -36,6 +36,7 @@ public class HarnessModel {
     private int maxToolCalls = 10;
     private final List<Modelclass> modelclasses = new ArrayList<>();
     private final List<Quest> quests = new ArrayList<>();
+    private final Map<String, Loop> loops = new LinkedHashMap<>();   // named loops, §15.6; "main" = entry
 
     public String getName() {
         return name;
@@ -124,6 +125,35 @@ public class HarnessModel {
         return quests.stream().filter(q -> q.getKind() == kind).findFirst().orElse(null);
     }
 
+    /** The named loops of the model (CONCEPT_Harness.md §15.6); empty until the codec fills them. */
+    public Map<String, Loop> getLoops() {
+        return loops;
+    }
+
+    public HarnessModel addLoop(Loop loop) {
+        loops.put(loop.getId(), loop);
+        return this;
+    }
+
+    public Loop getLoop(String id) {
+        return loops.get(id);
+    }
+
+    /**
+     * The legacy main loop: the previously hard-coded processLoop order of the engine
+     * (backward compat when the JSON has no {@code loops[]}, DESIGN_Loops.md §2).
+     */
+    public static Loop defaultMainLoop() {
+        Loop main = new Loop(Loop.MAIN);
+        main.addItem(new LoopItem("abort", Kind.ABORT).trigger(Trigger.START));
+        for (Kind k : new Kind[]{Kind.SPLIT, Kind.COMPLETE, Kind.WORK, Kind.EVALUATE,
+                Kind.RAG_STORE, Kind.CHECK, Kind.SUMMARIZE}) {
+            main.addItem(new LoopItem(k.name().toLowerCase(), k).trigger(Trigger.EXECUTE));
+        }
+        main.addItem(new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE));
+        return main;
+    }
+
     /** Deep copy for lineage snapshots and evolution clones (§7). */
     public HarnessModel copy() {
         HarnessModel c = new HarnessModel().name(name).version(version)
@@ -152,6 +182,9 @@ public class HarnessModel {
                 qCopy.addSlot(sCopy);
             }
             c.quests.add(qCopy);
+        }
+        for (Loop l : loops.values()) {
+            c.loops.put(l.getId(), l.copy());
         }
         return c;
     }

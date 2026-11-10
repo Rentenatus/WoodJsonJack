@@ -11,14 +11,19 @@ import de.jare.harness.Kind;
 import de.jare.harness.io.def.HarnessModelBeans.AbortLimitsBean;
 import de.jare.harness.io.def.HarnessModelBeans.CalculatorBean;
 import de.jare.harness.io.def.HarnessModelBeans.HarnessModelBean;
+import de.jare.harness.io.def.HarnessModelBeans.LoopBean;
+import de.jare.harness.io.def.HarnessModelBeans.LoopItemBean;
 import de.jare.harness.io.def.HarnessModelBeans.ModelclassBean;
 import de.jare.harness.io.def.HarnessModelBeans.QuestBean;
 import de.jare.harness.io.def.HarnessModelBeans.SlotBean;
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
+import de.jare.harness.model.Loop;
+import de.jare.harness.model.LoopItem;
 import de.jare.harness.model.Modelclass;
 import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
+import de.jare.harness.model.Trigger;
 import de.jare.harness.signals.Signal;
 import java.util.Map;
 
@@ -58,6 +63,20 @@ public final class HarnessModelBeanConverter {
                 quest.addSlot(slot);
             }
             model.addQuest(quest);
+        }
+        for (LoopBean lb : bean.getLoops()) {
+            Loop loop = new Loop(lb.getId());
+            for (LoopItemBean ib : lb.getItems()) {
+                LoopItem item = new LoopItem(ib.getId(), Kind.valueOf(ib.getKind()));
+                if (ib.getLoop() != null) {
+                    item.loop(ib.getLoop());
+                }
+                if (ib.getTrigger() != null) {
+                    item.trigger(Trigger.valueOf(ib.getTrigger()));
+                }
+                loop.addItem(item);
+            }
+            model.addLoop(loop);
         }
         return model;
     }

@@ -11,6 +11,8 @@ import static de.jare.jsoncasted.model.JsonCollectionType.LIST;
 import de.jare.harness.io.def.HarnessModelBeans.AbortLimitsBean;
 import de.jare.harness.io.def.HarnessModelBeans.CalculatorBean;
 import de.jare.harness.io.def.HarnessModelBeans.HarnessModelBean;
+import de.jare.harness.io.def.HarnessModelBeans.LoopBean;
+import de.jare.harness.io.def.HarnessModelBeans.LoopItemBean;
 import de.jare.harness.io.def.HarnessModelBeans.ModelclassBean;
 import de.jare.harness.io.def.HarnessModelBeans.QuestBean;
 import de.jare.harness.io.def.HarnessModelBeans.SlotBean;
@@ -85,6 +87,16 @@ public class JsonHarnessModelDefinition implements JsonItemDefinition {
         quest.addField("evolvable", asBoolean);
         quest.addField("slots", slot, LIST);
 
+        JsonClass loopItem = model.newJsonReflect(LoopItemBean.class);
+        loopItem.addField("id", asString);
+        loopItem.addField("kind", asString);
+        loopItem.addField("loop", asString);
+        loopItem.addField("trigger", asString);
+
+        JsonClass loop = model.newJsonReflect(LoopBean.class);
+        loop.addField("id", asString);
+        loop.addField("items", loopItem, LIST);
+
         JsonMap promptBudgets = model.newRawJsonMapIndividually(
                 (new JsonInstance<Integer>()).getClass(), null, asInt);
 
@@ -96,6 +108,7 @@ public class JsonHarnessModelDefinition implements JsonItemDefinition {
         root.addField("abortLimits", abortLimits);
         root.addField("modelclasses", modelclass, LIST);
         root.addField("quests", quest, LIST);
+        root.addField("loops", loop, LIST);
 
         model.setRootNodeCast(root.getcName());
     }
