@@ -52,6 +52,7 @@ public class WoodWindow extends JFrame {
 
     private final JackMasterControl jackmaster;
     private final JTabbedPane centerTabs;
+    private Map<String, JPanel> harnessTreeTabs;   // debug: readonly harness tree tabs
     private final JackEditTreeContainer editorTree1;
     private final JackEditTreeContainer editorTree2;
     private final SettingsService settingsService;
@@ -122,6 +123,7 @@ public class WoodWindow extends JFrame {
 
         centerTabs.addTab("Tree Editor 1", wrapEditor(editorTree1));
         centerTabs.addTab("Tree Editor 2", wrapEditor(editorTree2));
+        harnessTreeTabs = new HashMap<>();
 
         editorTree1.setReadonly(true);
 
@@ -905,6 +907,72 @@ public class WoodWindow extends JFrame {
      * @param container the editor container, not null.
      * @return the wrapping scroll pane with the slim scroll bars.
      */
+    /**
+     * DEBUG: opens the harness task tree of the given instance READ-ONLY in a new center tab
+     * (later: only on demand). The tab rebuilds from the TaskData projection and refreshes live
+     * via the TaskTree change events; no edit commands are wired, so it is read-only.
+     */
+    public void openHarnessTreeTab(String title, de.jare.harness.HarnessInstance instance) {
+        if (instance == null || instance.getRoot() == null) {
+            return;
+        }
+        SwingUtilities.invokeLater(() -> {
+            JPanel existing = harnessTreeTabs.get(title);
+            if (existing != null) {
+                centerTabs.setSelectedComponent(existing);
+                return;
+            }
+            javax.swing.tree.DefaultMutableTreeNode root =
+                    new javax.swing.tree.DefaultMutableTreeNode("harness");
+            javax.swing.tree.DefaultTreeModel model = new javax.swing.tree.DefaultTreeModel(root);
+            javax.swing.JTree tree = new javax.swing.JTree(model);
+            tree.setEditable(false);   // read-only debug view
+            JPanel panel = new JPanel(new java.awt.BorderLayout());
+            panel.add(new javax.swing.JScrollPane(tree), java.awt.BorderLayout.CENTER);
+            Runnable refresh = () -> {
+                root.removeAllChildren();
+                root.add(buildTaskNode(instance.getRoot()));
+                model.reload();
+                for (int i = 0; i < tree.getRowCount(); i++) {
+                    tree.expandRow(i);
+                }
+            };
+            instance.getTaskTree().addChangeListener(n -> SwingUtilities.invokeLater(refresh));
+            refresh.run();
+            harnessTreeTabs.put(title, panel);
+            centerTabs.addTab(title, panel);
+            centerTabs.setSelectedComponent(panel);
+        });
+    }
+
+    private static javax.swing.tree.DefaultMutableTreeNode buildTaskNode(de.jare.harness.TaskData t) {
+        javax.swing.tree.DefaultMutableTreeNode n = new javax.swing.tree.DefaultMutableTreeNode(t);
+        // calculator content hangs under the task node: one child per call-log entry
+        for (de.jare.harness.CallLogEntry e : t.getCalculatorLog()) {
+            StringBuilder label = new StringBuilder();
+            label.append('#').append(e.getAufrufId()).append(' ').append(e.getKind())
+                    .append(" slot=").append(e.getSlotId())
+                    .append(" -> ").append(e.getDecision())
+                    .append(" status=").append(e.getStatus());
+            if (e.getScore() != null) {
+                label.append(" score=").append(e.getScore());
+            }
+            javax.swing.tree.DefaultMutableTreeNode logNode =
+                    new javax.swing.tree.DefaultMutableTreeNode(label.toString());
+            for (var p : e.getPayload().entrySet()) {
+                logNode.add(new javax.swing.tree.DefaultMutableTreeNode(p.getKey() + " = " + p.getValue()));
+            }
+            if (e.getMessage() != null && !e.getMessage().isEmpty()) {
+                logNode.add(new javax.swing.tree.DefaultMutableTreeNode("msg = " + e.getMessage()));
+            }
+            n.add(logNode);
+        }
+        for (de.jare.harness.TaskData c : t.getChildren()) {
+            n.add(buildTaskNode(c));
+        }
+        return n;
+    }
+
     private JScrollPane wrapEditor(JackEditTreeContainer container) {
         final JScrollPane scrollPane = new JScrollPane(container);
         scrollPane.getVerticalScrollBar().setPreferredSize(

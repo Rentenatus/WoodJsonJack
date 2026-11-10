@@ -37,7 +37,7 @@ import java.util.function.BiConsumer;
  *
  * @author Janusch Rentenatus
  */
-public class HarnessEngine {
+public class HarnessEngine implements HarnessDriver {
 
     /** RAG_STORE threshold on the 0-100 score scale (§11, konfigurierbar am RAG-Default). */
     public static final int RAG_STORE_MIN_SCORE = 50;
@@ -54,6 +54,7 @@ public class HarnessEngine {
     private HarnessLineage lineage;   // set between runs; enables the feedback loop (§7.1)
     private de.jare.harness.mindset.Mindset mindset = new de.jare.harness.mindset.Mindset();   // global ~/.wood/mindset (§16)
     private de.jare.harness.skills.SkillRegistry skillRegistry = new de.jare.harness.skills.SkillRegistry();   // §12
+    private de.jare.harness.memory.WorkCache workCache;   // result channel between calculators (§3 layering)
     private java.util.function.BiFunction<String, List<String>, String> userAskHandler;   // §14 ctx.ui.askUser
 
     public HarnessEngine(HarnessModel model, HarnessInstance instance, CalculatorFactory factory) {
@@ -126,6 +127,11 @@ public class HarnessEngine {
 
     public void setSkillRegistry(de.jare.harness.skills.SkillRegistry skillRegistry) {
         this.skillRegistry = skillRegistry == null ? new de.jare.harness.skills.SkillRegistry() : skillRegistry;
+    }
+
+    /** The WorkCache of the current MemoryQuest - the runtime result channel handed to every CalcContext. */
+    public void setWorkCache(de.jare.harness.memory.WorkCache workCache) {
+        this.workCache = workCache;
     }
 
     /** §14 ctx.ui.askUser - the UI installs this; default answers with the first option. */
@@ -246,31 +252,15 @@ public class HarnessEngine {
                 notify(task, Kind.ABORT, "hard stop: limits exceeded");
                 return;
             }
-            CalcResult abort = execute(task, Kind.ABORT);
-            if (abort != null && "abort".equals(abort.getDecision())) {
-                task.setStatus(Status.ABORTED);
-                notify(task, Kind.ABORT, abort.getMessage());
+            // steering is object-oriented now: the calculator's HarnessAction executes itself
+            // on this driver - no decision-string if-cascades (§15.5)
+            if (step(task, Kind.ABORT) == HarnessAction.Control.STOP) {
                 return;
             }
-
-            CalcResult split = execute(task, Kind.SPLIT);
-            if (split != null && "split".equals(split.getDecision())) {
-                task.rewriteAsSummary();
-                int parts = Integer.parseInt(split.getPayload().getOrDefault("parts", "2"));
-                for (int i = 1; i <= parts; i++) {
-                    process(task.addSubtask(instance.nextTaskId(), task.getTaskType(),
-                            task.getTitle() + " / part " + i));
-                }
-                execute(task, Kind.SUMMARIZE);
-                execute(task, Kind.CLOSE);
-                execute(task, Kind.RAG_PRUNE);
+            if (step(task, Kind.SPLIT) == HarnessAction.Control.STOP) {
                 return;
             }
-
-            CalcResult complete = execute(task, Kind.COMPLETE);
-            if (complete != null && "incomplete".equals(complete.getDecision())) {
-                process(task.addSubtask(instance.nextTaskId(), "REASONING",
-                        "reasoning about " + task.getTitle().replaceAll("\\?+$", "")));
+            if (step(task, Kind.COMPLETE) == HarnessAction.Control.LOOP) {
                 continue;
             }
 
@@ -287,12 +277,7 @@ public class HarnessEngine {
                 execute(task, Kind.RAG_STORE);
             }
 
-            CalcResult check = execute(task, Kind.CHECK);
-            if (check != null && "retry".equals(check.getDecision())) {
-                limits.countRetry();
-                task.incrementAttempt();
-                task.setStatus(Status.RETRY);
-                task.appendPromptSupplement("retry " + task.getAttempt());
+            if (step(task, Kind.CHECK) == HarnessAction.Control.LOOP) {
                 continue;
             }
 
@@ -303,6 +288,50 @@ public class HarnessEngine {
             execute(task, Kind.RAG_PRUNE); // prune runs e.g. after each CLOSE (§11)
             return;
         }
+    }
+
+    /** Runs one pipeline kind and executes the returned action; null result = no steering. */
+    private HarnessAction.Control step(TaskData task, Kind kind) {
+        CalcResult r = execute(task, kind);
+        return r == null ? HarnessAction.Control.CONTINUE : r.getAction().execute(this, task, r);
+    }
+
+    //
+    // HarnessDriver - the operations HarnessActions execute (§15.5)
+    //
+
+    @Override
+    public void splitInto(TaskData task, List<String> prompts, int parts) {
+        task.rewriteAsSummary();
+        int n = prompts != null && !prompts.isEmpty() ? prompts.size() : Math.max(1, parts);
+        for (int i = 0; i < n; i++) {
+            String title = prompts != null && !prompts.isEmpty()
+                    ? prompts.get(i) : task.getTitle() + " / part " + (i + 1);
+            process(task.addSubtask(instance.nextTaskId(), task.getTaskType(), title));
+        }
+        execute(task, Kind.SUMMARIZE);
+        execute(task, Kind.CLOSE);
+        execute(task, Kind.RAG_PRUNE);
+    }
+
+    @Override
+    public void addReasoningSubtask(TaskData task) {
+        process(task.addSubtask(instance.nextTaskId(), "REASONING",
+                "reasoning about " + task.getTitle().replaceAll("\\?+$", "")));
+    }
+
+    @Override
+    public void retry(TaskData task, String reason) {
+        limits.countRetry();
+        task.incrementAttempt();
+        task.setStatus(Status.RETRY);
+        task.appendPromptSupplement("retry " + task.getAttempt());
+    }
+
+    @Override
+    public void abort(TaskData task, String reason) {
+        task.setStatus(Status.ABORTED);
+        notify(task, Kind.ABORT, reason);
     }
 
     /**
@@ -334,6 +363,7 @@ public class HarnessEngine {
         List<String> prompts = PromptAssembler.toTexts(promptAssembler.assemble(resolved));
         CalcContext ctx = new CalcContext(this, instance, model, task, kind, slot.getId(), node, limits, prompts);
         ctx.setTools(tools);
+        ctx.setWorkCache(workCache);
 
         long start = System.currentTimeMillis();
         CalcResult result;
@@ -357,7 +387,9 @@ public class HarnessEngine {
         CallLogEntry entry = new CallLogEntry(aufrufId, task.getId(), task.getTaskType(), kind,
                 slot.getId(), model.getVersion(), task.getAttempt(), dauerMs, 0, 0,
                 result.getScore(), result.getStatus(),
-                result.getDecision() + decisionSuffix, p1, p2);
+                result.getDecision() + decisionSuffix, result.getMessage(), result.getPayload(), p1, p2);
+        // layering (§3): instance.logCall = RUNTIME truth (memory layer), task.logCall = the
+        // bridge write into the PERSISTED PROJECTION (TaskData -> EditTree, fires change events)
         task.logCall(entry);
         instance.logCall(entry);
         callStack.push(entry); // stays on the stack until the owning task's process() ends
@@ -428,6 +460,7 @@ public class HarnessEngine {
                     buildSegments(task, kind, task.getTitle())));
             CalcContext ctx = new CalcContext(this, instance, model, task, kind, slotId, mapped, limits, prompts);
             ctx.setTools(tools);
+            ctx.setWorkCache(workCache);
             runNode(mapped, kind, ctx);
         }
     }
@@ -438,6 +471,13 @@ public class HarnessEngine {
             CalcResult last = CalcResult.of(kind, "puzzle");
             for (CalculatorNode child : node.getChildren()) {
                 last = runNode(child, kind, ctx);
+                // result channel (§3 layering): thread each child's CalcResult through the
+                // runtime WorkCache - the next sibling reads it via ctx.workCache()
+                if (ctx.workCache() != null) {
+                    String name = child.getCalculator() != null ? child.getCalculator()
+                            : (child.getImpl() != null ? child.getImpl() : child.getType());
+                    ctx.workCache().putResult(name, last).setLastResult(last);
+                }
             }
             return last;
         }
@@ -455,6 +495,9 @@ public class HarnessEngine {
                 + " -> decision=" + res.getDecision() + " status=" + res.getStatus()
                 + (res.getScore() != null ? " score=" + res.getScore() : "")
                 + " (" + (System.currentTimeMillis() - t0) + " ms)");
+        if (ctx.workCache() != null) {
+            ctx.workCache().putResult(calcName, res).setLastResult(res);
+        }
         return res;
     }
 

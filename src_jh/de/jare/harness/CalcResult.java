@@ -22,6 +22,7 @@ public class CalcResult {
     private Integer score;
     private String decision = "";
     private String message = "";
+    private HarnessAction action;   // the OO steering object; derived from decision if not set explicitly
     private final Map<String, String> payload = new LinkedHashMap<>();
 
     public CalcResult(Kind kind) {
@@ -62,6 +63,23 @@ public class CalcResult {
 
     public CalcResult decision(String decision) {
         this.decision = decision;
+        return this;
+    }
+
+    /**
+     * The steering action the driver executes (object-oriented, no decision-string parsing).
+     * If not set explicitly, it is derived from the legacy decision string + payload.
+     */
+    public HarnessAction getAction() {
+        return action != null ? action
+                : de.jare.harness.main.actions.Actions.fromDecision(decision, payload, message);
+    }
+
+    public CalcResult action(HarnessAction action) {
+        this.action = action;
+        if (action != null && (decision == null || decision.isEmpty())) {
+            this.decision = action.type();
+        }
         return this;
     }
 

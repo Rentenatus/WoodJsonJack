@@ -136,6 +136,7 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
                 case DONE -> new Color(0x2E7D32);
                 case FAILED -> new Color(0xC62828);
                 case ABORTED -> new Color(0x6A1B9A);
+                case INVALID -> new Color(0x757575);
             };
         }
     }

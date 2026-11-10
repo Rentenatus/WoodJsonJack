@@ -18,5 +18,7 @@ public enum Status {
     RETRY,
     DONE,
     FAILED,
-    ABORTED
+    ABORTED,
+    /** the input was not usable (e.g. nothing to split) - no error, just no work */
+    INVALID
 }

@@ -36,6 +36,7 @@ public class CalcContext {
     private final Limits limits;
     private final List<String> currentPrompts;
     private HarnessTools tools;
+    private de.jare.harness.memory.WorkCache workCache;   // result channel between calculators (§3 layering)
 
     public CalcContext(HarnessEngine engine, HarnessInstance instance, HarnessModel model,
                        TaskData task, Kind kind, String slotId, CalculatorNode node,
@@ -170,6 +171,20 @@ public class CalcContext {
 
     public void setTools(HarnessTools tools) {
         this.tools = tools;
+    }
+
+    /**
+     * ctx.workCache - the runtime result channel (WorkCache of the MemoryQuest, memory package):
+     * every atomic calculator's CalcResult is stored here by the engine under the calculator
+     * name and as lastResult; a calculator reads predecessor results of the same puzzle
+     * sequence from here (e.g. askai.decompose reads scoring.countQuests' questCount).
+     */
+    public de.jare.harness.memory.WorkCache workCache() {
+        return workCache;
+    }
+
+    public void setWorkCache(de.jare.harness.memory.WorkCache workCache) {
+        this.workCache = workCache;
     }
 
     /**

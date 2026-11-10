@@ -91,6 +91,11 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
             questCount = Integer.parseInt(String.valueOf(payload.asObjectValues().get("questCount").asLong()).trim());
         }
         String status = text(root, "status", "DONE");
+        // data cache: the count is also written into the runtime WorkCache so a following
+        // calculator can format it into its prompt template ({data.count}, PromptFormatter)
+        if (ctx.workCache() != null) {
+            ctx.workCache().put("count", String.valueOf(questCount));
+        }
         return CalcResult.of(kind, text(root, "decision", "counted"))
                 .status(parseStatus(status))
                 .put("questCount", String.valueOf(questCount))

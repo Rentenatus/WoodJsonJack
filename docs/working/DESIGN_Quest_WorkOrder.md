@@ -27,3 +27,14 @@ Status: decided 2026-11-08, implementation follows in `src_jh/de/jare/harness/`.
 - Bearbeitungsantwort = **WorkResponse**
 - Rezept = **recipe** (`HarnessInstance` + `model/Quest`)
 - Memory-Quest-Instanz = **MemoryQuest** (runtime, owns WorkOrder/WorkCache/WorkResponse)
+
+## Layering: runtime truth vs. persisted projection (CONCEPT_Harness.md §3)
+
+This memory package IS the runtime truth of a run: the engine logic (call stack, status, call
+log) runs here independently of any tree. `WorkOrder.getTaskTree()` / `getRoot()` expose a
+`TaskData`/EditTree that is only the PERSISTED PROJECTION (trace) of that runtime state:
+structure (parent/children) + an OVERWRITABLE "current" cell (status/score/attempt —
+progress-bar semantics) + an APPEND-ONLY call log (`calculatorLog[]`). The bridge from runtime
+to projection is the write-through setter path of the `TaskData` facade (fires the EditTree
+change events); `HarnessEngine` writes `instance.logCall` (runtime) and `task.logCall`
+(projection).

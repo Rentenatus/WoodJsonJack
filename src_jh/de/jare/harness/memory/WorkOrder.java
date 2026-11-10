@@ -16,10 +16,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The WorkOrder (Bearbeitungsauftrag) - the MEMORY of the current calculation
- * (docs/working/DESIGN_Quest_WorkOrder.md): created in memory when the UI AskAi action fires,
- * with the slot id (e.g. "askai.base") and at least the raw user prompt as a field, plus the
- * task tree and call log that grow during the run. The HarnessInstance stays the recipe.
+ * The WorkOrder (Bearbeitungsauftrag) - the MEMORY of the current calculation and part of the
+ * RUNTIME TRUTH of a run (CONCEPT_Harness.md §3 layering, docs/working/DESIGN_Quest_WorkOrder.md):
+ * created in memory when the UI AskAi action fires, with the slot id (e.g. "askai.base") and at
+ * least the raw user prompt as a field, plus the call log and status that grow during the run.
+ * The {@link TaskTree}/{@link TaskData} referenced here is only the PERSISTED PROJECTION of this
+ * state (structure + overwritable status cell + append-only call log) - the engine logic runs on
+ * this runtime layer, the tree receives the projection via the TaskData bridge. The
+ * HarnessInstance stays the recipe-side run container.
  *
  * @author Janusch Rentenatus
  */

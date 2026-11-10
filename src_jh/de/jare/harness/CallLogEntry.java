@@ -45,12 +45,22 @@ public class CallLogEntry {
     private final Integer score;
     private final Status status;
     private final String decision;
+    private final String message;                                   // calculator message (may be empty)
+    private final java.util.Map<String, String> payload;            // calculator payload content (may be empty)
     private final Parent1 parent1;     // redundant
     private final Long parent2;        // link only - parent3+ walkable via parent2's parent1
 
     public CallLogEntry(long aufrufId, long taskId, String taskType, Kind kind, String slotId,
                         String modelVersion, int attempt, long dauerMs, int tokensIn, int tokensOut,
                         Integer score, Status status, String decision, Parent1 parent1, Long parent2) {
+        this(aufrufId, taskId, taskType, kind, slotId, modelVersion, attempt, dauerMs, tokensIn, tokensOut,
+                score, status, decision, "", java.util.Map.of(), parent1, parent2);
+    }
+
+    public CallLogEntry(long aufrufId, long taskId, String taskType, Kind kind, String slotId,
+                        String modelVersion, int attempt, long dauerMs, int tokensIn, int tokensOut,
+                        Integer score, Status status, String decision, String message,
+                        java.util.Map<String, String> payload, Parent1 parent1, Long parent2) {
         this.aufrufId = aufrufId;
         this.taskId = taskId;
         this.taskType = taskType;
@@ -64,6 +74,8 @@ public class CallLogEntry {
         this.score = score;
         this.status = status;
         this.decision = decision;
+        this.message = message == null ? "" : message;
+        this.payload = payload == null ? java.util.Map.of() : payload;
         this.parent1 = parent1;
         this.parent2 = parent2;
     }
@@ -81,6 +93,10 @@ public class CallLogEntry {
     public Integer getScore() { return score; }
     public Status getStatus() { return status; }
     public String getDecision() { return decision; }
+    /** The calculator's message content of this call ("" if none). */
+    public String getMessage() { return message; }
+    /** The calculator's payload content of this call (never null). */
+    public java.util.Map<String, String> getPayload() { return payload; }
     public Parent1 getParent1() { return parent1; }
     public Long getParent2() { return parent2; }
 
@@ -102,6 +118,16 @@ public class CallLogEntry {
         }
         n.put("status", JsonNode.stringNode(status.name()));
         n.put("decision", JsonNode.stringNode(decision));
+        if (!message.isEmpty()) {
+            n.put("message", JsonNode.stringNode(message));
+        }
+        if (!payload.isEmpty()) {
+            JsonNode p = JsonNode.objectNode();
+            for (var e : payload.entrySet()) {
+                p.put(e.getKey(), JsonNode.stringNode(e.getValue()));
+            }
+            n.put("payload", p);
+        }
         if (parent1 != null) {
             JsonNode p1 = JsonNode.objectNode();
             p1.put("aufrufId", JsonNode.longNode(parent1.aufrufId));
@@ -128,13 +154,21 @@ public class CallLogEntry {
                     Status.valueOf(text(p1n, "status", "DONE")));
         }
         Long p2 = child(n, "parent2") == null ? null : child(n, "parent2").asLong();
+        java.util.Map<String, String> payload = new java.util.LinkedHashMap<>();
+        JsonNode pn = child(n, "payload");
+        if (pn != null && pn.isObject()) {
+            for (var e : pn.asObjectValues().entrySet()) {
+                payload.put(e.getKey(), e.getValue() == null || e.getValue().isNull() ? "" : e.getValue().asText());
+            }
+        }
         return new CallLogEntry(
                 longOf(n, "aufrufId", 0), longOf(n, "taskId", 0), text(n, "taskType", ""),
                 Kind.valueOf(text(n, "kind", "WORK")), text(n, "slotId", ""),
                 text(n, "modelVersion", ""), (int) longOf(n, "attempt", 0),
                 longOf(n, "dauerMs", 0), (int) longOf(n, "tokensIn", 0), (int) longOf(n, "tokensOut", 0),
                 child(n, "score") == null ? null : child(n, "score").asLong().intValue(),
-                Status.valueOf(text(n, "status", "DONE")), text(n, "decision", ""), p1, p2);
+                Status.valueOf(text(n, "status", "DONE")), text(n, "decision", ""),
+                text(n, "message", ""), payload, p1, p2);
     }
 
     private static JsonNode child(JsonNode node, String key) {

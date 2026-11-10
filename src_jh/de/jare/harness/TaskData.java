@@ -17,13 +17,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One task of the harness - a FACADE with a back-reference to its {@link EditNodeObject}
- * (concept CONCEPT_Harness.md §3, decided): the tree structure (parent/children) lives in the
- * EditNode world, the payload (id, taskType, title, status, score, ...) lives as primitive
- * member properties of the node, so persistence runs through the JsonNode root of the
- * EditTree and the JTree shows the very same node instances. Every setter writes through
- * to the node and fires the change event - the attach is internal, there is no second
- * mutation path.
+ * One task of the harness - the PERSISTED PROJECTION (trace) of the run, not its runtime state
+ * (concept CONCEPT_Harness.md §3 layering): the runtime truth lives in
+ * {@code de.jare.harness.memory} (MemoryQuest/WorkOrder) and {@link HarnessInstance}; this
+ * facade only receives the projected values. It is a FACADE with a back-reference to its
+ * {@link EditNodeObject}: the tree structure (parent/children) lives in the EditNode world,
+ * the payload (id, taskType, title, ...) lives as primitive member properties of the node, so
+ * persistence runs through the JsonNode root of the EditTree and the JTree shows the very same
+ * node instances. Every setter writes through to the node and fires the change event - the
+ * attach is internal, there is no second mutation path.
+ *
+ * <p>Two kinds of payload, deliberately different semantics: the "current" cell
+ * ({@code status}/{@code score}/{@code attempt}/{@code summaryTask}/{@code artifact}/
+ * {@code promptSupplement}) is OVERWRITTEN on each change - progress-bar semantics, the UI
+ * repaints it in place. The {@code calculatorLog[]} is APPEND-ONLY - the history of calculator
+ * calls, never overwritten; it is the memory for HISTORY segments and the feedback loop.</p>
  *
  * @author Janusch Rentenatus
  */

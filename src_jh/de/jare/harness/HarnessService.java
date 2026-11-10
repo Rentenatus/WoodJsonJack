@@ -125,6 +125,11 @@ public class HarnessService {
             }
         }
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        // result channel (§3 layering): the runtime WorkCache of the MemoryQuest is handed to
+        // every CalcContext, so calculators of one puzzle sequence read predecessor results
+        if (lastMemoryQuest != null) {
+            engine.setWorkCache(lastMemoryQuest.getWorkCache());
+        }
         if (host != null) {
             host.wireInto(engine);   // askUser, editor.open, run listeners - via SPI only
         }

@@ -11,11 +11,15 @@ import de.jare.harness.TaskTree;
 import de.jare.harness.model.Quest;
 
 /**
- * The MemoryQuest - the MEMORY-side quest instance of one run
- * (docs/working/DESIGN_Quest_WorkOrder.md). Around the WorkOrder it carries the WorkCache
- * (intermediate results: RAG chunks, tool outputs, partials) and the WorkResponse (the live,
- * still-changing answer shown in the UI). It references the recipe-side {@link Quest}
- * (model.Quest, pure blueprint) but is never part of the recipe/lineage copies.
+ * The MemoryQuest - the MEMORY-side quest instance of one run and the RUNTIME TRUTH layer
+ * (CONCEPT_Harness.md §3 layering, docs/working/DESIGN_Quest_WorkOrder.md): the harness logic
+ * runs independently on this package (WorkOrder = the calculation's memory, WorkCache =
+ * intermediate results, WorkResponse = the live answer). The task tree attached to the
+ * WorkOrder is only the persisted PROJECTION of the run - the TaskData/EditTree receives the
+ * projected values via its write-through bridge. Around the WorkOrder this quest carries the
+ * WorkCache (intermediate results: RAG chunks, tool outputs, partials) and the WorkResponse
+ * (the live, still-changing answer shown in the UI). It references the recipe-side
+ * {@link Quest} (model.Quest, pure blueprint) but is never part of the recipe/lineage copies.
  *
  * Created in memory when the UI AskAi action fires; id = slot id, e.g. "askai.base".
  *

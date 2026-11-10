@@ -72,12 +72,14 @@ können lokale und gehostete Provider mischen).
 Zeitstempel der letzten Störung an der Modelclass / in den Metriken); betroffene Calls fallen auf den
 deterministischen Fallback oder einen anderen Provider zurück. **Kostenlimits in Euro sind nicht vorgesehen.**
 
-## 3. Task-Baum als Single Source of Truth
+## 3. Task-Baum als persistierte Projektion (Trace) des Laufs
 
 Die Daten des Harness-Fensters werden **als Baum gespeichert** und via jsonCasted persistiert
 (`<projekt>/.wood/harness.json`, §5). Jeder Task-Knoten: `id, taskType, title, status, score, children, calculatorLog[]`.
 Das Harness-Fenster zeigt den Baum live (Status-Farben, Score-Badges); Klick auf einen Knoten zeigt dessen
-Kalkulator-Protokoll. Pro Aufruf wird im Knoten gespeichert: `kind, attempt, segmentRefs[], promptHash, result`.
+Kalkulator-Protokoll. Pro Aufruf wird im Knoten ein Log-Eintrag angehängt: `kind, attempt, segmentRefs[], promptHash, result`.
+**Wichtig:** Dieser Baum ist nicht die Source of Truth des Laufs, sondern deren Projektion — die
+Runtime-Wahrheit liegt im memory-Package (§3 unten, §10).
 
 **Baumstruktur = EditTree (entschieden, Umsetzungsplanung siehe PROGRESS_Harness.md §9):** Der Task-Baum
 ist **keine parallele Welt**, sondern eine echte `EditTree` (jsonCasted_edit) im Harness. `TaskNode` wird
@@ -87,6 +89,23 @@ Node und feuern das Change-Event). Die Attributes bleiben primitive, serialisier
 Score-long …), damit Persistierung via JsonNode und Anzeige via `rightString()` ohne Sonder-Codec laufen.
 Die Node→TaskData-Richtung läuft über eine Registry pro WorkOrder (`IdentityHashMap<EditNode, TaskData>`) —
 Struktur (parent/children) lebt im EditNode, Payload in der Registry; keine zwei Sources of Truth.
+
+**Zwei Schichten — Runtime-Wahrheit vs. persistierte Projektion (entschieden):** Die Logik des Laufs
+lebt **unabhängig** in der Runtime-Schicht — dem Package `de.jare.harness.memory` (`MemoryQuest` mit
+`WorkOrder`/`WorkCache`/`WorkResponse`) und der `HarnessInstance` (Call-Log, Metriken, Call-Stack des
+Engines). `TaskData`/EditTree ist **nur die Projektion** dieses Laufzeit-Zustands in den Baum: die Struktur
+(parent/children), eine **überschreibbare „aktuell"-Zelle** (`status`, `score`, `attempt` — wie ein
+Fortschrittsbalken, der sich bei jedem Schritt neu malt) und der **append-only Call-Log** (`calculatorLog[]`,
+die Historie der Kalkulator-Aufrufe — nie überschrieben, sie ist das Gedächtnis für HISTORY-Segments und
+Feedback-Loop). Der Engine schreibt seine Ergebnisse in die Runtime (`instance.logCall`, WorkOrder-Status);
+ein schmaler Bridge-Pfad (die write-through-Setter der TaskData-Facade) projiziert sie in die EditTree und
+feuert die Change-Events, über die Host-View und Codec laufen. TaskData ist damit der **Trace** des Laufs,
+nicht sein State — die Wahrheit liegt im memory-Package, die Projektion im Baum.
+**Result-Channel zwischen Kalkulatoren:** Ergebnisse werden nicht über den Baum, sondern über den
+**WorkCache** (Runtime-Wahrheit) durchgereicht — der Engine legt jedes atomare `CalcResult` nach dem
+Aufruf unter dem Kalkulator-Namen und als `lastResult` in `ctx.workCache()` ab; ein Folge-Kalkulator
+derselben Puzzle-Sequenz liest das Vorgänger-Ergebnis von dort (z. B. liest `askai.decompose` das
+`questCount` aus dem Payload von `scoring.countQuests`, um N Subprompts/Subtasks zu erzeugen).
 Die Swing-Seite kopiert nichts: `JackTreeModel` hängt die EditNode-Instanzen
 direkt als `userObject` in die `DefaultMutableTreeNode` — Harness und JTree zeigen **dieselben Instanzen**.
 Sync: Der Harness mutiert die EditTree und feuert die bestehenden Events (`TypeParserListener` /
@@ -304,7 +323,10 @@ kann jsonCasted_edit mitbenutzen). Die Kopplung an den Host (WJJ-Swing, Settings
 ```
 src_jh/de/jare/harness/          // WoodHarness (Produkt), host-agnostisch, kein Swing, kein WJJ-src
   HarnessCalculator.java, CalcContext.java, CalcResult.java, Kind.java
-  TaskNode.java, HarnessModel.java, HarnessInstance.java, HarnessEngine.java   // Engine = deterministischer Treiber
+  TaskData.java, TaskTree.java, HarnessModel.java, HarnessInstance.java, HarnessEngine.java
+  //   TaskData/TaskTree = persistierte PROJEKTION (Trace) des Laufs, siehe §3
+  memory/                  // MEMORY = Runtime-Wahrheit eines Laufs (§3, DESIGN_Quest_WorkOrder.md):
+                           //   MemoryQuest (WorkOrder + WorkCache + WorkResponse) — Logik läuft hier unabhängig
   CallLogEntry, metrics/, HarnessLineage.java, EvolutionRunner.java, GlobalWood.java, Lessons.java
   prompts/  rag/  skills/  tools/  signals/  mindset/  io/  model/
   impl/deterministic/  impl/ollama/  impl/hosted/
@@ -533,6 +555,23 @@ ctx.ui          // * neu: Harness-Fenster
    eine Registry pro WorkOrder). Gleiche Instanzen im Harness und im JTree
    (`DefaultMutableTreeNode.userObject` = EditNode), Sync über die bestehenden EditTree-Events,
    read-only für die UI (§3). src_jh darf dafür jsonCasted_edit abhängen (§10).
+4. **Schichtung Runtime vs. Projektion (entschieden, §3):** `de.jare.harness.memory` (MemoryQuest /
+   WorkOrder / WorkCache / WorkResponse) + `HarnessInstance` sind die **Runtime-Wahrheit** eines Laufs;
+   `TaskData`/EditTree ist die **persistierte Projektion** — Struktur + überschreibbare Status-Zelle
+   (status/score/attempt, Fortschrittsbalken-Semantik) + append-only Call-Log (`calculatorLog[]`).
+   Der Engine mutiert die Runtime; die TaskData-Setter sind der schmale Bridge-Pfad, der in die
+   EditTree projiziert und die Change-Events feuert. TaskData ist der Trace, nie der State.
+5. **Steuerung objektorientiert via HarnessAction (entschieden):** Ein Kalkulator steuert den Automaten
+   nicht über Decision-Strings, sondern indem er ein **`HarnessAction`**-Objekt im `CalcResult` erzeugt.
+   Das Interface liegt in `de.jare.harness`, die Repräsentanten in **`de.jare.harness.main.actions`**
+   (`None`, `Split(prompts, parts)`, `ReasoningSubtask`, `Retry(reason)`, `Abort(reason)`; Factory
+   `Actions.fromDecision` für das Legacy-Mapping) — neue Actions werden dort als neue Implementierungen
+   des Interfaces ergänzt.
+   Die Action trägt die Payload (z. B. die N atomaren Subprompts bei Split). Der Driver führt sie
+   polymorph aus: `action.execute(driver, task, result)` auf dem `HarnessDriver` (implementiert vom
+   `HarnessEngine`) — keine if-Kaskaden auf Strings. Der `decision`-String bleibt nur als
+   serialisierte Log-Form; `HarnessAction.fromDecision` mappt ihn zurück. Ergebnisse zwischen
+   Kalkulatoren einer Puzzle-Sequenz laufen über den WorkCache (`ctx.workCache()`).
 
 ## 16. Mindset of the AI (nur global, analog zu Skills)
 

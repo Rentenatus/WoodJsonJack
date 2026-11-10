@@ -29,6 +29,11 @@ import java.util.function.Consumer;
  * {@link EditNodeObject} named "task" whose member properties carry the {@link TaskData}
  * payload (primitive values), and whose "tasks" array member holds the subtask objects.
  *
+ * <p><b>Layering (§3):</b> this tree is the PERSISTED PROJECTION (trace) of the run, not its
+ * state. The runtime truth lives in {@code de.jare.harness.memory} (MemoryQuest/WorkOrder)
+ * and {@link HarnessInstance}; the engine writes runtime state there and this tree only
+ * receives the projection via the {@link TaskData} write-through setters.</p>
+ *
  * <p>
  * The registry maps EditNode → TaskData (the facade holds the back-reference; the registry
  * answers the reverse direction for children/parent navigation). Structural changes go

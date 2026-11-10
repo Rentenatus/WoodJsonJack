@@ -10,6 +10,7 @@ import de.jare.harness.CalcContext;
 import de.jare.harness.CalcResult;
 import de.jare.harness.HarnessCalculator;
 import de.jare.harness.Kind;
+import de.jare.harness.Status;
 import de.jare.harness.impl.ModelProvider;
 import de.jare.harness.model.Modelclass;
 
@@ -29,8 +30,8 @@ import de.jare.harness.model.Modelclass;
 public class AskAiDecomposeCalculator implements HarnessCalculator {
 
     public static final String DEFAULT_SYSTEM_PROMPT =
-            "You decompose the user prompt into N atomic quests (N = the questCount from the scoring "
-            + "call in the history). Answer with strict JSON only: {\"status\":\"DONE\","
+            "You decompose the user prompt into {data.count} atomic quests ({data.count} = the "
+            + "questCount from the scoring call). Answer with strict JSON only: {\"status\":\"DONE\","
             + "\"decision\":\"decomposed\",\"score\":100,\"payload\":{\"quests\":[\"...\",\"...\"]}} "
             + "where quests is the list of atomic user prompts.";
 
@@ -69,8 +70,52 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
 
     @Override
     public CalcResult calculate(CalcContext ctx) {
+        // the quest count comes from the predecessor of this puzzle sequence via the runtime
+        // result channel / data cache: scoring.countQuests wrote it as payload "questCount"
+        // and as data-cache entry "count"
+        Integer count = null;
+        if (ctx.workCache() != null) {
+            String dataCount = ctx.workCache().get("count");
+            if (dataCount != null && !dataCount.isBlank()) {
+                try {
+                    count = Integer.valueOf(dataCount.trim());
+                } catch (NumberFormatException ignored) {
+                    count = null;
+                }
+            }
+            if (count == null && ctx.workCache().getResult("scoring.countQuests") != null) {
+                String q = ctx.workCache().getResult("scoring.countQuests").getPayload().get("questCount");
+                if (q != null && !q.isBlank()) {
+                    try {
+                        count = Integer.valueOf(q.trim());
+                    } catch (NumberFormatException ignored) {
+                        count = null;
+                    }
+                }
+            }
+        }
+        if (count == null) {
+            // no count available - error status, but no exception: the driver's catch-mapping
+            // is not needed, the run continues with the deterministic fallback semantics
+            return CalcResult.of(kind, "decompose-nocount").status(Status.FAILED)
+                    .message("no quest count in work cache");
+        }
+        if (count <= 1) {
+            // nothing to decompose - no error, the task is simply not splittable
+            return CalcResult.of(kind, "nosplit").status(Status.INVALID)
+                    .message("quest count " + count + " <= 1, nothing to decompose");
+        }
         // TODO: decompose logic - assemble SYSTEM:askai.decompose + prompts, call the provider,
-        // parse the strict JSON answer and put the atomic quests into the payload
+        // parse the strict JSON answer and put the atomic quests into the payload.
+        // The system prompt is formatted against the runtime data cache:
+        //   String sys = de.jare.harness.prompts.PromptFormatter.format(systemPrompt, ctx.workCache());
+        //   -> "{data.count}" is replaced with the count written by scoring.countQuests.
+        // count is already parsed above (N): create N atomic subprompts and steer via a
+        // HarnessAction:
+        //   return CalcResult.of(kind, "split")
+        //           .put("quests", String.join("\n", subprompts))
+        //           .action(new de.jare.harness.main.actions.Split(subprompts, count));
+        // the driver executes the Split action and adds the N subtasks (no if-cascades).
         return CalcResult.of(kind, "decompose-todo");
     }
 }
