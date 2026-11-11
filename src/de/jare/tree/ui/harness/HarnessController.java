@@ -40,6 +40,7 @@ public class HarnessController {
     private HarnessEngine lastEngine;
     private JDialog viewDialog;
     private final List<BiConsumer<TaskData, String>> runListeners = new ArrayList<>();
+    private java.util.function.Consumer<String> commandReplyHandler;   // §17: /cmd replies shown in the KI pane
 
     public HarnessController(JFrame owner) {
         this.owner = owner;
@@ -58,10 +59,16 @@ public class HarnessController {
         return service == null ? null : service.getLastMemoryQuest();
     }
 
+    /** §17: the KI pane installs this to show /cmd replies (e.g. /clear, /memory) in the output area. */
+    public void setCommandReplyHandler(java.util.function.Consumer<String> commandReplyHandler) {
+        this.commandReplyHandler = commandReplyHandler;
+    }
+
     /**
      * AskAi entry from the KI pane (Enter / "Ask AI"): runs the main AskAi quest with the user
      * prompt. The harness core (HarnessService.runTask) creates the MemoryQuest + WorkOrder -
      * this controller only triggers, it never builds TaskData/WorkOrder itself.
+     * §17: input starting with "/" is a chat command (ChatCommandService), not a run.
      */
     public void runAskAi(File projectRoot, String prompt) {
         if (projectRoot == null) {
@@ -71,7 +78,15 @@ public class HarnessController {
         if (prompt == null || prompt.isBlank()) {
             return;
         }
-        runTask(projectRoot, de.jare.harness.model.HarnessModel.QUEST_ASK_AI, prompt);
+        de.jare.harness.main.chat.ChatCommandService.CommandResult cmd =
+                new de.jare.harness.main.chat.ChatCommandService(service(projectRoot)).dispatch(prompt);
+        if (cmd.handled()) {
+            if (commandReplyHandler != null) {
+                commandReplyHandler.accept(cmd.reply());
+            }
+            return;
+        }
+        runTask(projectRoot, de.jare.harness.model.HarnessModel.QUEST_ASK_AI, cmd.prompt());
     }
 
     /**

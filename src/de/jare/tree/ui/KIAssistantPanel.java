@@ -139,6 +139,25 @@ public class KIAssistantPanel extends JPanel {
         return value;
     }
 
+    /**
+     * §17: appends a line to the output area (chat command replies like /clear, /memory).
+     * Plain text is HTML-escaped; multi-line replies keep their line breaks.
+     */
+    public void appendOutput(String text) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        String html = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\n", "<br>");
+        javax.swing.text.StyledDocument doc = outputPane.getStyledDocument();
+        try {
+            doc.insertString(doc.getLength(), html + "<br>", null);
+        } catch (Exception ignored) {
+            // output is best-effort
+        }
+        outputPane.setCaretPosition(doc.getLength());
+    }
+
     public JTextPane getOutputPane() {
         return outputPane;
     }

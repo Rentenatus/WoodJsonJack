@@ -247,6 +247,8 @@ public class JackMainMenu extends JMenuBar {
         if (woodWindow.getKIAssistantPanel() != null) {
             woodWindow.getKIAssistantPanel().setThinkingHandler(prompt -> harnessController.runAskAi(
                     woodWindow.getProjectSidebar().getProjectRoot(), prompt));
+            // §17: /cmd replies (ChatCommandService via HarnessController) land in the output area
+            harnessController.setCommandReplyHandler(woodWindow.getKIAssistantPanel()::appendOutput);
         }
         harnessMenu.add(runTaskItem);
         harnessMenu.add(runSelectionItem);
