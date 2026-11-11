@@ -146,6 +146,7 @@ public class HarnessEngine implements HarnessDriver {
     }
 
     private de.jare.harness.memory.ProjectMemory projectMemory;   // project-local memory across runs (§17)
+    private final java.util.Set<Long> usedMemoryIds = new java.util.LinkedHashSet<>();   // §17 feedback: fed into prompts this run
 
     /** The ProjectMemory of the project - handed to every CalcContext and fed as HISTORY/DATA segments. */
     public void setProjectMemory(de.jare.harness.memory.ProjectMemory projectMemory) {
@@ -154,6 +155,11 @@ public class HarnessEngine implements HarnessDriver {
 
     public de.jare.harness.memory.ProjectMemory getProjectMemory() {
         return projectMemory;
+    }
+
+    /** §17: ids of the project-memory entries that were fed into a prompt during this run. */
+    public java.util.Set<Long> getUsedMemoryIds() {
+        return usedMemoryIds;
     }
 
     /** §14 ctx.ui.askUser - the UI installs this; default answers with the first option. */
@@ -672,6 +678,7 @@ public class HarnessEngine implements HarnessDriver {
         if (projectMemory != null) {
             long now = System.currentTimeMillis();
             for (de.jare.harness.memory.ProjectMemory.Nugget n : projectMemory.live(now)) {
+                usedMemoryIds.add(n.id);   // §17 feedback: this entry went into a prompt
                 if (n.kind == de.jare.harness.memory.ProjectMemory.Kind.CHAT) {
                     resolved.add(PromptSegment.of(PromptSegment.Category.HISTORY, "memory:chat-" + n.id,
                             n.role + ": " + n.text));

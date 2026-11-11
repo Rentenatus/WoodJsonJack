@@ -215,4 +215,37 @@ public class HarnessServiceNGTest {
         Assert.assertEquals(entries.get(2).text, "zweite frage");
         Assert.assertEquals(entries.get(0).kind, de.jare.harness.memory.ProjectMemory.Kind.CHAT);
     }
+
+    /**
+     * §17 feedback hook: a nugget in the project memory is fed into the run's prompts (DATA
+     * segment) - after the run it carries uses (+hits when the run scored >= threshold), and the
+     * global metrics get a per-source-calculator SCORE entry ("nugget:&lt;source&gt;"), so the
+     * nugget-producing calculator is scoreable like any slot (§9 analogy: constructed gradient).
+     */
+    @Test
+    public void testNuggetFeedbackUsesHitsAndMetrics() throws Exception {
+        Path project = Files.createTempDirectory("harness-project-feedback");
+        Path wood = Files.createTempDirectory("harness-wood-feedback");
+        HarnessService service = new HarnessService(project.toFile());
+        service.setWoodHome(wood.toFile());
+        de.jare.harness.memory.ProjectMemory mem = de.jare.harness.memory.ProjectMemory.load(service.memoryFile());
+        de.jare.harness.memory.ProjectMemory.Nugget n = mem.addNugget("User bevorzugt kurze Antworten", "nugget.extract");
+        mem.save(service.memoryFile());
+
+        HarnessInstance instance = service.runTask("RESEARCH", "frage mit nugget im speicher");
+
+        de.jare.harness.memory.ProjectMemory after = de.jare.harness.memory.ProjectMemory.load(service.memoryFile());
+        de.jare.harness.memory.ProjectMemory.Nugget n2 = after.get(n.id);
+        Assert.assertNotNull(n2, "nugget survived the run");
+        Assert.assertTrue(n2.uses >= 1, "nugget was fed into a prompt -> uses counted");
+        if (instance.getRoot().getScore() != null && instance.getRoot().getScore() >= HarnessService.NUGGET_HIT_SCORE_THRESHOLD) {
+            Assert.assertTrue(n2.hits >= 1, "run scored >= threshold -> hit counted");
+        }
+        // per-source-calculator metric in the global store (kennzahlen-only, §8)
+        de.jare.harness.metrics.MetricsStore gm =
+                de.jare.harness.metrics.MetricsStore.load(de.jare.harness.GlobalWood.metricsFile(wood.toFile()));
+        Assert.assertTrue(gm.stats("nugget:nugget.extract", 1)
+                        .containsKey(de.jare.harness.metrics.MetricsStore.Category.SCORE),
+                "nugget feedback lands in the global metrics under the source calculator");
+    }
 }

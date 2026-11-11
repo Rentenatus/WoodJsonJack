@@ -42,6 +42,9 @@ public class HarnessService {
     /** Score advantage over the global prior that makes a slot config a lesson (§8). */
     public static final double LESSON_ADVANTAGE = 10.0;
 
+    /** §17: a run with root score >= this threshold counts as a "hit" for the used nuggets. */
+    public static final int NUGGET_HIT_SCORE_THRESHOLD = 50;
+
     private final File projectDir;
     private final de.jare.harness.spi.HarnessHost host;   // embedding application (WJJ/TUI); never a host class import
     private File woodHome;   // null -> GlobalWood default (user.home); settable for tests
@@ -182,6 +185,25 @@ public class HarnessService {
         engine.setLineage(lineage);
         engine.feedbackLoop(50.0, 1);
         lineage.save(lineageFile);
+
+        // §17 feedback hook: the nuggets fed into prompts this run get uses (+hits when the
+        // run scored >= threshold) and a per-source-calculator SCORE into the global metrics -
+        // the constructed first derivative of the cost function, scoreable for every calculator
+        if (projectMemory != null && !engine.getUsedMemoryIds().isEmpty()) {
+            boolean hit = instance.getRoot().getScore() != null
+                    && instance.getRoot().getScore() >= NUGGET_HIT_SCORE_THRESHOLD;
+            for (long id : engine.getUsedMemoryIds()) {
+                projectMemory.recordUse(id);
+                if (hit) {
+                    projectMemory.recordHit(id);
+                }
+                de.jare.harness.memory.ProjectMemory.Nugget n = projectMemory.get(id);
+                if (n != null && n.source != null) {
+                    globalMetrics.recordValue("nugget:" + n.source,
+                            de.jare.harness.metrics.MetricsStore.Category.SCORE, hit ? 100 : 0);
+                }
+            }
+        }
 
         exportLessons(lessons, engine, LESSON_ADVANTAGE, 1);
         globalMetrics.save(GlobalWood.metricsFile(wood));

@@ -63,6 +63,20 @@ public class MetricsStore {
         buckets.computeIfAbsent(cat, k -> new MetricBucket()).update(wert);
     }
 
+    /**
+     * §17: records a single value into the M x 3 aggregate of a slot signature (same depth
+     * fan-out as {@link #recordCall}) - used for the nugget feedback of §17, keyed by the
+     * producing calculator ({@code "nugget:" + source}), so every calculator is scoreable.
+     */
+    public void recordValue(String slotSignature, Category cat, double value) {
+        Map<Integer, Map<Category, MetricBucket>> byDepth = nodes.computeIfAbsent(
+                slotSignature, k -> new LinkedHashMap<>());
+        for (int depth = 1; depth <= DEPTHS; depth++) {
+            Map<Category, MetricBucket> buckets = byDepth.computeIfAbsent(depth, k -> new EnumMap<>(Category.class));
+            update(buckets, cat, value);
+        }
+    }
+
     /** Local view: the metrics list of one node at one depth. */
     public Map<Category, MetricBucket> stats(String slotSignature, int depth) {
         Map<Integer, Map<Category, MetricBucket>> byDepth = nodes.get(slotSignature);
