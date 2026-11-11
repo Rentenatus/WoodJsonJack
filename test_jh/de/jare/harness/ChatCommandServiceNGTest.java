@@ -112,6 +112,33 @@ public class ChatCommandServiceNGTest {
     }
 
     @Test
+    public void testDecisionsListsOnlyDecisionsAsIdText() throws Exception {
+        Path project = Files.createTempDirectory("chatcmd-decisions");
+        HarnessService service = serviceWithMemory(project, "user", "hallo", "assistant", "hi");
+        ChatCommandService cmds = new ChatCommandService(service);
+        cmds.dispatch("/decide nicht mehr commiten");
+        CommandResult r = cmds.dispatch("/decide nach jedem Schritt commiten");
+        assertTrue(r.handled());
+        String listing = cmds.dispatch("/decisions").reply();
+        String[] lines = listing.split("\n");
+        assertEquals(lines.length, 2, "only the two decisions, chat entries not listed");
+        for (String line : lines) {
+            assertTrue(line.matches("\\d+ .*"), "each line is '<id> <text>': " + line);
+        }
+        assertTrue(listing.contains("nicht mehr commiten"));
+        assertTrue(listing.contains("nach jedem Schritt commiten"));
+        assertFalse(listing.contains("hallo"), "chat entries are not in /decisions");
+        // the id from the listing can be used with /forget directly
+        long id = Long.parseLong(lines[0].split(" ")[0]);
+        assertTrue(cmds.dispatch("/forget " + id).reply().contains("forgotten"));
+        assertEquals(cmds.dispatch("/decisions").reply().split("\n").length, 1);
+        // no decisions -> deterministic empty reply
+        Path empty = Files.createTempDirectory("chatcmd-decisions-empty");
+        assertEquals(new ChatCommandService(new HarnessService(empty.toFile())).dispatch("/decisions").reply(),
+                "No decisions.");
+    }
+
+    @Test
     public void testHelpAndUnknownCommand() throws Exception {
         Path project = Files.createTempDirectory("chatcmd-help");
         ChatCommandService cmds = new ChatCommandService(serviceWithMemory(project));
@@ -119,6 +146,7 @@ public class ChatCommandServiceNGTest {
         assertTrue(help.contains("/clear"));
         assertTrue(help.contains("/forget"));
         assertTrue(help.contains("/decide"));
+        assertTrue(help.contains("/decisions"));
         assertTrue(help.contains("/memory"));
         CommandResult unknown = cmds.dispatch("/dance");
         assertTrue(unknown.handled(), "unknown / command is still a command (no run)");

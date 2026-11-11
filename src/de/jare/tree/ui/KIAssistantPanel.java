@@ -100,6 +100,7 @@ public class KIAssistantPanel extends JPanel {
     private void attachCommandPopup(java.awt.Component c) {
         javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
         addCommandItem(popup, "Clear memory (/clear)", "/clear");
+        addCommandItem(popup, "Show decisions (/decisions)", "/decisions");
         addCommandItem(popup, "Show memory (/memory)", "/memory");
         addCommandItem(popup, "Help (/help)", "/help");
         // /decide needs the decision text: put the command into the input, the user completes it

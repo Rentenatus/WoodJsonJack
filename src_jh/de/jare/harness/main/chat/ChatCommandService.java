@@ -64,6 +64,7 @@ public class ChatCommandService {
                 case "/clear" -> clear();
                 case "/forget" -> forget(args);
                 case "/decide" -> decide(args);
+                case "/decisions" -> CommandResult.handled(decisionsListing());
                 case "/memory" -> CommandResult.handled(memoryListing());
                 default -> CommandResult.handled("Unknown command " + cmd + " - try /help");
             };
@@ -74,7 +75,7 @@ public class ChatCommandService {
 
     private String help() {
         return "Commands: /clear (clear project memory) | /forget <id> | /decide <text> (standing decision)"
-                + " | /memory (list memory) | /help";
+                + " | /decisions (list decisions: <id> <text>) | /memory (list memory) | /help";
     }
 
     /** /decide &lt;text&gt;: records a standing user decision (Kind.DECISION, 90d TTL) - e.g. "nicht mehr commiten". */
@@ -112,6 +113,25 @@ public class ChatCommandService {
         }
         save(mem);
         return CommandResult.handled("Memory entry " + id + " forgotten.");
+    }
+
+    /**
+     * /decisions: deterministic listing of the standing decisions only - one line per
+     * entry, {@code <id> <text>}, so /forget <id> can be used directly.
+     */
+    private String decisionsListing() throws Exception {
+        ProjectMemory mem = loadMemory();
+        List<Nugget> live = mem.live(System.currentTimeMillis());
+        StringBuilder sb = new StringBuilder();
+        for (Nugget n : live) {
+            if (n.kind == ProjectMemory.Kind.DECISION) {
+                if (sb.length() > 0) {
+                    sb.append('\n');
+                }
+                sb.append(n.id).append(' ').append(n.text);
+            }
+        }
+        return sb.length() == 0 ? "No decisions." : sb.toString();
     }
 
     private String memoryListing() throws Exception {
