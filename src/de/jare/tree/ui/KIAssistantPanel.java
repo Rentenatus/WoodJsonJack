@@ -88,7 +88,39 @@ public class KIAssistantPanel extends JPanel {
         JButton askBtn = new JButton("Ask AI");
         askBtn.addActionListener(e -> onThinking());
         row.add(askBtn, BorderLayout.EAST);
+        attachCommandPopup(inputArea);
         return row;
+    }
+
+    /**
+     * §17: right-click popup with the chat commands - the items only hand the command text
+     * ("/clear", "/memory", "/help") to the installed thinking handler, the decision
+     * command-vs-run stays in the harness (ChatCommandService via HarnessController).
+     */
+    private void attachCommandPopup(java.awt.Component c) {
+        javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
+        addCommandItem(popup, "Clear memory (/clear)", "/clear");
+        addCommandItem(popup, "Show memory (/memory)", "/memory");
+        addCommandItem(popup, "Help (/help)", "/help");
+        c.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mousePressed(java.awt.event.MouseEvent e) { maybeShow(e); }
+            @Override public void mouseReleased(java.awt.event.MouseEvent e) { maybeShow(e); }
+            private void maybeShow(java.awt.event.MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    popup.show(e.getComponent(), e.getX(), e.getY());
+                }
+            }
+        });
+    }
+
+    private void addCommandItem(javax.swing.JPopupMenu popup, String label, String command) {
+        javax.swing.JMenuItem item = new javax.swing.JMenuItem(label);
+        item.addActionListener(e -> {
+            if (thinkingHandler != null) {
+                thinkingHandler.accept(command);
+            }
+        });
+        popup.add(item);
     }
 
     private java.util.function.Consumer<String> thinkingHandler;
