@@ -125,3 +125,19 @@ Entschieden in `CONCEPT_Harness.md` §3/§10/§15 (Diskussion ViewNode vs. EditN
 **Verworfene Alternativen (festgehalten):** TaskNode extends EditNode (sealed permits), ViewNode als 5. permit in jsonCasted_edit (src_jh dürfte ihn nicht nutzen), ViewNode als eigener Baum in jsonCasted (Editor müsste konvertieren), TaskNode als JsonNode-Facade (Zwei-Welten-Problem bleibt für die Anzeige bestehen).
 
 **Umgesetzt in §9 (Working Tree, uncommittet):** `TaskNode` ist gelöscht, ersetzt durch **`TaskData`** (Facade mit Back-Reference auf `EditNodeObject`, Attach intern in jedem Setter) + **`TaskTree`** (EditTree + `IdentityHashMap`-Registry + Change-Listener). WorkOrder/MemoryQuest/HarnessInstance halten den Baum als echte EditTree (`getTaskTree()`); Payload als primitive Member-Properties des Task-Objekts, Subtasks als Objekte im `tasks`-Array-Member. Codec persistiert die EditTree-Form (`taskId`/`tasks`), Legacy-`id`/`children`-Dateien werden beim Load normalisiert. Sync-Brücke: `TaskTree.fireChanged` → Change-Lovable + `TypeParserListener`; `HarnessViewPanel.bind` hängt sich ein (EDT via invokeLater), Read-only host-seitig (kein Command-Wiring am Harness-Baum). `CallLogEntry` trägt jetzt `toJson/fromJson`. Tests: neuer `TaskTreeNGTest` (4 Tests: Root=Tree-Root, Subtasks+Events, Codec-Roundtrip, Legacy-Load). **Suite 242/242 grün**, src_jh kompiliert gegen jsonCasted_edit.
+
+## 10. Projektgedächtnis + Chat-Befehle (Konzept §17 entschieden, noch nicht umgesetzt)
+
+Entschieden (siehe `CONCEPT_Harness.md` §17):
+
+1. **ProjectMemory** in `de.jare.harness.memory.project` (o. ä.): Datei `<projekt>/.wood/harness/memory.json`, atomar via `AtomicFileWrite`, geladen/geschrieben von `HarnessService` (projectDir ist bereits bekannt — kein neues Host-API). Einträge `{id, ts, kind: CHAT|NUGGET, role?, text, source?, ttlMs?, uses, hits}` mit TTL-Verfall + `/clear`/`/forget`.
+2. **Nugget-Feedback/Scoring:** `uses`/`hits` pro Eintrag = konstruierte erste Ableitung der Kostenfunktion (§9-Analogie) — erlaubt das Scoren **jedes** Kalkulators (auch Nugget-Produzenten im Slot), über dieselbe Metric-Pipeline wie §7/§8. Nugget-Extraktor-Kalkulatoren kommen später als eigene Slots in der Loop (§15.6).
+3. **Eigener `de.jare.harness.main.chat.ChatCommandService`:** `dispatch(input)` prüft `/`-Prefix vor jedem Run (`/clear`, `/forget <id>`, `/memory`, `/help`); UI bleibt dumm, Popup-Menü der KI-Pane ruft nur Service-Befehle.
+
+**Umsetzungsplan (schrittweise, testen, dann commit auf Ansage):**
+
+1. `ProjectMemory` + Codec (load/save `memory.json`, TTL-Prune, uses/hits-Pflege) + `ProjectMemoryNGTest`.
+2. `HarnessService`: Memory vor dem Run laden, nach dem Run saven; `CalcContext`-Zugriff für Kalkulatoren; CHAT-Einträge als HISTORY-Segment einspeisen.
+3. `ChatCommandService` (Befehle + Dispatch, Run-Pfad unverändert) + `ChatCommandServiceNGTest`; Anbindung `HarnessController.runAskAi` → Service statt direkt `runTask`.
+4. Feedback-Hook: `uses` inkrementieren, wenn ein Nugget in einen Prompt übernommen wird; `hits` bei Run-Ende mit score ≥ Schwelle; Ausleitung in `MetricsStore` pro `source`-Kalkulator.
+5. UI: Popup-Menü (`JPopupMenu`) in `KIAssistantPanel`, ruft `ChatCommandService` (host-seitig verdrahtet).

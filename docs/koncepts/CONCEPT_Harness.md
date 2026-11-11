@@ -647,3 +647,24 @@ ctx.ui          // * neu: Harness-Fenster
     / „Peter Pan" / „Jack Sparrow" …
 - **Schreibrecht:** die AI selbst legt Vorlieben via `ctx.mindset.set(category, text)` ab.
 - **Limit:** max. **1024 Chars** pro Eintrag — bei Überschreitung nur eine **Warnung**, kein Abbruch.
+
+## 17. Projektgedächtnis (ProjectMemory) + Chat-Befehle (entschieden)
+
+**Drei Ebenen des Gedächtnisses, klar getrennt:**
+
+| Ebene | Inhalt | Ablage |
+|---|---|---|
+| Run-Gedächtnis | WorkOrder/WorkCache/WorkResponse eines Laufs | RAM, flüchtig (`de.jare.harness.memory`) |
+| Projektgedächtnis | Chat-Verlauf + Nuggets über Runs hinweg | `<projekt>/.wood/harness/memory.json` (neu, §17) |
+| Globales Gedächtnis | Metriken, Lessons, Mindset — kennzahlen-only | `~/.wood/…` (§8, §16) |
+
+- **Ablage:** `<projekt>/.wood/harness/memory.json`, atomar via `AtomicFileWrite` (wie `lineage.json`).
+  `HarnessService` kennt `projectDir` bereits — **kein neues Host-API nötig**, der Host übergibt den
+  Projektpfad wie gehabt. Nie global: Chat-Texte und Nuggets wandern niemals nach `~/.wood` (§8-Prinzip).
+- **Eintrag (Nugget):** `{ id, ts, kind: CHAT | NUGGET, role?, text, source?, ttlMs?, uses, hits }`
+  - `CHAT`: User/Assistant-Paar des Chatverlaufs (`role: user|assistant`).
+  - `NUGGET`: Fakt, den ein dedizierter Kalkulator (eigener Slot in der Loop, §15.6) aus dem Run extrahiert; `source` = Kalkulator-Name.
+  - `uses` / `hits`: Feedback-Felder — wie oft das Nugget in einen Folge-Prompt eingegangen ist (`uses`) und wie viele dieser Runs mit `score ≥ Schwelle` endeten (`hits`). **Das ist die konstruierte erste Ableitung der Kostenfunktion** (ML-Analogie §9): damit lässt sich nicht nur der Slot/Loop, sondern **jeder Kalkulator scoren** — auch Nugget-Produzenten und -Konsumenten laufen über dieselbe Metric-Pipeline wie §7/§8.
+- **Verfall („gestern stört nicht heute"):** TTL pro Eintrag (`ttlMs`, Default z. B. 7 Tage CHAT, länger NUGGET; `0` = nie), plus explizite Steuerung via `/clear` und `/forget <id>`. Später optional score-basiertes Verdrängen bei Größenbudget (niedriges `hits/uses`-Verhältnis zuerst).
+- **Einspeisung in Prompts:** CHAT-Einträge als **HISTORY-Segment** (Budget `promptBudgets.HISTORY` greift automatisch), NUGGETs als DATA/SYSTEM-Segment bzw. direkt lesbar über `CalcContext` — **getrennt von der RAG** (RagStore bleibt eigener Zyklus, §11).
+- **Chat-Befehle:** eigener Service **`de.jare.harness.main.chat.ChatCommandService`** (Tendenz: immer mehr `/cmd`). Vor jedem Run prüft der Service, ob die Eingabe mit `/` beginnt: `/clear` (ProjectMemory leeren), `/forget <id>`, `/memory` (Liste), `/help` … Kein `/`-Prefix → normaler Harness-Run. Die UI bleibt dumm: Enter/Ask-AI → Handler → `ChatCommandService.dispatch(input)` entscheidet Befehl vs. Run. Das Popup-Menü der KI-Pane (host-seitig) ruft nur dieselben Service-Befehle — keine doppelte Logik.
