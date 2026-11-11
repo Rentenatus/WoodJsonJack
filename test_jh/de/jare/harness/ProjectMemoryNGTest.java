@@ -39,6 +39,19 @@ public class ProjectMemoryNGTest {
     }
 
     @Test
+    public void testAddDecision() {
+        ProjectMemory mem = new ProjectMemory();
+        Nugget d = mem.addDecision("nicht mehr commiten", "user:/decide");
+        assertEquals(d.kind, Kind.DECISION);
+        assertEquals(d.text, "nicht mehr commiten");
+        assertEquals(d.source, "user:/decide");
+        assertEquals(d.ttlMs, ProjectMemory.DEFAULT_TTL_DECISION_MS, "decisions live longer than chat");
+        assertTrue(ProjectMemory.DEFAULT_TTL_DECISION_MS > ProjectMemory.DEFAULT_TTL_CHAT_MS);
+        assertFalse(d.isExpired(System.currentTimeMillis() + 89L * 24 * 3600 * 1000));
+        assertTrue(d.isExpired(System.currentTimeMillis() + 91L * 24 * 3600 * 1000));
+    }
+
+    @Test
     public void testForgetAndClear() {
         ProjectMemory mem = new ProjectMemory();
         Nugget a = mem.addChat("user", "eins");

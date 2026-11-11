@@ -92,12 +92,33 @@ public class ChatCommandServiceNGTest {
     }
 
     @Test
+    public void testDecideRecordsStandingDecision() throws Exception {
+        Path project = Files.createTempDirectory("chatcmd-decide");
+        HarnessService service = serviceWithMemory(project, "user", "hallo");
+        CommandResult r = new ChatCommandService(service).dispatch("/decide ab jetzt nach jedem Schritt commiten");
+        assertTrue(r.handled());
+        assertTrue(r.reply().contains("Decision #"));
+        ProjectMemory mem = ProjectMemory.load(service.memoryFile());
+        Nugget d = mem.getEntries().stream().filter(n -> n.kind == ProjectMemory.Kind.DECISION).findFirst().orElse(null);
+        assertNotNull(d, "decision persisted in memory.json");
+        assertEquals(d.text, "ab jetzt nach jedem Schritt commiten");
+        assertEquals(d.source, "user:/decide");
+        assertEquals(d.ttlMs, ProjectMemory.DEFAULT_TTL_DECISION_MS);
+        // visible in the listing with its kind label
+        String listing = new ChatCommandService(service).dispatch("/memory").reply();
+        assertTrue(listing.contains("decision:user:/decide"));
+        // usage without text
+        assertTrue(new ChatCommandService(service).dispatch("/decide").reply().contains("Usage"));
+    }
+
+    @Test
     public void testHelpAndUnknownCommand() throws Exception {
         Path project = Files.createTempDirectory("chatcmd-help");
         ChatCommandService cmds = new ChatCommandService(serviceWithMemory(project));
         String help = cmds.dispatch("/help").reply();
         assertTrue(help.contains("/clear"));
         assertTrue(help.contains("/forget"));
+        assertTrue(help.contains("/decide"));
         assertTrue(help.contains("/memory"));
         CommandResult unknown = cmds.dispatch("/dance");
         assertTrue(unknown.handled(), "unknown / command is still a command (no run)");

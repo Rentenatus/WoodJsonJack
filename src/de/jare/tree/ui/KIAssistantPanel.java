@@ -102,6 +102,13 @@ public class KIAssistantPanel extends JPanel {
         addCommandItem(popup, "Clear memory (/clear)", "/clear");
         addCommandItem(popup, "Show memory (/memory)", "/memory");
         addCommandItem(popup, "Help (/help)", "/help");
+        // /decide needs the decision text: put the command into the input, the user completes it
+        javax.swing.JMenuItem decideItem = new javax.swing.JMenuItem("Record decision (/decide ...)");
+        decideItem.addActionListener(e -> {
+            inputArea.setText("/decide ");
+            inputArea.requestFocusInWindow();
+        });
+        popup.add(decideItem);
         c.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override public void mousePressed(java.awt.event.MouseEvent e) { maybeShow(e); }
             @Override public void mouseReleased(java.awt.event.MouseEvent e) { maybeShow(e); }

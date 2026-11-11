@@ -38,14 +38,15 @@ import java.util.Map;
  */
 public class ProjectMemory {
 
-    /** Entry kind: a chat message vs. an extracted fact. */
+    /** Entry kind: a chat message, an extracted fact, or a standing user decision. */
     public enum Kind {
-        CHAT, NUGGET
+        CHAT, NUGGET, DECISION
     }
 
-    /** Default TTLs: chat 7 days, nuggets 30 days, 0 = never expires. */
+    /** Default TTLs: chat 7 days, nuggets 30 days, decisions 90 days, 0 = never expires. */
     public static final long DEFAULT_TTL_CHAT_MS = 7L * 24 * 3600 * 1000;
     public static final long DEFAULT_TTL_NUGGET_MS = 30L * 24 * 3600 * 1000;
+    public static final long DEFAULT_TTL_DECISION_MS = 90L * 24 * 3600 * 1000;
     public static final long NEVER_EXPIRES = 0L;
 
     /** One memory entry (chat message or nugget). */
@@ -91,6 +92,15 @@ public class ProjectMemory {
     /** Adds a nugget (extracted fact) with the default nugget TTL; source = producing calculator. */
     public Nugget addNugget(String text, String source) {
         return add(Kind.NUGGET, null, text, source, DEFAULT_TTL_NUGGET_MS);
+    }
+
+    /**
+     * Adds a standing user decision (e.g. "nicht mehr commiten", "nach jedem Schritt commiten")
+     * with the long decision TTL. Decisions are fed into prompts as SYSTEM segments, so they
+     * steer every following run until they expire or are forgotten.
+     */
+    public Nugget addDecision(String text, String source) {
+        return add(Kind.DECISION, null, text, source, DEFAULT_TTL_DECISION_MS);
     }
 
     /** Adds an entry with an explicit TTL (0 = never expires). */

@@ -63,6 +63,7 @@ public class ChatCommandService {
                 case "/help" -> CommandResult.handled(help());
                 case "/clear" -> clear();
                 case "/forget" -> forget(args);
+                case "/decide" -> decide(args);
                 case "/memory" -> CommandResult.handled(memoryListing());
                 default -> CommandResult.handled("Unknown command " + cmd + " - try /help");
             };
@@ -72,7 +73,19 @@ public class ChatCommandService {
     }
 
     private String help() {
-        return "Commands: /clear (clear project memory) | /forget <id> | /memory (list memory) | /help";
+        return "Commands: /clear (clear project memory) | /forget <id> | /decide <text> (standing decision)"
+                + " | /memory (list memory) | /help";
+    }
+
+    /** /decide &lt;text&gt;: records a standing user decision (Kind.DECISION, 90d TTL) - e.g. "nicht mehr commiten". */
+    private CommandResult decide(String args) throws Exception {
+        if (args.isEmpty()) {
+            return CommandResult.handled("Usage: /decide <text> - e.g. /decide ab jetzt nach jedem Schritt commiten");
+        }
+        ProjectMemory mem = loadMemory();
+        Nugget n = mem.addDecision(args, "user:/decide");
+        save(mem);
+        return CommandResult.handled("Decision #" + n.id + " recorded (steers following runs as SYSTEM segment): " + args);
     }
 
     private CommandResult clear() throws Exception {
@@ -109,7 +122,11 @@ public class ChatCommandService {
         }
         StringBuilder sb = new StringBuilder("Project memory (" + live.size() + " entries):");
         for (Nugget n : live) {
-            String who = n.kind == ProjectMemory.Kind.CHAT ? n.role : "nugget:" + n.source;
+            String who = switch (n.kind) {
+                case CHAT -> n.role;
+                case DECISION -> "decision:" + n.source;
+                case NUGGET -> "nugget:" + n.source;
+            };
             String text = n.text.length() > 60 ? n.text.substring(0, 57) + "..." : n.text;
             sb.append("\n  #").append(n.id).append(" [").append(n.kind).append("] ").append(who)
                     .append(": ").append(text)

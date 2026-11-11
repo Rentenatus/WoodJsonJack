@@ -141,3 +141,10 @@ Entschieden (siehe `CONCEPT_Harness.md` §17):
 3. `ChatCommandService` (Befehle + Dispatch, Run-Pfad unverändert) + `ChatCommandServiceNGTest`; Anbindung `HarnessController.runAskAi` → Service statt direkt `runTask`.
 4. Feedback-Hook: `uses` inkrementieren, wenn ein Nugget in einen Prompt übernommen wird; `hits` bei Run-Ende mit score ≥ Schwelle; Ausleitung in `MetricsStore` pro `source`-Kalkulator.
 5. UI: Popup-Menü (`JPopupMenu`) in `KIAssistantPanel`, ruft `ChatCommandService` (host-seitig verdrahtet).
+
+## 10.1 Umgesetzt: DECISION-Typ + /decide (committet)
+
+`ProjectMemory.Kind.DECISION` (TTL 90 Tage, `addDecision(text, source)`), Einspeisung als
+SYSTEM-Segment (`memory:decision-<id>`) in jeden Folge-Run, `/decide <text>` Befehl im
+`ChatCommandService` (legt DECISION mit source `user:/decide` an), Popup-Eintrag „Record decision"
+legt `/decide ` in die Eingabe. Tests: ProjectMemoryNGTest + ChatCommandServiceNGTest erweitert.
