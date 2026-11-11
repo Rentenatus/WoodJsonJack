@@ -145,6 +145,17 @@ public class HarnessEngine implements HarnessDriver {
         this.workCache = workCache;
     }
 
+    private de.jare.harness.memory.ProjectMemory projectMemory;   // project-local memory across runs (§17)
+
+    /** The ProjectMemory of the project - handed to every CalcContext and fed as HISTORY/DATA segments. */
+    public void setProjectMemory(de.jare.harness.memory.ProjectMemory projectMemory) {
+        this.projectMemory = projectMemory;
+    }
+
+    public de.jare.harness.memory.ProjectMemory getProjectMemory() {
+        return projectMemory;
+    }
+
     /** §14 ctx.ui.askUser - the UI installs this; default answers with the first option. */
     public void setUserAskHandler(java.util.function.BiFunction<String, List<String>, String> handler) {
         this.userAskHandler = handler;
@@ -568,6 +579,7 @@ public class HarnessEngine implements HarnessDriver {
         CalcContext ctx = new CalcContext(this, instance, model, task, kind, slot.getId(), node, limits, prompts);
         ctx.setTools(tools);
         ctx.setWorkCache(workCache);
+        ctx.setProjectMemory(projectMemory);
 
         long start = System.currentTimeMillis();
         CalcResult result;
@@ -655,6 +667,20 @@ public class HarnessEngine implements HarnessDriver {
                     e.getKind() + " #" + e.getAttempt() + " -> " + e.getDecision()
                             + (e.getScore() != null ? " (score " + e.getScore() + ")" : "")));
         }
+        // §17: the project memory across runs - CHAT entries as HISTORY, NUGGETs as DATA
+        // (the assembler enforces the shared per-category budgets)
+        if (projectMemory != null) {
+            long now = System.currentTimeMillis();
+            for (de.jare.harness.memory.ProjectMemory.Nugget n : projectMemory.live(now)) {
+                if (n.kind == de.jare.harness.memory.ProjectMemory.Kind.CHAT) {
+                    resolved.add(PromptSegment.of(PromptSegment.Category.HISTORY, "memory:chat-" + n.id,
+                            n.role + ": " + n.text));
+                } else {
+                    resolved.add(PromptSegment.of(PromptSegment.Category.DATA, "memory:nugget-" + n.id,
+                            n.text + (n.source != null ? " (source: " + n.source + ")" : "")));
+                }
+            }
+        }
         return resolved;
     }
 
@@ -674,6 +700,7 @@ public class HarnessEngine implements HarnessDriver {
             CalcContext ctx = new CalcContext(this, instance, model, task, kind, slotId, mapped, limits, prompts);
             ctx.setTools(tools);
             ctx.setWorkCache(workCache);
+            ctx.setProjectMemory(projectMemory);
             runNode(mapped, kind, ctx);
         }
     }

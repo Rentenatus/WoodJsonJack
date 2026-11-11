@@ -37,6 +37,7 @@ public class CalcContext {
     private final List<String> currentPrompts;
     private HarnessTools tools;
     private de.jare.harness.memory.WorkCache workCache;   // result channel between calculators (§3 layering)
+    private de.jare.harness.memory.ProjectMemory projectMemory;   // project-local memory across runs (§17)
 
     public CalcContext(HarnessEngine engine, HarnessInstance instance, HarnessModel model,
                        TaskData task, Kind kind, String slotId, CalculatorNode node,
@@ -205,6 +206,20 @@ public class CalcContext {
 
     public void setWorkCache(de.jare.harness.memory.WorkCache workCache) {
         this.workCache = workCache;
+    }
+
+    /**
+     * ctx.projectMemory - the project-local memory (chat history + nuggets) that survives
+     * runs (§17): persisted at {@code <projekt>/.wood/harness/memory.json}. Calculators read
+     * nuggets via {@link de.jare.harness.memory.ProjectMemory#live(long)} and can write new
+     * ones; the uses/hits feedback is recorded by the engine/service.
+     */
+    public de.jare.harness.memory.ProjectMemory projectMemory() {
+        return projectMemory;
+    }
+
+    public void setProjectMemory(de.jare.harness.memory.ProjectMemory projectMemory) {
+        this.projectMemory = projectMemory;
     }
 
     /**

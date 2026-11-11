@@ -37,6 +37,7 @@ public class HarnessService {
 
     public static final String MODEL_FILE = ".wood/harness-model.json";
     public static final String INSTANCE_FILE = ".wood/harness.json";
+    public static final String MEMORY_FILE = ".wood/harness/memory.json";   // §17 project-local memory
 
     /** Score advantage over the global prior that makes a slot config a lesson (§8). */
     public static final double LESSON_ADVANTAGE = 10.0;
@@ -45,6 +46,7 @@ public class HarnessService {
     private final de.jare.harness.spi.HarnessHost host;   // embedding application (WJJ/TUI); never a host class import
     private File woodHome;   // null -> GlobalWood default (user.home); settable for tests
     private de.jare.harness.memory.MemoryQuest lastMemoryQuest;   // the memory-side quest instance of the last run
+    private de.jare.harness.memory.ProjectMemory projectMemory;   // §17 the project-local memory across runs
 
     public HarnessService(File projectDir) {
         this(projectDir, null);
@@ -78,6 +80,16 @@ public class HarnessService {
         return new File(projectDir, INSTANCE_FILE);
     }
 
+    /** §17: the project-local memory file {@code <projekt>/.wood/harness/memory.json}. */
+    public File memoryFile() {
+        return new File(projectDir, MEMORY_FILE);
+    }
+
+    /** §17: the project-local memory (chat history + nuggets) of the last load/run. */
+    public de.jare.harness.memory.ProjectMemory getProjectMemory() {
+        return projectMemory;
+    }
+
     /**
      * Loads the project model: first the host's handed-over JsonEdit structure
      * ({@link de.jare.harness.spi.HarnessHost#harnessModelJson(File)}), then the project file,
@@ -101,6 +113,11 @@ public class HarnessService {
         HarnessModel model = loadModel();
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
         instance.setProjectRoot(projectDir);
+
+        // §17: load the project-local memory; the user prompt becomes a CHAT entry, the run's
+        // outcome an assistant entry - saved back after the run
+        projectMemory = de.jare.harness.memory.ProjectMemory.load(memoryFile());
+        projectMemory.addChat("user", title);
 
         // runtime model (DESIGN_Quest_WorkOrder.md): the MemoryQuest creates the WorkOrder AND the
         // root TaskData itself in memory - id = slot id (e.g. "askai.base"), user prompt as its own
@@ -130,6 +147,7 @@ public class HarnessService {
         if (lastMemoryQuest != null) {
             engine.setWorkCache(lastMemoryQuest.getWorkCache());
         }
+        engine.setProjectMemory(projectMemory);   // §17: fed as HISTORY/DATA segments + via ctx.projectMemory()
         if (host != null) {
             host.wireInto(engine);   // askUser, editor.open, run listeners - via SPI only
         }
@@ -175,6 +193,14 @@ public class HarnessService {
             lastMemoryQuest.getWorkResponse().update("done: " + instance.getRoot().getStatus(),
                     instance.getRoot().getScore(), instance.getRoot().getStatus());
             lastMemoryQuest.getWorkOrder().setStatus(instance.getRoot().getStatus());
+        }
+
+        // §17: the run's outcome as assistant CHAT entry, then persist the project memory
+        if (projectMemory != null) {
+            String answer = lastMemoryQuest != null ? lastMemoryQuest.getWorkResponse().getText()
+                    : "done: " + instance.getRoot().getStatus();
+            projectMemory.addChat("assistant", answer);
+            projectMemory.save(memoryFile());
         }
 
         HarnessInstanceCodec.save(instance, instanceFile());

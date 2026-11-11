@@ -186,4 +186,33 @@ public class HarnessServiceNGTest {
             Assert.assertNotNull(model.questFor(kind), "default model covers kind " + kind);
         }
     }
+
+    /**
+     * §17: the project-local memory - each run appends a user + an assistant CHAT entry and
+     * persists to {@code .wood/harness/memory.json}; a second run loads the file again, so the
+     * chat history accumulates across runs in the same project.
+     */
+    @Test
+    public void testProjectMemoryAccumulatesAcrossRuns() throws Exception {
+        Path project = Files.createTempDirectory("harness-project-mem");
+        HarnessService service = new HarnessService(project.toFile());
+
+        service.runTask("RESEARCH", "erste frage");
+        File memoryJson = new File(project.toFile(), HarnessService.MEMORY_FILE);
+        Assert.assertTrue(memoryJson.exists(), "memory must persist to .wood/harness/memory.json");
+        Assert.assertNotNull(service.getProjectMemory());
+        Assert.assertEquals(service.getProjectMemory().size(), 2, "user + assistant entry after run 1");
+
+        service.runTask("RESEARCH", "zweite frage");
+        // reloaded from disk: the chat history survived the "restart"
+        de.jare.harness.memory.ProjectMemory reloaded =
+                de.jare.harness.memory.ProjectMemory.load(memoryJson);
+        Assert.assertEquals(reloaded.size(), 4, "chat history accumulates across runs (2 runs x user+assistant)");
+        List<de.jare.harness.memory.ProjectMemory.Nugget> entries = reloaded.getEntries();
+        Assert.assertEquals(entries.get(0).role, "user");
+        Assert.assertEquals(entries.get(0).text, "erste frage");
+        Assert.assertEquals(entries.get(1).role, "assistant");
+        Assert.assertEquals(entries.get(2).text, "zweite frage");
+        Assert.assertEquals(entries.get(0).kind, de.jare.harness.memory.ProjectMemory.Kind.CHAT);
+    }
 }
