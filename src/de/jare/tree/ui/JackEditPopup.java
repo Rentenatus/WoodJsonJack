@@ -118,7 +118,7 @@ public class JackEditPopup extends JPopupMenu {
         add(pasteUnderneathItem);
 
         // Tree diff (U1/U4, see doc/TREE_DIFF.md in jsonCasted): mark one root as LEFT or RIGHT, then "W2:" / "W3:"
-        // open the diff view directly (concept CONCEPT_TreeDiffView.md) - one entry per pair kind, view first.
+        // open the diff view directly (concept docs/koncepts/CONCEPT_TreeDiffView.md) - one entry per pair kind, view first.
         // The precise op list of the open pair is the Report button of the cherry banner; the dialogs have no
         // popup entries of their own anymore.
         addSeparator();
@@ -250,7 +250,7 @@ public class JackEditPopup extends JPopupMenu {
     }
 
     /**
-     * Refreshes the cherry-pick item of the open diff view (concept CONCEPT_TreeDiffView.md section 7): enabled on a
+     * Refreshes the cherry-pick item of the open diff view (concept docs/koncepts/CONCEPT_TreeDiffView.md section 7): enabled on a
      * marked node of the right pane (the frozen theirs copy) when the pick is possible; the tooltip says why not
      * when it is not.
      */
@@ -465,7 +465,7 @@ public class JackEditPopup extends JPopupMenu {
     }
 
     /**
-     * Opens the tree diff view (concept CONCEPT_TreeDiffView.md): the view opens in the ours tab, the right pane of
+     * Opens the tree diff view (concept docs/koncepts/CONCEPT_TreeDiffView.md): the view opens in the ours tab, the right pane of
      * that tab freezes theirs as a deep copy and both panes carry marks. The roles follow the flag: the LEFT flag is
      * ours, the RIGHT flag freezes as theirs.
      *
@@ -494,9 +494,31 @@ public class JackEditPopup extends JPopupMenu {
         if (oursContainer == null) {
             return;
         }
+        // phase 10 (concept docs/koncepts/CONCEPT_ProjectView.md, question 10): a cross-world pair (the theirs
+        // side is a stand of a foreign identity world - an isolated source, an old version) picks
+        // through the identity translation: synonym check, conflict check, fresh ids. A
+        // same-world pair picks verbatim as before.
+        final de.jare.jsoncasted.editor.core.EditTree theirsTree = theirsRoot == marked
+                ? TreeDiffSides.getRememberedTree()
+                : invokerModel() != null ? invokerModel().getEditTree() : null;
+        de.jare.jsoncasted.editor.merge.PickIdentityTranslation pickTranslation = null;
+        if (theirsTree != null) {
+            final java.awt.Window ancestor = javax.swing.SwingUtilities.getWindowAncestor(lastInvoker);
+            if (ancestor instanceof WoodWindow woodWindow) {
+                try {
+                    pickTranslation = DiffViewController.crossWorldTranslationOf(
+                            woodWindow, oursTree, theirsTree);
+                } catch (de.jare.jsoncasted.io.JsonParseException ex) {
+                    // the pair itself stays usable; a pick then runs unexplained verbatim - the
+                    // refusal case below is the safer failure mode and this path does not happen
+                    // on readable sessions
+                    pickTranslation = null;
+                }
+            }
+        }
         DiffViewController.showContainerTab(oursContainer);
         oursContainer.getDiffController().open(oursTree, theirsRoot,
-                threeWay ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2);
+                threeWay ? DiffViewController.Kind.W3 : DiffViewController.Kind.W2, pickTranslation);
     }
 
     /**

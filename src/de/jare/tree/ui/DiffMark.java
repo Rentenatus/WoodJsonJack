@@ -10,7 +10,7 @@ import de.jare.jsoncasted.diff.ConflictRecord;
 import de.jare.jsoncasted.diff.DeltaOp;
 
 /**
- * The visual diff mark of one node in the tree diff view (concept CONCEPT_TreeDiffView.md section 4): a view-layer
+ * The visual diff mark of one node in the tree diff view (concept docs/koncepts/CONCEPT_TreeDiffView.md section 4): a view-layer
  * value that summarizes one {@link DeltaOp} or {@link ConflictRecord} for exactly one node. It never rides along in
  * the node models, in copies or in the Merkle hash; the controller maps it to the nodes of the live ours tree and of
  * the frozen theirs copy.

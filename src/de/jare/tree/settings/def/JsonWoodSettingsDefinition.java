@@ -18,6 +18,7 @@ import de.jare.tree.settings.AgentPreferences;
 import de.jare.tree.settings.UserPreferences;
 import de.jare.tree.settings.WoodSettings;
 import de.jare.tree.settings.project.FolderType;
+import de.jare.tree.settings.project.ProjectHistory;
 import de.jare.tree.settings.project.ProjectSettings;
 import de.jare.tree.settings.project.ProjektEntry;
 import de.jare.tree.settings.project.RootSetting;
@@ -38,6 +39,7 @@ public class JsonWoodSettingsDefinition implements JsonItemDefinition {
     private final JsonClass woodSettingsRoot;
     private final JsonClass themeSuiteRoot;
     private final JsonClass projectSettingsRoot;
+    private final JsonClass projectHistoryRoot;
 
     public JsonWoodSettingsDefinition() {
         model = new JsonModel("Wood");
@@ -90,6 +92,10 @@ public class JsonWoodSettingsDefinition implements JsonItemDefinition {
         projektEntry.addField("projectName", asString);
         projektEntry.addField("projectPath", asString);
 
+        JsonClass historyEntry = model.newJsonReflect(de.jare.tree.settings.project.HistoryEntry.class);
+        historyEntry.addField("projectName", asString);
+        historyEntry.addField("projectPath", asString);
+
         JsonClass agentPreferences = model.newJsonReflect(AgentPreferences.class);
         agentPreferences.addField("apiKey", asString);
         agentPreferences.addField("defaultBehavior", asString);
@@ -105,6 +111,9 @@ public class JsonWoodSettingsDefinition implements JsonItemDefinition {
         projectSettingsRoot = model.newJsonReflect(ProjectSettings.class, projektEntry);
         projectSettingsRoot.addField("rootSettings", rootSetting, LIST);
         projectSettingsRoot.addField("openedFiles", asString, ARRAY);
+
+        projectHistoryRoot = model.newJsonReflect(ProjectHistory.class);
+        projectHistoryRoot.addField("projects", historyEntry, LIST);
 
         woodSettingsRoot = model.newJsonReflect(WoodSettings.class);
         woodSettingsRoot.addField("themeId", asString);
@@ -129,6 +138,10 @@ public class JsonWoodSettingsDefinition implements JsonItemDefinition {
 
     public JsonClass getProjectSettingsRoot() {
         return projectSettingsRoot;
+    }
+
+    public JsonClass getProjectHistoryRoot() {
+        return projectHistoryRoot;
     }
 
     @Override

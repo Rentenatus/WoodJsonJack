@@ -34,7 +34,7 @@ import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
 
 /**
- * The diff mode of an editor container's right pane (concept CONCEPT_TreeDiffView.md): the pane shows a frozen deep
+ * The diff mode of an editor container's right pane (concept docs/koncepts/CONCEPT_TreeDiffView.md): the pane shows a frozen deep
  * copy of the theirs tree next to the live ours tree, both carrying {@link DiffMark}s. Geometry is the role - the
  * left tree stays live and editable (ours), the right copy is readonly (theirs). The marks live here, never on the
  * node models; they validate themselves at paint time via the Merkle hash.
@@ -87,6 +87,10 @@ public final class DiffViewController {
     private EditTree oursTree;
     private EditNodeAbstract theirsSourceRoot;
     private EditTree theirsCopyTree;
+    // phase 10 (concept docs/koncepts/CONCEPT_ProjectView.md, question 10): the pick boundary translation of a
+    // cross-world pair - live session vs an isolated stand. Null on same-world pairs (then picks
+    // apply verbatim as before).
+    private de.jare.jsoncasted.editor.merge.PickIdentityTranslation pickTranslation;
     private TreeModel savedRightModel;
     private String pairText;
     private MergePlan plan;
@@ -135,13 +139,62 @@ public final class DiffViewController {
      * @param kind W2 (comparison) or W3 (merge plan classification).
      */
     public void open(EditTree oursTree, EditNodeAbstract theirsRoot, Kind kind) {
+        open(oursTree, theirsRoot, kind, null);
+    }
+
+    /**
+     * Opens the diff view with the pick boundary translation of a cross-world pair (phase 10,
+     * concept docs/koncepts/CONCEPT_ProjectView.md question 10): when theirs is a stand of a foreign identity
+     * world - typically an isolated source, an old version to look at - every pick runs through
+     * the translation first: synonym check, conflict check, fresh ids for every picked element;
+     * a refused pick applies nothing. Same-world pairs pass null and pick verbatim as before.
+     *
+     * @param oursTree the live ours tree (the container's left tree), not null.
+     * @param theirsRoot the live theirs root to freeze, not null.
+     * @param kind W2 (comparison) or W3 (merge plan classification).
+     * @param pickTranslation the prepared cross-world translation, or null on same-world pairs.
+     */
+    public void open(EditTree oursTree, EditNodeAbstract theirsRoot, Kind kind,
+            de.jare.jsoncasted.editor.merge.PickIdentityTranslation pickTranslation) {
         if (oursTree == null || theirsRoot == null || kind == null) {
             return;
         }
         this.oursTree = oursTree;
         this.theirsSourceRoot = theirsRoot;
         this.kind = kind;
+        this.pickTranslation = pickTranslation;
         buildView();
+    }
+
+    /**
+     * Prepares the cross-world pick translation for a pair - or returns null when the pair lives
+     * in ONE identity world (both trees of the same session, or no session at all): then picks
+     * apply verbatim.
+     *
+     * @param window the wood window holding the live session, not null.
+     * @param oursTree the ours side of the pair, not null - must belong to the live session.
+     * @param theirsTree the theirs side of the pair, not null.
+     * @return the prepared translation, or null when the pair is same-world.
+     * @throws de.jare.jsoncasted.io.JsonParseException when the session data does not read.
+     */
+    public static de.jare.jsoncasted.editor.merge.PickIdentityTranslation crossWorldTranslationOf(
+            WoodWindow window, EditTree oursTree, EditTree theirsTree)
+            throws de.jare.jsoncasted.io.JsonParseException {
+        final de.jare.jsoncasted.editor.core.EditBundle session = window.getEditBundle();
+        if (session == null || oursTree == null || theirsTree == null) {
+            return null;
+        }
+        final Map<String, EditTree> oursBySession = new HashMap<>();
+        for (String synonym : session.getSortedSynonyms()) {
+            final EditTree tree = session.findBySynonym(synonym);
+            if (tree != null) {
+                oursBySession.put(synonym, tree);
+            }
+        }
+        if (!oursBySession.containsValue(oursTree) || oursBySession.containsValue(theirsTree)) {
+            return null; // ours is not the live session world, or theirs belongs to it: same world
+        }
+        return de.jare.jsoncasted.editor.merge.PickIdentityTranslation.of(theirsTree, oursBySession);
     }
 
     /**
@@ -175,6 +228,7 @@ public final class DiffViewController {
         theirsCopyTree = null;
         oursTree = null;
         theirsSourceRoot = null;
+        pickTranslation = null;
         kind = null;
         pairText = null;
         plan = null;
@@ -596,8 +650,23 @@ public final class DiffViewController {
      * carries everything the application needs, the plan only books the outcome.
      */
     private String applyAndFlag(List<DeltaOp> deltas, String what) {
+        // phase 10: a cross-world pair (live session vs an isolated stand) translates the picked
+        // content first - synonym check, conflict check, fresh ids for every picked element. A
+        // refused pick applies NOTHING; the flags below fire on the ORIGINAL selection either way.
+        final List<DeltaOp> applied;
+        if (pickTranslation != null) {
+            final de.jare.jsoncasted.editor.merge.PickIdentityTranslation.Result translation
+                    = pickTranslation.translate(deltas);
+            if (!translation.isOk()) {
+                return "The pick refuses - nothing was applied:\n"
+                        + String.join("\n", translation.getProblems());
+            }
+            applied = translation.getDeltas();
+        } else {
+            applied = deltas;
+        }
         final MergeOutcome outcome = EditTreeMerger.applyDeltas(oursTree, theirsCopyTree.getRoot(),
-                planOrCarrier(), deltas, history());
+                planOrCarrier(), applied, history());
         if (!outcome.isApplied()) {
             return String.join("\n", outcome.getProblems());
         }

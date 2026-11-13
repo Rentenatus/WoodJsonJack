@@ -16,6 +16,7 @@ import de.jare.jsoncasted.model.descriptor.JsonModelDescriptor;
 import static de.jare.jsoncasted.lang.JsonTerms.SELF_SYNONYM;
 import static de.jare.jsoncasted.lang.JsonTerms.THIS_SYNONYM;
 import de.jare.tree.control.JackMasterControl;
+import de.jare.tree.control.JackUndoManager;
 import de.jare.tree.control.listeners.ParseProblemsListener;
 import de.jare.tree.control.listeners.TreeFocusComponent;
 import de.jare.tree.control.listeners.TreeFocusListener;
@@ -51,10 +52,11 @@ public class WoodWindow extends JFrame {
 
     private final JackMasterControl jackmaster;
     private final JTabbedPane centerTabs;
+    private Map<String, JPanel> harnessTreeTabs;   // debug: readonly harness tree tabs
     private final JackEditTreeContainer editorTree1;
     private final JackEditTreeContainer editorTree2;
     private final SettingsService settingsService;
-    private final WoodSettings settings;
+    private final de.jare.tree.settings.project.ProjectHistory projectHistory;    private final WoodSettings settings;
     private final ThemeSuite themeSuite;
     private final List<JackEditTreeContainer> editorTrees = new ArrayList<>();
     private final Map<JackEditTreeContainer, File> editorFiles = new HashMap<>();
@@ -64,12 +66,17 @@ public class WoodWindow extends JFrame {
     private final Map<JackEditTreeContainer, String> containerTitles = new HashMap<>();
     private PreferencesDialog preferencesDialog;
     private final List<Consumer<Boolean>> darkModeListeners = new ArrayList<>();
+    // History/EventBus holds listeners only weakly (Orator) - keep strong refs here or the
+    // change propagation listener would be garbage collected
+    private final List<HistoryListener> changePropagationListeners = new ArrayList<>();
     private JackClipboardPanel jackClipboardPanel;
     private JackUndoPanel jackPanel;
     private SearchResultPanel searchResultPanel;
     private JackFastLogPanel fastLogPanel;
     // The bundle session of the editor (concept doc/JSON_BUNDLE.md): null when no bundle session is open
     private EditBundle editBundle;
+    // The project sidebar: the projection of the open wood project (concept: docs/koncepts/CONCEPT_ProjectView.md)
+    private final de.jare.tree.ui.project.ProjectSidebar projectSidebar;
     // One shared instance for all save/diff actions of the window (the tab popup and the menu act together)
     private JackMainActions mainActions;
     private final TreeFocusListener treeFocusListener;
@@ -86,6 +93,7 @@ public class WoodWindow extends JFrame {
         themeSuite = settingsService.loadThemeSuite(false);
         settings.useThemeSuite(themeSuite);
         jackmaster = new JackMasterControl();
+        projectHistory = settingsService.loadProjectHistory();
 
         setTitle("Wood Json Studio");
         setSize(1200, 800);
@@ -98,10 +106,11 @@ public class WoodWindow extends JFrame {
         JSplitPane horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         JSplitPane verticalSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
 
-        // Left: project tree
-        WoodProjektTree projectTree = new WoodProjektTree("Project", "Node1", "Node2", "Folder");
-        projectTree.setPreferredSize(new Dimension(250, 0));
-        horizontalSplit.setLeftComponent(new JScrollPane(projectTree));
+        // Left: project sidebar (concept: docs/koncepts/CONCEPT_ProjectView.md section 8) - the projection
+        // of .wood/project.json: partitions on level 1, physical structure below, lazy loading.
+        projectSidebar = new de.jare.tree.ui.project.ProjectSidebar(this);
+        projectSidebar.setPreferredSize(new Dimension(250, 0));
+        horizontalSplit.setLeftComponent(projectSidebar);
 
         // Center: editor tabs + upper toolbar
         centerTabs = new JTabbedPane();
@@ -114,6 +123,7 @@ public class WoodWindow extends JFrame {
 
         centerTabs.addTab("Tree Editor 1", wrapEditor(editorTree1));
         centerTabs.addTab("Tree Editor 2", wrapEditor(editorTree2));
+        harnessTreeTabs = new HashMap<>();
 
         editorTree1.setReadonly(true);
 
@@ -240,6 +250,27 @@ public class WoodWindow extends JFrame {
                 refreshOutdatedMarkers();
             }
         });
+
+        // startup reopen: the most recent project of the history opens itself
+        reopenLastProject();
+    }
+
+    /**
+     * Opens the front entry of the project history at startup ({@code user-home/.wood/
+     * projects.json}, UX layer of docs/koncepts/CONCEPT_ProjectView.md). A folder that vanished or lost its
+     * project document is skipped silently - the history keeps the entry, "Open Recent" shows it
+     * disabled; a dialog at startup would only state what the silent sidebar already does: no
+     * project open.
+     */
+    private void reopenLastProject() {
+        java.util.List<de.jare.tree.settings.project.HistoryEntry> projects = projectHistory.getProjects();
+        if (projects.isEmpty() || projects.get(0).getProjectPath() == null) {
+            return;
+        }
+        File last = new File(projects.get(0).getProjectPath());
+        if (new de.jare.jsoncasted.project.ProjectFileService().isProjectRoot(last)) {
+            getMainActions().openProject(last);
+        }
     }
 
     private JPanel createJackUndoPanel() {
@@ -247,14 +278,22 @@ public class WoodWindow extends JFrame {
         return jackPanel;
     }
 
+    private KIAssistantPanel kiAssistantPanel;
+
     private JPanel createKIAssistant() {
-        JPanel borderedPanel = new JPanel(new BorderLayout());
-        JTextArea prompt = new JTextArea(5, 20);
-        prompt.setText("AI prompt here...");
-        JButton askBtn = new JButton("Ask AI");
-        borderedPanel.add(new JScrollPane(prompt), BorderLayout.CENTER);
-        borderedPanel.add(askBtn, BorderLayout.SOUTH);
-        return borderedPanel;
+        return getKIAssistantPanel();
+    }
+
+    /**
+     * The AI assistant bottom tab - JackMainMenu installs the thinking handler here.
+     * Lazy singleton: the menu bar is built before the tab (constructor order), so the
+     * handler must be installable before createKIAssistant() runs - both share one instance.
+     */
+    public KIAssistantPanel getKIAssistantPanel() {
+        if (kiAssistantPanel == null) {
+            kiAssistantPanel = new KIAssistantPanel();
+        }
+        return kiAssistantPanel;
     }
 
     private JPanel createJackClipboardPanel() {
@@ -325,6 +364,68 @@ public class WoodWindow extends JFrame {
     }
 
     /**
+     * The user global project history ({@code user-home/.wood/projects.json}, UX layer of
+     * docs/koncepts/CONCEPT_ProjectView.md): every opened or newly created project revises its front.
+     *
+     * @return the history, never null
+     */
+    public de.jare.tree.settings.project.ProjectHistory getProjectHistory() {
+        return projectHistory;
+    }
+
+    /**
+     * Moves a just opened or created project to the front of the history and persists the file
+     * immediately - a crash never loses the last project.
+     *
+     * @param projectName the display name of the project
+     * @param projectRoot the project root folder
+     */
+    public void rememberProjectInHistory(String projectName, File projectRoot) {
+        if (projectName == null || projectRoot == null) {
+            return;
+        }
+        projectHistory.remember(projectName, projectRoot.getAbsolutePath());
+        try {
+            settingsService.saveProjectHistory(projectHistory);
+        } catch (IOException | JsonParseException | JsonWriteException ex) {
+            Logger.getGlobal().log(Level.SEVERE, "Could not save the project history: ", ex);
+        }
+    }
+
+    /**
+     * The protection flip of an open file (concept docs/koncepts/CONCEPT_ProjectView.md, phase 20): every
+     * editor tab that shows this file changes its editability at once - a fence set does not
+     * wait for the next open, a removed fence releases the working view immediately. File
+     * identity is the canonical path.
+     *
+     * @param file the file whose tabs flip
+     * @param readonly true sets the fence (tabs read-only), false releases it
+     */
+    public void setCodeProtection(File file, boolean readonly) {
+        if (file == null) {
+            return;
+        }
+        for (JackEditTreeContainer container : editorTrees) {
+            File tabFile = editorFiles.get(container);
+            if (tabFile != null && sameFile(tabFile, file)) {
+                container.setReadonly(readonly);
+            }
+        }
+    }
+
+    /**
+     * Canonical file identity - the same rule as the project history: one file is one file,
+     * regardless of spelling, drive case or dot segments.
+     */
+    private static boolean sameFile(File a, File b) {
+        try {
+            return a.getCanonicalFile().compareTo(b.getCanonicalFile()) == 0;
+        } catch (IOException ex) {
+            return a.getAbsolutePath().equalsIgnoreCase(b.getAbsolutePath());
+        }
+    }
+
+    /**
      * Adds a new editor tab with the loaded JSON content.
      *
      * @param file the JSON file that was loaded
@@ -344,12 +445,27 @@ public class WoodWindow extends JFrame {
      * @param bundle the session clamp with the shared trees
      */
     public void openBundle(File mainFile, EditBundle bundle) throws JsonParseException {
+        openBundle(mainFile, bundle, false);
+    }
+
+    /**
+     * Opens the bundle session with the main tree's editability decided by the caller. An
+     * isolated source (concept docs/koncepts/CONCEPT_ProjectView.md, phase 9 - an old version to look at)
+     * opens completely read-only: the main tree is a view like the provider trees, no editor
+     * action writes into it.
+     *
+     * @param mainFile the bundle's main file (tab identity)
+     * @param bundle the bundle session to open
+     * @param mainReadonly true when the main tree opens as a read-only view
+     * @throws JsonParseException if wiring the session fails
+     */
+    public void openBundle(File mainFile, EditBundle bundle, boolean mainReadonly) throws JsonParseException {
         if (editBundle != null) {
             editBundle.close();
         }
         this.editBundle = bundle;
 
-        addEditorTab(mainFile, bundle.getMainTree(), null, false);
+        addEditorTab(mainFile, bundle.getMainTree(), null, mainReadonly);
         for (final String synonym : bundle.getSortedSynonyms()) {
             final EditTree tree = bundle.findBySynonym(synonym);
             if (tree == null || tree == bundle.getMainTree()) {
@@ -359,6 +475,21 @@ public class WoodWindow extends JFrame {
             addEditorTab(treeFile, tree, "[" + synonym + "]", true);
         }
         wireChangePropagation(bundle);
+    }
+
+    /**
+     * @param tree the edit tree whose tab is asked
+     * @return true when the editor showing the tree is a read-only view (isolated sources and
+     * provider trees open that way)
+     */
+    public boolean isReadOnlyView(EditTree tree) {
+        for (final JackEditTreeContainer container : editorTrees) {
+            if (container.getLeftTree() != null && container.getLeftTree().getModel() != null
+                    && container.getLeftTree().getModel().getEditTree() == tree) {
+                return container.getLeftTree().isReadonly();
+            }
+        }
+        return false;
     }
 
     /**
@@ -381,8 +512,7 @@ public class WoodWindow extends JFrame {
             if (synonym == null) {
                 continue;
             }
-            jackmaster.getUndoManager().getManagerFor(container.getLeftTree().getModel()).getHistory()
-                    .addListener(new HistoryListener() {
+            HistoryListener propagationListener = new HistoryListener() {
                         @Override
                         public void onClear(HistoryEvent event) {
                             // the propagation reacts to changes, not to clears
@@ -396,7 +526,10 @@ public class WoodWindow extends JFrame {
                                 propagateChangeOf(bundle, synonym);
                             }
                         }
-                    });
+                    };
+            changePropagationListeners.add(propagationListener); // strong ref: the orator holds weak refs only
+            jackmaster.getUndoManager().getManagerFor(container.getLeftTree().getModel()).getHistory()
+                    .addListener(propagationListener);
         }
     }
 
@@ -452,6 +585,29 @@ public class WoodWindow extends JFrame {
      */
     public EditBundle getEditBundle() {
         return editBundle;
+    }
+
+    /**
+     * @return the undo manager of the window (the command funnels of the editors live here)
+     */
+    public JackUndoManager getUndoManager() {
+        return jackmaster.getUndoManager();
+    }
+
+    /**
+     * Finds the tree model that shows the given edit tree (the tab of that bundle file).
+     *
+     * @param tree the edit tree whose model is sought, not null
+     * @return the model showing the tree, or null when no editor of this window shows it
+     */
+    public JackTreeModel findModelOf(EditTree tree) {
+        for (final JackEditTreeContainer container : editorTrees) {
+            if (container.getLeftTree() != null && container.getLeftTree().getModel() != null
+                    && container.getLeftTree().getModel().getEditTree() == tree) {
+                return container.getLeftTree().getModel();
+            }
+        }
+        return null;
     }
 
     /**
@@ -515,6 +671,16 @@ public class WoodWindow extends JFrame {
             mainActions = new JackMainActions(this, jackmaster);
         }
         return mainActions;
+    }
+
+    /**
+     * Returns the project sidebar (concept: docs/koncepts/CONCEPT_ProjectView.md) - the leftmost panel that
+     * projects the open wood project.
+     *
+     * @return the sidebar of this window
+     */
+    public de.jare.tree.ui.project.ProjectSidebar getProjectSidebar() {
+        return projectSidebar;
     }
 
     /**
@@ -741,6 +907,72 @@ public class WoodWindow extends JFrame {
      * @param container the editor container, not null.
      * @return the wrapping scroll pane with the slim scroll bars.
      */
+    /**
+     * DEBUG: opens the harness task tree of the given instance READ-ONLY in a new center tab
+     * (later: only on demand). The tab rebuilds from the TaskData projection and refreshes live
+     * via the TaskTree change events; no edit commands are wired, so it is read-only.
+     */
+    public void openHarnessTreeTab(String title, de.jare.harness.HarnessInstance instance) {
+        if (instance == null || instance.getRoot() == null) {
+            return;
+        }
+        SwingUtilities.invokeLater(() -> {
+            JPanel existing = harnessTreeTabs.get(title);
+            if (existing != null) {
+                centerTabs.setSelectedComponent(existing);
+                return;
+            }
+            javax.swing.tree.DefaultMutableTreeNode root =
+                    new javax.swing.tree.DefaultMutableTreeNode("harness");
+            javax.swing.tree.DefaultTreeModel model = new javax.swing.tree.DefaultTreeModel(root);
+            javax.swing.JTree tree = new javax.swing.JTree(model);
+            tree.setEditable(false);   // read-only debug view
+            JPanel panel = new JPanel(new java.awt.BorderLayout());
+            panel.add(new javax.swing.JScrollPane(tree), java.awt.BorderLayout.CENTER);
+            Runnable refresh = () -> {
+                root.removeAllChildren();
+                root.add(buildTaskNode(instance.getRoot()));
+                model.reload();
+                for (int i = 0; i < tree.getRowCount(); i++) {
+                    tree.expandRow(i);
+                }
+            };
+            instance.getTaskTree().addChangeListener(n -> SwingUtilities.invokeLater(refresh));
+            refresh.run();
+            harnessTreeTabs.put(title, panel);
+            centerTabs.addTab(title, panel);
+            centerTabs.setSelectedComponent(panel);
+        });
+    }
+
+    private static javax.swing.tree.DefaultMutableTreeNode buildTaskNode(de.jare.harness.TaskData t) {
+        javax.swing.tree.DefaultMutableTreeNode n = new javax.swing.tree.DefaultMutableTreeNode(t);
+        // calculator content hangs under the task node: one child per call-log entry
+        for (de.jare.harness.CallLogEntry e : t.getCalculatorLog()) {
+            StringBuilder label = new StringBuilder();
+            label.append('#').append(e.getAufrufId()).append(' ').append(e.getKind())
+                    .append(" slot=").append(e.getSlotId())
+                    .append(" -> ").append(e.getDecision())
+                    .append(" status=").append(e.getStatus());
+            if (e.getScore() != null) {
+                label.append(" score=").append(e.getScore());
+            }
+            javax.swing.tree.DefaultMutableTreeNode logNode =
+                    new javax.swing.tree.DefaultMutableTreeNode(label.toString());
+            for (var p : e.getPayload().entrySet()) {
+                logNode.add(new javax.swing.tree.DefaultMutableTreeNode(p.getKey() + " = " + p.getValue()));
+            }
+            if (e.getMessage() != null && !e.getMessage().isEmpty()) {
+                logNode.add(new javax.swing.tree.DefaultMutableTreeNode("msg = " + e.getMessage()));
+            }
+            n.add(logNode);
+        }
+        for (de.jare.harness.TaskData c : t.getChildren()) {
+            n.add(buildTaskNode(c));
+        }
+        return n;
+    }
+
     private JScrollPane wrapEditor(JackEditTreeContainer container) {
         final JScrollPane scrollPane = new JScrollPane(container);
         scrollPane.getVerticalScrollBar().setPreferredSize(

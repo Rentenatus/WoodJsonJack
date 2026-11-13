@@ -76,7 +76,7 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
         }
 
         // the mode signal of this tree: no marks map = edit mode (type and parse status colors show), a map =
-        // diff mode (neutral base, only the diff colors show, concept CONCEPT_TreeDiffView.md)
+        // diff mode (neutral base, only the diff colors show, concept docs/koncepts/CONCEPT_TreeDiffView.md)
         final Map<EditNodeAbstract, DiffMark> treeDiffMarks = diffMarksOfTree(tree);
         final DiffMark mark = data instanceof EditNodeAbstract
                 && treeDiffMarks != null ? treeDiffMarks.get(data) : null;
@@ -176,7 +176,7 @@ public class JsonJackTreeCellRenderer implements TreeCellRenderer {
                 ? fg
                 : UIManager.getColor("Label.disabledForeground"));
 
-        // tree diff view marks (concept CONCEPT_TreeDiffView.md sections 4 and 5): a tree without marks renders
+        // tree diff view marks (concept docs/koncepts/CONCEPT_TreeDiffView.md sections 4 and 5): a tree without marks renders
         // exactly as before; the radiating badge is the only text change, the colors flow through the special
         // color above.
         if (mark != null && mark.isRadiating()) {

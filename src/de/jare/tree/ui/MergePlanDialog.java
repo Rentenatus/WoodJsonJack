@@ -40,7 +40,7 @@ public class MergePlanDialog extends JDialog {
     /**
      * Runs the 3-way analysis and shows the plan. Base is the import state of the ours tree, ours is the ours side,
      * theirs the external version. The plan is the list counterpart of the W3 diff view: opened from the cherry
-     * banner's Report button while the view is already open (concept CONCEPT_TreeDiffView.md section 9).
+     * banner's Report button while the view is already open (concept docs/koncepts/CONCEPT_TreeDiffView.md section 9).
      *
      * @param owner the owner window, may be null.
      * @param plan the merge plan to show, never {@code null}.

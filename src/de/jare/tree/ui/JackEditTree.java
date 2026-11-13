@@ -109,7 +109,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
         linkCheckBox.setIcon(new ImageIcon(getClass().getResource("/icons/no_link.png")));
         rightPanel.add(linkCheckBox);
 
-        // checkbox for the diff view mode of the container's right pane (concept CONCEPT_TreeDiffView.md)
+        // checkbox for the diff view mode of the container's right pane (concept docs/koncepts/CONCEPT_TreeDiffView.md)
         diffCheckBox = new JCheckBox("Diff");
         diffCheckBox.setToolTipText("Show the tree diff view in this tab (mark a side in the root popup first)");
         rightPanel.add(diffCheckBox);
@@ -455,7 +455,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Sets the diff marks of this tree (concept CONCEPT_TreeDiffView.md section 4). The controller fills the map
+     * Sets the diff marks of this tree (concept docs/koncepts/CONCEPT_TreeDiffView.md section 4). The controller fills the map
      * when the diff view opens or re-diffs; null clears it. The renderer reads it at paint time - null renders
      * exactly as without the diff view.
      *
@@ -537,7 +537,7 @@ public class JackEditTree extends JPanel implements TreeFocusComponent {
     }
 
     /**
-     * Feeds the staleness of the diff marks into the container's header summary (concept CONCEPT_TreeDiffView.md
+     * Feeds the staleness of the diff marks into the container's header summary (concept docs/koncepts/CONCEPT_TreeDiffView.md
      * section 5): the marks self-validate per node at paint time; this walk only aggregates the count for the
      * "N of M marks outdated" line, riding the existing 200ms tick of the parse refresh.
      */

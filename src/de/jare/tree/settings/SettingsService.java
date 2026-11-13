@@ -15,6 +15,7 @@ import de.jare.jsoncasted.item.JsonItem;
 import de.jare.jsoncasted.item.builder.JsonBuilder;
 import de.jare.jsoncasted.model.JsonBuildException;
 import de.jare.tree.settings.def.JsonWoodSettingsDefinition;
+import de.jare.tree.settings.project.ProjectHistory;
 import de.jare.tree.settings.project.ProjectSettings;
 import de.jare.tree.settings.theme.ThemeSuite;
 import java.io.File;
@@ -41,6 +42,14 @@ public class SettingsService {
 
     private File getGlobalSettingsDir() {
         return new File(getUserHomeDir(), ".woodjj");
+    }
+
+    private File getWoodUserDir() {
+        return new File(getUserHomeDir(), ".wood");
+    }
+
+    private File getProjectHistoryFile() {
+        return new File(getWoodUserDir(), "projects.json");
     }
 
     private File getWoodSettingsFile() {
@@ -160,6 +169,69 @@ public class SettingsService {
             throws IOException, JsonParseException, JsonWriteException {
         ensureParentDirectory(file);
         JsonObjectWriter.write(settings, file, definition, definition.getProjectSettingsRoot());
+    }
+
+    /**
+     * Loads the user global project history from {@code user-home/.wood/projects.json}. A missing
+     * or broken file yields a fresh empty history (and writes the empty file, so the location
+     * becomes discoverable); a broken one is logged like the other settings loads.
+     *
+     * @return the history, never null
+     */
+    public ProjectHistory loadProjectHistory() {
+        File file = getProjectHistoryFile();
+        if (file == null || !file.exists()) {
+            ProjectHistory defaults = new ProjectHistory();
+            try {
+                saveProjectHistory(file, defaults);
+            } catch (IOException | JsonParseException | JsonWriteException ex) {
+                Logger.getGlobal().log(Level.SEVERE, "Could not create project history file: ", ex);
+            }
+            return defaults;
+        }
+        return loadProjectHistory(file);
+    }
+
+    /**
+     * Loads a project history from an explicit file (the live variant plus the test round trip).
+     *
+     * @param file the history file to read, not null
+     * @return the parsed history; an empty one when the file is broken
+     */
+    public ProjectHistory loadProjectHistory(File file) {
+        try {
+            WoodResolution reso = JsonParser.parse(file, definition, definition.getProjectHistoryRoot());
+            if (reso.hasExceptions()) {
+                final List<JsonParseException> exceptions = reso.getUnmodifiableExceptions();
+                for (Exception exception : exceptions) {
+                    Logger.getGlobal().log(Level.SEVERE, "Parsing error: ", exception);
+                }
+            }
+            JsonItem item = reso.getAnswer();
+            return (ProjectHistory) JsonBuilder.buildInstance(definition.getModel(), true, item);
+        } catch (JsonParseException | JsonBuildException | NullPointerException | IOException ex) {
+            Logger.getGlobal().log(Level.SEVERE, "Could not load the project history: ", ex);
+            return new ProjectHistory();
+        }
+    }
+
+    /**
+     * Saves the user global project history into {@code user-home/.wood/projects.json}.
+     *
+     * @param history the history to persist
+     * @throws IOException when the file cannot be written
+     * @throws JsonWriteException when the history cannot be serialized
+     * @throws JsonParseException when the model cannot be serialized
+     */
+    public void saveProjectHistory(ProjectHistory history)
+            throws IOException, JsonWriteException, JsonParseException {
+        saveProjectHistory(getProjectHistoryFile(), history);
+    }
+
+    public void saveProjectHistory(File file, ProjectHistory history)
+            throws IOException, JsonParseException, JsonWriteException {
+        ensureParentDirectory(file);
+        JsonObjectWriter.write(history, file, definition, definition.getProjectHistoryRoot());
     }
 
     public WoodSettings resetWoodSettings(File file) throws IOException {

@@ -22,6 +22,7 @@ import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JComboBox;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -47,6 +48,7 @@ public class WoodPreferencesPane extends JPanel {
     private final JRadioButton lightModeButton;
     private final JRadioButton darkModeButton;
     private final JComboBox<Theme> themeCombo;
+    private final JCheckBox gradientUnderlayBox;
 
     public WoodPreferencesPane(WoodSettings settings, ThemeSuite themeSuite,
             SettingsService settingsService) {
@@ -76,6 +78,10 @@ public class WoodPreferencesPane extends JPanel {
         themeCombo.setRenderer(new ThemeComboRenderer());
         selectTheme(settings.getThemeId());
 
+        gradientUnderlayBox = new JCheckBox("Signal rows with gradient underlay (json and project trees)");
+        gradientUnderlayBox.setToolTipText("The tinted fade behind error and warning rows - someone bothered by it turns it off here");
+        gradientUnderlayBox.setSelected(settings.getUserPreferences().isGradientUnderlay());
+
         initializeUI();
         setupListeners();
     }
@@ -101,9 +107,14 @@ public class WoodPreferencesPane extends JPanel {
         themePanel.add(new JLabel("Active theme:"));
         themePanel.add(themeCombo);
 
+        JPanel displayPanel = new JPanel(new GridLayout(1, 1, 5, 5));
+        displayPanel.setBorder(BorderFactory.createTitledBorder("Display"));
+        displayPanel.add(gradientUnderlayBox);
+
         JPanel northPanel = new JPanel(new BorderLayout(5, 5));
         northPanel.add(schemaPanel, BorderLayout.NORTH);
         northPanel.add(themePanel, BorderLayout.CENTER);
+        northPanel.add(displayPanel, BorderLayout.SOUTH);
 
         add(northPanel, BorderLayout.NORTH);
     }
@@ -145,6 +156,12 @@ public class WoodPreferencesPane extends JPanel {
             settings.useThemeSuite(themeSuite);
             LafCatalog.refreshAllUi();
             persist();
+        });
+
+        gradientUnderlayBox.addActionListener(e -> {
+            settings.getUserPreferences().setGradientUnderlay(gradientUnderlayBox.isSelected());
+            persist();
+            LafCatalog.refreshAllUi();
         });
     }
 

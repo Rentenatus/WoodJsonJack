@@ -59,40 +59,105 @@ public class JackMainMenu extends JMenuBar {
         this.master = master;
         this.mainActions = mainFrame.getMainActions();
 
-        // Bundle menu
-        JMenu bundleMenu = new JMenu("Bundle");
-        bundleMenu.setMnemonic(KeyEvent.VK_B);
+        // File menu: single file actions without bundle or project state
+        JMenu fileMenu = new JMenu("File");
+        fileMenu.setMnemonic(KeyEvent.VK_F);
 
-        JMenuItem newItem = new JMenuItem("New");
-        JMenuItem openItem = new JMenuItem("Open...");
-        JMenuItem openBundleItem = new JMenuItem("Open Bundle...");
-        JMenuItem closeBundleItem = new JMenuItem("Close Bundle");
-        JMenuItem showResourceItem = new JMenuItem("Show Bundle Resource...");
-        JMenuItem saveItem = new JMenuItem("Save");
-        JMenuItem saveAsItem = new JMenuItem("Save As...");
+        JMenuItem openItem = new JMenuItem("Open...", UiIcons.openFileIcon());
+        JMenuItem saveItem = new JMenuItem("Save", UiIcons.saveIcon());
+        JMenuItem saveAsItem = new JMenuItem("Save As...", UiIcons.saveIcon());
         JMenuItem diffChangesItem = new JMenuItem("Diff Changes (vs. Disk)");
         JMenuItem exitItem = new JMenuItem("Exit");
 
         exitItem.addActionListener(e -> woodWindow.dispose());
         openItem.addActionListener(e -> openJsonFile());
-        openBundleItem.addActionListener(e -> openJsonBundle());
-        closeBundleItem.addActionListener(e -> woodWindow.closeBundle());
-        showResourceItem.addActionListener(e -> showBundleResource());
         saveItem.addActionListener(e -> mainActions.saveActiveFile());
         saveAsItem.addActionListener(e -> mainActions.saveActiveFileAs());
         diffChangesItem.addActionListener(e -> mainActions.diffActiveAgainstDisk("menu diff changes"));
 
-        bundleMenu.add(newItem);
-        bundleMenu.add(openItem);
+        fileMenu.add(openItem);
+        fileMenu.add(saveItem);
+        fileMenu.add(saveAsItem);
+        fileMenu.add(diffChangesItem);
+        fileMenu.addSeparator();
+        fileMenu.add(exitItem);
+
+        // Bundle menu: the multi resource session (concepts doc/JSON_BUNDLE.md and doc/TREE_DIFF.md)
+        JMenu bundleMenu = new JMenu("Bundle");
+        bundleMenu.setMnemonic(KeyEvent.VK_B);
+
+        JMenuItem openBundleItem = new JMenuItem("Open Bundle...", UiIcons.openBundleIcon());
+        JMenuItem closeBundleItem = new JMenuItem("Close Bundle");
+        JMenuItem showResourceItem = new JMenuItem("Show Bundle Resource...");
+
+        openBundleItem.addActionListener(e -> openJsonBundle());
+        closeBundleItem.addActionListener(e -> woodWindow.closeBundle());
+        showResourceItem.addActionListener(e -> showBundleResource());
+
         bundleMenu.add(openBundleItem);
         bundleMenu.add(closeBundleItem);
         bundleMenu.add(showResourceItem);
-        bundleMenu.add(saveItem);
-        bundleMenu.add(saveAsItem);
-        bundleMenu.add(diffChangesItem);
-        bundleMenu.addSeparator();
-        bundleMenu.add(exitItem);
 
+        // Project menu: the .wood/project.json scope (concept docs/koncepts/CONCEPT_ProjectView.md, sections 1 and 8)
+        JMenu projectMenu = new JMenu("Project");
+        projectMenu.setMnemonic(KeyEvent.VK_P);
+
+        JMenuItem newProjectItem = new JMenuItem("New Project...", UiIcons.newProjectIcon());
+        JMenuItem openProjectItem = new JMenuItem("Open Project...", UiIcons.openProjectIcon());
+        JMenuItem closeProjectItem = new JMenuItem("Close Project");
+        JMenuItem refreshProjectItem = new JMenuItem("Refresh", UiIcons.refreshIcon());
+        // the recent list is rebuilt at select time - it moves with every open/create
+        JMenu recentProjectsMenu = new JMenu("Open Recent");
+        recentProjectsMenu.addMenuListener(new javax.swing.event.MenuListener() {
+            @Override
+            public void menuSelected(javax.swing.event.MenuEvent e) {
+                rebuildRecentProjects(recentProjectsMenu);
+            }
+
+            @Override
+            public void menuDeselected(javax.swing.event.MenuEvent e) {
+                // nothing to do
+            }
+
+            @Override
+            public void menuCanceled(javax.swing.event.MenuEvent e) {
+                // nothing to do
+            }
+        });
+
+        newProjectItem.addActionListener(e -> mainActions.newProject());
+        openProjectItem.addActionListener(e -> mainActions.chooseAndOpenProject());
+        closeProjectItem.addActionListener(e -> woodWindow.getProjectSidebar().closeProject());
+        refreshProjectItem.addActionListener(e -> woodWindow.getProjectSidebar().refreshProject());
+
+        projectMenu.add(newProjectItem);
+        projectMenu.add(openProjectItem);
+        projectMenu.add(recentProjectsMenu);
+        projectMenu.addSeparator();
+
+        // Add Folder: the partition roles of the concept (section 2) and the bundle folder -
+        // every entry asks for the name, the folder on disk and the project document grow together
+        JMenu addFolderMenu = new JMenu("Add Folder");
+        addFolderMenu.setIcon(UiIcons.newProjectIcon());
+        for (de.jare.jsoncasted.project.PartitionType type : de.jare.jsoncasted.project.PartitionType.VALUES) {
+            if (type == de.jare.jsoncasted.project.PartitionType.ISOLATED) {
+                continue; // an isolated mount is an old world from outside, never created empty
+            }
+            JMenuItem typeItem = new JMenuItem(type.getName());
+            typeItem.addActionListener(e -> mainActions.addProjectFolder(type));
+            addFolderMenu.add(typeItem);
+        }
+        JMenuItem bundleFolderItem = new JMenuItem("bundle");
+        bundleFolderItem.addActionListener(e -> mainActions.addProjectBundle());
+        addFolderMenu.addSeparator();
+        addFolderMenu.add(bundleFolderItem);
+        projectMenu.add(addFolderMenu);
+
+        projectMenu.addSeparator();
+        projectMenu.add(closeProjectItem);
+        projectMenu.add(refreshProjectItem);
+
+        // Edit menu: clipboard operations first, then the structural node operations
         JMenuItem copyItem = new JMenuItem("Copy");
         cutItem = new JMenuItem("Cut");
         pasteItem = new JMenuItem("paste into this node");
@@ -103,15 +168,14 @@ public class JackMainMenu extends JMenuBar {
         pasteItem.addActionListener(e -> master.fireContentCommand(EDIT_PASTE, this));
         pasteUnderneathItem.addActionListener(e -> master.fireContentCommand(EDIT_PASTE_UNDERNEATH, this));
 
-        bundleMenu.addSeparator();
-        bundleMenu.add(copyItem);
-        bundleMenu.add(cutItem);
-        bundleMenu.add(pasteItem);
-        bundleMenu.add(pasteUnderneathItem);
-
-        // Edit menu
         JMenu editMenu = new JMenu("Edit");
         editMenu.setMnemonic(KeyEvent.VK_E);
+
+        editMenu.add(copyItem);
+        editMenu.add(cutItem);
+        editMenu.add(pasteItem);
+        editMenu.add(pasteUnderneathItem);
+        editMenu.addSeparator();
 
         addNodeMenu = new JMenu("Add Node");
         addAnnotationMenu = new JMenu("Add Annotation");
@@ -163,7 +227,37 @@ public class JackMainMenu extends JMenuBar {
         );
         infoMenu.add(aboutItem);
 
+        // Harness menu: the agent entry points (CONCEPT_Harness.md §3, §15) - run a task
+        // against the current project, show the live task tree of the last run
+        JMenu harnessMenu = new JMenu("Harness");
+        harnessMenu.setMnemonic(KeyEvent.VK_H);
+        JMenuItem runTaskItem = new JMenuItem("Run Task...");
+        JMenuItem runSelectionItem = new JMenuItem("Run Task from Selection...");
+        JMenuItem showHarnessItem = new JMenuItem("Show Harness Window");
+        de.jare.tree.ui.harness.HarnessController harnessController =
+                new de.jare.tree.ui.harness.HarnessController(woodWindow);
+        runTaskItem.addActionListener(e -> harnessController.runTaskInteractive(
+                woodWindow.getProjectSidebar().getProjectRoot()));
+        // §3 entry point 2: the editor selection is turned into a prompt and continued here
+        runSelectionItem.addActionListener(e -> harnessController.runTaskFromSelection(
+                woodWindow.getProjectSidebar().getProjectRoot(),
+                lastSelectedNode == null ? "" : String.valueOf(lastSelectedNode)));
+        showHarnessItem.addActionListener(e -> harnessController.showView());
+        // KI pane (Enter / "Ask AI") -> main harness control instance -> AskAi run with the prompt
+        if (woodWindow.getKIAssistantPanel() != null) {
+            woodWindow.getKIAssistantPanel().setThinkingHandler(prompt -> harnessController.runAskAi(
+                    woodWindow.getProjectSidebar().getProjectRoot(), prompt));
+            // §17: /cmd replies (ChatCommandService via HarnessController) land in the output area
+            harnessController.setCommandReplyHandler(woodWindow.getKIAssistantPanel()::appendOutput);
+        }
+        harnessMenu.add(runTaskItem);
+        harnessMenu.add(runSelectionItem);
+        harnessMenu.add(showHarnessItem);
+
+        add(fileMenu);
         add(bundleMenu);
+        add(projectMenu);
+        add(harnessMenu);
         add(editMenu);
         add(optionsMenu);
         add(infoMenu);
@@ -291,6 +385,43 @@ public class JackMainMenu extends JMenuBar {
 
     private void openPreferences() {
         woodWindow.openPreferences();
+    }
+
+    /**
+     * Rebuilds the "Open Recent" sub menu from the project history ({@code user-home/.wood/
+     * projects.json}). Every entry opens its project directly; an entry whose folder no longer
+     * carries a project document stays visible (the path is the clue) but disabled.
+     *
+     * @param recentProjectsMenu the sub menu to fill
+     */
+    private void rebuildRecentProjects(JMenu recentProjectsMenu) {
+        recentProjectsMenu.removeAll();
+        java.util.List<de.jare.tree.settings.project.HistoryEntry> projects
+                = woodWindow.getProjectHistory().getProjects();
+        if (projects.isEmpty()) {
+            JMenuItem none = new JMenuItem("(no projects yet)");
+            none.setEnabled(false);
+            recentProjectsMenu.add(none);
+            return;
+        }
+        de.jare.jsoncasted.project.ProjectFileService projectService
+                = new de.jare.jsoncasted.project.ProjectFileService();
+        for (de.jare.tree.settings.project.HistoryEntry entry : projects) {
+            if (entry == null || entry.getProjectPath() == null) {
+                continue;
+            }
+            java.io.File folder = new java.io.File(entry.getProjectPath());
+            String label = entry.getProjectName() != null && !entry.getProjectName().isBlank()
+                    ? entry.getProjectName() : folder.getName();
+            JMenuItem item = new JMenuItem(label, UiIcons.openProjectIcon());
+            item.setToolTipText(entry.getProjectPath());
+            if (folder.isDirectory() && projectService.isProjectRoot(folder)) {
+                item.addActionListener(e -> mainActions.openProject(folder));
+            } else {
+                item.setEnabled(false);
+            }
+            recentProjectsMenu.add(item);
+        }
     }
 
     private void triggerReparse() {

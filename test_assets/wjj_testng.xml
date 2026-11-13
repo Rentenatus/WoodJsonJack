@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="WjjSuite">
+  <test name="WjjTests">
+    <classes>
+    <class name="de.jare.tree.control.fastlog.FastLogNGTest"/>
+    <class name="de.jare.tree.control.JackMasterControlNGTest"/>
+    <class name="de.jare.tree.control.model.JackTreeModelNGTest"/>
+    <class name="de.jare.tree.parse.AnnotationSoftParseNGTest"/>
+    <class name="de.jare.tree.parse.SoftParseNGTest"/>
+    <class name="de.jare.tree.ui.JackEditPopupEnablementNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackAttrTableModelNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackComboBoxCellEditorNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackHardRenameGuardNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackObjectTableModelNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackPaneEditorGuardNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackTableButtonRendererNGTest"/>
+    <class name="de.jare.tree.ui.JsonJackTreeCellEditorNGTest"/>
+    <class name="de.jare.tree.ui.project.BundleClonerNGTest"/>
+    <class name="de.jare.tree.ui.project.BundleClonePlannerNGTest"/>
+    <class name="de.jare.tree.ui.project.ProjectTreeNodeNGTest"/>
+    <class name="de.jare.tree.settings.project.ProjectHistoryNGTest"/>
+    <class name="de.jare.harness.HarnessEngineNGTest"/>
+    <class name="de.jare.harness.HarnessCodecNGTest"/>
+    <class name="de.jare.harness.TaskTreeNGTest"/>
+    <class name="de.jare.harness.HarnessPromptsNGTest"/>
+    <class name="de.jare.harness.HarnessMetricsNGTest"/>
+    <class name="de.jare.harness.HarnessToolsNGTest"/>
+    <class name="de.jare.harness.HarnessRagNGTest"/>
+    <class name="de.jare.harness.HarnessLineageNGTest"/>
+    <class name="de.jare.harness.HarnessSkillsMindsetNGTest"/>
+    <class name="de.jare.harness.HarnessSignalsNGTest"/>
+    <class name="de.jare.harness.HarnessServiceNGTest"/>
+    <class name="de.jare.harness.HarnessFeedbackNGTest"/>
+    <class name="de.jare.harness.HarnessEvolutionNGTest"/>
+    <class name="de.jare.harness.HarnessAiAnswerNGTest"/>
+    <class name="de.jare.harness.HarnessHostedProviderNGTest"/>
+    <class name="de.jare.harness.HarnessViewNGTest"/>
+    <class name="de.jare.harness.HarnessRagPipelineNGTest"/>
+    <class name="de.jare.harness.HarnessToolLoopNGTest"/>
+    <class name="de.jare.harness.HarnessControllerNGTest"/>
+    <class name="de.jare.harness.HarnessModelDefinitionNGTest"/>
+    <class name="de.jare.harness.OllamaProviderNGTest"/>
+    </classes>
+  </test>
+</suite>
