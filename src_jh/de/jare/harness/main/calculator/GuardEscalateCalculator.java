@@ -10,6 +10,7 @@ import de.jare.harness.CalcContext;
 import de.jare.harness.CalcResult;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
+import de.jare.harness.impl.AiAnswers;
 import de.jare.harness.impl.ModelProvider;
 import de.jare.harness.model.Modelclass;
 import java.util.ArrayList;
@@ -58,35 +59,9 @@ public class GuardEscalateCalculator extends GuardCheckCalculator {
         segments.addAll(ctx.prompts());
         segments.add("FIRST-VERDICT:scoring model said " + first
                 + (firstReason == null || firstReason.isBlank() ? "" : " (" + firstReason + ")"));
-        // reuse the check pass machinery with the augmented segments
-        String[] parsed = callAndParseVerdictSegments(ctx, segments);
-        return verdictResult(ctx, parsed[0], parsed[1], Integer.valueOf(parsed[2]), "guard.finalVerdict");
-    }
-
-    /** Like {@link #callAndParseVerdict} but with caller-built segments (first verdict appended). */
-    private String[] callAndParseVerdictSegments(CalcContext ctx, List<String> segments) {
-        String answer = callProvider(ctx, segments);
-        de.jare.jsoncasted.lang.JsonNode root;
-        try {
-            root = parseStrict(answer);
-        } catch (de.jare.harness.HarnessException e) {
-            if (e.getType() != de.jare.harness.HarnessException.Type.SCHEMA_VIOLATION) {
-                throw e;
-            }
-            List<String> retrySegments = new ArrayList<>(segments);
-            retrySegments.set(0, segments.get(0) + "\n\n" + emphasisPrompt);
-            answer = callProvider(ctx, retrySegments);
-            root = parseStrict(answer);
-        }
-        var payload = root.asObjectValues().get("payload");
-        String verdict = text(payload, "verdict", "SAFE");
-        String reason = text(payload, "reason", "");
-        int score = 0;
-        var scoreNode = root.asObjectValues().get("score");
-        if (scoreNode != null && !scoreNode.isNull()) {
-            Double n = scoreNode.asNumber();
-            score = (int) Math.round(n != null ? n : scoreNode.asLong());   // NUMBER or LONG node
-        }
-        return new String[]{verdict, reason, String.valueOf(score)};
+        // shared call + strict parse + emphasis retry; the first verdict rides along in the segments
+        AiAnswers.Parsed parsed = AiAnswers.callAndParse(ctx, provider, modelclass, segments, emphasisPrompt);
+        Verdict v = parseVerdict(parsed.root());
+        return verdictResult(ctx, v.verdict(), v.reason(), v.score(), "guard.finalVerdict");
     }
 }

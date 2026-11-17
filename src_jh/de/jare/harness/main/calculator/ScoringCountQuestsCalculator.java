@@ -9,9 +9,9 @@ package de.jare.harness.main.calculator;
 import de.jare.harness.CalcContext;
 import de.jare.harness.CalcResult;
 import de.jare.harness.HarnessCalculator;
-import de.jare.harness.HarnessException;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
+import de.jare.harness.impl.AiAnswers;
 import de.jare.harness.impl.ModelProvider;
 import de.jare.harness.model.Modelclass;
 import java.util.ArrayList;
@@ -89,101 +89,28 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
 
     @Override
     public CalcResult calculate(CalcContext ctx) {
-        if (provider == null || modelclass != null && !modelclass.isAvailable()) {
-            throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE,
-                    "scoring provider unavailable");
-        }
         List<String> segments = new ArrayList<>();
         segments.add("SYSTEM:scoring.countQuests\n" + systemPrompt);   // system prompt as config param
         segments.addAll(ctx.prompts());
-        String answer = callProvider(ctx, segments);
-        boolean emphasisRetry = false;
-        de.jare.jsoncasted.lang.JsonNode root;
-        try {
-            root = parseStrict(answer);
-        } catch (HarnessException e) {
-            if (e.getType() != HarnessException.Type.SCHEMA_VIOLATION) {
-                throw e;
-            }
-            // emphasis retry: small models sometimes answer with prose/fences first - append the
-            // emphasisPrompt to the system segment and ask exactly once more
-            emphasisRetry = true;
-            List<String> retrySegments = new ArrayList<>(segments);
-            retrySegments.set(0, segments.get(0) + "\n\n" + emphasisPrompt);
-            answer = callProvider(ctx, retrySegments);
-            root = parseStrict(answer);   // still not strict JSON -> SCHEMA_VIOLATION propagates
-        }
+        // provider call + strict JSON parse with one emphasis retry (shared in AiAnswers)
+        AiAnswers.Parsed parsed = AiAnswers.callAndParse(ctx, provider, modelclass, segments, emphasisPrompt);
+        var root = parsed.root();
+
         int questCount = 0;
         var payload = root.asObjectValues().get("payload");
         if (payload != null && payload.asObjectValues().get("questCount") != null) {
             questCount = Integer.parseInt(String.valueOf(payload.asObjectValues().get("questCount").asLong()).trim());
         }
-        String status = text(root, "status", "DONE");
+
         // data cache: the count is also written into the runtime WorkCache so a following
         // calculator can format it into its prompt template ({data.count}, PromptFormatter)
         if (ctx.workCache() != null) {
             ctx.workCache().put("count", String.valueOf(questCount));
         }
-        return CalcResult.of(kind, text(root, "decision", "counted"))
-                .status(parseStatus(status))
+        return CalcResult.of(kind, AiAnswers.text(root, "decision", "counted"))
+                .status(AiAnswers.parseStatus(AiAnswers.text(root, "status", "DONE")))
                 .put("questCount", String.valueOf(questCount))
-                .put("emphasisRetry", String.valueOf(emphasisRetry))
-                .put("rawAnswer", abbrev(answer));
-    }
-
-    private String callProvider(CalcContext ctx, List<String> segments) {
-        try {
-            return provider.complete(segments, ctx.temperature());
-        } catch (HarnessException e) {
-            throw e;
-        } catch (Exception e) {
-            if (modelclass != null) {
-                modelclass.markUnavailable();
-            }
-            throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE, "provider call failed", e);
-        }
-    }
-
-    private static de.jare.jsoncasted.lang.JsonNode parseStrict(String answer) {
-        String trimmed = answer == null ? "" : answer.trim();
-        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
-            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
-                    "answer is not strict JSON: " + abbrev(trimmed));
-        }
-        try {
-            var root = de.jare.jsoncasted.io.parserservice.JsonParserService.parse(trimmed,
-                    de.jare.debug.JsonDebugLevel.SIMPLE).getRoot();
-            if (root == null || !root.isObject()) {
-                throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION, "answer not a JSON object");
-            }
-            return root;
-        } catch (HarnessException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION, "JSON parse failed: " + e.getMessage());
-        }
-    }
-
-    private static Status parseStatus(String raw) {
-        String s = raw == null ? "" : raw.trim().toUpperCase().replace(' ', '_');
-        switch (s) {
-            case "COMPLETED": return Status.DONE;
-            case "IN_PROGRESS": return Status.RUNNING;
-            default:
-                try {
-                    return Status.valueOf(s);
-                } catch (IllegalArgumentException e) {
-                    throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION, "unknown status: " + raw);
-                }
-        }
-    }
-
-    private static String text(de.jare.jsoncasted.lang.JsonNode n, String key, String def) {
-        var v = n.asObjectValues().get(key);
-        return v == null || v.isNull() ? def : v.asText();
-    }
-
-    private static String abbrev(String s) {
-        return s == null ? "" : (s.length() > 200 ? s.substring(0, 200) + "…" : s);
+                .put("emphasisRetry", String.valueOf(parsed.emphasisRetry()))
+                .put("rawAnswer", AiAnswers.abbrev(parsed.rawAnswer()));
     }
 }

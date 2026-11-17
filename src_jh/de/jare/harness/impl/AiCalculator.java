@@ -12,16 +12,16 @@ import de.jare.harness.HarnessCalculator;
 import de.jare.harness.HarnessException;
 import de.jare.harness.Kind;
 import de.jare.harness.Limits;
-import de.jare.harness.Status;
 import de.jare.harness.model.Modelclass;
 import java.util.List;
 
 /**
  * The AI implementation of an atomic calculator (CONCEPT_Harness.md §2, §13):
  * resolves its {@code modelclass} through the model's modelclasses map, asks the
- * provider one stateless question and expects strict JSON. Provider outage raises
- * {@code MODEL_UNAVAILABLE}, a non-JSON answer raises {@code SCHEMA_VIOLATION} - both
- * are caught by the engine's catch-mapping and fall back to the deterministic slot.
+ * provider one stateless question and expects strict JSON (shared parsing in
+ * {@link AiAnswers}). Provider outage raises {@code MODEL_UNAVAILABLE}, a non-JSON
+ * answer raises {@code SCHEMA_VIOLATION} - both are caught by the engine's
+ * catch-mapping and fall back to the deterministic slot.
  *
  * @author Janusch Rentenatus
  */
@@ -76,9 +76,9 @@ public class AiCalculator implements HarnessCalculator {
         List<String> segments = new java.util.ArrayList<>(ctx.prompts());
         int maxCalls = ctx.limits().remaining(Limits.TOOL_CALLS);
         for (int i = 0; i < Math.max(1, maxCalls); i++) {
-            String answer = callProvider(ctx, segments);
-            de.jare.jsoncasted.lang.JsonNode root = parseStrict(answer);
-            String tool = text(root, "tool", null);
+            String answer = AiAnswers.call(ctx, provider, modelclass, segments);
+            de.jare.jsoncasted.lang.JsonNode root = AiAnswers.parseStrict(answer);
+            String tool = AiAnswers.text(root, "tool", null);
             if (tool == null || tool.isEmpty()) {
                 return toResult(root);
             }
@@ -108,70 +108,17 @@ public class AiCalculator implements HarnessCalculator {
     }
 
     private CalcResult singleCall(CalcContext ctx, List<String> segments) {
-        String answer = callProvider(ctx, segments);
-        return toResult(parseStrict(answer));
-    }
-
-    private String callProvider(CalcContext ctx, List<String> segments) {
-        try {
-            return provider.complete(segments, ctx.temperature());
-        } catch (HarnessException e) {
-            throw e;
-        } catch (Exception e) {
-            if (modelclass != null) {
-                modelclass.markUnavailable();
-            }
-            throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE, "provider call failed", e);
-        }
-    }
-
-    /**
-     * Tolerant status parsing for small models: case-insensitive, blanks → underscores,
-     * common synonyms (COMPLETED → DONE, IN PROGRESS → RUNNING); anything else is a
-     * SCHEMA_VIOLATION (a HarnessException, so the catch-mapping handles it).
-     */
-    private static Status parseStatus(String raw) {
-        String s = raw == null ? "" : raw.trim().toUpperCase().replace(' ', '_');
-        switch (s) {
-            case "COMPLETED": return Status.DONE;
-            case "IN_PROGRESS": return Status.RUNNING;
-            default:
-                try {
-                    return Status.valueOf(s);
-                } catch (IllegalArgumentException e) {
-                    throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
-                            "unknown status in answer: " + raw);
-                }
-        }
-    }
-
-    private static de.jare.jsoncasted.lang.JsonNode parseStrict(String answer) {
-        String trimmed = answer.trim();
-        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
-            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
-                    "answer is not strict JSON: " + abbrev(trimmed));
-        }
-        final de.jare.jsoncasted.lang.JsonNode root;
-        try {
-            root = de.jare.jsoncasted.io.parserservice.JsonParserService.parse(trimmed,
-                    de.jare.debug.JsonDebugLevel.SIMPLE).getRoot();
-        } catch (Exception e) {
-            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
-                    "answer JSON parse failed: " + e.getMessage());
-        }
-        if (root == null || !root.isObject()) {
-            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
-                    "answer is not a JSON object: " + abbrev(trimmed));
-        }
-        return root;
+        String answer = AiAnswers.call(ctx, provider, modelclass, segments);
+        return toResult(AiAnswers.parseStrict(answer));
     }
 
     private CalcResult toResult(de.jare.jsoncasted.lang.JsonNode root) {
-        CalcResult result = CalcResult.of(kind, text(root, "decision", "answered"))
-                .status(parseStatus(text(root, "status", "DONE")))
-                .message(text(root, "message", ""));
-        if (root.asObjectValues().get("score") != null) {
-            result.score(root.asObjectValues().get("score").asLong().intValue());
+        CalcResult result = CalcResult.of(kind, AiAnswers.text(root, "decision", "answered"))
+                .status(AiAnswers.parseStatus(AiAnswers.text(root, "status", "DONE")))
+                .message(AiAnswers.text(root, "message", ""));
+        Integer score = AiAnswers.score(root, "score");
+        if (score != null) {
+            result.score(score);
         }
         de.jare.jsoncasted.lang.JsonNode payload = root.asObjectValues().get("payload");
         if (payload != null && payload.isObject()) {
@@ -180,14 +127,5 @@ public class AiCalculator implements HarnessCalculator {
             }
         }
         return result;
-    }
-
-    private static String text(de.jare.jsoncasted.lang.JsonNode node, String key, String def) {
-        var v = node.asObjectValues().get(key);
-        return v == null || v.isNull() ? def : v.asText();
-    }
-
-    private static String abbrev(String s) {
-        return s.length() <= 120 ? s : s.substring(0, 120) + "...";
     }
 }

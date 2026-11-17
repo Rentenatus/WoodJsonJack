@@ -10,9 +10,9 @@ import de.jare.harness.CalcContext;
 import de.jare.harness.CalcResult;
 import de.jare.harness.ErrorSignal;
 import de.jare.harness.HarnessCalculator;
-import de.jare.harness.HarnessException;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
+import de.jare.harness.impl.AiAnswers;
 import de.jare.harness.impl.ModelProvider;
 import de.jare.harness.main.actions.LoopThrowError;
 import de.jare.harness.model.Modelclass;
@@ -87,14 +87,24 @@ public class GuardCheckCalculator implements HarnessCalculator {
 
     @Override
     public CalcResult calculate(CalcContext ctx) {
-        String verdict;
-        String reason;
-        Integer score;
-        var parsed = callAndParseVerdict(ctx, systemPrompt);
-        verdict = parsed[0];
-        reason = parsed[1];
-        score = Integer.valueOf(parsed[2]);
-        return verdictResult(ctx, verdict, reason, score, "guard.verdict");
+        List<String> segments = new ArrayList<>();
+        segments.add("SYSTEM:guard\n" + systemPrompt);
+        segments.addAll(ctx.prompts());
+        AiAnswers.Parsed parsed = AiAnswers.callAndParse(ctx, provider, modelclass, segments, emphasisPrompt);
+        Verdict v = parseVerdict(parsed.root());
+        return verdictResult(ctx, v.verdict(), v.reason(), v.score(), "guard.verdict");
+    }
+
+    /** A guard verdict answer: {@code {verdict, reason, score}} from the payload/score members. */
+    public record Verdict(String verdict, String reason, Integer score) {
+    }
+
+    /** Extracts the verdict triple from a parsed guard answer (shared with guard.escalate). */
+    protected static Verdict parseVerdict(de.jare.jsoncasted.lang.JsonNode root) {
+        var payload = root.asObjectValues().get("payload");
+        String verdict = AiAnswers.text(payload, "verdict", "SAFE");
+        String reason = AiAnswers.text(payload, "reason", "");
+        return new Verdict(verdict, reason, AiAnswers.score(root, "score"));
     }
 
     /** Shared verdict handling: store in WorkCache, BLOCKED steers a DOMAIN throw. */
@@ -120,84 +130,5 @@ public class GuardCheckCalculator implements HarnessCalculator {
                     "guard blocked the prompt: " + (reason == null ? v : reason), "guard")));
         }
         return r;
-    }
-
-    /** Provider call + strict JSON parse + one emphasis retry. Returns {verdict, reason, score}. */
-    protected String[] callAndParseVerdict(CalcContext ctx, String sysPrompt) {
-        if (provider == null || modelclass != null && !modelclass.isAvailable()) {
-            throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE,
-                    "guard provider unavailable");
-        }
-        List<String> segments = new ArrayList<>();
-        segments.add("SYSTEM:guard\n" + sysPrompt);
-        segments.addAll(ctx.prompts());
-        String answer = callProvider(ctx, segments);
-        de.jare.jsoncasted.lang.JsonNode root;
-        try {
-            root = parseStrict(answer);
-        } catch (HarnessException e) {
-            if (e.getType() != HarnessException.Type.SCHEMA_VIOLATION) {
-                throw e;
-            }
-            List<String> retrySegments = new ArrayList<>(segments);
-            retrySegments.set(0, segments.get(0) + "\n\n" + emphasisPrompt);
-            answer = callProvider(ctx, retrySegments);
-            root = parseStrict(answer);
-        }
-        var payload = root.asObjectValues().get("payload");
-        String verdict = text(payload, "verdict", "SAFE");
-        String reason = text(payload, "reason", "");
-        int score = 0;
-        var scoreNode = root.asObjectValues().get("score");
-        if (scoreNode != null && !scoreNode.isNull()) {
-            Double n = scoreNode.asNumber();
-            score = (int) Math.round(n != null ? n : scoreNode.asLong());   // NUMBER or LONG node
-        }
-        return new String[]{verdict, reason, String.valueOf(score)};
-    }
-
-    protected String callProvider(CalcContext ctx, List<String> segments) {
-        try {
-            return provider.complete(segments, ctx.temperature());
-        } catch (HarnessException e) {
-            throw e;
-        } catch (Exception e) {
-            if (modelclass != null) {
-                modelclass.markUnavailable();
-            }
-            throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE, "provider call failed", e);
-        }
-    }
-
-    protected static de.jare.jsoncasted.lang.JsonNode parseStrict(String answer) {
-        String trimmed = answer == null ? "" : answer.trim();
-        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
-            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
-                    "answer is not strict JSON: " + abbrev(trimmed));
-        }
-        try {
-            var root = de.jare.jsoncasted.io.parserservice.JsonParserService.parse(trimmed,
-                    de.jare.debug.JsonDebugLevel.SIMPLE).getRoot();
-            if (root == null || !root.isObject()) {
-                throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION, "answer not a JSON object");
-            }
-            return root;
-        } catch (HarnessException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION, "JSON parse failed: " + e.getMessage());
-        }
-    }
-
-    protected static String text(de.jare.jsoncasted.lang.JsonNode n, String key, String def) {
-        if (n == null) {
-            return def;
-        }
-        var v = n.asObjectValues().get(key);
-        return v == null || v.isNull() ? def : v.asText();
-    }
-
-    protected static String abbrev(String s) {
-        return s == null ? "" : (s.length() > 200 ? s.substring(0, 200) + "…" : s);
     }
 }
