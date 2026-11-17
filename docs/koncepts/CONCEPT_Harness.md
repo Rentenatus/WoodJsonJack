@@ -332,6 +332,13 @@ Der Roh-Log bleibt lokal; **global** landet nur die aggregierte Kennzahlenliste 
      (Commit `d846a30`). Dieselbe Messung (Mutationen eines Slot-Params gegeneinander scoren) ist genau das,
      was der Evolutions-Schritt im laufenden Betrieb automatisiert.
 3. **Stammbaum:** Jede Modell-Änderung (Swap, Evolution, manuelles Editieren) erzeugt eine neue Modell-Version mit Parent-Verweis — persistiert projekt-lokal in `<projekt>/.wood/harness/lineage.json` (versionId, parentId, created, changeDescription, statsSnapshot, slots). Rollback = Instanz auf ältere Version zeigen; Weiterschreiben = Kind-Version vom aktuellen Stand.
+4. **Parameterfehler als Mutations-Maß (§6):** Häufige `PARAM_ERROR` (Kategorie im MetricsStore, gekeyed pro
+   Slot **und** pro Param `slotId@paramKey`, dazu unter `loop:…`-Keys für die Loop-Struktur) sind ein
+   eigenes Schwellen-Kriterium der Feedback-Schleife: Überschreitet die PARAM_ERROR-Rate eines Slots/Loop-Items
+   im Messfenster eine Schwelle, ist das ein starker Hinweis auf falsche oder zu komplexe Parametrisierung —
+   der betroffene Slot (bzw. das Loop-Item) wird zum **Mutations-Kandidaten** (Punkt 2), z. B. Param fixen
+   oder Prompt/Guardrails mutieren. Die `structureScore` (§6) fasst SCORE, FAIL_RATE und PARAM_ERROR zu einer
+   Struktur-Bewertung zusammen, die Evolution und Swap gleichermaßen speist.
 
 ## 8. Kopplung lokal ↔ global: aggregierte Kennzahlen, nie Harnesses, keine Event-Sammlung
 
