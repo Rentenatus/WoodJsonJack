@@ -285,3 +285,20 @@ den Kalkulator); `HarnessViewNGTest` flaky (~1/3, EDT-Timing, isoliert grün); K
 WorkResponse-Antwort noch nicht an.
 
 Harness-Suite 166/166, WJJ gesamt 255/255 grün.
+
+## 10.10 Umgesetzt: Provider "system" als deklarierter eingebauter Fallback
+
+- `Modelclass.PROVIDER_SYSTEM` + `isSystem()` (case-insensitiv, "System" == "system").
+- `DefaultCalculatorFactory.createAtomic`: ai-Slot auf einer system-Modelclass → deterministischer
+  Kalkulator des Kind (kein Provider-Call, kein Netzwerk) — dasselbe Verhalten wie der
+  Catch-Mapping-Fallback, aber deklarierbar in der Konfig.
+- `embeddingProviderFor(system rag)` → `EmbeddingProvider.hashEmbedding(<declared model name>)`;
+  der Store keyed darunter und persistiert als `.wood/harness/rag/hash-embedding.json`.
+- `HarnessEngine.activeRag()`: echtes rag-Modell (ollama/hosted) schlägt immer den system-Fallback;
+  erst wenn nur system deklariert ist, greift es.
+- Asset `assets/harness/harness-model.json` + `HarnessService.defaultModel()` deklarieren
+  `{ "provider": "system", "model": "hash-embedding", "purpose": "rag", "size": 0, "costFactor": 0.0, "toolCapable": false }`.
+- Konzept ergänzt: CONCEPT_Harness.md §2 (Provider-Liste um `system`) und §11 (deklarierter Fallback).
+- Tests: +1 HarnessCodecNGTest (ai-auf-system → deterministisch, Codec-Roundtrip, Case-Insensitiv),
+  +2 HarnessRagPipelineNGTest (activeRag bevorzugt echtes Modell / fällt auf system zurück),
+  Asset-Count 11→12 + system-Assertion in HarnessServiceNGTest. Harness-Suite 169/169, WJJ gesamt 258/258 grün.

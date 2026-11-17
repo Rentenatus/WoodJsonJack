@@ -70,8 +70,13 @@ ohne Tooling — ob ein Thema ins Fachgebiet X fällt, welche Aufgabenart Y, Sco
 nur die Anzahl der Tasks in einem Prompt. Billig und schnell, daher eigener purpose.
 **Deterministische Implementierung bleibt immer als Fallback** erhalten — auch für AI-Kalkulatoren bei
 JSON-Schema-Verstoß (Parse-Fail → Fallback, Event im Log).
-**Provider & Nebenläufigkeit:** `provider` in der Modelclass ist `ollama` (lokal) **oder `hosted`**
-(z. B. Mistral-API). Nebenläufigkeit ist denkbar, **aber nicht innerhalb von Ollama** (ein lokales Modell
+**Provider & Nebenläufigkeit:** `provider` in der Modelclass ist `ollama` (lokal), **`hosted`**
+(z. B. Mistral-API) **oder `system`** — der Pseudo-Provider für den eingebauten Determinismus:
+ein Slot mit `impl: "ai"` auf einer `system`-Modelclass ruft keinen Provider auf, die Fabrik
+liefert den deterministischen Kalkulator des Kind (dasselbe Verhalten wie der Catch-Mapping-
+Fallback); bei `purpose: "rag"` ist `system` das deklarierte Hash-Embedding (`model` =
+Store-Schlüssel, z. B. `hash-embedding`). Vergleich case-insensitiv (`Modelclass.isSystem()`).
+Nebenläufigkeit ist denkbar, **aber nicht innerhalb von Ollama** (ein lokales Modell
 wird sequenziell bedient); erlaubt ist aber, **mehrere Modelle für dieselbe Quest parallel** zu fahren —
 z. B. ein Ollama- und ein gehostetes Modell als zwei Kandidaten derselben Aufgabe (Evolutions-Kandidaten
 können lokale und gehostete Provider mischen).
@@ -414,6 +419,11 @@ wandern niemals in die globale Ebene (vgl. §8).
 
 - **Einbettung:** kleines lokales Ollama-Embedding-Modell (Modelclass `rag`, z. B. `nomic-embed-text`) — alles lokal, kein externer Dienst.
 - **Nur ein RAG-Modell gleichzeitig:** Es ist immer nur **eine** `rag`-Modelclass aktiv. **Modellwechsel = Reset:** Beim Wechsel des Embedding-Modells wird die RAG geleert und neu aufgebaut — Skills etc. werden neu gelesen, die RAG-Historie stirbt. Ein Wechsel ist **nur möglich, wenn keine Prompt-Bearbeitung läuft** (kein aktiver Harness-Lauf / Prompt-Fenster in Arbeit); bei laufender Bearbeitung wird der Wechsel verweigert.
+- **Deklarierter Fallback:** Die `system`-Modelclass mit `purpose: "rag"` (z. B.
+  `{ "provider": "system", "model": "hash-embedding", "purpose": "rag", "size": 0, "costFactor": 0.0, "toolCapable": false }`
+  im gebündelten Modell) ist das Hash-Embedding als eigener, persistierter Store
+  (`.wood/harness/rag/hash-embedding.json`). `activeRag()` bevorzugt immer ein echtes
+  rag-Modell (ollama/hosted); erst wenn keines deklariert ist, greift der `system`-Fallback.
 - **Tabellenspalten der Embedding-RAG (Chunk-Tabelle):**
 
 | Spalte | Inhalt |
