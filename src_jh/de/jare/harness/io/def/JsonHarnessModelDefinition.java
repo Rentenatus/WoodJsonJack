@@ -103,6 +103,7 @@ public class JsonHarnessModelDefinition implements JsonItemDefinition {
         root = model.newJsonReflect(HarnessModelBean.class);
         root.addField("name", asString);
         root.addField("version", asString);
+        root.addField("kinddefs", asString, LIST);
         root.addField("taskTypes", asString, LIST);
         root.addField("promptBudgets", promptBudgets);
         root.addField("abortLimits", abortLimits);

@@ -38,7 +38,7 @@ public class LoopEngineNGTest {
 
     /** Scripted factory: per kind a queue of calculators, consumed per call; records the call order. */
     private static final class ScriptedFactory implements CalculatorFactory {
-        final Map<Kind, Queue<HarnessCalculator>> scripts = new EnumMap<>(Kind.class);
+        final Map<Kind, Queue<HarnessCalculator>> scripts = new java.util.HashMap<>();
         final List<Kind> calls = new ArrayList<>();
 
         ScriptedFactory on(Kind kind, HarnessCalculator... calcs) {
@@ -255,9 +255,13 @@ public class LoopEngineNGTest {
         TaskData root = engine.getInstance().getRoot();
         Assert.assertEquals(root.getStatus(), Status.DONE);
         Assert.assertNotNull(model.getLoop(Loop.MAIN), "the default main loop is materialized");
-        // legacy order: START=ABORT once, then SPLIT, COMPLETE, WORK, EVALUATE, RAG_STORE, CHECK, SUMMARIZE
-        Assert.assertEquals(factory.calls.get(0), Kind.ABORT);
-        Assert.assertEquals(factory.count(Kind.ABORT), 1);
+        // main START fires GUARD + SKILL exactly once (§15.6), then the legacy EXECUTE order:
+        // SPLIT, COMPLETE, WORK, EVALUATE, RAG_STORE, CHECK, SUMMARIZE
+        Assert.assertEquals(factory.calls.get(0), Kind.GUARD);
+        Assert.assertEquals(factory.calls.get(1), Kind.SKILL);
+        Assert.assertEquals(factory.count(Kind.GUARD), 1);
+        Assert.assertEquals(factory.count(Kind.SKILL), 1);
+        Assert.assertEquals(factory.count(Kind.ABORT), 0, "ABORT is no longer at main START (CATCH only)");
         Assert.assertTrue(factory.calls.indexOf(Kind.WORK) < factory.calls.indexOf(Kind.EVALUATE));
         Assert.assertTrue(factory.calls.indexOf(Kind.EVALUATE) < factory.calls.indexOf(Kind.CHECK));
         Assert.assertEquals(factory.calls.get(factory.calls.size() - 2), Kind.CLOSE, "CLOSE before RAG_PRUNE");

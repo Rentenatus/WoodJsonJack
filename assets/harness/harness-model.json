@@ -1,6 +1,7 @@
 {
   "name": "default-harness",
   "version": "1.0.0",
+  "kinddefs": [],
   "taskTypes": ["AskAi", "RESEARCH", "CODE_EDIT", "TEST_RUN", "SUMMARIZE"],
   "promptBudgets": { "SYSTEM": 2, "SKILL": 1, "HISTORY": 3, "DATA": 2, "AUFTRAG": 1, "maxTokensTotal": 4000 },
   "abortLimits": { "maxIterations": 50, "maxDepth": 5, "maxRetries": 3, "maxToolCalls": 10 },
@@ -33,7 +34,8 @@
               { "type": "atomic", "impl": "ai", "calculator": "askai.decompose",
                 "params": { "model": "nemotron3:33b",
                             "systemPrompt": "You decompose the user prompt into {data.count} atomic quests ({data.count} = the questCount from the scoring call). Answer with strict JSON only: {\"status\":\"DONE\",\"decision\":\"decomposed\",\"score\":100,\"payload\":{\"quests\":[\"...\",\"...\"]}} where quests is the list of atomic user prompts.",
-                            "temperature": "0.3" } },
+                            "temperature": "0.3",
+                            "subloop": "sub" } },
               { "type": "atomic", "impl": "deterministic", "calculator": "printig" }
             ] } }
       ]
@@ -62,10 +64,40 @@
         { "id": "abort", "mutation": null,
           "calculator": { "type": "atomic", "impl": "deterministic" } }
       ]
+    },
+    {
+      "kind": "GUARD",
+      "evolvable": false,
+      "slots": [
+        { "id": "guard.base", "mutation": null,
+          "calculator": { "type": "atomic", "impl": "deterministic" } }
+      ]
+    },
+    {
+      "kind": "SKILL",
+      "evolvable": false,
+      "slots": [
+        { "id": "skill.base", "mutation": null,
+          "calculator": { "type": "atomic", "impl": "deterministic", "calculator": "skill.collect" } }
+      ]
     }
   ],
   "loops": [
     { "id": "main", "items": [
+      { "id": "guard",     "kind": "GUARD",     "trigger": "START"   },
+      { "id": "skill",     "kind": "SKILL",     "trigger": "START"   },
+      { "id": "split",     "kind": "SPLIT",     "trigger": "EXECUTE" },
+      { "id": "complete",  "kind": "COMPLETE",  "trigger": "EXECUTE" },
+      { "id": "work",      "kind": "WORK",      "trigger": "EXECUTE" },
+      { "id": "evaluate",  "kind": "EVALUATE",  "trigger": "EXECUTE" },
+      { "id": "rag_store", "kind": "RAG_STORE", "trigger": "EXECUTE" },
+      { "id": "check",     "kind": "CHECK",     "trigger": "EXECUTE" },
+      { "id": "summarize", "kind": "SUMMARIZE", "trigger": "EXECUTE" },
+      { "id": "err",       "kind": "ABORT",     "trigger": "CATCH"   },
+      { "id": "close",     "kind": "CLOSE",     "trigger": "CLOSE"   },
+      { "id": "rag_prune", "kind": "RAG_PRUNE", "trigger": "CLOSE"   }
+    ] },
+    { "id": "sub", "items": [
       { "id": "abort",     "kind": "ABORT",     "trigger": "START"   },
       { "id": "split",     "kind": "SPLIT",     "trigger": "EXECUTE" },
       { "id": "complete",  "kind": "COMPLETE",  "trigger": "EXECUTE" },

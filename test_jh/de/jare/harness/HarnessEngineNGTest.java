@@ -59,7 +59,7 @@ public class HarnessEngineNGTest {
 
         List<Kind> loggedKinds = engine.getInstance().getCallLog().stream()
                 .map(CallLogEntry::getKind).distinct().toList();
-        for (Kind expected : new Kind[]{Kind.ABORT, Kind.SPLIT, Kind.COMPLETE, Kind.WORK,
+        for (Kind expected : new Kind[]{Kind.GUARD, Kind.SKILL, Kind.SPLIT, Kind.COMPLETE, Kind.WORK,
                 Kind.EVALUATE, Kind.CHECK, Kind.CLOSE}) {
             Assert.assertTrue(loggedKinds.contains(expected), "missing kind in log: " + expected);
         }

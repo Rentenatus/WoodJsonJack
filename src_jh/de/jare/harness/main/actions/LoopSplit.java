@@ -7,17 +7,31 @@
 package de.jare.harness.main.actions;
 
 import de.jare.harness.LoopAction;
+import de.jare.harness.model.Loop;
 import java.util.List;
 
 /**
- * SPLIT as a loop action (§15.6): the action carries the N atomic sub-prompts. The driver
- * creates the N subtasks (task starts), runs one loop per subtask (the shared Limits instance
- * is inherited, so every subloop sees the last counter state), and after the N loops return
- * computes the consumption deltas and updates the current output with slot + N deltas summed.
+ * SPLIT as a loop action (§15.6): the action carries the N atomic sub-prompts and the target
+ * subloop id ({@code loopId}, default {@link Loop#SUB "sub"}). The driver creates the N subtasks
+ * (task starts) and starts one <b>subloop</b> per subtask — not a fresh {@code "main"} loop.
+ * The shared Limits instance is inherited, so every subloop sees the last counter state; after
+ * the N subloops return the driver computes the consumption deltas and updates the current
+ * output with slot + N deltas summed.
  *
  * @author Janusch Rentenatus
  */
-public record LoopSplit(List<String> prompts) implements LoopAction {
+public record LoopSplit(List<String> prompts, String loopId) implements LoopAction {
+    public LoopSplit {
+        if (loopId == null || loopId.isBlank()) {
+            loopId = Loop.SUB;
+        }
+    }
+
+    /** Default target subloop: {@link Loop#SUB}. */
+    public LoopSplit(List<String> prompts) {
+        this(prompts, Loop.SUB);
+    }
+
     @Override public String type() { return "split"; }
     @Override public Flow flow() { return Flow.SPLIT; }
 }

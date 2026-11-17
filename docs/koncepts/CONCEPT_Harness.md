@@ -31,10 +31,17 @@ gleich, `CalcResult` serialisiert polymorph über `kind()`):
 
 ```java
 interface HarnessCalculator {
-    Kind kind();                        // fester Zweck als Diskriminator
+    Kind kind();                        // Zweck als Diskriminator
     CalcResult calculate(CalcContext ctx);
 }
 ```
+
+**`Kind` ist kein geschlossenes Enum, sondern eine Registry-Klasse:** Die eingebauten Zwecke
+sind `public static final Kind`-Konstanten (quellkompatibel), zusätzliche Literale deklariert der
+User im Root des Modells als **`kinddefs[]`** und nutzt sie in `quests[]`/`loops[]` ohne zu
+kompilieren. Der Codec validiert jedes Kind-Literal gegen „built-ins ∪ kinddefs[]" — Tippfehler
+failen weiterhin mit klarer Meldung. Custom-Kinds ohne eingebautes impl bekommen den generischen
+deterministischen Fallback (`decision "done"`).
 
 | Kind | Aufgabe |
 |---|---|
@@ -616,11 +623,22 @@ ctx.ui          // * neu: Harness-Fenster
    festem Attributsatz; `trigger` ∈ `START | EXECUTE | CATCH | CLOSE` (default `EXECUTE`) steuert den
    Lifecycle: START einmalig beim Eintritt, EXECUTE pro Iteration, CATCH bei **fachlichem** Fehler,
    CLOSE einmalig beim Verlassen (finally — CLOSE feuert immer, auch nach CATCH und Break).
+   **Main-START mit GUARD + SKILL (nur in `"main"`, nicht im Subloop):** Der `"main"`-Loop startet
+   mit `{ kind: "GUARD", trigger: "START" }` (Entry-Guard: blanker Prompt oder kein verfügbares Modell
+   → DOMAIN-`ErrorSignal`, CATCH feuert) und `{ kind: "SKILL", trigger: "START" }` (Slot mit dem
+   benannten Kalkulator `skill.collect`: prüft und sammelt die aktuellen Skills der SkillRegistry
+   (global + projekt-lokal) in den WorkCache — `skills.count`/`skills.ids`/`skills.descriptions`).
+   Der `"sub"`-Loop behält sein `ABORT`-START. Fällt `loops[]` ganz weg, baut `defaultMainLoop()`
+   GUARD+SKILL programmatisch, `defaultSubLoop()` das alte ABORT-START.
    **Zwei Action-Kanäle, klar getrennt:** die fachliche `HarnessAction` (Was passiert am Task —
    Split/Retry/Abort, §15.5) und die neue **LoopAction** (Wohin geht der Flow) im `CalcResult` —
    `Continue` (nächstes Item), `Restart` (aktueller Loop ab erstem EXECUTE-Item neu; START feuert
    nicht erneut), `Break` (aktueller Loop verlassen, CLOSE läuft, Rückgabe an den Aufrufer),
    `SubLoop(loopId)` (benannten Loop auf den Call-Stack pushen, Depth-Check), `ThrowError(errorSignal)`.
+   **`LoopSplit(prompts, loopId)`** (default `loopId="sub"`): der Split legt pro Subtask einen
+   **Subloop-Start** an — der in der JSON als Duplikat von `"main"` konfigurierte `"sub"`-Loop
+   (Fallback: programmatischer Default-Subloop) —, **keine neue main-Loop**; nach Rückkehr der N
+   Subloops werden die Consumption-Deltas (Slot + N Kinder) summiert und als aktuelles Output geschrieben.
    Interface `LoopAction` in `de.jare.harness`, Repräsentanten in `de.jare.harness.main.actions`.
    **Fehlerkanäle als Daten, nie als Throwable:** `ErrorSignal { kind: DOMAIN | TECHNICAL, reason,
    source }` — DOMAIN (Kalkulator meldet fachlichen Fehler, z. B. kein valides JSON vom Modell)

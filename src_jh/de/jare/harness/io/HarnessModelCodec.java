@@ -59,6 +59,14 @@ public final class HarnessModelCodec {
                 model.getTaskTypes().add(t.asText());
             }
         }
+        // kinddefs[] come first: every quest/loop-item kind literal is validated against
+        // built-in Kind constants ∪ these custom literals (typo-safety, §2)
+        JsonNode kinddefs = child(root, "kinddefs");
+        if (kinddefs != null && kinddefs.isArray()) {
+            for (JsonNode k : kinddefs.asArray()) {
+                model.addKinddef(k.asText());
+            }
+        }
         JsonNode budgets = child(root, "promptBudgets");
         if (budgets != null && budgets.isObject()) {
             for (Map.Entry<String, JsonNode> e : budgets.asObjectValues().entrySet()) {
@@ -88,7 +96,7 @@ public final class HarnessModelCodec {
         JsonNode quests = child(root, "quests");
         if (quests != null && quests.isArray()) {
             for (JsonNode q : quests.asArray()) {
-                model.addQuest(questFromJson(q));
+                model.addQuest(questFromJson(model, q));
             }
         }
         JsonNode loops = child(root, "loops");
@@ -102,7 +110,7 @@ public final class HarnessModelCodec {
                 if (!loopIds.add(loopId)) {
                     throw new IllegalArgumentException("loops[]: duplicate loop id \"" + loopId + "\"");
                 }
-                model.addLoop(loopFromJson(loopId, l));
+                model.addLoop(loopFromJson(model, loopId, l));
             }
             validateLoopRefs(model, loopIds);
         } else {
@@ -112,7 +120,7 @@ public final class HarnessModelCodec {
         return model;
     }
 
-    private static Loop loopFromJson(String loopId, JsonNode l) {
+    private static Loop loopFromJson(HarnessModel model, String loopId, JsonNode l) {
         Loop loop = new Loop(loopId);
         Set<String> itemIds = new HashSet<>();
         JsonNode items = child(l, "items");
@@ -122,13 +130,12 @@ public final class HarnessModelCodec {
                 if (!itemIds.add(itemId)) {
                     throw new IllegalArgumentException("loop \"" + loopId + "\": duplicate item id \"" + itemId + "\"");
                 }
-                Kind kind;
-                try {
-                    kind = Kind.valueOf(text(it, "kind", ""));
-                } catch (IllegalArgumentException e) {
+                String kindName = text(it, "kind", "");
+                if (!model.isKnownKind(kindName)) {
                     throw new IllegalArgumentException("loop \"" + loopId + "\" item \"" + itemId
-                            + "\": unknown kind \"" + text(it, "kind", "") + "\"", e);
+                            + "\": unknown kind \"" + kindName + "\" (not a built-in, not in kinddefs[])");
                 }
+                Kind kind = Kind.valueOf(kindName);
                 LoopItem item = new LoopItem(itemId, kind);
                 if (child(it, "loop") != null && !child(it, "loop").isNull()) {
                     item.loop(child(it, "loop").asText());
@@ -159,8 +166,13 @@ public final class HarnessModelCodec {
         }
     }
 
-    private static Quest questFromJson(JsonNode q) {
-        Quest quest = new Quest(Kind.valueOf(text(q, "kind", "WORK")))
+    private static Quest questFromJson(HarnessModel model, JsonNode q) {
+        String kindName = text(q, "kind", "WORK");
+        if (!model.isKnownKind(kindName)) {
+            throw new IllegalArgumentException("quest: unknown kind \"" + kindName
+                    + "\" (not a built-in, not in kinddefs[])");
+        }
+        Quest quest = new Quest(Kind.valueOf(kindName))
                 .evolvable(child(q, "evolvable") != null && child(q, "evolvable").asBoolean());
         JsonNode slots = child(q, "slots");
         if (slots != null && slots.isArray()) {
@@ -228,6 +240,13 @@ public final class HarnessModelCodec {
         JsonNode root = JsonNode.objectNode();
         root.put("name", JsonNode.stringNode(model.getName()));
         root.put("version", JsonNode.stringNode(model.getVersion()));
+        if (!model.getKinddefs().isEmpty()) {
+            JsonNode kinddefs = JsonNode.arrayNode();
+            for (String k : model.getKinddefs()) {
+                kinddefs.add(JsonNode.stringNode(k));
+            }
+            root.put("kinddefs", kinddefs);
+        }
         JsonNode taskTypes = JsonNode.arrayNode();
         for (String t : model.getTaskTypes()) {
             taskTypes.add(JsonNode.stringNode(t));

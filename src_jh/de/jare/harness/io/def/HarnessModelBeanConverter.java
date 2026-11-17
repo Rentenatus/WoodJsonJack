@@ -40,6 +40,11 @@ public final class HarnessModelBeanConverter {
 
     public static HarnessModel toModel(HarnessModelBean bean) {
         HarnessModel model = new HarnessModel().name(bean.getName()).version(bean.getVersion());
+        if (bean.getKinddefs() != null) {
+            for (String k : bean.getKinddefs()) {
+                model.addKinddef(k);
+            }
+        }
         model.getTaskTypes().addAll(bean.getTaskTypes());
         model.getPromptBudgets().putAll(bean.getPromptBudgets());
         AbortLimitsBean al = bean.getAbortLimits();
@@ -51,6 +56,10 @@ public final class HarnessModelBeanConverter {
                     b.getSize(), b.getCostFactor(), b.isToolCapable()));
         }
         for (QuestBean qb : bean.getQuests()) {
+            if (!model.isKnownKind(qb.getKind())) {
+                throw new IllegalArgumentException("quest: unknown kind \"" + qb.getKind()
+                        + "\" (not a built-in, not in kinddefs[])");
+            }
             Quest quest = new Quest(Kind.valueOf(qb.getKind())).evolvable(qb.isEvolvable());
             for (SlotBean sb : qb.getSlots()) {
                 Slot slot = new Slot(sb.getId());
@@ -67,6 +76,10 @@ public final class HarnessModelBeanConverter {
         for (LoopBean lb : bean.getLoops()) {
             Loop loop = new Loop(lb.getId());
             for (LoopItemBean ib : lb.getItems()) {
+                if (!model.isKnownKind(ib.getKind())) {
+                    throw new IllegalArgumentException("loop \"" + lb.getId() + "\" item \"" + ib.getId()
+                            + "\": unknown kind \"" + ib.getKind() + "\" (not a built-in, not in kinddefs[])");
+                }
                 LoopItem item = new LoopItem(ib.getId(), Kind.valueOf(ib.getKind()));
                 if (ib.getLoop() != null) {
                     item.loop(ib.getLoop());

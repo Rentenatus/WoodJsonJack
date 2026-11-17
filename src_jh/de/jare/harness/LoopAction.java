@@ -29,7 +29,7 @@ public interface LoopAction {
         BREAK,
         /** push the named loop onto the call stack and enter it (depth-checked) */
         SUBLOOP,
-        /** split: create N subtasks from the carried prompts, run one loop per subtask, then aggregate the consumption deltas */
+        /** split: create N subtasks from the carried prompts, run one subloop (loopId, default "sub") per subtask, then aggregate the consumption deltas */
         SPLIT,
         /** error signal: DOMAIN fires CATCH of the current loop, TECHNICAL unwinds to the top */
         THROW

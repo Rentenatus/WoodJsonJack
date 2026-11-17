@@ -166,8 +166,12 @@ public class HarnessServiceNGTest {
     private static void assertMainLoop(HarnessModel model, String what) {
         de.jare.harness.model.Loop main = model.getLoop(de.jare.harness.model.Loop.MAIN);
         Assert.assertNotNull(main, what + " must carry loops.main");
-        Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.START).get(0).getKind(), Kind.ABORT);
+        Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.START).stream()
+                .map(i -> i.getKind()).toList(), List.of(Kind.GUARD, Kind.SKILL),
+                "main START = GUARD + SKILL (only in main, §15.6)");
         Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.CATCH).get(0).getKind(), Kind.ABORT);
+        Assert.assertNotNull(model.questFor(Kind.GUARD));
+        Assert.assertNotNull(model.questFor(Kind.SKILL));
         Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.CLOSE).stream()
                 .map(i -> i.getKind()).toList(), List.of(Kind.CLOSE, Kind.RAG_PRUNE));
         Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.EXECUTE).stream()

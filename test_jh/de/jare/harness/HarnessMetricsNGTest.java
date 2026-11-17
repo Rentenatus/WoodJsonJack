@@ -65,7 +65,7 @@ public class HarnessMetricsNGTest {
         Map<MetricsStore.Category, MetricBucket> evalStats = store.stats("evaluate.base", 1);
         Assert.assertEquals(evalStats.size(), MetricsStore.Category.values().length, "M categories present");
         for (int depth = 1; depth <= MetricsStore.DEPTHS; depth++) {
-            Assert.assertFalse(store.stats("abort.base", depth).isEmpty(), "depth " + depth + " measured");
+            Assert.assertFalse(store.stats("guard.base", depth).isEmpty(), "depth " + depth + " measured");
         }
         Assert.assertEquals(evalStats.get(MetricsStore.Category.SCORE).getAvg(), 80.0, 1e-9);
     }

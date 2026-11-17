@@ -278,10 +278,15 @@ public class HarnessEngine implements HarnessDriver {
 
     /** Starts the configured entry loop ({@code "main"}) for one task (§15.6). */
     private void process(TaskData task) {
+        process(task, Loop.MAIN);
+    }
+
+    /** Starts the named loop for one task — "main" for the root, the subloop id for split children (§15.6). */
+    private void process(TaskData task, String loopId) {
         task.setStatus(Status.RUNNING);
         int stackBase = callStack.size();
         try {
-            runLoop(task, Loop.MAIN);
+            runLoop(task, loopId);
         } finally {
             while (callStack.size() > stackBase) {
                 callStack.pop();
@@ -308,6 +313,10 @@ public class HarnessEngine implements HarnessDriver {
         Loop loop = model.getLoop(loopId);
         if (loop == null && Loop.MAIN.equals(loopId)) {
             loop = HarnessModel.defaultMainLoop(); // programmatically built model without loops[]
+            model.addLoop(loop);
+        }
+        if (loop == null && Loop.SUB.equals(loopId)) {
+            loop = HarnessModel.defaultSubLoop(); // loops[] configured, but no "sub" entry
             model.addLoop(loop);
         }
         if (loop == null) {
@@ -415,16 +424,18 @@ public class HarnessEngine implements HarnessDriver {
 
     /**
      * SPLIT as loop action (§15.6): creates the N subtasks (task starts) from the carried
-     * sub-prompts, starts one loop per subtask (the shared {@link Limits} instance is inherited,
-     * so every subloop sees the last counter state), and after the N loops return computes the
-     * consumption deltas: slot delta (loop entry → split point) plus the N per-child deltas are
-     * summed and written as the current output (WorkCache consumption + notify).
+     * sub-prompts and starts one <b>subloop</b> per subtask — {@link LoopSplit#loopId()}, default
+     * {@link Loop#SUB "sub"}, never a fresh {@code "main"} loop. The shared {@link Limits}
+     * instance is inherited, so every subloop sees the last counter state; after the N subloops
+     * return the consumption deltas are computed: slot delta (loop entry → split point) plus the
+     * N per-child deltas are summed and written as the current output (WorkCache + notify).
      */
     private ItemFlow handleSplit(TaskData task, LoopSplit split, Limits.Snapshot loopEntry) {
         List<String> prompts = split.prompts();
         if (prompts == null || prompts.isEmpty()) {
             return ItemFlow.CONTINUE;
         }
+        String loopId = split.loopId() == null || split.loopId().isBlank() ? Loop.SUB : split.loopId();
         Limits.Snapshot splitPoint = limits.snapshot();
         List<TaskData> children = new ArrayList<>();
         for (String p : prompts) {
@@ -434,7 +445,7 @@ public class HarnessEngine implements HarnessDriver {
         List<String> childDeltas = new ArrayList<>();
         for (TaskData child : children) {
             Limits.Snapshot childBase = limits.snapshot();   // inherited state = last counters
-            process(child);                                   // one new loop per subtask
+            process(child, loopId);                           // one subloop start per subtask
             Limits.Delta d = limits.deltaSince(childBase);
             childDeltas.add("child " + child.getId() + ": " + d);
             total = total.plus(d);                            // slot + N deltas summed
@@ -442,12 +453,13 @@ public class HarnessEngine implements HarnessDriver {
         // current output: summed consumption lands in the runtime WorkCache + listener notify
         if (workCache != null) {
             workCache.put("subloops", String.valueOf(children.size()));
+            workCache.put("subloopId", loopId);
             workCache.put("consumption", total.toString());
             workCache.put("consumptionDeltas", String.join(" | ", childDeltas));
         }
-        notify(task, Kind.SPLIT, "split into " + children.size() + " subloops (task starts created), "
-                + "consumption = slot+children " + total);
-        return ItemFlow.EXIT; // the N loops returned - leave this loop (CLOSE fires in finally)
+        notify(task, Kind.SPLIT, "split into " + children.size() + " subloops (loop \"" + loopId
+                + "\", task starts created), consumption = slot+children " + total);
+        return ItemFlow.EXIT; // the N subloops returned - leave this loop (CLOSE fires in finally)
     }
 
     /** After a subloop returned: propagate pending error signals to this loop's CATCH. */

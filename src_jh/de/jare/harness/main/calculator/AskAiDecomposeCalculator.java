@@ -30,8 +30,10 @@ import java.util.List;
  * "payload":{"quests":["...","..."]}}} - the atomic prompts land in the CalcResult payload.
  *
  * For count &gt; 1 the result steers via a {@link LoopSplit} loop action (§15.6): the driver
- * creates the N subtasks (task starts) from the sub-prompts, runs one loop per subtask with the
- * inherited counter state, and after their return aggregates the consumption deltas.
+ * creates the N subtasks (task starts) from the sub-prompts and starts one subloop
+ * ({@code subloop} param, default {@code "sub"}) per subtask with the inherited counter
+ * state — not a fresh {@code "main"} loop — and after their return aggregates the
+ * consumption deltas.
  *
  * @author Janusch Rentenatus
  */
@@ -47,13 +49,20 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
     private final Modelclass modelclass;
     private final ModelProvider provider;
     private final String systemPrompt;
+    private final String subloop;
 
     public AskAiDecomposeCalculator(Kind kind, Modelclass modelclass, ModelProvider provider, String systemPrompt) {
+        this(kind, modelclass, provider, systemPrompt, null);
+    }
+
+    public AskAiDecomposeCalculator(Kind kind, Modelclass modelclass, ModelProvider provider,
+                                    String systemPrompt, String subloop) {
         this.kind = kind;
         this.modelclass = modelclass;
         this.provider = provider;
         this.systemPrompt = systemPrompt == null || systemPrompt.isBlank()
                 ? DEFAULT_SYSTEM_PROMPT : systemPrompt;
+        this.subloop = subloop;
     }
 
     // Instances are built by AskAiDecomposeBuilder (Builder pattern): the factory fills the
@@ -136,15 +145,17 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
                     "decompose answer carries no quests: " + abbrev(answer));
         }
         // the result steers via the LoopSplit loop action: the driver creates the N subtasks and
-        // starts one loop per subloop, then aggregates the consumption deltas (§15.6). The domain
-        // action stays None so the legacy Split action is not executed a second time.
+        // starts one subloop (subloop param, default "sub") per subtask — not a fresh "main" —
+        // then aggregates the consumption deltas (§15.6). The domain action stays None so the
+        // legacy Split action is not executed a second time.
         return CalcResult.of(kind, "split")
                 .status(parseStatus(text(root, "status", "DONE")))
                 .put("quests", String.join("\n", quests))
                 .put("count", String.valueOf(count))
+                .put("subloop", subloop == null ? de.jare.harness.model.Loop.SUB : subloop)
                 .put("rawAnswer", abbrev(answer))
                 .action(new None())
-                .loopAction(new LoopSplit(quests));
+                .loopAction(new LoopSplit(quests, subloop));
     }
 
     private String callProvider(CalcContext ctx, List<String> segments) {

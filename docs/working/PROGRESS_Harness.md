@@ -148,3 +148,45 @@ Entschieden (siehe `CONCEPT_Harness.md` §17):
 SYSTEM-Segment (`memory:decision-<id>`) in jeden Folge-Run, `/decide <text>` Befehl im
 `ChatCommandService` (legt DECISION mit source `user:/decide` an), Popup-Eintrag „Record decision"
 legt `/decide ` in die Eingabe. Tests: ProjectMemoryNGTest + ChatCommandServiceNGTest erweitert.
+
+## 10.2 Umgesetzt: Split startet Subloops statt neuer Main-Loops (uncommittet)
+
+`LoopSplit` trägt jetzt die Ziel-Loop-ID (`loopId`, default `"sub"`, null/blank normalisiert auf `"sub"`).
+`HarnessEngine.handleSplit` startet pro Subtask `process(child, loopId)` — also einen Subloop — statt
+`process(child)` (frische main-Loop). `Loop.SUB = "sub"` + `HarnessModel.defaultSubLoop()` als Fallback,
+wenn die JSON zwar `loops[]` hat, aber keinen `"sub"`-Eintrag. `harness-model.json` enthält `"sub"` als
+exaktes Duplikat von `"main"`. Optionaler Config-Param `subloop` am `askai.decompose`-Slot (Builder
+`AskAiDecomposeBuilder.withSubloop`). WorkCache trägt zusätzlich `subloopId`. Tests: DecomposeSplitNGTest
+(neu `testLoopSplitCarriesSubloopId`, Engine-Test mit expliziten main/sub-Loops und SUMMARIZE-Marker in
+main — Kinder laufen sub, main-only Items feuern nicht). Harness-Suite 140/140, WJJ gesamt 248/248 grün.
+
+## 10.3 Umgesetzt: GUARD + SKILL am START der main loop (uncommittet)
+
+`Kind` um `GUARD` und `SKILL` erweitert (jetzt 14). In `harness-model.json` hat nur der `"main"`-Loop
+am START `{ "id": "guard", "kind": "GUARD" }` (ersetzt das bisherige `abort`) und zusätzlich
+`{ "id": "skill", "kind": "SKILL" }`; der `"sub"`-Loop behält `abort` am START. Neue Quests GUARD
+(deterministischer Slot) und SKILL (benannter Kalkulator `skill.collect`, registriert in
+`DefaultCalculatorFactory`). Deterministische GUARD-Logik in `DeterministicCalculators.guard`:
+blanker Prompt oder (konfigurierte, aber alle unavailable) Modelclasses → FAILED + `LoopThrowError`
+DOMAIN (CATCH feuert); sonst DONE mit `modelsAvailable`. `skill.collect`
+(`SkillCollectCalculator`/`SkillCollectBuilder`) sammelt die SkillRegistry (`ctx.skills()`) in den
+WorkCache (`skills.count`/`skills.ids`/`skills.descriptions`). `HarnessModel.defaultMainLoop()` baut
+GUARD+SKILL-START programmatisch, `defaultSubLoop()` behält ABORT. Tests: neuer `GuardSkillNGTest`
+(5 Tests, inkl. Engine-Lauf: GUARD/SKILL feuern genau 1× in main, Split-Kinder laufen sub mit ABORT),
+`LoopConfigCodecNGTest`/`LoopEngineNGTest`/`HarnessEngineNGTest`/`HarnessServiceNGTest`/`HarnessMetricsNGTest`
+angepasst. Harness-Suite 145/145, WJJ gesamt 248/248 grün.
+
+## 10.4 Umgesetzt: Kind als Registry-Klasse + kinddefs[] im Root; HarnessService gekapselt (uncommittet)
+
+`Kind` ist jetzt eine `final class` mit String-Registry: 14 eingebaute Konstanten
+(`public static final Kind`), `Kind.valueOf` registriert Custom-Literale on the fly,
+`Kind.values()/names()/isBuiltin()` vorhanden. `harness-model.json` trägt `"kinddefs": []` im Root;
+Codec + Definition-Bean/Converter lesen/schreiben `kinddefs[]` und validieren jedes Kind-Literal in
+quests/loops gegen built-ins ∪ kinddefs (Typo-Schutz bleibt). `DeterministicCalculators`: switch →
+Map, Custom-Kinds ohne built-in impl → generischer Fallback `done`. `HarnessModel`: kinddefs-Liste +
+`isKnownKind` + copy. Service-Kapselung: `setWoodHome`, `getProjectDir`, `modelFile()`,
+`instanceFile()`, `getProjectMemory()` jetzt package-private (nur noch same-package Tests/Intern);
+public bleiben Konstruktoren, `runTask`, `loadModel`, `getLastMemoryQuest`, `defaultModel`,
+`memoryFile()` (braucht `main.chat.ChatCommandService`) und die Datei-Konstanten. P.S. `subloop: "sub"`
+explizit im askai.decompose-Slot. Tests: 3 neue kinddef-Tests in LoopConfigCodecNGTest, EnumMap →
+HashMap in LoopEngineNGTest/GuardSkillNGTest. Harness-Suite 148/148, WJJ gesamt 248/248 grün.

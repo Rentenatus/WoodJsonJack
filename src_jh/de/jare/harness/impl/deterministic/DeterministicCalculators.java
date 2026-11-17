@@ -8,16 +8,20 @@ package de.jare.harness.impl.deterministic;
 
 import de.jare.harness.CalcContext;
 import de.jare.harness.CalcResult;
+import de.jare.harness.ErrorSignal;
 import de.jare.harness.HarnessCalculator;
 import de.jare.harness.HarnessEngine;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
 import de.jare.harness.TaskData;
+import de.jare.harness.main.actions.LoopThrowError;
+import de.jare.harness.model.Modelclass;
+import de.jare.harness.skills.Skill;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The deterministic implementations of all twelve kinds (CONCEPT_Harness.md §2).
+ * The deterministic implementations of all fourteen kinds (CONCEPT_Harness.md §2).
  * Deterministic stays always as fallback - also for AI calculators on schema
  * violation or provider outage (§2, §13 catch-mapping).
  *
@@ -28,21 +32,36 @@ public final class DeterministicCalculators {
     private DeterministicCalculators() {
     }
 
+    private static final java.util.Map<Kind, java.util.function.Function<CalcContext, CalcResult>> IMPLS =
+            new java.util.LinkedHashMap<>();
+
+    static {
+        IMPLS.put(Kind.RELEVANCE, DeterministicCalculators::relevance);
+        IMPLS.put(Kind.SPLIT, DeterministicCalculators::split);
+        IMPLS.put(Kind.COMPLETE, DeterministicCalculators::complete);
+        IMPLS.put(Kind.WORK, DeterministicCalculators::work);
+        IMPLS.put(Kind.EVALUATE, DeterministicCalculators::evaluate);
+        IMPLS.put(Kind.CHECK, DeterministicCalculators::check);
+        IMPLS.put(Kind.ABORT, DeterministicCalculators::abort);
+        IMPLS.put(Kind.SUMMARIZE, DeterministicCalculators::summarize);
+        IMPLS.put(Kind.CLOSE, DeterministicCalculators::close);
+        IMPLS.put(Kind.RAG_STORE, DeterministicCalculators::ragStore);
+        IMPLS.put(Kind.RAG_RETRIEVE, DeterministicCalculators::ragRetrieve);
+        IMPLS.put(Kind.RAG_PRUNE, DeterministicCalculators::ragPrune);
+        IMPLS.put(Kind.GUARD, DeterministicCalculators::guard);
+        IMPLS.put(Kind.SKILL, DeterministicCalculators::collectSkills);
+    }
+
     public static HarnessCalculator forKind(Kind kind) {
-        return switch (kind) {
-            case RELEVANCE -> calc(kind, DeterministicCalculators::relevance);
-            case SPLIT -> calc(kind, DeterministicCalculators::split);
-            case COMPLETE -> calc(kind, DeterministicCalculators::complete);
-            case WORK -> calc(kind, DeterministicCalculators::work);
-            case EVALUATE -> calc(kind, DeterministicCalculators::evaluate);
-            case CHECK -> calc(kind, DeterministicCalculators::check);
-            case ABORT -> calc(kind, DeterministicCalculators::abort);
-            case SUMMARIZE -> calc(kind, DeterministicCalculators::summarize);
-            case CLOSE -> calc(kind, DeterministicCalculators::close);
-            case RAG_STORE -> calc(kind, DeterministicCalculators::ragStore);
-            case RAG_RETRIEVE -> calc(kind, DeterministicCalculators::ragRetrieve);
-            case RAG_PRUNE -> calc(kind, DeterministicCalculators::ragPrune);
-        };
+        // custom kinddefs have no built-in impl - the generic deterministic fallback answers "done"
+        java.util.function.Function<CalcContext, CalcResult> fn =
+                IMPLS.getOrDefault(kind, DeterministicCalculators::generic);
+        return calc(kind, fn);
+    }
+
+    /** Generic deterministic answer for kinds declared only via {@code kinddefs[]} (no built-in impl). */
+    private static CalcResult generic(CalcContext ctx) {
+        return CalcResult.of(ctx.kind(), "done").status(Status.DONE);
     }
 
     private static HarnessCalculator calc(Kind kind,
@@ -96,6 +115,53 @@ public final class DeterministicCalculators {
     private static CalcResult abort(CalcContext ctx) {
         boolean aborted = ctx.limits().isAborted(ctx.task().depth());
         return CalcResult.of(Kind.ABORT, aborted ? "abort" : "continue");
+    }
+
+    /**
+     * GUARD (§15.6): the deterministic entry guard of the main loop's START item. A blank
+     * prompt is a DOMAIN {@link ErrorSignal} carried as {@link LoopThrowError}, so the loop's
+     * CATCH fires; likewise when modelclasses are configured but none is available (a model
+     * without any modelclass is a deterministic-only test model and passes). Otherwise DONE
+     * with the count of available models.
+     */
+    private static CalcResult guard(CalcContext ctx) {
+        if (ctx.task().getTitle() == null || ctx.task().getTitle().isBlank()) {
+            return CalcResult.of(Kind.GUARD, "guard-failed").status(Status.FAILED)
+                    .message("blank prompt")
+                    .loopAction(new LoopThrowError(ErrorSignal.domain("blank prompt", "guard")));
+        }
+        long available = ctx.model().getModelclasses().stream().filter(Modelclass::isAvailable).count();
+        if (!ctx.model().getModelclasses().isEmpty() && available == 0) {
+            return CalcResult.of(Kind.GUARD, "guard-failed").status(Status.FAILED)
+                    .message("no model available")
+                    .loopAction(new LoopThrowError(ErrorSignal.domain("no model available", "guard")));
+        }
+        return CalcResult.of(Kind.GUARD, "guards-ok").status(Status.DONE)
+                .put("modelsAvailable", String.valueOf(available));
+    }
+
+    /**
+     * SKILL (§12, §15.6): collects the current skills of the run's {@code SkillRegistry}
+     * (global + project-local, loaded by HarnessService) into the WorkCache, so following
+     * slots/prompts can reference them ({@code skills.count}, {@code skills.ids},
+     * {@code skills.descriptions}).
+     */
+    public static CalcResult collectSkills(CalcContext ctx) {
+        List<Skill> skills = ctx.skills() == null ? List.of() : ctx.skills().all();
+        List<String> ids = new ArrayList<>();
+        int descriptions = 0;
+        for (Skill s : skills) {
+            ids.add(s.getSkillId());
+            descriptions += s.getDescriptions().size();
+        }
+        if (ctx.workCache() != null) {
+            ctx.workCache().put("skills.count", String.valueOf(skills.size()));
+            ctx.workCache().put("skills.ids", String.join(",", ids));
+            ctx.workCache().put("skills.descriptions", String.valueOf(descriptions));
+        }
+        return CalcResult.of(Kind.SKILL, "collected").status(Status.DONE)
+                .put("count", String.valueOf(skills.size()))
+                .put("ids", String.join(",", ids));
     }
 
     private static CalcResult summarize(CalcContext ctx) {

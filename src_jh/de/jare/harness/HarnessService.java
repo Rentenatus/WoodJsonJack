@@ -61,8 +61,8 @@ public class HarnessService {
         this.host = host;
     }
 
-    /** Redirects the global wood level (tests); null restores {@code user.home}. */
-    public void setWoodHome(File woodHome) {
+    /** Redirects the global wood level (tests, same package); null restores {@code user.home}. */
+    void setWoodHome(File woodHome) {
         this.woodHome = woodHome;
     }
 
@@ -71,25 +71,28 @@ public class HarnessService {
         return lastMemoryQuest;
     }
 
-    public File getProjectDir() {
+    File getProjectDir() {
         return projectDir;
     }
 
-    public File modelFile() {
+    File modelFile() {
         return new File(projectDir, MODEL_FILE);
     }
 
-    public File instanceFile() {
+    File instanceFile() {
         return new File(projectDir, INSTANCE_FILE);
     }
 
-    /** §17: the project-local memory file {@code <projekt>/.wood/harness/memory.json}. */
+    /**
+     * §17: the project-local memory file {@code <projekt>/.wood/harness/memory.json}.
+     * Public because the chat commands (de.jare.harness.main.chat) save through it.
+     */
     public File memoryFile() {
         return new File(projectDir, MEMORY_FILE);
     }
 
     /** §17: the project-local memory (chat history + nuggets) of the last load/run. */
-    public de.jare.harness.memory.ProjectMemory getProjectMemory() {
+    de.jare.harness.memory.ProjectMemory getProjectMemory() {
         return projectMemory;
     }
 

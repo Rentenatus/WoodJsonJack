@@ -53,6 +53,7 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
         registerNamed("scoring.countQuests", de.jare.harness.main.calculator.ScoringCountQuestsBuilder::new);
         registerNamed("askai.decompose", de.jare.harness.main.calculator.AskAiDecomposeBuilder::new);
         registerNamed("printig", PrintQuestsBuilder::new);
+        registerNamed("skill.collect", de.jare.harness.main.calculator.SkillCollectBuilder::new);
     }
 
     /** Register a provider, keyed by provider name (e.g. "ollama"). */
