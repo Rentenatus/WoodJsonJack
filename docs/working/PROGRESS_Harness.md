@@ -230,3 +230,16 @@ sind ein eigenes Schwellen-Kriterium der Feedback-Schleife — betroffener Slot/
 - Tests: +3 GuardSkillNGTest (Name-Filter + WorkCache-Treffer, Akzeptanzschwelle, zwei Stores), +1
   HarnessRagNGTest (docType vor topK), +1 HarnessServiceNGTest (RAG-Persistenz). Harness-Suite 159/159,
   WJJ gesamt 254/254 grün (HarnessViewNGTest flaky wie bekannt).
+
+## 10.8 Umgesetzt: zweistufiger GUARD (guard.check + guard.escalate) + Sandbox-Tuning des Systemprompts
+
+- `guard.check` (GuardCheckCalculator/Builder, scoring/phi4-mini): klassifiziert den User-Prompt als
+  SAFE/SUSPICIOUS/BLOCKED, striktes JSON + Emphasis-Retry; Verdict in WorkCache (`guard.verdict` etc.);
+  BLOCKED → `LoopThrowError(DOMAIN)` → CATCH feuert, Run stoppt. `guard.escalate` (evaluation/granite3.3:8b)
+  läuft nur bei SUSPICIOUS, liest das erste Verdict aus dem WorkCache, finalisiert als `guard.finalVerdict`.
+- Sandbox-Reasoning (C:/tmp/harnessprobe/GuardSandbox, live gegen ollama phi4-mini, temp 0, 6 böse + 6
+  harmlose Prompts): 8 Kandidaten-Systemprompts getestet; Gewinner „H" mit 12/12 → in
+  `harness-model.json` (guard.check systemPrompt) und als `DEFAULT_SYSTEM_PROMPT` im Kalkulator.
+- Config: GUARD-Quest = Puzzle `[guard.check, guard.escalate]`. Tests: GuardVerdictNGTest (6 Tests inkl.
+  Engine-Level: BLOCKED stoppt den Run, CATCH feuert, WORK wird nie erreicht). Harness-Suite 165/165,
+  WJJ gesamt 254/254 grün.

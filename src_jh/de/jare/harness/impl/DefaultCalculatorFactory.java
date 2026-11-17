@@ -55,6 +55,8 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
         registerNamed("printig", PrintQuestsBuilder::new);
         registerNamed("skill.collect", de.jare.harness.main.calculator.SkillCollectBuilder::new);
         registerNamed("skill.match", de.jare.harness.main.calculator.SkillMatchBuilder::new);
+        registerNamed("guard.check", de.jare.harness.main.calculator.GuardCheckBuilder::new);
+        registerNamed("guard.escalate", de.jare.harness.main.calculator.GuardEscalateBuilder::new);
     }
 
     /** Register a provider, keyed by provider name (e.g. "ollama"). */
