@@ -50,6 +50,10 @@ public class OllamaProvider implements ModelProvider {
         return modelclass;
     }
 
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+
     @Override
     public boolean isAvailable() {
         if (availableCache != null) {

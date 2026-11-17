@@ -178,6 +178,20 @@ public class HarnessService {
         }
         engine.setSkillRegistry(skills);
 
+        // §11: load the per-model RAG stores (one file per rag model name under
+        // .wood/harness/rag/) - two rag models = two separate stores
+        File ragDir = new File(projectDir, ".wood/harness/rag");
+        for (Modelclass mc : model.getModelclasses()) {
+            if ("rag".equals(mc.getPurpose())) {
+                File f = new File(ragDir, sanitizeFileName(mc.getModel()) + ".json");
+                if (f.exists()) {
+                    instance.setRag(mc.getModel(),
+                            de.jare.harness.rag.RagStore.load(f, factory.embeddingProviderFor(mc),
+                                    de.jare.harness.rag.RagStore.RagDefaults.standard()));
+                }
+            }
+        }
+
         engine.run();
 
         // feedback loop between runs (§7.1): threshold check against the metrics,
@@ -228,8 +242,18 @@ public class HarnessService {
             projectMemory.save(memoryFile());
         }
 
+        // §11: persist every rag store under its own file (per rag model)
+        File ragDirOut = new File(projectDir, ".wood/harness/rag");
+        for (java.util.Map.Entry<String, de.jare.harness.rag.RagStore> e : instance.getRags().entrySet()) {
+            e.getValue().save(new File(ragDirOut, sanitizeFileName(e.getKey()) + ".json"));
+        }
+
         HarnessInstanceCodec.save(instance, instanceFile());
         return instance;
+    }
+
+    private static String sanitizeFileName(String model) {
+        return model == null ? "default" : model.replaceAll("[^A-Za-z0-9._-]+", "_");
     }
 
     /**

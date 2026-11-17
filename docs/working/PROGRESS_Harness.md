@@ -212,3 +212,21 @@ HashMap in LoopEngineNGTest/GuardSkillNGTest. Harness-Suite 148/148, WJJ gesamt 
 CONCEPT_Harness.md §7 Punkt 4: Häufige Parameterfehler (`PARAM_ERROR` pro `slotId@paramKey` bzw. `loop:…`-Keys)
 sind ein eigenes Schwellen-Kriterium der Feedback-Schleife — betroffener Slot/Loop-Item wird Mutations-Kandidat;
 `structureScore` (§6) fasst SCORE + FAIL_RATE + PARAM_ERROR zur Struktur-Bewertung zusammen.
+
+## 10.7 Umgesetzt: skill.match + RAG pro Embedding-Modell (uncommittet)
+
+- Neuer benannter Kalkulator `skill.match` (`SkillMatchCalculator`/`SkillMatchBuilder`): Params `filter`
+  (optionaler Namensfilter, kommasepariert=ODER), `minSimilarity` (Cosinus-Akzeptanz, default RAG-Default),
+  `topK`, `embedModel` (rag-Modelclass by name, Fallback purpose "rag"; invalide Zahlen → PARAMETER).
+  Importiert die Registry-Skills idempotent in den gewählten Store, matcht den User-Prompt gegen alle
+  SKILL-Chunks (docType-Filter vor topK via neuem `RagStore.retrieve(query, docType, topK, minScore)`),
+  alle Treffer in den WorkCache (`skills.matched`, `skills.matched.count`, `skill.match.<id>`,
+  `skills.matched.detail`, `skills.matched.model`).
+- Modellauswahl: `OllamaEmbeddingProvider` (POST /api/embed) + `DefaultCalculatorFactory.embeddingProviderFor(mc)`
+  + `CalculatorCreationContext.embeddingProviderFor`; ohne Ollama-Provider → hashEmbedding-Fallback.
+- **Zwei rag Modelle = zwei DBs:** `HarnessInstance` hält jetzt `Map<modelName, RagStore>`; Persistenz pro
+  Modell als `.wood/harness/rag/<model>.json` (Load/Save in `HarnessService.runTask`).
+- Config: SKILL-Quest als Puzzle `[skill.collect, skill.match {embedModel: nomic-embed-code, minSimilarity: 0.35}]`.
+- Tests: +3 GuardSkillNGTest (Name-Filter + WorkCache-Treffer, Akzeptanzschwelle, zwei Stores), +1
+  HarnessRagNGTest (docType vor topK), +1 HarnessServiceNGTest (RAG-Persistenz). Harness-Suite 159/159,
+  WJJ gesamt 254/254 grün (HarnessViewNGTest flaky wie bekannt).

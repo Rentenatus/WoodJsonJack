@@ -54,6 +54,7 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
         registerNamed("askai.decompose", de.jare.harness.main.calculator.AskAiDecomposeBuilder::new);
         registerNamed("printig", PrintQuestsBuilder::new);
         registerNamed("skill.collect", de.jare.harness.main.calculator.SkillCollectBuilder::new);
+        registerNamed("skill.match", de.jare.harness.main.calculator.SkillMatchBuilder::new);
     }
 
     /** Register a provider, keyed by provider name (e.g. "ollama"). */
@@ -64,6 +65,23 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
 
     public ModelProvider provider(String key) {
         return providers.get(key);
+    }
+
+    /**
+     * The embedding provider for a {@code purpose: "rag"} modelclass: an ollama-backed
+     * {@link de.jare.harness.impl.ollama.OllamaEmbeddingProvider} when the registered
+     * provider is an {@link de.jare.harness.impl.ollama.OllamaProvider}, else the
+     * deterministic hash embedding. The RAG store is keyed by {@code modelName()}, so
+     * two rag models get two separate stores (§11).
+     */
+    public de.jare.harness.rag.EmbeddingProvider embeddingProviderFor(Modelclass mc) {
+        if (mc != null && "ollama".equals(mc.getProvider())) {
+            ModelProvider p = providers.get("ollama");
+            if (p instanceof de.jare.harness.impl.ollama.OllamaProvider op) {
+                return new de.jare.harness.impl.ollama.OllamaEmbeddingProvider(op.getBaseUrl(), mc.getModel());
+            }
+        }
+        return de.jare.harness.rag.EmbeddingProvider.hashEmbedding();
     }
 
     @Override

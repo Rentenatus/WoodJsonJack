@@ -133,6 +133,92 @@ public class GuardSkillNGTest {
         Assert.assertEquals(cache.get("skills.descriptions"), "2");
     }
 
+    private static HarnessEngine engineWithSkills(HarnessModel model, SkillRegistry registry) {
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        TaskData root = instance.newRootTask(instance.nextTaskId(), "AskAi", "edit files in the json tree");
+        instance.setRoot(root);
+        HarnessEngine engine = new HarnessEngine(model, instance, new DefaultCalculatorFactory(model));
+        engine.setSkillRegistry(registry);
+        return engine;
+    }
+
+    private static SkillRegistry twoSkillRegistry() throws Exception {
+        Path skillDir = Files.createTempDirectory("skills");
+        Path a = Files.createDirectory(skillDir.resolve("tree-edit"));
+        Files.writeString(a.resolve("edit.md"), "edits files in the json tree via commands");
+        Path b = Files.createDirectory(skillDir.resolve("weather"));
+        Files.writeString(b.resolve("general.md"), "talks about weather forecasts and climate");
+        SkillRegistry registry = new SkillRegistry();
+        registry.loadFrom(skillDir, "global");
+        return registry;
+    }
+
+    @Test
+    public void testSkillMatchFiltersByNameAndStoresAllHitsInWorkCache() throws Exception {
+        HarnessModel model = modelWithAllQuests();
+        model.addModelclass(new Modelclass("ollama", "manutic/nomic-embed-code:latest", "rag", 0, 0.2, false));
+        HarnessEngine engine = engineWithSkills(model, twoSkillRegistry());
+        WorkCache cache = new WorkCache();
+        engine.setWorkCache(cache);
+        CalculatorNode node = CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("skill.match")
+                .params(java.util.Map.of("embedModel", "manutic/nomic-embed-code:latest",
+                        "minSimilarity", "0.0", "filter", "tree"));
+        CalcContext ctx = new CalcContext(engine, engine.getInstance(), model, engine.getInstance().getRoot(),
+                Kind.SKILL, "skill.base", node, engine.getLimits(), List.of("AUFTRAG:edit files in the json tree"));
+        ctx.setWorkCache(cache);
+
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model); // no ollama provider -> hash fallback
+        HarnessCalculator calc = factory.createAtomic(node, Kind.SKILL);
+        Assert.assertTrue(calc instanceof de.jare.harness.main.calculator.SkillMatchCalculator);
+        CalcResult r = calc.calculate(ctx);
+
+        Assert.assertEquals(r.getStatus(), Status.DONE);
+        Assert.assertEquals(r.getDecision(), "matched");
+        // name filter "tree" passes only tree-edit; all hits are in the running memory
+        Assert.assertEquals(r.getPayload().get("count"), "1");
+        Assert.assertEquals(cache.get("skills.matched"), "tree-edit");
+        Assert.assertEquals(cache.get("skills.matched.count"), "1");
+        Assert.assertNotNull(cache.get("skill.match.tree-edit"), "best similarity per skill in WorkCache");
+        Assert.assertNotNull(cache.get("skills.matched.detail"));
+        Assert.assertEquals(cache.get("skills.matched.model"), "hash-embedding",
+                "no ollama provider registered -> hash embedding store");
+    }
+
+    @Test
+    public void testSkillMatchMinSimilarityIsTheAcceptanceThreshold() throws Exception {
+        HarnessModel model = modelWithAllQuests();
+        HarnessEngine engine = engineWithSkills(model, twoSkillRegistry());
+        WorkCache cache = new WorkCache();
+        engine.setWorkCache(cache);
+        // impossible threshold: nothing passes
+        CalculatorNode node = CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("skill.match")
+                .params(java.util.Map.of("minSimilarity", "0.999999"));
+        CalcContext ctx = new CalcContext(engine, engine.getInstance(), model, engine.getInstance().getRoot(),
+                Kind.SKILL, "skill.base", node, engine.getLimits(), List.of("AUFTRAG:edit files in the json tree"));
+        ctx.setWorkCache(cache);
+        CalcResult r = new DefaultCalculatorFactory(model).createAtomic(node, Kind.SKILL).calculate(ctx);
+        Assert.assertEquals(r.getPayload().get("count"), "0", "above the acceptance threshold there are no hits");
+        Assert.assertEquals(cache.get("skills.matched.count"), "0");
+        Assert.assertEquals(cache.get("skills.matched"), "");
+    }
+
+    @Test
+    public void testTwoRagModelsGetTwoSeparateStores() {
+        HarnessInstance instance = new HarnessInstance("m", "1.0.0");
+        de.jare.harness.rag.EmbeddingProvider a = de.jare.harness.rag.EmbeddingProvider.hashEmbedding();
+        de.jare.harness.rag.EmbeddingProvider b = new de.jare.harness.rag.EmbeddingProvider() {
+            @Override public String modelName() { return "nomic-embed-code"; }
+            @Override public double[] embed(String text) { return a.embed(text); }
+        };
+        de.jare.harness.rag.RagStore ra = instance.getRag(a);
+        de.jare.harness.rag.RagStore rb = instance.getRag(b);
+        Assert.assertNotSame(ra, rb, "two rag models -> two stores (two DBs)");
+        Assert.assertEquals(instance.getRags().size(), 2);
+        ra.store("SKILL", "only in a", java.util.Map.of());
+        Assert.assertEquals(rb.getChunks().size(), 0, "stores are independent");
+        Assert.assertEquals(ra.getChunks().size(), 1);
+    }
+
     /** Scripted factory recording the call order per kind. */
     private static final class ScriptedFactory implements CalculatorFactory {
         final Map<Kind, Queue<HarnessCalculator>> scripts = new java.util.HashMap<>();

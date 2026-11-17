@@ -43,6 +43,10 @@ public class HarnessServiceNGTest {
         HarnessInstance loaded = de.jare.harness.io.HarnessInstanceCodec.load(harnessJson);
         Assert.assertEquals(loaded.getRoot().getStatus(), Status.DONE);
         Assert.assertFalse(loaded.getCallLog().isEmpty());
+
+        // §11: the rag store is persisted per model under .wood/harness/rag/
+        File ragFile = new File(project.toFile(), ".wood/harness/rag/hash-embedding.json");
+        Assert.assertTrue(ragFile.exists(), "rag store persisted per rag model name");
     }
 
     @Test

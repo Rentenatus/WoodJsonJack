@@ -78,7 +78,13 @@
       "evolvable": false,
       "slots": [
         { "id": "skill.base", "mutation": null,
-          "calculator": { "type": "atomic", "impl": "deterministic", "calculator": "skill.collect" } }
+          "calculator": { "type": "puzzle", "strategy": "sequence",
+            "children": [
+              { "type": "atomic", "impl": "deterministic", "calculator": "skill.collect" },
+              { "type": "atomic", "impl": "deterministic", "calculator": "skill.match",
+                "params": { "embedModel": "manutic/nomic-embed-code:latest",
+                            "minSimilarity": "0.35" } }
+            ] } }
       ]
     }
   ],

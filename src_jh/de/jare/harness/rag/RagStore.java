@@ -86,9 +86,20 @@ public class RagStore {
 
     /** RAG_RETRIEVE: vector similarity only (cosine), top-k, minScore threshold, weight score x similarity. */
     public List<Hit> retrieve(String query, int topK, double minScore) {
+        return retrieve(query, null, topK, minScore);
+    }
+
+    /**
+     * Retrieval restricted to one docType (e.g. {@code "SKILL"}): the docType filter is
+     * applied BEFORE top-k, so a global top-k can never cut off all hits of one type.
+     */
+    public List<Hit> retrieve(String query, String docType, int topK, double minScore) {
         double[] q = embedder.embed(query);
         List<Hit> hits = new ArrayList<>();
         for (RagChunk c : chunks) {
+            if (docType != null && !docType.equals(c.getDocType())) {
+                continue;
+            }
             double sim = cosine(q, c.getEmbedding());
             if (sim >= minScore) {
                 hits.add(new Hit(c, sim));

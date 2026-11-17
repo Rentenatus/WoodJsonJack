@@ -34,6 +34,7 @@ public class HarnessInstance {
     private final MetricsStore metrics = new MetricsStore();
     private MetricsStore globalMetrics;   // ~/.wood/harness/metrics.json aggregate (§8) - optional, read priors + accumulate
     private RagStore rag;   // project-local RAG (§11) - lazily created, never global
+    private final java.util.Map<String, RagStore> rags = new java.util.LinkedHashMap<>();   // per rag model name, §11
 
     public HarnessInstance(String modelName, String modelVersion) {
         this.modelName = modelName;
@@ -133,20 +134,36 @@ public class HarnessInstance {
         this.globalMetrics = globalMetrics;
     }
 
-    /** The project-local RAG (§11); created on first use with the given embedder. */
+    /**
+     * The project-local RAG stores (§11), keyed by {@link EmbeddingProvider#modelName()}:
+     * two rag models get two separate stores (two "DBs"), each persisted under its own
+     * file. Created on first use with the given embedder.
+     */
     public RagStore getRag(EmbeddingProvider embedder) {
-        if (rag == null) {
-            rag = new RagStore(embedder);
-        }
-        return rag;
+        return rags.computeIfAbsent(embedder.modelName(), k -> new RagStore(embedder));
     }
 
+    /** The default store (hash embedding). */
     public RagStore getRag() {
-        return rag;
+        return rags.computeIfAbsent(EmbeddingProvider.hashEmbedding().modelName(),
+                k -> new RagStore(EmbeddingProvider.hashEmbedding()));
+    }
+
+    /** All rag stores by model name. */
+    public java.util.Map<String, RagStore> getRags() {
+        return rags;
     }
 
     public void setRag(RagStore rag) {
         this.rag = rag;
+        if (rag != null) {
+            rags.put(rag.getModelName(), rag);
+        }
+    }
+
+    /** Registers a loaded store under its model name (persistence, §11). */
+    public void setRag(String modelName, RagStore store) {
+        rags.put(modelName, store);
     }
 
     public List<CallLogEntry> getCallLog() {

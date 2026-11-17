@@ -450,6 +450,16 @@ wandern niemals in die globale Ebene (vgl. §8).
 - **Import = RAG-Eintrag:** Wird ein Skill importiert bzw. lokal approved, wird er in die **Projekt-RAG** geschrieben mit `docType = SKILL`.
 - **N Descriptions = N RAG-Chunks:** Anders als übliche Harnesses muss der Skill seine Description nicht im Fenster halten — jede Description wird als **eigener RAG-Chunk** abgelegt (Metadaten: `{skillId, docType: SKILL, descIndex, scope, source}`). Beispiel: Desc 1 beschreibt, dass der Skill greift, wenn der User **sucht/analysiert** (scope `search`), Desc 2, wenn der User **Änderungen vornehmen** will (scope `edit`). Getrennte Scopes, getrenntes Matching gegen den User-Prompt — aber **ein Skill**.
 - **Matching:** RAG_RETRIEVE matcht das AUFTRAG-Segment (User-Prompt) gegen die SKILL-Chunks *pro Scope*; der RelevanceCalculator baut daraus das SKILL-Segment der Prompt-Liste — als Verweis auf die Skill-ID, nicht als Volltext (der Volltext liegt in der RAG).
+- **SKILL-Quest am START der main loop (§15.6):** Puzzle-Sequenz `[skill.collect, skill.match]`. `skill.collect`
+  lädt die SkillRegistry (global + projekt-lokal) und zählt sie in den WorkCache. `skill.match` matcht den
+  User-Prompt per Cosinus gegen **alle** SKILL-Descriptions in der RAG des gewählten Embedding-Modells —
+  optional gefiltert nach Namen (`filter`, kommasepariert = ODER) und mit Akzeptanzschwelle `minSimilarity`
+  (default = RAG-Default). Alle Treffer landen im laufenden Speicher (WorkCache: `skills.matched`,
+  `skills.matched.count`, `skill.match.<skillId>`, `skills.matched.detail`). `embedModel` wählt die
+  rag-Modelclass (z. B. `manutic/nomic-embed-code:latest`, Fallback purpose `rag`).
+- **Ein RAG-Store pro Embedding-Modell:** Die Stores liegen keyed by `modelName` in der Instanz —
+  **zwei rag Modelle = zwei getrennte DBs**, persistiert je Modell als `.wood/harness/rag/<model>.json`.
+  `RagStore.retrieve(query, docType, topK, minScore)` filtert den docType **vor** top-k.
 
 ## 13. Tooling & Composite Calculators (WORK-Zugriff)
 
