@@ -49,6 +49,10 @@ public class CallLogEntry {
     private final java.util.Map<String, String> payload;            // calculator payload content (may be empty)
     private final Parent1 parent1;     // redundant
     private final Long parent2;        // link only - parent3+ walkable via parent2's parent1
+    private final String loopId;       // loop the item ran in (null outside a configured loop, §15.6 metrics)
+    private final String loopItemId;   // the fired loop item id
+    private final String trigger;      // START|EXECUTE|CATCH|CLOSE of the fired item
+    private final String paramError;   // offending param key when this call ended in a PARAMETER error
 
     public CallLogEntry(long aufrufId, long taskId, String taskType, Kind kind, String slotId,
                         String modelVersion, int attempt, long dauerMs, int tokensIn, int tokensOut,
@@ -61,6 +65,15 @@ public class CallLogEntry {
                         String modelVersion, int attempt, long dauerMs, int tokensIn, int tokensOut,
                         Integer score, Status status, String decision, String message,
                         java.util.Map<String, String> payload, Parent1 parent1, Long parent2) {
+        this(aufrufId, taskId, taskType, kind, slotId, modelVersion, attempt, dauerMs, tokensIn, tokensOut,
+                score, status, decision, message, payload, parent1, parent2, null, null, null, null);
+    }
+
+    public CallLogEntry(long aufrufId, long taskId, String taskType, Kind kind, String slotId,
+                        String modelVersion, int attempt, long dauerMs, int tokensIn, int tokensOut,
+                        Integer score, Status status, String decision, String message,
+                        java.util.Map<String, String> payload, Parent1 parent1, Long parent2,
+                        String loopId, String loopItemId, String trigger, String paramError) {
         this.aufrufId = aufrufId;
         this.taskId = taskId;
         this.taskType = taskType;
@@ -78,6 +91,10 @@ public class CallLogEntry {
         this.payload = payload == null ? java.util.Map.of() : payload;
         this.parent1 = parent1;
         this.parent2 = parent2;
+        this.loopId = loopId;
+        this.loopItemId = loopItemId;
+        this.trigger = trigger;
+        this.paramError = paramError;
     }
 
     public long getAufrufId() { return aufrufId; }
@@ -99,6 +116,12 @@ public class CallLogEntry {
     public java.util.Map<String, String> getPayload() { return payload; }
     public Parent1 getParent1() { return parent1; }
     public Long getParent2() { return parent2; }
+    /** The loop this call ran in (null outside a configured loop); metrics key prefix {@code "loop:"}. */
+    public String getLoopId() { return loopId; }
+    public String getLoopItemId() { return loopItemId; }
+    public String getTrigger() { return trigger; }
+    /** The offending param key when this call failed with a PARAMETER error, else null. */
+    public String getParamError() { return paramError; }
 
     /** Serializes this entry to its JsonNode form (persisted in the call log / node log member). */
     public JsonNode toJson() {
@@ -140,6 +163,18 @@ public class CallLogEntry {
         if (parent2 != null) {
             n.put("parent2", JsonNode.longNode(parent2));
         }
+        if (loopId != null) {
+            n.put("loopId", JsonNode.stringNode(loopId));
+        }
+        if (loopItemId != null) {
+            n.put("loopItemId", JsonNode.stringNode(loopItemId));
+        }
+        if (trigger != null) {
+            n.put("trigger", JsonNode.stringNode(trigger));
+        }
+        if (paramError != null) {
+            n.put("paramError", JsonNode.stringNode(paramError));
+        }
         return n;
     }
 
@@ -168,7 +203,9 @@ public class CallLogEntry {
                 longOf(n, "dauerMs", 0), (int) longOf(n, "tokensIn", 0), (int) longOf(n, "tokensOut", 0),
                 child(n, "score") == null ? null : child(n, "score").asLong().intValue(),
                 Status.valueOf(text(n, "status", "DONE")), text(n, "decision", ""),
-                text(n, "message", ""), payload, p1, p2);
+                text(n, "message", ""), payload, p1, p2,
+                text(n, "loopId", null), text(n, "loopItemId", null),
+                text(n, "trigger", null), text(n, "paramError", null));
     }
 
     private static JsonNode child(JsonNode node, String key) {

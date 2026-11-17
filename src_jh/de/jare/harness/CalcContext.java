@@ -86,7 +86,9 @@ public class CalcContext {
         try {
             return Double.valueOf(t.trim());
         } catch (NumberFormatException e) {
-            return null;
+            // invalid config param: counted as PARAM_ERROR metric per slot (§6)
+            throw new HarnessException(HarnessException.Type.PARAMETER,
+                    "temperature is not a number: \"" + t + "\"", "temperature", e);
         }
     }
 

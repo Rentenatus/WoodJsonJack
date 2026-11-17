@@ -381,7 +381,8 @@ public class HarnessEngine implements HarnessDriver {
             runLoop(task, item.getLoop());
             return afterSubLoop(task, loop);
         }
-        CalcResult r = execute(task, item.getKind());
+        CalcResult r = execute(task, item.getKind(), loop.getId(), item.getId(),
+                item.getTrigger() == null ? null : item.getTrigger().name());
         if (r == null) {
             return ItemFlow.CONTINUE; // kind not modelled - skipped deterministically
         }
@@ -501,7 +502,8 @@ public class HarnessEngine implements HarnessDriver {
             if (c.isSubLoop()) {
                 runLoop(task, c.getLoop());
             } else {
-                CalcResult r = execute(task, c.getKind());
+                CalcResult r = execute(task, c.getKind(), loop.getId(), c.getId(),
+                        c.getTrigger() == null ? null : c.getTrigger().name());
                 if (r != null) {
                     r.getAction().execute(this, task, r);
                     LoopAction cla = r.getLoopAction();
@@ -575,6 +577,15 @@ public class HarnessEngine implements HarnessDriver {
      * the deterministic calculator of the same kind.
      */
     private CalcResult execute(TaskData task, Kind kind) {
+        return execute(task, kind, null, null, null);
+    }
+
+    /**
+     * Executes the quest of {@code kind} for one task. The loop context
+     * ({@code loopId}/{@code loopItemId}/{@code trigger}) lands on the {@link CallLogEntry}
+     * so the metrics can aggregate the loop structure under {@code "loop:…"} keys (§6).
+     */
+    private CalcResult execute(TaskData task, Kind kind, String loopId, String loopItemId, String trigger) {
         Quest quest = model.questFor(kind);
         if (quest == null) {
             return null; // kind not modelled - skipped deterministically
@@ -602,11 +613,16 @@ public class HarnessEngine implements HarnessDriver {
         long start = System.currentTimeMillis();
         CalcResult result;
         String decisionSuffix = "";
+        String paramError = null;
         try {
             result = runNode(node, kind, ctx);
             ctx.emit(de.jare.harness.signals.Signal.ANSWER_RECEIVED);
         } catch (HarnessException e) {
             decisionSuffix = "catch:" + e.getType();
+            if (e.getType() == HarnessException.Type.PARAMETER) {
+                // parameter errors are counted per slot + param (PARAM_ERROR metric, §6)
+                paramError = e.getParamKey() != null ? e.getParamKey() : e.getMessage();
+            }
             notify(task, kind, decisionSuffix + " -> catch-mapping");
             CalculatorNode catchNode = node.getCatchMapping().get(e.getType());
             if (catchNode != null) {
@@ -630,7 +646,8 @@ public class HarnessEngine implements HarnessDriver {
         CallLogEntry entry = new CallLogEntry(aufrufId, task.getId(), task.getTaskType(), kind,
                 slot.getId(), model.getVersion(), task.getAttempt(), dauerMs, 0, 0,
                 result.getScore(), result.getStatus(),
-                result.getDecision() + decisionSuffix, result.getMessage(), result.getPayload(), p1, p2);
+                result.getDecision() + decisionSuffix, result.getMessage(), result.getPayload(), p1, p2,
+                loopId, loopItemId, trigger, paramError);
         // layering (§3): instance.logCall = RUNTIME truth (memory layer), task.logCall = the
         // bridge write into the PERSISTED PROJECTION (TaskData -> EditTree, fires change events)
         task.logCall(entry);

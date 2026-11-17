@@ -40,12 +40,13 @@ public record ErrorSignal(Severity severity, String reason, String source) {
 
     /**
      * Maps the {@link HarnessException} vocabulary (§13) onto the two severities:
-     * SCHEMA_VIOLATION / LIMIT / ABORTED are business-treatable (DOMAIN), provider outage,
-     * timeout, tool errors and everything unknown are TECHNICAL.
+     * SCHEMA_VIOLATION / LIMIT / ABORTED / PARAMETER are business-treatable (DOMAIN,
+     * catch-mapping + PARAM_ERROR metric), provider outage, timeout, tool errors and
+     * everything unknown are TECHNICAL.
      */
     public static ErrorSignal fromHarnessException(HarnessException e, String source) {
         Severity sev = switch (e.getType()) {
-            case SCHEMA_VIOLATION, LIMIT, ABORTED -> Severity.DOMAIN;
+            case SCHEMA_VIOLATION, LIMIT, ABORTED, PARAMETER -> Severity.DOMAIN;
             case MODEL_UNAVAILABLE, TOOL_ERROR, TIMEOUT -> Severity.TECHNICAL;
         };
         return new ErrorSignal(sev, e.getMessage(), source);

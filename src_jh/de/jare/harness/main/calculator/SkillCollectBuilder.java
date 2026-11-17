@@ -20,7 +20,7 @@ public class SkillCollectBuilder implements CalculatorBuilder {
 
     @Override
     public CalculatorBuilder withParam(String key, String value) {
-        return this;   // no params
+        return rejectUnknown(key);   // no params of its own
     }
 
     @Override

@@ -52,6 +52,8 @@ public class AskAiDecomposeBuilder implements CalculatorBuilder {
             withSystemPrompt(value);
         } else if ("subloop".equals(key)) {
             withSubloop(value);
+        } else {
+            rejectUnknown(key);
         }
         return this;
     }

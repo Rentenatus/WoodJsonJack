@@ -267,4 +267,54 @@ public class LoopEngineNGTest {
         Assert.assertEquals(factory.calls.get(factory.calls.size() - 2), Kind.CLOSE, "CLOSE before RAG_PRUNE");
         Assert.assertEquals(factory.calls.get(factory.calls.size() - 1), Kind.RAG_PRUNE);
     }
+
+    @Test
+    public void testCallLogCarriesLoopContextAndMetricsHaveLoopKeys() {
+        ScriptedFactory factory = new ScriptedFactory();
+        HarnessModel model = modelWithLoop(mainLoop(
+                new LoopItem("work", Kind.WORK),
+                new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE)));
+        HarnessEngine engine = engineFor(model, factory);
+        engine.run();
+
+        // every call log entry carries the loop context of the fired item
+        Assert.assertFalse(engine.getInstance().getCallLog().isEmpty());
+        Assert.assertTrue(engine.getInstance().getCallLog().stream()
+                .allMatch(e -> "main".equals(e.getLoopId()) && e.getLoopItemId() != null && e.getTrigger() != null));
+        // loop-structure keys are aggregated in the metrics next to the slot keys
+        Assert.assertFalse(engine.getInstance().getMetrics()
+                .stats("loop:main/work@EXECUTE", 1).isEmpty(), "loop item measurable via loop: key");
+        Assert.assertFalse(engine.getInstance().getMetrics()
+                .stats("loop:main/close@CLOSE", 1).isEmpty());
+        // JSON round trip of an entry keeps the loop context
+        CallLogEntry back = CallLogEntry.fromJson(engine.getInstance().getCallLog().get(0).toJson());
+        Assert.assertEquals(back.getLoopId(), "main");
+        Assert.assertNotNull(back.getLoopItemId());
+        Assert.assertNotNull(back.getTrigger());
+    }
+
+    @Test
+    public void testParamErrorEndToEndIsCountedInMetrics() {
+        // SPLIT slot uses the named "printig" calculator with an unknown param -> PARAMETER
+        // error -> the call entry carries paramError and the metrics count it per slot@param
+        ScriptedFactory factory = new ScriptedFactory();
+        HarnessModel model = modelWithLoop(mainLoop(
+                new LoopItem("split", Kind.SPLIT),
+                new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE)));
+        model.questFor(Kind.SPLIT).baseSlot().calculator(
+                de.jare.harness.model.CalculatorNode.atomic(de.jare.harness.model.CalculatorNode.IMPL_DETERMINISTIC)
+                        .calculator("printig").params(java.util.Map.of("bogus", "1")));
+        // named calculator wins over the scripted factory: use a real DefaultCalculatorFactory
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "param error run");
+        HarnessEngine engine = new HarnessEngine(model, instance, new de.jare.harness.impl.DefaultCalculatorFactory(model));
+        engine.run();
+
+        Assert.assertTrue(engine.getInstance().getCallLog().stream()
+                .anyMatch(e -> "bogus".equals(e.getParamError())), "entry carries the offending param key");
+        Assert.assertEquals(engine.getInstance().getMetrics().stats("split.base", 1)
+                .get(de.jare.harness.metrics.MetricsStore.Category.PARAM_ERROR).getCount(), 1L);
+        Assert.assertEquals(engine.getInstance().getMetrics().stats("split.base@bogus", 1)
+                .get(de.jare.harness.metrics.MetricsStore.Category.PARAM_ERROR).getCount(), 1L);
+    }
 }

@@ -267,6 +267,33 @@ public class HarnessCodecNGTest {
         CalcContext ctx2 = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
                 noTemp, engine.getLimits(), List.of());
         Assert.assertNull(ctx2.temperature());
+
+        // invalid temperature -> PARAMETER error carrying the param key (counted as PARAM_ERROR, §6)
+        CalculatorNode badTemp = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
+                .params(java.util.Map.of("model", "phi4-mini:latest", "temperature", "abc"));
+        CalcContext ctx3 = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
+                badTemp, engine.getLimits(), List.of());
+        try {
+            ctx3.temperature();
+            Assert.fail("invalid temperature must throw PARAMETER");
+        } catch (HarnessException ex) {
+            Assert.assertEquals(ex.getType(), HarnessException.Type.PARAMETER);
+            Assert.assertEquals(ex.getParamKey(), "temperature");
+        }
+    }
+
+    @Test
+    public void testBuilderRejectsUnknownParamAsParameterError() {
+        // strict builders: an unknown param key throws PARAMETER with the key (counted per slot@param)
+        try {
+            new de.jare.harness.impl.deterministic.PrintQuestsBuilder().withParam("bogus", "1");
+            Assert.fail("unknown param must throw PARAMETER");
+        } catch (HarnessException ex) {
+            Assert.assertEquals(ex.getType(), HarnessException.Type.PARAMETER);
+            Assert.assertEquals(ex.getParamKey(), "bogus");
+        }
+        // generic params (temperature) are accepted silently - read via CalcContext
+        new de.jare.harness.impl.deterministic.PrintQuestsBuilder().withParam("temperature", "0.0");
     }
 
     @Test
@@ -334,10 +361,16 @@ public class HarnessCodecNGTest {
         Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuestsCalculator) calc).getModelclass().getModel(),
                 "phi4-mini:latest");
 
-        // printig builder ignores params, still builds
+        // printig builder has no params of its own: generic params pass, unknown keys throw PARAMETER
         HarnessCalculator p = factory.getRegistry().newBuilder("printig")
-                .withParams(java.util.Map.of("ignored", "x")).build(ctx);
+                .withParams(java.util.Map.of("temperature", "0.0")).build(ctx);
         Assert.assertTrue(p instanceof de.jare.harness.impl.deterministic.CalculatorPrintQuests);
+        try {
+            factory.getRegistry().newBuilder("printig").withParams(java.util.Map.of("ignored", "x"));
+            Assert.fail("unknown param must throw PARAMETER (counted as PARAM_ERROR)");
+        } catch (HarnessException expected) {
+            Assert.assertEquals(expected.getType(), HarnessException.Type.PARAMETER);
+        }
     }
 
     @Test

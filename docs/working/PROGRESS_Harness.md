@@ -190,3 +190,19 @@ public bleiben Konstruktoren, `runTask`, `loadModel`, `getLastMemoryQuest`, `def
 `memoryFile()` (braucht `main.chat.ChatCommandService`) und die Datei-Konstanten. P.S. `subloop: "sub"`
 explizit im askai.decompose-Slot. Tests: 3 neue kinddef-Tests in LoopConfigCodecNGTest, EnumMap →
 HashMap in LoopEngineNGTest/GuardSkillNGTest. Harness-Suite 148/148, WJJ gesamt 248/248 grün.
+
+## 10.5 Umgesetzt: Loop-Struktur + Parameterfehler messen, Prior-Inheritance bei Mutation (uncommittet)
+
+- `CallLogEntry` trägt jetzt `loopId`/`loopItemId`/`trigger`/`paramError` (JSON-Roundtrip inklusive); die Engine
+  reicht den Loop-Kontext aus `runItem`/`handleThrow` in `execute(...)` durch.
+- `MetricsStore`: neue Kategorie `PARAM_ERROR`; `recordCall` aggregiert jeden Call zusätzlich unter
+  `loop:<loopId>/<itemId>@<trigger>` und zählt Param-Fehler unter `slotId` UND `slotId@paramKey`.
+- `HarnessException.Type.PARAMETER` + `paramKey`; `ErrorSignal` mappt es auf DOMAIN; `CalcContext.temperature()`
+  wirft bei invalider Zahl PARAMETER; Builder strikt via `CalculatorBuilder.rejectUnknown` (generische Params wie
+  `temperature` bleiben erlaubt).
+- `cloneWithInheritance(mutated, priorWeight)`: mutierter Knoten erbt alte EMA als Prior (Count skaliert),
+  `cloneWithReset` = priorWeight 0 (altes Verhalten). `structureScore(node, depth, wFail, wParam)` als
+  berechnete Sicht auf die Buckets.
+- Tests: +4 in HarnessMetricsNGTest (Loop-Keys, Param-Count, Prior-Inheritance, structureScore), +2 in
+  LoopEngineNGTest (Loop-Kontext im CallLog + End-to-End PARAM_ERROR), +2 in HarnessCodecNGTest (temperature
+  PARAMETER, strikte Builder). Harness-Suite 155/155, WJJ gesamt 253/253 grün.

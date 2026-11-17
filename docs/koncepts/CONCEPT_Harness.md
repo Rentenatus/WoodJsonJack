@@ -282,11 +282,22 @@ Pro Kalkulator-Aufruf landet nur das strukturierte Kennzahlen-Set im Log — **n
 ```
 { aufrufId, taskId, taskType, kind, slotId, modelVersion, attempt,
   dauerMs, tokensIn, tokensOut, score, status, decision,
+  loopId, loopItemId, trigger,         // Loop-Kontext des feuernden Items (§15.6) — null außerhalb konfigurierter Loops
+  paramError,                          // offending param key bei PARAMETER-Fehlern, sonst null
   parent1: {aufrufId, score, status},  // redundant (schnelle Aggregation ohne Join)
   parent2: aufrufId                    // Link genügt: parent3+ sind über den parent2-Eintrag
                                        // (dessen redundantes parent1) per Walk beliebig tief erreichbar
 }
 ```
+
+**Loop-Struktur und Parameterfehler werden mitgemessen (§6):** Jeder Call wird zusätzlich unter dem
+Key `loop:<loopId>/<itemId>@<trigger>` aggregiert — Loops sind damit genauso bewertbar wie Slots.
+`PARAMETER`-Fehler (unbekannter/invalider Config-Param, z. B. `temperature` nicht parsebar; strikte
+Builder via `CalculatorBuilder.rejectUnknown`) landen in der neuen Kategorie `PARAM_ERROR`, gekeyed
+pro Slot **und** pro Param (`slotId@paramKey`). **Mutation erbt anteilig:** `cloneWithInheritance`
+trägt die alte EMA als Prior mit (Count × priorWeight) statt hart zu resetten; `cloneWithReset` bleibt
+als priorWeight=0 erhalten. Die Struktur-Bewertung ist eine berechnete Sicht:
+`structureScore = ema(SCORE) − 100·(wFail·ema(FAIL_RATE) + wParam·ema(PARAM_ERROR))`.
 
 parent3 und tiefer werden **nicht** gespeichert — die Information liegt über die Kette bereits vor.
 
