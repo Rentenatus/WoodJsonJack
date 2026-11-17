@@ -139,11 +139,11 @@ public class OllamaProvider implements ModelProvider {
         }
         // same shape as the typed writer (spaces after colons) so stub servers see one format
         StringBuilder body = new StringBuilder();
-        body.append("{\"model\": \"").append(esc(modelclass.getModel())).append("\", \"messages\": [");
+        body.append("{\"model\": \"").append(JsonEsc.esc(modelclass.getModel())).append("\", \"messages\": [");
         if (sys.length() > 0) {
-            body.append("{\"role\": \"system\", \"content\": \"").append(esc(sys.toString())).append("\"}, ");
+            body.append("{\"role\": \"system\", \"content\": \"").append(JsonEsc.esc(sys.toString())).append("\"}, ");
         }
-        body.append("{\"role\": \"user\", \"content\": \"").append(esc(user.toString())).append("\"}]");
+        body.append("{\"role\": \"user\", \"content\": \"").append(JsonEsc.esc(user.toString())).append("\"}]");
         body.append(", \"stream\": false, \"format\": \"json\", \"options\": {\"temperature\": ")
                 .append(temperature).append("}}");
         String raw = client.postRaw(body.toString(), baseUrl + "/api/chat", 120000);
@@ -155,57 +155,4 @@ public class OllamaProvider implements ModelProvider {
         return response.getMessage() == null ? "" : response.getMessage().getContent();
     }
 
-    private static String esc(String s) {
-        StringBuilder sb = new StringBuilder(s.length() + 16);
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            switch (c) {
-                case '"' -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default -> sb.append(c);
-            }
-        }
-        return sb.toString();
-    }
-
-    /** Minimal extraction of the "response" field - full JSON parsing happens in the AiCalculator. */
-    static String extractResponse(String json) {
-        String key = "\"response\":\"";
-        int i = json.indexOf(key);
-        if (i < 0) {
-            return json;
-        }
-        StringBuilder sb = new StringBuilder();
-        for (int j = i + key.length(); j < json.length(); j++) {
-            char c = json.charAt(j);
-            if (c == '\\' && j + 1 < json.length()) {
-                char n = json.charAt(j + 1);
-                sb.append(n == 'n' ? '\n' : n == 't' ? '\t' : n);
-                j++;
-            } else if (c == '"') {
-                break;
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
-    }
-
-    static String jsonString(String s) {
-        StringBuilder sb = new StringBuilder("\"");
-        for (char c : s.toCharArray()) {
-            switch (c) {
-                case '"' -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default -> sb.append(c);
-            }
-        }
-        return sb.append('"').toString();
-    }
 }

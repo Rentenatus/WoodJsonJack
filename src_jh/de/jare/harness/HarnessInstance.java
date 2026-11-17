@@ -33,7 +33,6 @@ public class HarnessInstance {
     private final List<CallLogEntry> callLog = new ArrayList<>();
     private final MetricsStore metrics = new MetricsStore();
     private MetricsStore globalMetrics;   // ~/.wood/harness/metrics.json aggregate (§8) - optional, read priors + accumulate
-    private RagStore rag;   // project-local RAG (§11) - lazily created, never global
     private final java.util.Map<String, RagStore> rags = new java.util.LinkedHashMap<>();   // per rag model name, §11
 
     public HarnessInstance(String modelName, String modelVersion) {
@@ -154,8 +153,8 @@ public class HarnessInstance {
         return rags;
     }
 
+    /** Registers a store under its own model name (persistence, §11). */
     public void setRag(RagStore rag) {
-        this.rag = rag;
         if (rag != null) {
             rags.put(rag.getModelName(), rag);
         }

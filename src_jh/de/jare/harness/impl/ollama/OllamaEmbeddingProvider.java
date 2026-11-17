@@ -44,7 +44,7 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
 
     @Override
     public double[] embed(String text) {
-        String body = "{\"model\":\"" + model + "\",\"input\":" + quote(text == null ? "" : text) + "}";
+        String body = "{\"model\":\"" + model + "\",\"input\":" + JsonEsc.quote(text == null ? "" : text) + "}";
         String raw;
         try {
             raw = client.postRaw(body, baseUrl + "/api/embed", 120000);
@@ -73,19 +73,4 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         }
     }
 
-    private static String quote(String s) {
-        StringBuilder sb = new StringBuilder("\"");
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            switch (c) {
-                case '"' -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default -> sb.append(c);
-            }
-        }
-        return sb.append('"').toString();
-    }
 }
