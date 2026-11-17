@@ -114,6 +114,22 @@ public class HarnessEngine implements HarnessDriver {
         return tools;
     }
 
+    /**
+     * The ACTIVE RAG store (§11): the store of the first modelclass with purpose {@code "rag"},
+     * embedded through the factory's embedding provider for that model; fallback the
+     * deterministic hash-embedding store when the model declares no rag modelclass.
+     * Stores stay keyed per rag model name - two rag models = two separate stores.
+     */
+    public de.jare.harness.rag.RagStore activeRag() {
+        de.jare.harness.model.Modelclass ragMc = model.modelclassesForPurpose("rag").stream()
+                .findFirst().orElse(null);
+        de.jare.harness.rag.EmbeddingProvider ep = ragMc == null
+                || !(factory instanceof de.jare.harness.impl.DefaultCalculatorFactory dcf)
+                ? de.jare.harness.rag.EmbeddingProvider.hashEmbedding()
+                : dcf.embeddingProviderFor(ragMc);
+        return instance.getRag(ep);
+    }
+
     public void setLineage(HarnessLineage lineage) {
         this.lineage = lineage;
     }
@@ -667,20 +683,28 @@ public class HarnessEngine implements HarnessDriver {
         List<PromptSegment> resolved = new ArrayList<>(relevanceRegistry.resolve(task.getTaskType(),
                 task.getAttempt(), kind, model.getVersion(), auftrag));
         if (kind == Kind.WORK || kind == Kind.CHECK || kind == Kind.COMPLETE) {
-            var rag = instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding());
-            var hits = rag.retrieve(auftrag, rag.getDefaults().topK(), rag.getDefaults().minScore());
-            for (var h : hits) {
-                var chunk = h.chunk();
-                if (de.jare.harness.skills.SkillRegistry.DOC_TYPE_SKILL.equals(chunk.getDocType())) {
-                    // §12: reference only, never the full skill text in the prompt
-                    resolved.add(PromptSegment.of(PromptSegment.Category.SKILL,
-                            "skill:" + chunk.getMeta().get("skillId"),
-                            "skill " + chunk.getMeta().get("skillId") + " (scope "
-                                    + chunk.getMeta().get("scope") + ") - see RAG chunk " + chunk.getId()));
-                } else {
-                    resolved.add(PromptSegment.of(PromptSegment.Category.DATA,
-                            "rag:chunk-" + chunk.getId(), chunk.getDocument()));
+            // RAG_RETRIEVE enrichment is best-effort: an empty store or an embedder outage
+            // must never kill the run - the DATA/SKILL segments are simply left out
+            try {
+                var rag = activeRag();   // the active rag model's store (§11), not always the hash fallback
+                if (!rag.getChunks().isEmpty()) {
+                    var hits = rag.retrieve(auftrag, rag.getDefaults().topK(), rag.getDefaults().minScore());
+                    for (var h : hits) {
+                        var chunk = h.chunk();
+                        if (de.jare.harness.skills.SkillRegistry.DOC_TYPE_SKILL.equals(chunk.getDocType())) {
+                            // §12: reference only, never the full skill text in the prompt
+                            resolved.add(PromptSegment.of(PromptSegment.Category.SKILL,
+                                    "skill:" + chunk.getMeta().get("skillId"),
+                                    "skill " + chunk.getMeta().get("skillId") + " (scope "
+                                            + chunk.getMeta().get("scope") + ") - see RAG chunk " + chunk.getId()));
+                        } else {
+                            resolved.add(PromptSegment.of(PromptSegment.Category.DATA,
+                                    "rag:chunk-" + chunk.getId(), chunk.getDocument()));
+                        }
+                    }
                 }
+            } catch (Throwable ragDown) {
+                notify(task, kind, "rag retrieve skipped: " + ragDown.getMessage());
             }
         }
         // §16: the relevance calculator may pull a mindset category as SYSTEM segment
@@ -803,7 +827,14 @@ public class HarnessEngine implements HarnessDriver {
             // TEMP debug: trace the fallback calculator call (to be removed)
             System.out.println("[CALC >>] kind=" + kind + " slot=" + ctx.slotId()
                     + " calc=fallback:" + kind + " task=" + ctx.task().getId() + " (after " + e.getType() + ")");
-            CalcResult r = de.jare.harness.impl.deterministic.DeterministicCalculators.forKind(kind).calculate(ctx);
+            CalcResult r;
+            try {
+                r = de.jare.harness.impl.deterministic.DeterministicCalculators.forKind(kind).calculate(ctx);
+            } catch (Throwable t) {
+                // the fallback itself must never throw - a second failure is just logged
+                r = CalcResult.of(kind, "fallback-failed")
+                        .message("fallback also failed: " + t.getMessage());
+            }
             System.out.println("[CALC <<] kind=" + kind + " calc=fallback:" + kind
                     + " -> decision=" + r.getDecision() + " status=FAILED");
             return r.decision(r.getDecision()).status(Status.FAILED).message("fallback after " + e.getType());

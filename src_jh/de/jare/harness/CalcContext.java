@@ -182,9 +182,9 @@ public class CalcContext {
         return engine.askUser(question, options);
     }
 
-    /** ctx.rag - the project-local RAG facade (§11, §14), default hash-embedding store. */
+    /** ctx.rag - the project-local RAG facade (§11, §14): the ACTIVE rag model's store (engine.activeRag()). */
     public de.jare.harness.rag.RagStore rag() {
-        return instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding());
+        return engine.activeRag();
     }
 
     /** ctx.rag - the RAG store of the given embedder (one store per rag model name, §11). */

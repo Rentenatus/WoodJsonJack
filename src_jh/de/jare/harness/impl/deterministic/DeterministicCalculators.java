@@ -210,7 +210,14 @@ public final class DeterministicCalculators {
             meta.put("score", String.valueOf(t.getScore()));
         }
         meta.put("ts", String.valueOf(System.currentTimeMillis()));
-        de.jare.harness.rag.RagChunk chunk = ctx.rag().store("RESULT", document, meta);
+        de.jare.harness.rag.RagChunk chunk;
+        try {
+            chunk = ctx.rag().store("RESULT", document, meta);
+        } catch (Throwable storeFail) {
+            // the RAG store is a side channel - an embedder outage must not fail the run
+            return CalcResult.of(Kind.RAG_STORE, "store-failed").status(Status.DONE)
+                    .put("reason", String.valueOf(storeFail.getMessage()));
+        }
         return CalcResult.of(Kind.RAG_STORE, "stored").put("chunkId", String.valueOf(chunk.getId()));
     }
 

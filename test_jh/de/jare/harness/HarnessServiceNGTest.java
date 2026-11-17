@@ -44,9 +44,12 @@ public class HarnessServiceNGTest {
         Assert.assertEquals(loaded.getRoot().getStatus(), Status.DONE);
         Assert.assertFalse(loaded.getCallLog().isEmpty());
 
-        // §11: the rag store is persisted per model under .wood/harness/rag/
-        File ragFile = new File(project.toFile(), ".wood/harness/rag/hash-embedding.json");
-        Assert.assertTrue(ragFile.exists(), "rag store persisted per rag model name");
+        // §11: the ACTIVE rag store (the default model's rag modelclass) is persisted per model
+        // name under .wood/harness/rag/ - not the hash fallback
+        File ragFile = new File(project.toFile(), ".wood/harness/rag/manutic_nomic-embed-code_latest.json");
+        Assert.assertTrue(ragFile.exists(), "active rag store persisted per rag model name");
+        Assert.assertFalse(new File(project.toFile(), ".wood/harness/rag/hash-embedding.json").exists(),
+                "hash fallback store must not be used when a rag modelclass is configured");
     }
 
     @Test

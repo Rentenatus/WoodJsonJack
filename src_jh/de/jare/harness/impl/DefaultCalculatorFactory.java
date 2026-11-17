@@ -28,6 +28,7 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
 
     private final HarnessModel model;
     private final Map<String, ModelProvider> providers = new HashMap<>();
+    private final Map<String, de.jare.harness.rag.EmbeddingProvider> embeddingProviders = new HashMap<>();
     private final de.jare.harness.CalculatorRegistry registry = new de.jare.harness.CalculatorRegistry();
 
     public DefaultCalculatorFactory(HarnessModel model) {
@@ -69,18 +70,31 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
         return providers.get(key);
     }
 
+    /** Registers a custom embedding provider for a rag model name (tests, host wiring). */
+    public DefaultCalculatorFactory registerEmbeddingProvider(String modelName,
+            de.jare.harness.rag.EmbeddingProvider ep) {
+        embeddingProviders.put(modelName, ep);
+        return this;
+    }
+
     /**
-     * The embedding provider for a {@code purpose: "rag"} modelclass: an ollama-backed
-     * {@link de.jare.harness.impl.ollama.OllamaEmbeddingProvider} when the registered
-     * provider is an {@link de.jare.harness.impl.ollama.OllamaProvider}, else the
-     * deterministic hash embedding. The RAG store is keyed by {@code modelName()}, so
-     * two rag models get two separate stores (§11).
+     * The embedding provider for a {@code purpose: "rag"} modelclass: a custom registered
+     * provider wins, then an ollama-backed {@link de.jare.harness.impl.ollama.OllamaEmbeddingProvider}
+     * when the registered provider is an {@link de.jare.harness.impl.ollama.OllamaProvider},
+     * else the deterministic hash embedding. The RAG store is keyed by {@code modelName()},
+     * so two rag models get two separate stores (§11).
      */
     public de.jare.harness.rag.EmbeddingProvider embeddingProviderFor(Modelclass mc) {
-        if (mc != null && "ollama".equals(mc.getProvider())) {
-            ModelProvider p = providers.get("ollama");
-            if (p instanceof de.jare.harness.impl.ollama.OllamaProvider op) {
-                return new de.jare.harness.impl.ollama.OllamaEmbeddingProvider(op.getBaseUrl(), mc.getModel());
+        if (mc != null) {
+            de.jare.harness.rag.EmbeddingProvider custom = embeddingProviders.get(mc.getModel());
+            if (custom != null) {
+                return custom;
+            }
+            if ("ollama".equals(mc.getProvider())) {
+                ModelProvider p = providers.get("ollama");
+                if (p instanceof de.jare.harness.impl.ollama.OllamaProvider op) {
+                    return new de.jare.harness.impl.ollama.OllamaEmbeddingProvider(op.getBaseUrl(), mc.getModel());
+                }
             }
         }
         return de.jare.harness.rag.EmbeddingProvider.hashEmbedding();

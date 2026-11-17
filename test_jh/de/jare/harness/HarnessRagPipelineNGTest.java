@@ -82,6 +82,35 @@ public class HarnessRagPipelineNGTest {
         Assert.assertTrue(instance.getRag(EmbeddingProvider.hashEmbedding()).getChunks().isEmpty());
     }
 
+    /**
+     * §11/§12: when the model declares a rag modelclass, the ACTIVE store is that model's
+     * store (engine.activeRag / ctx.rag) - not the hash fallback. RAG_STORE must land there,
+     * so skill chunks stored via skill.match are retrievable in the prompt segments.
+     */
+    @Test
+    public void testActiveRagStoreFollowsRagModelclass() {
+        HarnessModel model = modelWithAllQuests();
+        model.addModelclass(new de.jare.harness.model.Modelclass(
+                "ollama", "test-embed:latest", "rag", 0, 0.2, false));
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        instance.newRootTask(instance.nextTaskId(), "RESEARCH", "java streams pipeline");
+        // offline embedder registered under the rag model's name - the store must key on it
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        factory.registerEmbeddingProvider("test-embed:latest",
+                EmbeddingProvider.hashEmbedding("test-embed:latest"));
+        HarnessEngine engine = new HarnessEngine(model, instance, factory);
+
+        Assert.assertEquals(engine.activeRag().getModelName(), "test-embed:latest",
+                "activeRag must resolve the rag-purpose modelclass's store");
+        engine.run();
+
+        RagStore active = instance.getRags().get("test-embed:latest");
+        Assert.assertNotNull(active, "the rag model's store must exist");
+        Assert.assertFalse(active.getChunks().isEmpty(), "RAG_STORE must write into the ACTIVE store");
+        Assert.assertTrue(instance.getRag(EmbeddingProvider.hashEmbedding()).getChunks().isEmpty(),
+                "the hash fallback store must stay empty when a rag modelclass is configured");
+    }
+
     @Test
     public void testRetrieveFeedsSecondRun() {
         HarnessModel model = modelWithAllQuests();

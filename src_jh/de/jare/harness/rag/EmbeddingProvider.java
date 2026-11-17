@@ -23,10 +23,15 @@ public interface EmbeddingProvider {
 
     /** Deterministic bag-of-words hashing embedding - offline fallback, cosine-comparable. */
     static EmbeddingProvider hashEmbedding() {
+        return hashEmbedding("hash-embedding");
+    }
+
+    /** Hash embedding under a custom model name (tests, custom wiring) - cosine-comparable. */
+    static EmbeddingProvider hashEmbedding(String modelName) {
         return new EmbeddingProvider() {
             @Override
             public String modelName() {
-                return "hash-embedding";
+                return modelName;
             }
 
             @Override
