@@ -243,3 +243,45 @@ sind ein eigenes Schwellen-Kriterium der Feedback-Schleife — betroffener Slot/
 - Config: GUARD-Quest = Puzzle `[guard.check, guard.escalate]`. Tests: GuardVerdictNGTest (6 Tests inkl.
   Engine-Level: BLOCKED stoppt den Run, CATCH feuert, WORK wird nie erreicht). Harness-Suite 165/165,
   WJJ gesamt 254/254 grün.
+
+## 10.9 Code-Review Harness: Redundanzen geschnitten, toter Code entfernt, RAG-Store-Bug gefixt
+
+Review-Fragen: Linientreue zum Konzept, redundanter/ungenutzter Code, Schnittstellen-Qualität.
+Schichtung (§10) verifiziert: src_jh hat 0 Swing/AWT- und 0 de.jare.tree-Imports.
+
+**Redundanz geschnitten (Commits 549ff43, 3205cc5, 9e143c6):**
+- Neu `impl/AiAnswers`: eine Stelle für Provider-Call (Availability + temperature + MODEL_UNAVAILABLE),
+  strict-JSON-Parse (SCHEMA_VIOLATION), tolerantes Status-Parsing, JsonNode-Text/Score-Accessors, abbrev
+  und den Emphasis-Retry (`callAndParse`). Ersetzt die 5 kopierten Blöcke in AiCalculator,
+  ScoringCountQuestsCalculator, AskAiDecomposeCalculator, GuardCheckCalculator, GuardEscalateCalculator.
+- Neu `io/JsonNodes` (child/text/longOf/doubleOf): ersetzt die 4 kopierten Helfer-Sets in CallLogEntry,
+  HarnessModelCodec, HarnessInstanceCodec, RagStore; AiAnswers.text delegiert dorthin.
+- Neu `impl/ollama/JsonEsc` (esc/quote): ersetzt esc/quote in OllamaProvider + OllamaEmbeddingProvider.
+
+**Toter Code entfernt (9e143c6):** `OllamaProvider.extractResponse`/`jsonString` (nie aufgerufen),
+`HarnessInstance.rag`-Feld (nur geschrieben, nie gelesen — Stores leben nur in der `rags`-Map).
+
+**Bug gefixt (d8d1ac3):** `engine.activeRag()` löst den Store der rag-Modelclass auf (Fallback hash);
+`ctx.rag()` und `buildSegments` benutzen ihn jetzt — vorher schrieb `skill.match` in den nomic-Store,
+das Prompt-Retrieval las aber den Hash-Store (Skill-Treffer kamen nie im Prompt an). Retrieval in
+`buildSegments` ist best-effort (leerer Store wird geskippt, Embedder-Ausfall wird geloggt, nicht fatal);
+RAG_STORE meldet Embedder-Ausfall als `store-failed` (Seitenkanal, kein Run-Fehler); der deterministische
+Fallback kann nicht mehr selbst werfen. `DefaultCalculatorFactory.registerEmbeddingProvider` erlaubt
+Hosts/Tests eigene Embedder pro Modellname. Neuer Test `testActiveRagStoreFollowsRagModelclass`.
+
+**Unbenutzter Code — tot vs. Chance (Entscheidung):**
+- TOT (entfernt): siehe oben.
+- CHANCE (behalten, bewusst): `WorkCache.previousResult` (Schnellzugriff für Deltas, §15.6);
+  `MetricsStore.structureScore` (wird als nächstes in `EvolutionRunner` eingehängt); `Kind.RAG_RETRIEVE`
+  + `DeterministicCalculators.ragRetrieve` (Loop-Item später; Retrieval läuft heute inline in
+  `buildSegments`); `HarnessTools.exposeScopes/allowed` (Exposure-Budget §13, wird als nächstes in
+  `AiCalculator.toolLoop` verdrahtet); `LoopItem.loop` (Subloop-Ref, in der Engine verdrahtet, in der
+  Konfig noch ungenutzt).
+
+**Noch offen nach dem Review:** TEMP-`[CALC >>]/[CALC <<]`-Printlns in der Engine (warten auf
+Debug-Ende); Legacy-`splitInto` prozessiert Kinder noch mit "main" statt "sub" (nur über Legacy-
+decision erreichbar); `HarnessEngine.RAG_STORE_MIN_SCORE` als Engine-Konstante (soll als Slot-Param in
+den Kalkulator); `HarnessViewNGTest` flaky (~1/3, EDT-Timing, isoliert grün); KI-Pane zeigt die
+WorkResponse-Antwort noch nicht an.
+
+Harness-Suite 166/166, WJJ gesamt 255/255 grün.
