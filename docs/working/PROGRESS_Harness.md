@@ -206,3 +206,9 @@ HashMap in LoopEngineNGTest/GuardSkillNGTest. Harness-Suite 148/148, WJJ gesamt 
 - Tests: +4 in HarnessMetricsNGTest (Loop-Keys, Param-Count, Prior-Inheritance, structureScore), +2 in
   LoopEngineNGTest (Loop-Kontext im CallLog + End-to-End PARAM_ERROR), +2 in HarnessCodecNGTest (temperature
   PARAMETER, strikte Builder). Harness-Suite 155/155, WJJ gesamt 253/253 grün.
+
+## 10.6 Konzept ergänzt: PARAM_ERROR als Mutations-Maß (committet mit Doku)
+
+CONCEPT_Harness.md §7 Punkt 4: Häufige Parameterfehler (`PARAM_ERROR` pro `slotId@paramKey` bzw. `loop:…`-Keys)
+sind ein eigenes Schwellen-Kriterium der Feedback-Schleife — betroffener Slot/Loop-Item wird Mutations-Kandidat;
+`structureScore` (§6) fasst SCORE + FAIL_RATE + PARAM_ERROR zur Struktur-Bewertung zusammen.
