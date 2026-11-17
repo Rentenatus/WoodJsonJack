@@ -6,6 +6,7 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.io.JsonNodes;
 import de.jare.jsoncasted.lang.JsonNode;
 
 /**
@@ -181,47 +182,31 @@ public class CallLogEntry {
     /** Reads an entry back from its JsonNode form. */
     public static CallLogEntry fromJson(JsonNode n) {
         Parent1 p1 = null;
-        JsonNode p1n = child(n, "parent1");
+        JsonNode p1n = JsonNodes.child(n, "parent1");
         if (p1n != null) {
             p1 = new Parent1(
-                    longOf(p1n, "aufrufId", 0),
-                    child(p1n, "score") == null ? null : child(p1n, "score").asLong().intValue(),
-                    Status.valueOf(text(p1n, "status", "DONE")));
+                    JsonNodes.longOf(p1n, "aufrufId", 0),
+                    JsonNodes.child(p1n, "score") == null ? null : JsonNodes.child(p1n, "score").asLong().intValue(),
+                    Status.valueOf(JsonNodes.text(p1n, "status", "DONE")));
         }
-        Long p2 = child(n, "parent2") == null ? null : child(n, "parent2").asLong();
+        Long p2 = JsonNodes.child(n, "parent2") == null ? null : JsonNodes.child(n, "parent2").asLong();
         java.util.Map<String, String> payload = new java.util.LinkedHashMap<>();
-        JsonNode pn = child(n, "payload");
+        JsonNode pn = JsonNodes.child(n, "payload");
         if (pn != null && pn.isObject()) {
             for (var e : pn.asObjectValues().entrySet()) {
                 payload.put(e.getKey(), e.getValue() == null || e.getValue().isNull() ? "" : e.getValue().asText());
             }
         }
         return new CallLogEntry(
-                longOf(n, "aufrufId", 0), longOf(n, "taskId", 0), text(n, "taskType", ""),
-                Kind.valueOf(text(n, "kind", "WORK")), text(n, "slotId", ""),
-                text(n, "modelVersion", ""), (int) longOf(n, "attempt", 0),
-                longOf(n, "dauerMs", 0), (int) longOf(n, "tokensIn", 0), (int) longOf(n, "tokensOut", 0),
-                child(n, "score") == null ? null : child(n, "score").asLong().intValue(),
-                Status.valueOf(text(n, "status", "DONE")), text(n, "decision", ""),
-                text(n, "message", ""), payload, p1, p2,
-                text(n, "loopId", null), text(n, "loopItemId", null),
-                text(n, "trigger", null), text(n, "paramError", null));
+                JsonNodes.longOf(n, "aufrufId", 0), JsonNodes.longOf(n, "taskId", 0), JsonNodes.text(n, "taskType", ""),
+                Kind.valueOf(JsonNodes.text(n, "kind", "WORK")), JsonNodes.text(n, "slotId", ""),
+                JsonNodes.text(n, "modelVersion", ""), (int) JsonNodes.longOf(n, "attempt", 0),
+                JsonNodes.longOf(n, "dauerMs", 0), (int) JsonNodes.longOf(n, "tokensIn", 0), (int) JsonNodes.longOf(n, "tokensOut", 0),
+                JsonNodes.child(n, "score") == null ? null : JsonNodes.child(n, "score").asLong().intValue(),
+                Status.valueOf(JsonNodes.text(n, "status", "DONE")), JsonNodes.text(n, "decision", ""),
+                JsonNodes.text(n, "message", ""), payload, p1, p2,
+                JsonNodes.text(n, "loopId", null), JsonNodes.text(n, "loopItemId", null),
+                JsonNodes.text(n, "trigger", null), JsonNodes.text(n, "paramError", null));
     }
 
-    private static JsonNode child(JsonNode node, String key) {
-        if (node == null || !node.isObject()) {
-            return null;
-        }
-        return node.asObjectValues().get(key);
-    }
-
-    private static String text(JsonNode node, String key, String def) {
-        JsonNode v = child(node, key);
-        return v == null || v.isNull() ? def : v.asText();
-    }
-
-    private static long longOf(JsonNode node, String key, long def) {
-        JsonNode v = child(node, key);
-        return v == null || v.isNull() ? def : v.asLong();
-    }
 }

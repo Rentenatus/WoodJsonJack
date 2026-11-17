@@ -119,13 +119,9 @@ public final class AiAnswers {
         }
     }
 
-    /** Text value of an object member (default when absent or null). */
+    /** Text value of an object member (default when absent or null) - delegates to {@link de.jare.harness.io.JsonNodes}. */
     public static String text(JsonNode node, String key, String def) {
-        if (node == null) {
-            return def;
-        }
-        var v = node.asObjectValues().get(key);
-        return v == null || v.isNull() ? def : v.asText();
+        return de.jare.harness.io.JsonNodes.text(node, key, def);
     }
 
     /** Score value of an object member: NUMBER or LONG node, rounded to int; null when absent. */

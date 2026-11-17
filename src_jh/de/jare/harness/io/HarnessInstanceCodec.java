@@ -45,10 +45,10 @@ public final class HarnessInstanceCodec {
 
     public static HarnessInstance fromJson(JsonNode root) {
         HarnessInstance instance = new HarnessInstance(
-                text(root, "modelName", ""), text(root, "modelVersion", ""));
+                JsonNodes.text(root, "modelName", ""), JsonNodes.text(root, "modelVersion", ""));
         long maxTaskId = 0;
         long maxAufrufId = 0;
-        JsonNode task = child(root, "rootTask");
+        JsonNode task = JsonNodes.child(root, "rootTask");
         if (task != null) {
             try {
                 instance.adoptTaskTree(TaskTree.fromJson(normalizeLegacyTask(task)));
@@ -57,7 +57,7 @@ public final class HarnessInstanceCodec {
                 throw new IllegalStateException("rootTask is no parseable task tree: " + e.getMessage(), e);
             }
         }
-        JsonNode log = child(root, "callLog");
+        JsonNode log = JsonNodes.child(root, "callLog");
         if (log != null && log.isArray()) {
             for (JsonNode e : log.asArray()) {
                 CallLogEntry entry = entryFromJson(e);
@@ -66,9 +66,9 @@ public final class HarnessInstanceCodec {
                 maxTaskId = Math.max(maxTaskId, entry.getTaskId());
             }
         }
-        JsonNode ids = child(root, "ids");
-        long persistedTask = ids == null ? 1 : longOf(ids, "nextTaskId", 1);
-        long persistedAufruf = ids == null ? 1 : longOf(ids, "nextAufrufId", 1);
+        JsonNode ids = JsonNodes.child(root, "ids");
+        long persistedTask = ids == null ? 1 : JsonNodes.longOf(ids, "nextTaskId", 1);
+        long persistedAufruf = ids == null ? 1 : JsonNodes.longOf(ids, "nextAufrufId", 1);
         instance.reconcileIds(Math.max(maxTaskId, persistedTask - 1), Math.max(maxAufrufId, persistedAufruf - 1));
         return instance;
     }
@@ -183,20 +183,4 @@ public final class HarnessInstanceCodec {
         return max;
     }
 
-    private static JsonNode child(JsonNode node, String key) {
-        if (node == null || !node.isObject()) {
-            return null;
-        }
-        return node.asObjectValues().get(key);
-    }
-
-    private static String text(JsonNode node, String key, String def) {
-        JsonNode v = child(node, key);
-        return v == null || v.isNull() ? def : v.asText();
-    }
-
-    private static long longOf(JsonNode node, String key, long def) {
-        JsonNode v = child(node, key);
-        return v == null || v.isNull() ? def : v.asLong();
-    }
 }

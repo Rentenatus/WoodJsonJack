@@ -11,6 +11,7 @@ import de.jare.harness.io.AtomicFileWrite;
 import de.jare.jsoncasted.io.JsonNodeWriter;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.parserservice.JsonParserService;
+import de.jare.harness.io.JsonNodes;
 import de.jare.jsoncasted.lang.JsonNode;
 import java.io.File;
 import java.io.IOException;
@@ -201,8 +202,8 @@ public class RagStore {
                 JsonNode idn = n.asObjectValues().get("id");
                 long id = idn == null ? store.nextId++ : idn.asLong();
                 store.nextId = Math.max(store.nextId, id + 1);
-                store.chunks.add(new RagChunk(id, text(n, "contentHash"), text(n, "docType"),
-                        text(n, "document"), meta, emb, longOf(n, "ts", 0)));
+                store.chunks.add(new RagChunk(id, JsonNodes.text(n, "contentHash", ""), JsonNodes.text(n, "docType", ""),
+                        JsonNodes.text(n, "document", ""), meta, emb, JsonNodes.longOf(n, "ts", 0)));
             }
         }
         return store;
@@ -263,13 +264,4 @@ public class RagStore {
         }
     }
 
-    private static String text(JsonNode n, String key) {
-        JsonNode v = n.asObjectValues().get(key);
-        return v == null || v.isNull() ? "" : v.asText();
-    }
-
-    private static long longOf(JsonNode n, String key, long def) {
-        JsonNode v = n.asObjectValues().get(key);
-        return v == null || v.isNull() ? def : v.asLong();
-    }
 }
