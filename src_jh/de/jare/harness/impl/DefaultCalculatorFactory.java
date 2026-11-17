@@ -90,6 +90,11 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
             if (custom != null) {
                 return custom;
             }
+            if (mc.isSystem()) {
+                // declared deterministic rag fallback (provider "system"): the hash embedding,
+                // keyed by the declared model name so its store is persisted under it
+                return de.jare.harness.rag.EmbeddingProvider.hashEmbedding(mc.getModel());
+            }
             if ("ollama".equals(mc.getProvider())) {
                 ModelProvider p = providers.get("ollama");
                 if (p instanceof de.jare.harness.impl.ollama.OllamaProvider op) {
@@ -113,6 +118,11 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
         String impl = node.getImpl() == null ? CalculatorNode.IMPL_DETERMINISTIC : node.getImpl();
         if (CalculatorNode.IMPL_AI.equals(impl)) {
             Modelclass mc = node.getModelclass() == null ? null : model.modelclass(node.getModelclass());
+            if (mc != null && mc.isSystem()) {
+                // provider "system" = built-in deterministic fallback as a declared model:
+                // no LLM call, the deterministic calculator of the kind answers
+                return DeterministicCalculators.forKind(kind);
+            }
             ModelProvider provider = mc == null ? null
                     : providers.get(mc.getProvider() == null ? "ollama" : mc.getProvider());
             return new AiCalculator(kind, mc, provider);

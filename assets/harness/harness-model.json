@@ -16,7 +16,8 @@
     { "provider": "ollama", "model": "granite3.3:8b",                 "purpose": "evaluation",    "size": 8,   "costFactor": 0.5, "toolCapable": false },
     { "provider": "ollama", "model": "gemma3:27b",                    "purpose": "evaluation",    "size": 27,  "costFactor": 1.5, "toolCapable": false },
     { "provider": "ollama", "model": "manutic/nomic-embed-code:latest", "purpose": "rag",        "size": 0,   "costFactor": 0.2, "toolCapable": false },
-    { "provider": "ollama", "model": "phi4-mini:latest",               "purpose": "scoring",    "size": 4,   "costFactor": 0.3, "toolCapable": false }
+    { "provider": "ollama", "model": "phi4-mini:latest",               "purpose": "scoring",    "size": 4,   "costFactor": 0.3, "toolCapable": false },
+    { "provider": "system", "model": "hash-embedding",                 "purpose": "rag",        "size": 0,   "costFactor": 0.0, "toolCapable": false }
   ],
   "quests": [
     {

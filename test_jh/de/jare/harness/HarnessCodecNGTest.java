@@ -409,4 +409,38 @@ public class HarnessCodecNGTest {
         Assert.assertTrue(loaded.getNextAufrufId() > maxAufruf,
                 "nextAufrufId must stay ahead of every logged id after reload");
     }
+
+    /**
+     * Provider "system" is the declared built-in deterministic fallback: an ai slot bound to a
+     * system modelclass never calls a provider - the factory returns the deterministic
+     * calculator of the kind (same behavior as the catch-mapping fallback).
+     */
+    @Test
+    public void testSystemProviderModelclassRunsDeterministic() {
+        HarnessModel model = sampleModel();
+        model.addModelclass(new Modelclass(Modelclass.PROVIDER_SYSTEM, "builtin-fallback", "edit", 0, 0.0, false));
+        // make the system entry the FIRST "edit" class so modelclass("edit") resolves to it
+        model.getModelclasses().add(0, model.getModelclasses().remove(model.getModelclasses().size() - 1));
+
+        CalculatorNode aiOnSystem = CalculatorNode.atomic(CalculatorNode.IMPL_AI).modelclass("edit");
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        HarnessCalculator calc = factory.createAtomic(aiOnSystem, Kind.WORK);
+        Assert.assertFalse(calc instanceof de.jare.harness.impl.AiCalculator,
+                "provider system must not produce an AiCalculator");
+
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        TaskData root = instance.newRootTask(instance.nextTaskId(), "CODE_EDIT", "do it");
+        HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        CalcContext ctx = new CalcContext(engine, instance, model, root, Kind.WORK, "work.base",
+                aiOnSystem, engine.getLimits(), List.of("AUFTRAG:inline:task\ndo it"));
+        CalcResult r = calc.calculate(ctx);
+        Assert.assertEquals(r.getDecision(), "worked", "deterministic WORK fallback answers directly");
+        Assert.assertEquals(r.getStatus(), Status.DONE);
+
+        // provider name is case-insensitive: "System" behaves the same
+        Assert.assertTrue(new Modelclass("System", "x", "edit", 0, 0.0, false).isSystem());
+        // codec round trip keeps the system provider
+        HarnessModel loaded = HarnessModelCodec.fromJson(HarnessModelCodec.toJson(model));
+        Assert.assertTrue(loaded.modelclass("edit").isSystem());
+    }
 }

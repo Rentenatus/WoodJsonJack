@@ -121,8 +121,11 @@ public class HarnessEngine implements HarnessDriver {
      * Stores stay keyed per rag model name - two rag models = two separate stores.
      */
     public de.jare.harness.rag.RagStore activeRag() {
+        // a declared "system" rag modelclass (e.g. hash-embedding) is the FALLBACK - a real
+        // rag model (ollama/hosted) always wins when both are declared (§11: one active rag model)
         de.jare.harness.model.Modelclass ragMc = model.modelclassesForPurpose("rag").stream()
-                .findFirst().orElse(null);
+                .filter(mc -> !mc.isSystem()).findFirst()
+                .orElseGet(() -> model.modelclassesForPurpose("rag").stream().findFirst().orElse(null));
         de.jare.harness.rag.EmbeddingProvider ep = ragMc == null
                 || !(factory instanceof de.jare.harness.impl.DefaultCalculatorFactory dcf)
                 ? de.jare.harness.rag.EmbeddingProvider.hashEmbedding()

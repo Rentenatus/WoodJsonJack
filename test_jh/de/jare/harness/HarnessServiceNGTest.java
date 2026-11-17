@@ -59,8 +59,11 @@ public class HarnessServiceNGTest {
         HarnessModel model = HarnessModelCodec.load(asset);
 
         Assert.assertEquals(model.getName(), "default-harness");
-        Assert.assertEquals(model.getModelclasses().size(), 11, "5 roles + local extras + phi4-mini (scoring)");
+        Assert.assertEquals(model.getModelclasses().size(), 12, "5 roles + local extras + phi4-mini (scoring) + system rag fallback");
         Assert.assertEquals(model.modelclass("scoring").getModel(), "phi4-mini:latest");
+        Assert.assertTrue(model.modelclassesForPurpose("rag").stream()
+                .anyMatch(de.jare.harness.model.Modelclass::isSystem),
+                "the declared system rag fallback (hash-embedding) must parse from the asset");
         Assert.assertEquals(model.modelclass("scoring").getSize(), 4, "phi4-mini ~3.8B -> size 4 (integer B)");
         Assert.assertEquals(model.modelclass("rag").getModel(), "manutic/nomic-embed-code:latest");
         Assert.assertEquals(model.modelclass("edit").getModel(), "devstral-small-2:24b");

@@ -111,6 +111,42 @@ public class HarnessRagPipelineNGTest {
                 "the hash fallback store must stay empty when a rag modelclass is configured");
     }
 
+    /**
+     * Provider "system" is the DECLARED deterministic rag fallback (hash-embedding): when a real
+     * rag modelclass is also declared, the real one wins (activeRag prefers non-system, §11);
+     * the system entry's embedder is keyed by its declared model name.
+     */
+    @Test
+    public void testActiveRagPrefersRealModelOverSystemFallback() {
+        HarnessModel model = modelWithAllQuests();
+        model.addModelclass(new de.jare.harness.model.Modelclass(
+                "ollama", "nomic-x:latest", "rag", 0, 0.2, false));
+        model.addModelclass(new de.jare.harness.model.Modelclass(
+                de.jare.harness.model.Modelclass.PROVIDER_SYSTEM, "hash-embedding", "rag", 0, 0.0, false));
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        factory.registerEmbeddingProvider("nomic-x:latest",
+                EmbeddingProvider.hashEmbedding("nomic-x:latest"));
+        HarnessEngine engine = new HarnessEngine(model, new HarnessInstance("m", "1"), factory);
+
+        Assert.assertEquals(engine.activeRag().getModelName(), "nomic-x:latest",
+                "a real rag modelclass must win over the declared system fallback");
+        var ragClasses = model.modelclassesForPurpose("rag");
+        Assert.assertEquals(ragClasses.size(), 2);
+        Assert.assertEquals(factory.embeddingProviderFor(ragClasses.get(1)).modelName(), "hash-embedding",
+                "the system rag entry resolves to the hash embedding keyed by its declared model name");
+    }
+
+    /** With ONLY a system rag modelclass declared, activeRag uses the declared hash store. */
+    @Test
+    public void testActiveRagFallsBackToDeclaredSystemModel() {
+        HarnessModel model = modelWithAllQuests();
+        model.addModelclass(new de.jare.harness.model.Modelclass(
+                de.jare.harness.model.Modelclass.PROVIDER_SYSTEM, "hash-embedding", "rag", 0, 0.0, false));
+        HarnessEngine engine = new HarnessEngine(model, new HarnessInstance("m", "1"),
+                new DefaultCalculatorFactory(model));
+        Assert.assertEquals(engine.activeRag().getModelName(), "hash-embedding");
+    }
+
     @Test
     public void testRetrieveFeedsSecondRun() {
         HarnessModel model = modelWithAllQuests();

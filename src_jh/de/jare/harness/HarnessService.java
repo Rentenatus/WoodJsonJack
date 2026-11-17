@@ -146,6 +146,7 @@ public class HarnessService {
                 String apiKey = host != null ? host.hostedApiKey() : "";
                 factory.registerProvider("hosted", new de.jare.harness.impl.hosted.HostedProvider(apiKey, mc));
             }
+            // provider "system" needs no registered provider - it is the built-in deterministic fallback
         }
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
         // result channel (§3 layering): the runtime WorkCache of the MemoryQuest is handed to
@@ -314,6 +315,8 @@ public class HarnessService {
         model.addModelclass(new Modelclass("ollama", "gemma3:27b", "evaluation", 27, 1.5, false));
         model.addModelclass(new Modelclass("ollama", "manutic/nomic-embed-code:latest", "rag", 0, 0.2, false));
         model.addModelclass(new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false));
+        // declared deterministic fallback: provider "system" = built-in, no network (rag hash embedding)
+        model.addModelclass(new Modelclass(Modelclass.PROVIDER_SYSTEM, "hash-embedding", "rag", 0, 0.0, false));
 
         for (Kind kind : Kind.values()) {
             Quest quest = new Quest(kind).evolvable(kind == Kind.WORK);
