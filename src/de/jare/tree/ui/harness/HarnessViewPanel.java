@@ -83,6 +83,23 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
 
     private static DefaultMutableTreeNode buildNode(TaskData t) {
         DefaultMutableTreeNode n = new DefaultMutableTreeNode(t);
+        // the projected calculator steps (data movement: input -> payload -> loopAction)
+        for (TaskData.CalcCall call : t.getCalls()) {
+            StringBuilder label = new StringBuilder();
+            label.append(call.getCalc()).append(" -> ").append(call.getDecision())
+                    .append(" [").append(call.getStatus()).append("]");
+            if (call.getScore() != null) {
+                label.append(" score=").append(call.getScore());
+            }
+            if (!call.getLoopActionType().isEmpty()) {
+                label.append(" loop=").append(call.getLoopActionType());
+            }
+            DefaultMutableTreeNode callNode = new DefaultMutableTreeNode(label.toString());
+            for (var p : call.getPayload().entrySet()) {
+                callNode.add(new DefaultMutableTreeNode(p.getKey() + " = " + p.getValue()));
+            }
+            n.add(callNode);
+        }
         for (TaskData c : t.getChildren()) {
             n.add(buildNode(c));
         }

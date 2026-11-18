@@ -44,10 +44,19 @@ public class HarnessViewNGTest {
         Assert.assertEquals(viewRoot.getChildCount(), 1, "root task visible in the tree");
         DefaultMutableTreeNode rootTask = (DefaultMutableTreeNode) viewRoot.getChildAt(0);
         Assert.assertEquals(((TaskData) rootTask.getUserObject()).getTitle(), "view test?");
-        Assert.assertEquals(rootTask.getChildCount(), 1, "reasoning subtask visible in the tree");
-        DefaultMutableTreeNode child = (DefaultMutableTreeNode) rootTask.getChildAt(0);
-        Assert.assertTrue(child.getUserObject() instanceof TaskData);
-        Assert.assertEquals(((TaskData) child.getUserObject()).getTaskType(), "REASONING");
+        // the call nodes (one per calculator step, §3 data movement) hang under the task too -
+        // count only the subtask children
+        java.util.List<DefaultMutableTreeNode> subtasks = new java.util.ArrayList<>();
+        for (int i = 0; i < rootTask.getChildCount(); i++) {
+            DefaultMutableTreeNode c = (DefaultMutableTreeNode) rootTask.getChildAt(i);
+            if (c.getUserObject() instanceof TaskData) {
+                subtasks.add(c);
+            }
+        }
+        Assert.assertEquals(subtasks.size(), 1, "reasoning subtask visible in the tree");
+        Assert.assertTrue(rootTask.getChildCount() > subtasks.size(),
+                "the projected calculator calls are visible as child nodes");
+        Assert.assertEquals(((TaskData) subtasks.get(0).getUserObject()).getTaskType(), "REASONING");
     }
 
     private static Object viewTreeRoot(HarnessViewPanel view) throws Exception {
