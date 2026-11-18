@@ -33,6 +33,11 @@ public record CalculatorCreationContext(Kind kind, HarnessModel model, DefaultCa
         return model.modelclass(purpose);
     }
 
+    /** The embedding provider for a rag modelclass (ollama embed model or hash fallback, §11). */
+    public de.jare.harness.rag.EmbeddingProvider embeddingProviderFor(de.jare.harness.model.Modelclass mc) {
+        return factory.embeddingProviderFor(mc);
+    }
+
     /** The provider registered for this modelclass (e.g. "ollama"), null when none. */
     public de.jare.harness.impl.ModelProvider providerFor(de.jare.harness.model.Modelclass mc) {
         if (mc == null) {

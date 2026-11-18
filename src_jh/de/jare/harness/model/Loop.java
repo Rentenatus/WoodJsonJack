@@ -22,6 +22,9 @@ public class Loop {
     /** The entry loop id of a run. */
     public static final String MAIN = "main";
 
+    /** The default subloop id: split children run this loop, not a fresh "main" (§15.6). */
+    public static final String SUB = "sub";
+
     private final String id;
     private final List<LoopItem> items = new ArrayList<>();
 

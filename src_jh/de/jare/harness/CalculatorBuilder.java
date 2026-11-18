@@ -26,6 +26,23 @@ public interface CalculatorBuilder {
     /** One param (the builder decides which keys it understands). */
     CalculatorBuilder withParam(String key, String value);
 
+    /** Generic params every calculator accepts - read via {@code CalcContext}, not by the builder. */
+    static boolean isGenericParam(String key) {
+        return "temperature".equals(key);
+    }
+
+    /**
+     * Strict tail of {@link #withParam}: throws a {@link HarnessException.Type#PARAMETER}
+     * (counted as PARAM_ERROR metric per slot + param, §6) for a key the builder does not
+     * understand and that is not generic.
+     */
+    default CalculatorBuilder rejectUnknown(String key) {
+        if (!isGenericParam(key)) {
+            throw new HarnessException(HarnessException.Type.PARAMETER, "unknown param \"" + key + "\"", key);
+        }
+        return this;
+    }
+
     /** All params from the config node. */
     default CalculatorBuilder withParams(Map<String, String> params) {
         if (params != null) {

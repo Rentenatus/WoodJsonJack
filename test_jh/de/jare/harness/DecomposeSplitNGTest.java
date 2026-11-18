@@ -12,9 +12,12 @@ import de.jare.harness.main.calculator.AskAiDecomposeCalculator;
 import de.jare.harness.memory.WorkCache;
 import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
+import de.jare.harness.model.Loop;
+import de.jare.harness.model.LoopItem;
 import de.jare.harness.model.Modelclass;
 import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
+import de.jare.harness.model.Trigger;
 import java.util.ArrayList;
 import java.util.List;
 import org.testng.Assert;
@@ -23,8 +26,9 @@ import org.testng.annotations.Test;
 /**
  * Tests for the askai.decompose calculator (count &gt; 1 → {@link LoopSplit} loop action with
  * the N atomic sub-prompts, §15.6) and for the engine's split handling: the N subtasks are
- * created as task starts, one loop runs per subtask with the inherited counter state, and after
- * their return the consumption deltas (slot + N children) are summed into the current output.
+ * created as task starts, one subloop ({@code "sub"}, not a fresh {@code "main"}) runs per
+ * subtask with the inherited counter state, and after their return the consumption deltas
+ * (slot + N children) are summed into the current output.
  *
  * @author Janusch Rentenatus
  */
@@ -85,8 +89,10 @@ public class DecomposeSplitNGTest {
         Assert.assertEquals(r.getDecision(), "split");
         Assert.assertEquals(r.getStatus(), Status.DONE);
         Assert.assertTrue(r.getLoopAction() instanceof LoopSplit, "result steers via LoopSplit loop action");
-        List<String> prompts = ((LoopSplit) r.getLoopAction()).prompts();
+        LoopSplit split = (LoopSplit) r.getLoopAction();
+        List<String> prompts = split.prompts();
         Assert.assertEquals(prompts, List.of("wie viel ist 2*4?", "wie viel ist 7*8?"));
+        Assert.assertEquals(split.loopId(), Loop.SUB, "split steers the subloop, not a fresh main loop");
         Assert.assertEquals(r.getPayload().get("count"), "2");
         Assert.assertTrue(r.getPayload().get("quests").contains("wie viel ist 2*4?"));
         Assert.assertTrue(sentSystem.get(0).contains("into 2 atomic quests"),
@@ -117,8 +123,28 @@ public class DecomposeSplitNGTest {
     }
 
     @Test
+    public void testLoopSplitCarriesSubloopId() {
+        Assert.assertEquals(new LoopSplit(List.of("a")).loopId(), Loop.SUB, "default target is the subloop");
+        Assert.assertEquals(new LoopSplit(List.of("a"), null).loopId(), Loop.SUB, "null normalizes to sub");
+        Assert.assertEquals(new LoopSplit(List.of("a"), " ").loopId(), Loop.SUB, "blank normalizes to sub");
+        Assert.assertEquals(new LoopSplit(List.of("a"), "resolve").loopId(), "resolve", "custom subloop id is kept");
+    }
+
+    @Test
     public void testEngineSplitCreatesNSubloopsAndAggregatesConsumption() {
         HarnessModel model = modelWithAllQuests();
+        // explicit loops: "main" carries a SUMMARIZE marker that "sub" lacks — if the split
+        // children ran a fresh main loop, SUMMARIZE would fire per child; via the subloop it never fires
+        Loop main = new Loop(Loop.MAIN);
+        main.addItem(new LoopItem("abort", Kind.ABORT).trigger(Trigger.START));
+        main.addItem(new LoopItem("split", Kind.SPLIT).trigger(Trigger.EXECUTE));
+        main.addItem(new LoopItem("summarize", Kind.SUMMARIZE).trigger(Trigger.EXECUTE));
+        main.addItem(new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE));
+        model.addLoop(main);
+        Loop sub = new Loop(Loop.SUB);
+        sub.addItem(new LoopItem("work", Kind.WORK).trigger(Trigger.EXECUTE));
+        sub.addItem(new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE));
+        model.addLoop(sub);
         // SPLIT calculator: first call (parent) returns LoopSplit with 2 prompts, children get "done"
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
         List<Kind> calls = new ArrayList<>();
@@ -156,17 +182,22 @@ public class DecomposeSplitNGTest {
         Assert.assertEquals(root.getChildren().size(), 2);
         Assert.assertEquals(root.getChildren().get(0).getTitle(), "rechne 2*4");
         Assert.assertEquals(root.getChildren().get(1).getTitle(), "rechne 7*8");
-        // one loop per subtask: WORK ran once per child (2 children) + 0 for the parent (split exits before WORK)
+        // one subloop per subtask: WORK ran once per child via the "sub" loop (2 children)
         Assert.assertEquals(calls.stream().filter(k -> k == Kind.WORK).count(), 2L,
-                "each of the N subloops ran its own loop");
+                "each of the N subloops ran the sub loop");
+        // the children did NOT run a fresh main loop: the main-only SUMMARIZE marker never fired
+        // (the parent exits at the SPLIT item before reaching it either)
+        Assert.assertEquals(calls.stream().filter(k -> k == Kind.SUMMARIZE).count(), 0L,
+                "split children run the subloop, not a new main loop");
+        Assert.assertEquals(cache.get("subloopId"), "sub");
         // consumption: slot + N deltas summed into the current output (WorkCache)
         Assert.assertEquals(cache.get("subloops"), "2");
         Assert.assertNotNull(cache.get("consumption"), "summed consumption is the current output");
         Assert.assertTrue(cache.get("consumption").startsWith("iterations+"), cache.get("consumption"));
         Assert.assertNotNull(cache.get("consumptionDeltas"));
         Assert.assertTrue(cache.get("consumptionDeltas").contains("child "), cache.get("consumptionDeltas"));
-        // the parent's loop left after the N subloops returned -> CLOSE fired on root and children
-        Assert.assertTrue(calls.contains(Kind.CLOSE));
+        // the parent's loop left after the N subloops returned -> CLOSE fired on root (main) + both children (sub)
+        Assert.assertEquals(calls.stream().filter(k -> k == Kind.CLOSE).count(), 3L);
         Assert.assertEquals(root.getStatus(), Status.DONE);
     }
 
@@ -208,5 +239,35 @@ public class DecomposeSplitNGTest {
         Assert.assertEquals(root.getChildren().get(1).getTitle(), "rechne 7*8");
         Assert.assertEquals(cache.get("subloops"), "2");
         Assert.assertNotNull(cache.get("consumption"));
+    }
+
+    /**
+     * §3 data-movement projection: an engine run appends one "call" node per executed atomic
+     * calculator to the task's "calls" array - input, payload and loopAction included.
+     */
+    @Test
+    public void testEngineRunProjectsAtomicCalculatorCallsIntoTaskTree() {
+        HarnessModel model = modelWithAllQuests();
+        Loop main = new Loop(Loop.MAIN);
+        main.addItem(new LoopItem("work", Kind.WORK).trigger(Trigger.EXECUTE));
+        main.addItem(new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE));
+        model.addLoop(main);
+
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        TaskData root = instance.newRootTask(instance.nextTaskId(), "AskAi", "hallo");
+        instance.setRoot(root);
+        HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        engine.setWorkCache(new WorkCache());
+
+        engine.run();
+
+        Assert.assertFalse(root.getCalls().isEmpty(),
+                "every atomic calculator step is projected as a call");
+        for (TaskData.CalcCall c : root.getCalls()) {
+            Assert.assertFalse(c.getLoopActionType().isEmpty(), "each call carries its loop action");
+            Assert.assertNotNull(c.getPayload(), "each call carries its payload");
+            Assert.assertNotNull(c.getInput(), "each call carries its input prompts");
+        }
     }
 }

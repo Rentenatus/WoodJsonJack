@@ -86,7 +86,9 @@ public class CalcContext {
         try {
             return Double.valueOf(t.trim());
         } catch (NumberFormatException e) {
-            return null;
+            // invalid config param: counted as PARAM_ERROR metric per slot (§6)
+            throw new HarnessException(HarnessException.Type.PARAMETER,
+                    "temperature is not a number: \"" + t + "\"", "temperature", e);
         }
     }
 
@@ -180,9 +182,14 @@ public class CalcContext {
         return engine.askUser(question, options);
     }
 
-    /** ctx.rag - the project-local RAG facade (§11, §14). */
+    /** ctx.rag - the project-local RAG facade (§11, §14): the ACTIVE rag model's store (engine.activeRag()). */
     public de.jare.harness.rag.RagStore rag() {
-        return instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding());
+        return engine.activeRag();
+    }
+
+    /** ctx.rag - the RAG store of the given embedder (one store per rag model name, §11). */
+    public de.jare.harness.rag.RagStore rag(de.jare.harness.rag.EmbeddingProvider embedder) {
+        return instance.getRag(embedder);
     }
 
     /** ctx.tools - the bounded tool facade (§13, §14). */

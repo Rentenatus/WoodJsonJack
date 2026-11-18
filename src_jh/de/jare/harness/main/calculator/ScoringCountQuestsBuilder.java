@@ -51,6 +51,8 @@ public class ScoringCountQuestsBuilder implements CalculatorBuilder {
             withSystemPrompt(value);
         } else if ("emphasisPrompt".equals(key)) {
             withEmphasisPrompt(value);
+        } else {
+            rejectUnknown(key);
         }
         return this;
     }

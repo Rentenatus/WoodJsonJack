@@ -61,8 +61,8 @@ public class HarnessService {
         this.host = host;
     }
 
-    /** Redirects the global wood level (tests); null restores {@code user.home}. */
-    public void setWoodHome(File woodHome) {
+    /** Redirects the global wood level (tests, same package); null restores {@code user.home}. */
+    void setWoodHome(File woodHome) {
         this.woodHome = woodHome;
     }
 
@@ -71,25 +71,28 @@ public class HarnessService {
         return lastMemoryQuest;
     }
 
-    public File getProjectDir() {
+    File getProjectDir() {
         return projectDir;
     }
 
-    public File modelFile() {
+    File modelFile() {
         return new File(projectDir, MODEL_FILE);
     }
 
-    public File instanceFile() {
+    File instanceFile() {
         return new File(projectDir, INSTANCE_FILE);
     }
 
-    /** §17: the project-local memory file {@code <projekt>/.wood/harness/memory.json}. */
+    /**
+     * §17: the project-local memory file {@code <projekt>/.wood/harness/memory.json}.
+     * Public because the chat commands (de.jare.harness.main.chat) save through it.
+     */
     public File memoryFile() {
         return new File(projectDir, MEMORY_FILE);
     }
 
     /** §17: the project-local memory (chat history + nuggets) of the last load/run. */
-    public de.jare.harness.memory.ProjectMemory getProjectMemory() {
+    de.jare.harness.memory.ProjectMemory getProjectMemory() {
         return projectMemory;
     }
 
@@ -143,6 +146,7 @@ public class HarnessService {
                 String apiKey = host != null ? host.hostedApiKey() : "";
                 factory.registerProvider("hosted", new de.jare.harness.impl.hosted.HostedProvider(apiKey, mc));
             }
+            // provider "system" needs no registered provider - it is the built-in deterministic fallback
         }
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
         // result channel (§3 layering): the runtime WorkCache of the MemoryQuest is handed to
@@ -174,6 +178,20 @@ public class HarnessService {
             skills.loadFrom(localSkills, "local");
         }
         engine.setSkillRegistry(skills);
+
+        // §11: load the per-model RAG stores (one file per rag model name under
+        // .wood/harness/rag/) - two rag models = two separate stores
+        File ragDir = new File(projectDir, ".wood/harness/rag");
+        for (Modelclass mc : model.getModelclasses()) {
+            if ("rag".equals(mc.getPurpose())) {
+                File f = new File(ragDir, sanitizeFileName(mc.getModel()) + ".json");
+                if (f.exists()) {
+                    instance.setRag(mc.getModel(),
+                            de.jare.harness.rag.RagStore.load(f, factory.embeddingProviderFor(mc),
+                                    de.jare.harness.rag.RagStore.RagDefaults.standard()));
+                }
+            }
+        }
 
         engine.run();
 
@@ -225,8 +243,18 @@ public class HarnessService {
             projectMemory.save(memoryFile());
         }
 
+        // §11: persist every rag store under its own file (per rag model)
+        File ragDirOut = new File(projectDir, ".wood/harness/rag");
+        for (java.util.Map.Entry<String, de.jare.harness.rag.RagStore> e : instance.getRags().entrySet()) {
+            e.getValue().save(new File(ragDirOut, sanitizeFileName(e.getKey()) + ".json"));
+        }
+
         HarnessInstanceCodec.save(instance, instanceFile());
         return instance;
+    }
+
+    private static String sanitizeFileName(String model) {
+        return model == null ? "default" : model.replaceAll("[^A-Za-z0-9._-]+", "_");
     }
 
     /**
@@ -287,6 +315,8 @@ public class HarnessService {
         model.addModelclass(new Modelclass("ollama", "gemma3:27b", "evaluation", 27, 1.5, false));
         model.addModelclass(new Modelclass("ollama", "manutic/nomic-embed-code:latest", "rag", 0, 0.2, false));
         model.addModelclass(new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false));
+        // declared deterministic fallback: provider "system" = built-in, no network (rag hash embedding)
+        model.addModelclass(new Modelclass(Modelclass.PROVIDER_SYSTEM, "hash-embedding", "rag", 0, 0.0, false));
 
         for (Kind kind : Kind.values()) {
             Quest quest = new Quest(kind).evolvable(kind == Kind.WORK);

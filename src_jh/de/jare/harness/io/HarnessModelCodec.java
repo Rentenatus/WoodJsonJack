@@ -51,58 +51,66 @@ public final class HarnessModelCodec {
 
     public static HarnessModel fromJson(JsonNode root) {
         HarnessModel model = new HarnessModel()
-                .name(text(root, "name", "default-harness"))
-                .version(text(root, "version", "1.0.0"));
-        JsonNode taskTypes = child(root, "taskTypes");
+                .name(JsonNodes.text(root, "name", "default-harness"))
+                .version(JsonNodes.text(root, "version", "1.0.0"));
+        JsonNode taskTypes = JsonNodes.child(root, "taskTypes");
         if (taskTypes != null && taskTypes.isArray()) {
             for (JsonNode t : taskTypes.asArray()) {
                 model.getTaskTypes().add(t.asText());
             }
         }
-        JsonNode budgets = child(root, "promptBudgets");
+        // kinddefs[] come first: every quest/loop-item kind literal is validated against
+        // built-in Kind constants ∪ these custom literals (typo-safety, §2)
+        JsonNode kinddefs = JsonNodes.child(root, "kinddefs");
+        if (kinddefs != null && kinddefs.isArray()) {
+            for (JsonNode k : kinddefs.asArray()) {
+                model.addKinddef(k.asText());
+            }
+        }
+        JsonNode budgets = JsonNodes.child(root, "promptBudgets");
         if (budgets != null && budgets.isObject()) {
             for (Map.Entry<String, JsonNode> e : budgets.asObjectValues().entrySet()) {
                 model.getPromptBudgets().put(e.getKey(), e.getValue().asLong().intValue());
             }
         }
-        JsonNode limits = child(root, "abortLimits");
+        JsonNode limits = JsonNodes.child(root, "abortLimits");
         if (limits != null && limits.isObject()) {
             model.abortLimits(
-                    (int) longOf(limits, "maxIterations", model.getMaxIterations()),
-                    (int) longOf(limits, "maxDepth", model.getMaxDepth()),
-                    (int) longOf(limits, "maxRetries", model.getMaxRetries()),
-                    (int) longOf(limits, "maxToolCalls", model.getMaxToolCalls()));
+                    (int) JsonNodes.longOf(limits, "maxIterations", model.getMaxIterations()),
+                    (int) JsonNodes.longOf(limits, "maxDepth", model.getMaxDepth()),
+                    (int) JsonNodes.longOf(limits, "maxRetries", model.getMaxRetries()),
+                    (int) JsonNodes.longOf(limits, "maxToolCalls", model.getMaxToolCalls()));
         }
-        JsonNode mcs = child(root, "modelclasses");
+        JsonNode mcs = JsonNodes.child(root, "modelclasses");
         if (mcs != null && mcs.isArray()) {
             for (JsonNode mc : mcs.asArray()) {
                 model.addModelclass(new Modelclass(
-                        text(mc, "provider", "ollama"),
-                        text(mc, "model", ""),
-                        text(mc, "purpose", ""),
-                        (int) longOf(mc, "size", 0),
-                        doubleOf(mc, "costFactor", 1.0),
-                        child(mc, "toolCapable") != null && child(mc, "toolCapable").asBoolean()));
+                        JsonNodes.text(mc, "provider", "ollama"),
+                        JsonNodes.text(mc, "model", ""),
+                        JsonNodes.text(mc, "purpose", ""),
+                        (int) JsonNodes.longOf(mc, "size", 0),
+                        JsonNodes.doubleOf(mc, "costFactor", 1.0),
+                        JsonNodes.child(mc, "toolCapable") != null && JsonNodes.child(mc, "toolCapable").asBoolean()));
             }
         }
-        JsonNode quests = child(root, "quests");
+        JsonNode quests = JsonNodes.child(root, "quests");
         if (quests != null && quests.isArray()) {
             for (JsonNode q : quests.asArray()) {
-                model.addQuest(questFromJson(q));
+                model.addQuest(questFromJson(model, q));
             }
         }
-        JsonNode loops = child(root, "loops");
+        JsonNode loops = JsonNodes.child(root, "loops");
         if (loops != null && loops.isArray() && !loops.asArray().isEmpty()) {
             Set<String> loopIds = new HashSet<>();
             for (JsonNode l : loops.asArray()) {
-                String loopId = text(l, "id", null);
+                String loopId = JsonNodes.text(l, "id", null);
                 if (loopId == null || loopId.isBlank()) {
                     throw new IllegalArgumentException("loops[]: every loop needs an \"id\"");
                 }
                 if (!loopIds.add(loopId)) {
                     throw new IllegalArgumentException("loops[]: duplicate loop id \"" + loopId + "\"");
                 }
-                model.addLoop(loopFromJson(loopId, l));
+                model.addLoop(loopFromJson(model, loopId, l));
             }
             validateLoopRefs(model, loopIds);
         } else {
@@ -112,28 +120,27 @@ public final class HarnessModelCodec {
         return model;
     }
 
-    private static Loop loopFromJson(String loopId, JsonNode l) {
+    private static Loop loopFromJson(HarnessModel model, String loopId, JsonNode l) {
         Loop loop = new Loop(loopId);
         Set<String> itemIds = new HashSet<>();
-        JsonNode items = child(l, "items");
+        JsonNode items = JsonNodes.child(l, "items");
         if (items != null && items.isArray()) {
             for (JsonNode it : items.asArray()) {
-                String itemId = text(it, "id", "");
+                String itemId = JsonNodes.text(it, "id", "");
                 if (!itemIds.add(itemId)) {
                     throw new IllegalArgumentException("loop \"" + loopId + "\": duplicate item id \"" + itemId + "\"");
                 }
-                Kind kind;
-                try {
-                    kind = Kind.valueOf(text(it, "kind", ""));
-                } catch (IllegalArgumentException e) {
+                String kindName = JsonNodes.text(it, "kind", "");
+                if (!model.isKnownKind(kindName)) {
                     throw new IllegalArgumentException("loop \"" + loopId + "\" item \"" + itemId
-                            + "\": unknown kind \"" + text(it, "kind", "") + "\"", e);
+                            + "\": unknown kind \"" + kindName + "\" (not a built-in, not in kinddefs[])");
                 }
+                Kind kind = Kind.valueOf(kindName);
                 LoopItem item = new LoopItem(itemId, kind);
-                if (child(it, "loop") != null && !child(it, "loop").isNull()) {
-                    item.loop(child(it, "loop").asText());
+                if (JsonNodes.child(it, "loop") != null && !JsonNodes.child(it, "loop").isNull()) {
+                    item.loop(JsonNodes.child(it, "loop").asText());
                 }
-                String trig = text(it, "trigger", null);
+                String trig = JsonNodes.text(it, "trigger", null);
                 if (trig != null) {
                     try {
                         item.trigger(Trigger.valueOf(trig));
@@ -159,18 +166,23 @@ public final class HarnessModelCodec {
         }
     }
 
-    private static Quest questFromJson(JsonNode q) {
-        Quest quest = new Quest(Kind.valueOf(text(q, "kind", "WORK")))
-                .evolvable(child(q, "evolvable") != null && child(q, "evolvable").asBoolean());
-        JsonNode slots = child(q, "slots");
+    private static Quest questFromJson(HarnessModel model, JsonNode q) {
+        String kindName = JsonNodes.text(q, "kind", "WORK");
+        if (!model.isKnownKind(kindName)) {
+            throw new IllegalArgumentException("quest: unknown kind \"" + kindName
+                    + "\" (not a built-in, not in kinddefs[])");
+        }
+        Quest quest = new Quest(Kind.valueOf(kindName))
+                .evolvable(JsonNodes.child(q, "evolvable") != null && JsonNodes.child(q, "evolvable").asBoolean());
+        JsonNode slots = JsonNodes.child(q, "slots");
         if (slots != null && slots.isArray()) {
             for (JsonNode s : slots.asArray()) {
-                Slot slot = new Slot(text(s, "id", "base"));
-                if (child(s, "mutation") != null && !child(s, "mutation").isNull()) {
-                    slot.mutation(child(s, "mutation").asText());
+                Slot slot = new Slot(JsonNodes.text(s, "id", "base"));
+                if (JsonNodes.child(s, "mutation") != null && !JsonNodes.child(s, "mutation").isNull()) {
+                    slot.mutation(JsonNodes.child(s, "mutation").asText());
                 }
-                if (child(s, "calculator") != null) {
-                    slot.calculator(calculatorFromJson(child(s, "calculator")));
+                if (JsonNodes.child(s, "calculator") != null) {
+                    slot.calculator(calculatorFromJson(JsonNodes.child(s, "calculator")));
                 }
                 quest.addSlot(slot);
             }
@@ -179,22 +191,22 @@ public final class HarnessModelCodec {
     }
 
     private static CalculatorNode calculatorFromJson(JsonNode c) {
-        String type = text(c, "type", CalculatorNode.TYPE_ATOMIC);
+        String type = JsonNodes.text(c, "type", CalculatorNode.TYPE_ATOMIC);
         CalculatorNode node;
         if (CalculatorNode.TYPE_PUZZLE.equals(type)) {
-            node = CalculatorNode.puzzle(text(c, "strategy", "sequence"));
-            JsonNode children = child(c, "children");
+            node = CalculatorNode.puzzle(JsonNodes.text(c, "strategy", "sequence"));
+            JsonNode children = JsonNodes.child(c, "children");
             if (children != null && children.isArray()) {
                 for (JsonNode child : children.asArray()) {
                     node.addChild(calculatorFromJson(child));
                 }
             }
         } else {
-            node = CalculatorNode.atomic(text(c, "impl", CalculatorNode.IMPL_DETERMINISTIC));
-            if (child(c, "calculator") != null) {
-                node.calculator(child(c, "calculator").asText());
+            node = CalculatorNode.atomic(JsonNodes.text(c, "impl", CalculatorNode.IMPL_DETERMINISTIC));
+            if (JsonNodes.child(c, "calculator") != null) {
+                node.calculator(JsonNodes.child(c, "calculator").asText());
             }
-            JsonNode params = child(c, "params");
+            JsonNode params = JsonNodes.child(c, "params");
             if (params != null && params.isObject()) {
                 Map<String, String> pm = new LinkedHashMap<>();
                 for (Map.Entry<String, JsonNode> pe : params.asObjectValues().entrySet()) {
@@ -202,20 +214,20 @@ public final class HarnessModelCodec {
                 }
                 node.params(pm);
             }
-            if (child(c, "modelclass") != null) {
-                node.modelclass(child(c, "modelclass").asText());
+            if (JsonNodes.child(c, "modelclass") != null) {
+                node.modelclass(JsonNodes.child(c, "modelclass").asText());
             }
-            if (child(c, "tool") != null) {
-                node.tool(child(c, "tool").asText());
+            if (JsonNodes.child(c, "tool") != null) {
+                node.tool(JsonNodes.child(c, "tool").asText());
             }
         }
-        JsonNode on = child(c, "on");
+        JsonNode on = JsonNodes.child(c, "on");
         if (on != null && on.isObject()) {
             for (Map.Entry<String, JsonNode> e : on.asObjectValues().entrySet()) {
                 node.on(de.jare.harness.signals.Signal.valueOf(e.getKey()), calculatorFromJson(e.getValue()));
             }
         }
-        JsonNode cat = child(c, "catch");
+        JsonNode cat = JsonNodes.child(c, "catch");
         if (cat != null && cat.isObject()) {
             for (Map.Entry<String, JsonNode> e : cat.asObjectValues().entrySet()) {
                 node.catchWith(de.jare.harness.HarnessException.Type.valueOf(e.getKey()), calculatorFromJson(e.getValue()));
@@ -228,6 +240,13 @@ public final class HarnessModelCodec {
         JsonNode root = JsonNode.objectNode();
         root.put("name", JsonNode.stringNode(model.getName()));
         root.put("version", JsonNode.stringNode(model.getVersion()));
+        if (!model.getKinddefs().isEmpty()) {
+            JsonNode kinddefs = JsonNode.arrayNode();
+            for (String k : model.getKinddefs()) {
+                kinddefs.add(JsonNode.stringNode(k));
+            }
+            root.put("kinddefs", kinddefs);
+        }
         JsonNode taskTypes = JsonNode.arrayNode();
         for (String t : model.getTaskTypes()) {
             taskTypes.add(JsonNode.stringNode(t));
@@ -349,29 +368,4 @@ public final class HarnessModelCodec {
         return node;
     }
 
-    private static JsonNode child(JsonNode node, String key) {
-        if (node == null || !node.isObject()) {
-            return null;
-        }
-        return node.asObjectValues().get(key);
-    }
-
-    private static String text(JsonNode node, String key, String def) {
-        JsonNode v = child(node, key);
-        return v == null || v.isNull() ? def : v.asText();
-    }
-
-    private static long longOf(JsonNode node, String key, long def) {
-        JsonNode v = child(node, key);
-        return v == null || v.isNull() ? def : v.asLong();
-    }
-
-    private static double doubleOf(JsonNode node, String key, double def) {
-        JsonNode v = child(node, key);
-        if (v == null || v.isNull()) {
-            return def;
-        }
-        Double d = v.asNumber();
-        return d != null ? d : v.asLong();
-    }
 }

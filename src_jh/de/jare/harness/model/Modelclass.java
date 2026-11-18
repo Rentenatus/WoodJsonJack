@@ -18,7 +18,10 @@ package de.jare.harness.model;
  */
 public class Modelclass {
 
-    private final String provider;      // "ollama" (default http://localhost:11434) | "hosted"
+    /** Pseudo-provider for built-in deterministic behavior (fallback calculator, hash embedding) - no network, no key. */
+    public static final String PROVIDER_SYSTEM = "system";
+
+    private final String provider;      // "ollama" (default http://localhost:11434) | "hosted" | "system"
     private final String model;         // e.g. "qwen3.8:27b"
     private final String purpose;       // e.g. "investigation", "edit", "rag" - NOT unique
     private final int size;             // parameters in B (billions), integer; 0 = unknown
@@ -50,6 +53,11 @@ public class Modelclass {
 
     public String getProvider() {
         return provider;
+    }
+
+    /** True for the built-in pseudo-provider {@link #PROVIDER_SYSTEM} (deterministic fallback, no LLM call). */
+    public boolean isSystem() {
+        return PROVIDER_SYSTEM.equalsIgnoreCase(provider);
     }
 
     public String getModel() {

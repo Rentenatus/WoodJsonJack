@@ -26,14 +26,14 @@ public class HarnessInstance {
     private final String modelName;
     private final String modelVersion;
     private java.io.File projectRoot;   // sandbox root for the fs.* tools (§13)
-    private TaskTree taskTree = new TaskTree();  // the task tree as a real EditTree (§3)
-    private TaskData root;
+    private TaskData root;   // the task tree as plain data (§3, JSON is its persistence shape)
+    private final List<java.util.function.Consumer<TaskData>> changeListeners = new ArrayList<>();
     private long nextTaskId = 1;
     private long nextAufrufId = 1;
     private final List<CallLogEntry> callLog = new ArrayList<>();
     private final MetricsStore metrics = new MetricsStore();
     private MetricsStore globalMetrics;   // ~/.wood/harness/metrics.json aggregate (§8) - optional, read priors + accumulate
-    private RagStore rag;   // project-local RAG (§11) - lazily created, never global
+    private final java.util.Map<String, RagStore> rags = new java.util.LinkedHashMap<>();   // per rag model name, §11
 
     public HarnessInstance(String modelName, String modelVersion) {
         this.modelName = modelName;
@@ -56,29 +56,39 @@ public class HarnessInstance {
         this.projectRoot = projectRoot;
     }
 
-    /** The task tree of this instance as a real EditTree - the same instances the editor shows. */
-    public TaskTree getTaskTree() {
-        return taskTree;
+    /** Change listener on the task tree - fires for the root and every descendant (bubble-up). */
+    public void addChangeListener(java.util.function.Consumer<TaskData> listener) {
+        if (listener != null) {
+            changeListeners.add(listener);
+        }
     }
 
-    /** Adopts a loaded task tree (codec) and sets its root task. */
-    public void adoptTaskTree(TaskTree taskTree) {
-        this.taskTree = taskTree;
-        this.root = taskTree.getRootTask();
+    private void notifyChange(TaskData t) {
+        for (java.util.function.Consumer<TaskData> l : new ArrayList<>(changeListeners)) {
+            l.accept(t);
+        }
     }
 
-    /** Creates the root task on this instance's own task tree. */
+    /** Adopts a loaded root task (codec). */
+    public void adoptRoot(TaskData root) {
+        setRoot(root);
+    }
+
+    /** Creates the root task of this instance's task tree. */
     public TaskData newRootTask(long id, String taskType, String title) {
-        this.root = taskTree.newRoot(id, taskType, title);
-        return this.root;
+        return setRoot(TaskData.create(id, taskType, title));
     }
 
     public TaskData getRoot() {
         return root;
     }
 
-    public void setRoot(TaskData root) {
+    public TaskData setRoot(TaskData root) {
         this.root = root;
+        if (root != null) {
+            root.addChangeListener(this::notifyChange);
+        }
+        return root;
     }
 
     /**
@@ -133,20 +143,36 @@ public class HarnessInstance {
         this.globalMetrics = globalMetrics;
     }
 
-    /** The project-local RAG (§11); created on first use with the given embedder. */
+    /**
+     * The project-local RAG stores (§11), keyed by {@link EmbeddingProvider#modelName()}:
+     * two rag models get two separate stores (two "DBs"), each persisted under its own
+     * file. Created on first use with the given embedder.
+     */
     public RagStore getRag(EmbeddingProvider embedder) {
-        if (rag == null) {
-            rag = new RagStore(embedder);
-        }
-        return rag;
+        return rags.computeIfAbsent(embedder.modelName(), k -> new RagStore(embedder));
     }
 
+    /** The default store (hash embedding). */
     public RagStore getRag() {
-        return rag;
+        return rags.computeIfAbsent(EmbeddingProvider.hashEmbedding().modelName(),
+                k -> new RagStore(EmbeddingProvider.hashEmbedding()));
     }
 
+    /** All rag stores by model name. */
+    public java.util.Map<String, RagStore> getRags() {
+        return rags;
+    }
+
+    /** Registers a store under its own model name (persistence, §11). */
     public void setRag(RagStore rag) {
-        this.rag = rag;
+        if (rag != null) {
+            rags.put(rag.getModelName(), rag);
+        }
+    }
+
+    /** Registers a loaded store under its model name (persistence, §11). */
+    public void setRag(String modelName, RagStore store) {
+        rags.put(modelName, store);
     }
 
     public List<CallLogEntry> getCallLog() {

@@ -21,22 +21,37 @@ public class HarnessException extends RuntimeException {
         TOOL_ERROR,
         TIMEOUT,
         LIMIT,
-        ABORTED
+        ABORTED,
+        PARAMETER            // unknown/invalid config param of a calculator (counted as PARAM_ERROR, §6)
     }
 
     private final Type type;
+    private final String paramKey;   // for Type.PARAMETER: the offending param name, else null
 
     public HarnessException(Type type, String message) {
-        super(message);
-        this.type = type;
+        this(type, message, null, null);
     }
 
     public HarnessException(Type type, String message, Throwable cause) {
+        this(type, message, null, cause);
+    }
+
+    public HarnessException(Type type, String message, String paramKey) {
+        this(type, message, paramKey, null);
+    }
+
+    public HarnessException(Type type, String message, String paramKey, Throwable cause) {
         super(message, cause);
         this.type = type;
+        this.paramKey = paramKey;
     }
 
     public Type getType() {
         return type;
+    }
+
+    /** The offending config param name when {@link #getType()} is {@link Type#PARAMETER}, else null. */
+    public String getParamKey() {
+        return paramKey;
     }
 }

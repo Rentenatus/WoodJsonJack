@@ -114,6 +114,25 @@ public class HarnessEngine implements HarnessDriver {
         return tools;
     }
 
+    /**
+     * The ACTIVE RAG store (§11): the store of the first modelclass with purpose {@code "rag"},
+     * embedded through the factory's embedding provider for that model; fallback the
+     * deterministic hash-embedding store when the model declares no rag modelclass.
+     * Stores stay keyed per rag model name - two rag models = two separate stores.
+     */
+    public de.jare.harness.rag.RagStore activeRag() {
+        // a declared "system" rag modelclass (e.g. hash-embedding) is the FALLBACK - a real
+        // rag model (ollama/hosted) always wins when both are declared (§11: one active rag model)
+        de.jare.harness.model.Modelclass ragMc = model.modelclassesForPurpose("rag").stream()
+                .filter(mc -> !mc.isSystem()).findFirst()
+                .orElseGet(() -> model.modelclassesForPurpose("rag").stream().findFirst().orElse(null));
+        de.jare.harness.rag.EmbeddingProvider ep = ragMc == null
+                || !(factory instanceof de.jare.harness.impl.DefaultCalculatorFactory dcf)
+                ? de.jare.harness.rag.EmbeddingProvider.hashEmbedding()
+                : dcf.embeddingProviderFor(ragMc);
+        return instance.getRag(ep);
+    }
+
     public void setLineage(HarnessLineage lineage) {
         this.lineage = lineage;
     }
@@ -278,10 +297,15 @@ public class HarnessEngine implements HarnessDriver {
 
     /** Starts the configured entry loop ({@code "main"}) for one task (§15.6). */
     private void process(TaskData task) {
+        process(task, Loop.MAIN);
+    }
+
+    /** Starts the named loop for one task — "main" for the root, the subloop id for split children (§15.6). */
+    private void process(TaskData task, String loopId) {
         task.setStatus(Status.RUNNING);
         int stackBase = callStack.size();
         try {
-            runLoop(task, Loop.MAIN);
+            runLoop(task, loopId);
         } finally {
             while (callStack.size() > stackBase) {
                 callStack.pop();
@@ -308,6 +332,10 @@ public class HarnessEngine implements HarnessDriver {
         Loop loop = model.getLoop(loopId);
         if (loop == null && Loop.MAIN.equals(loopId)) {
             loop = HarnessModel.defaultMainLoop(); // programmatically built model without loops[]
+            model.addLoop(loop);
+        }
+        if (loop == null && Loop.SUB.equals(loopId)) {
+            loop = HarnessModel.defaultSubLoop(); // loops[] configured, but no "sub" entry
             model.addLoop(loop);
         }
         if (loop == null) {
@@ -372,7 +400,8 @@ public class HarnessEngine implements HarnessDriver {
             runLoop(task, item.getLoop());
             return afterSubLoop(task, loop);
         }
-        CalcResult r = execute(task, item.getKind());
+        CalcResult r = execute(task, item.getKind(), loop.getId(), item.getId(),
+                item.getTrigger() == null ? null : item.getTrigger().name());
         if (r == null) {
             return ItemFlow.CONTINUE; // kind not modelled - skipped deterministically
         }
@@ -415,16 +444,18 @@ public class HarnessEngine implements HarnessDriver {
 
     /**
      * SPLIT as loop action (§15.6): creates the N subtasks (task starts) from the carried
-     * sub-prompts, starts one loop per subtask (the shared {@link Limits} instance is inherited,
-     * so every subloop sees the last counter state), and after the N loops return computes the
-     * consumption deltas: slot delta (loop entry → split point) plus the N per-child deltas are
-     * summed and written as the current output (WorkCache consumption + notify).
+     * sub-prompts and starts one <b>subloop</b> per subtask — {@link LoopSplit#loopId()}, default
+     * {@link Loop#SUB "sub"}, never a fresh {@code "main"} loop. The shared {@link Limits}
+     * instance is inherited, so every subloop sees the last counter state; after the N subloops
+     * return the consumption deltas are computed: slot delta (loop entry → split point) plus the
+     * N per-child deltas are summed and written as the current output (WorkCache + notify).
      */
     private ItemFlow handleSplit(TaskData task, LoopSplit split, Limits.Snapshot loopEntry) {
         List<String> prompts = split.prompts();
         if (prompts == null || prompts.isEmpty()) {
             return ItemFlow.CONTINUE;
         }
+        String loopId = split.loopId() == null || split.loopId().isBlank() ? Loop.SUB : split.loopId();
         Limits.Snapshot splitPoint = limits.snapshot();
         List<TaskData> children = new ArrayList<>();
         for (String p : prompts) {
@@ -434,7 +465,7 @@ public class HarnessEngine implements HarnessDriver {
         List<String> childDeltas = new ArrayList<>();
         for (TaskData child : children) {
             Limits.Snapshot childBase = limits.snapshot();   // inherited state = last counters
-            process(child);                                   // one new loop per subtask
+            process(child, loopId);                           // one subloop start per subtask
             Limits.Delta d = limits.deltaSince(childBase);
             childDeltas.add("child " + child.getId() + ": " + d);
             total = total.plus(d);                            // slot + N deltas summed
@@ -442,12 +473,13 @@ public class HarnessEngine implements HarnessDriver {
         // current output: summed consumption lands in the runtime WorkCache + listener notify
         if (workCache != null) {
             workCache.put("subloops", String.valueOf(children.size()));
+            workCache.put("subloopId", loopId);
             workCache.put("consumption", total.toString());
             workCache.put("consumptionDeltas", String.join(" | ", childDeltas));
         }
-        notify(task, Kind.SPLIT, "split into " + children.size() + " subloops (task starts created), "
-                + "consumption = slot+children " + total);
-        return ItemFlow.EXIT; // the N loops returned - leave this loop (CLOSE fires in finally)
+        notify(task, Kind.SPLIT, "split into " + children.size() + " subloops (loop \"" + loopId
+                + "\", task starts created), consumption = slot+children " + total);
+        return ItemFlow.EXIT; // the N subloops returned - leave this loop (CLOSE fires in finally)
     }
 
     /** After a subloop returned: propagate pending error signals to this loop's CATCH. */
@@ -489,7 +521,8 @@ public class HarnessEngine implements HarnessDriver {
             if (c.isSubLoop()) {
                 runLoop(task, c.getLoop());
             } else {
-                CalcResult r = execute(task, c.getKind());
+                CalcResult r = execute(task, c.getKind(), loop.getId(), c.getId(),
+                        c.getTrigger() == null ? null : c.getTrigger().name());
                 if (r != null) {
                     r.getAction().execute(this, task, r);
                     LoopAction cla = r.getLoopAction();
@@ -563,6 +596,15 @@ public class HarnessEngine implements HarnessDriver {
      * the deterministic calculator of the same kind.
      */
     private CalcResult execute(TaskData task, Kind kind) {
+        return execute(task, kind, null, null, null);
+    }
+
+    /**
+     * Executes the quest of {@code kind} for one task. The loop context
+     * ({@code loopId}/{@code loopItemId}/{@code trigger}) lands on the {@link CallLogEntry}
+     * so the metrics can aggregate the loop structure under {@code "loop:…"} keys (§6).
+     */
+    private CalcResult execute(TaskData task, Kind kind, String loopId, String loopItemId, String trigger) {
         Quest quest = model.questFor(kind);
         if (quest == null) {
             return null; // kind not modelled - skipped deterministically
@@ -590,11 +632,16 @@ public class HarnessEngine implements HarnessDriver {
         long start = System.currentTimeMillis();
         CalcResult result;
         String decisionSuffix = "";
+        String paramError = null;
         try {
             result = runNode(node, kind, ctx);
             ctx.emit(de.jare.harness.signals.Signal.ANSWER_RECEIVED);
         } catch (HarnessException e) {
             decisionSuffix = "catch:" + e.getType();
+            if (e.getType() == HarnessException.Type.PARAMETER) {
+                // parameter errors are counted per slot + param (PARAM_ERROR metric, §6)
+                paramError = e.getParamKey() != null ? e.getParamKey() : e.getMessage();
+            }
             notify(task, kind, decisionSuffix + " -> catch-mapping");
             CalculatorNode catchNode = node.getCatchMapping().get(e.getType());
             if (catchNode != null) {
@@ -618,7 +665,8 @@ public class HarnessEngine implements HarnessDriver {
         CallLogEntry entry = new CallLogEntry(aufrufId, task.getId(), task.getTaskType(), kind,
                 slot.getId(), model.getVersion(), task.getAttempt(), dauerMs, 0, 0,
                 result.getScore(), result.getStatus(),
-                result.getDecision() + decisionSuffix, result.getMessage(), result.getPayload(), p1, p2);
+                result.getDecision() + decisionSuffix, result.getMessage(), result.getPayload(), p1, p2,
+                loopId, loopItemId, trigger, paramError);
         // layering (§3): instance.logCall = RUNTIME truth (memory layer), task.logCall = the
         // bridge write into the PERSISTED PROJECTION (TaskData -> EditTree, fires change events)
         task.logCall(entry);
@@ -638,20 +686,28 @@ public class HarnessEngine implements HarnessDriver {
         List<PromptSegment> resolved = new ArrayList<>(relevanceRegistry.resolve(task.getTaskType(),
                 task.getAttempt(), kind, model.getVersion(), auftrag));
         if (kind == Kind.WORK || kind == Kind.CHECK || kind == Kind.COMPLETE) {
-            var rag = instance.getRag(de.jare.harness.rag.EmbeddingProvider.hashEmbedding());
-            var hits = rag.retrieve(auftrag, rag.getDefaults().topK(), rag.getDefaults().minScore());
-            for (var h : hits) {
-                var chunk = h.chunk();
-                if (de.jare.harness.skills.SkillRegistry.DOC_TYPE_SKILL.equals(chunk.getDocType())) {
-                    // §12: reference only, never the full skill text in the prompt
-                    resolved.add(PromptSegment.of(PromptSegment.Category.SKILL,
-                            "skill:" + chunk.getMeta().get("skillId"),
-                            "skill " + chunk.getMeta().get("skillId") + " (scope "
-                                    + chunk.getMeta().get("scope") + ") - see RAG chunk " + chunk.getId()));
-                } else {
-                    resolved.add(PromptSegment.of(PromptSegment.Category.DATA,
-                            "rag:chunk-" + chunk.getId(), chunk.getDocument()));
+            // RAG_RETRIEVE enrichment is best-effort: an empty store or an embedder outage
+            // must never kill the run - the DATA/SKILL segments are simply left out
+            try {
+                var rag = activeRag();   // the active rag model's store (§11), not always the hash fallback
+                if (!rag.getChunks().isEmpty()) {
+                    var hits = rag.retrieve(auftrag, rag.getDefaults().topK(), rag.getDefaults().minScore());
+                    for (var h : hits) {
+                        var chunk = h.chunk();
+                        if (de.jare.harness.skills.SkillRegistry.DOC_TYPE_SKILL.equals(chunk.getDocType())) {
+                            // §12: reference only, never the full skill text in the prompt
+                            resolved.add(PromptSegment.of(PromptSegment.Category.SKILL,
+                                    "skill:" + chunk.getMeta().get("skillId"),
+                                    "skill " + chunk.getMeta().get("skillId") + " (scope "
+                                            + chunk.getMeta().get("scope") + ") - see RAG chunk " + chunk.getId()));
+                        } else {
+                            resolved.add(PromptSegment.of(PromptSegment.Category.DATA,
+                                    "rag:chunk-" + chunk.getId(), chunk.getDocument()));
+                        }
+                    }
                 }
+            } catch (Throwable ragDown) {
+                notify(task, kind, "rag retrieve skipped: " + ragDown.getMessage());
             }
         }
         // §16: the relevance calculator may pull a mindset category as SYSTEM segment
@@ -759,6 +815,9 @@ public class HarnessEngine implements HarnessDriver {
         if (ctx.workCache() != null) {
             ctx.workCache().putResult(calcName, res).setLastResult(res);
         }
+        // §3 projection: every atomic calculator step lands as a "call" child node in the task
+        // tree (input prompts, CalcResult payload, LoopAction) so the JTree shows the data movement
+        ctx.task().appendCalcCall(calcName, kind, ctx.slotId(), res, ctx.prompts());
         return res;
     }
 
@@ -774,7 +833,14 @@ public class HarnessEngine implements HarnessDriver {
             // TEMP debug: trace the fallback calculator call (to be removed)
             System.out.println("[CALC >>] kind=" + kind + " slot=" + ctx.slotId()
                     + " calc=fallback:" + kind + " task=" + ctx.task().getId() + " (after " + e.getType() + ")");
-            CalcResult r = de.jare.harness.impl.deterministic.DeterministicCalculators.forKind(kind).calculate(ctx);
+            CalcResult r;
+            try {
+                r = de.jare.harness.impl.deterministic.DeterministicCalculators.forKind(kind).calculate(ctx);
+            } catch (Throwable t) {
+                // the fallback itself must never throw - a second failure is just logged
+                r = CalcResult.of(kind, "fallback-failed")
+                        .message("fallback also failed: " + t.getMessage());
+            }
             System.out.println("[CALC <<] kind=" + kind + " calc=fallback:" + kind
                     + " -> decision=" + r.getDecision() + " status=FAILED");
             return r.decision(r.getDecision()).status(Status.FAILED).message("fallback after " + e.getType());

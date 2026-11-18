@@ -199,10 +199,6 @@ public class HarnessController {
             JOptionPane.showMessageDialog(owner, "No harness run yet.", "Harness", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        // DEBUG: always open the task tree read-only in a new editor tab as well
-        if (owner instanceof de.jare.tree.ui.WoodWindow w) {
-            w.openHarnessTreeTab("Harness Tree", lastInstance);
-        }
         try {
             if (viewDialog == null || !viewDialog.isDisplayable()) {
                 viewDialog = new JDialog(owner, "Harness", false);

@@ -33,18 +33,39 @@ public class MetricsStore {
 
     /** The M metric categories. */
     public enum Category {
-        SCORE, TOKENS_OUT, DAUER_MS, FAIL_RATE, RETRY_COUNT
+        SCORE, TOKENS_OUT, DAUER_MS, FAIL_RATE, RETRY_COUNT, PARAM_ERROR
     }
 
     public static final int DEPTHS = 3;
+
+    /** Metrics key prefix for loop-structure nodes: {@code "loop:<loopId>/<itemId>@<trigger>"}. */
+    public static final String LOOP_KEY_PREFIX = "loop:";
 
     // slotSignature -> depth(1..3) -> category -> bucket
     private final Map<String, Map<Integer, Map<Category, MetricBucket>>> nodes = new LinkedHashMap<>();
 
     /** Records one call into the M x 3 aggregate of its slot signature. */
     public void recordCall(CallLogEntry e) {
+        recordInto(e.getSlotId(), e);
+        // loop-structure node: same values under the loop key, so loops are measurable like slots
+        if (e.getLoopId() != null) {
+            String loopKey = LOOP_KEY_PREFIX + e.getLoopId() + "/" + e.getLoopItemId() + "@" + e.getTrigger();
+            recordInto(loopKey, e);
+        }
+        // parameter error: counted per slot AND per offending param (slotId@paramKey)
+        if (e.getParamError() != null) {
+            recordValue(e.getSlotId(), Category.PARAM_ERROR, 1);
+            recordValue(e.getSlotId() + "@" + e.getParamError(), Category.PARAM_ERROR, 1);
+            if (e.getLoopId() != null) {
+                recordValue(LOOP_KEY_PREFIX + e.getLoopId() + "/" + e.getLoopItemId() + "@" + e.getTrigger(),
+                        Category.PARAM_ERROR, 1);
+            }
+        }
+    }
+
+    private void recordInto(String key, CallLogEntry e) {
         Map<Integer, Map<Category, MetricBucket>> byDepth = nodes.computeIfAbsent(
-                e.getSlotId(), k -> new LinkedHashMap<>());
+                key, k -> new LinkedHashMap<>());
         for (int depth = 1; depth <= DEPTHS; depth++) {
             Map<Category, MetricBucket> buckets = byDepth.computeIfAbsent(depth, k -> new EnumMap<>(Category.class));
             // SCORE only when the call actually carried a score - a null score must not
@@ -56,6 +77,7 @@ public class MetricsStore {
             update(buckets, Category.DAUER_MS, e.getDauerMs());
             update(buckets, Category.FAIL_RATE, e.getStatus() == Status.FAILED || e.getStatus() == Status.ABORTED ? 1 : 0);
             update(buckets, Category.RETRY_COUNT, e.getAttempt());
+            // PARAM_ERROR is recorded only in the explicit block of recordCall (slot + slot@param + loop key)
         }
     }
 
@@ -90,19 +112,32 @@ public class MetricsStore {
         return nodes;
     }
 
-    /** Inheritance on clone (evolution): copy all, then reset the mutated slot buckets. */
+    /** Inheritance on clone (evolution): copy all, then hard-reset the mutated slot buckets. */
     public MetricsStore cloneWithReset(java.util.Set<String> resetSlots) {
+        return cloneWithInheritance(resetSlots, 0.0);
+    }
+
+    /**
+     * Inheritance on clone (evolution): non-mutated nodes are inherited via their faded
+     * value (EMA), mutated nodes keep a <b>prior</b> of the old rating - the old EMA with
+     * the count scaled by {@code priorWeight} (0 = hard reset, 1 = full carry-over) - so a
+     * mutation does not destroy the old evaluation, new measurements override it gradually.
+     */
+    public MetricsStore cloneWithInheritance(java.util.Set<String> mutatedNodes, double priorWeight) {
         MetricsStore copy = new MetricsStore();
         for (Map.Entry<String, Map<Integer, Map<Category, MetricBucket>>> n : nodes.entrySet()) {
-            boolean reset = resetSlots.contains(n.getKey());
+            boolean mutated = mutatedNodes.contains(n.getKey());
             for (Map.Entry<Integer, Map<Category, MetricBucket>> d : n.getValue().entrySet()) {
                 for (Map.Entry<Category, MetricBucket> c : d.getValue().entrySet()) {
                     MetricBucket b = c.getValue();
-                    if (reset) {
-                        continue; // mutated buckets start unmeasured
+                    if (mutated && priorWeight <= 0.0) {
+                        continue; // hard reset: mutated buckets start unmeasured
                     }
                     MetricBucket nb = new MetricBucket();
-                    for (long i = 0; i < b.getCount(); i++) {
+                    long inheritCount = mutated
+                            ? Math.round(b.getCount() * priorWeight)
+                            : b.getCount();
+                    for (long i = 0; i < inheritCount; i++) {
                         nb.update(b.getEma()); // inherit via the faded value, keeps M x 3 shape
                     }
                     copy.nodes.computeIfAbsent(n.getKey(), k -> new LinkedHashMap<>())
@@ -112,6 +147,24 @@ public class MetricsStore {
             }
         }
         return copy;
+    }
+
+    /**
+     * The structure rating of a node as a computed view on the buckets (not persisted as
+     * own state): {@code ema(SCORE) - 100 * (wFail * ema(FAIL_RATE) + wParam * ema(PARAM_ERROR))}.
+     * Missing buckets count as 0, so a fresh node starts at 0 instead of being dragged down.
+     */
+    public double structureScore(String nodeKey, int depth, double wFail, double wParam) {
+        Map<Category, MetricBucket> s = stats(nodeKey, depth);
+        double score = s.get(Category.SCORE) == null ? 0 : s.get(Category.SCORE).getEma();
+        double fail = s.get(Category.FAIL_RATE) == null ? 0 : s.get(Category.FAIL_RATE).getEma();
+        double param = s.get(Category.PARAM_ERROR) == null ? 0 : s.get(Category.PARAM_ERROR).getEma();
+        return score - 100.0 * (wFail * fail + wParam * param);
+    }
+
+    /** Structure rating with default weights (fail rate and param errors both weigh 1.0). */
+    public double structureScore(String nodeKey, int depth) {
+        return structureScore(nodeKey, depth, 1.0, 1.0);
     }
 
     public void save(File file) throws IOException, JsonParseException {

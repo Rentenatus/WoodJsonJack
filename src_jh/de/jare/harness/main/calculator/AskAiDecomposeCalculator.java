@@ -12,6 +12,7 @@ import de.jare.harness.HarnessCalculator;
 import de.jare.harness.HarnessException;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
+import de.jare.harness.impl.AiAnswers;
 import de.jare.harness.impl.ModelProvider;
 import de.jare.harness.main.actions.LoopSplit;
 import de.jare.harness.main.actions.None;
@@ -30,8 +31,10 @@ import java.util.List;
  * "payload":{"quests":["...","..."]}}} - the atomic prompts land in the CalcResult payload.
  *
  * For count &gt; 1 the result steers via a {@link LoopSplit} loop action (§15.6): the driver
- * creates the N subtasks (task starts) from the sub-prompts, runs one loop per subtask with the
- * inherited counter state, and after their return aggregates the consumption deltas.
+ * creates the N subtasks (task starts) from the sub-prompts and starts one subloop
+ * ({@code subloop} param, default {@code "sub"}) per subtask with the inherited counter
+ * state — not a fresh {@code "main"} loop — and after their return aggregates the
+ * consumption deltas.
  *
  * @author Janusch Rentenatus
  */
@@ -47,13 +50,20 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
     private final Modelclass modelclass;
     private final ModelProvider provider;
     private final String systemPrompt;
+    private final String subloop;
 
     public AskAiDecomposeCalculator(Kind kind, Modelclass modelclass, ModelProvider provider, String systemPrompt) {
+        this(kind, modelclass, provider, systemPrompt, null);
+    }
+
+    public AskAiDecomposeCalculator(Kind kind, Modelclass modelclass, ModelProvider provider,
+                                    String systemPrompt, String subloop) {
         this.kind = kind;
         this.modelclass = modelclass;
         this.provider = provider;
         this.systemPrompt = systemPrompt == null || systemPrompt.isBlank()
                 ? DEFAULT_SYSTEM_PROMPT : systemPrompt;
+        this.subloop = subloop;
     }
 
     // Instances are built by AskAiDecomposeBuilder (Builder pattern): the factory fills the
@@ -119,8 +129,9 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
         List<String> segments = new ArrayList<>();
         segments.add("SYSTEM:askai.decompose\n" + sys);
         segments.addAll(ctx.prompts());
-        String answer = callProvider(ctx, segments);
-        de.jare.jsoncasted.lang.JsonNode root = parseStrict(answer);
+        AiAnswers.Parsed parsed = AiAnswers.callAndParse(ctx, provider, modelclass, segments, null);
+        var root = parsed.root();
+
         List<String> quests = new ArrayList<>();
         var payload = root.asObjectValues().get("payload");
         if (payload != null && payload.asObjectValues().get("quests") != null
@@ -133,77 +144,20 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
         }
         if (quests.isEmpty()) {
             throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
-                    "decompose answer carries no quests: " + abbrev(answer));
+                    "decompose answer carries no quests: " + AiAnswers.abbrev(parsed.rawAnswer()));
         }
+
         // the result steers via the LoopSplit loop action: the driver creates the N subtasks and
-        // starts one loop per subloop, then aggregates the consumption deltas (§15.6). The domain
-        // action stays None so the legacy Split action is not executed a second time.
+        // starts one subloop (subloop param, default "sub") per subtask — not a fresh "main" —
+        // then aggregates the consumption deltas (§15.6). The domain action stays None so the
+        // legacy Split action is not executed a second time.
         return CalcResult.of(kind, "split")
-                .status(parseStatus(text(root, "status", "DONE")))
+                .status(AiAnswers.parseStatus(AiAnswers.text(root, "status", "DONE")))
                 .put("quests", String.join("\n", quests))
                 .put("count", String.valueOf(count))
-                .put("rawAnswer", abbrev(answer))
+                .put("subloop", subloop == null ? de.jare.harness.model.Loop.SUB : subloop)
+                .put("rawAnswer", AiAnswers.abbrev(parsed.rawAnswer()))
                 .action(new None())
-                .loopAction(new LoopSplit(quests));
-    }
-
-    private String callProvider(CalcContext ctx, List<String> segments) {
-        if (provider == null || modelclass != null && !modelclass.isAvailable()) {
-            throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE,
-                    "decompose provider unavailable");
-        }
-        try {
-            return provider.complete(segments, ctx.temperature());
-        } catch (HarnessException e) {
-            throw e;
-        } catch (Exception e) {
-            if (modelclass != null) {
-                modelclass.markUnavailable();
-            }
-            throw new HarnessException(HarnessException.Type.MODEL_UNAVAILABLE, "provider call failed", e);
-        }
-    }
-
-    private static de.jare.jsoncasted.lang.JsonNode parseStrict(String answer) {
-        String trimmed = answer == null ? "" : answer.trim();
-        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
-            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
-                    "answer is not strict JSON: " + abbrev(trimmed));
-        }
-        try {
-            var root = de.jare.jsoncasted.io.parserservice.JsonParserService.parse(trimmed,
-                    de.jare.debug.JsonDebugLevel.SIMPLE).getRoot();
-            if (root == null || !root.isObject()) {
-                throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION, "answer not a JSON object");
-            }
-            return root;
-        } catch (HarnessException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION, "JSON parse failed: " + e.getMessage());
-        }
-    }
-
-    private static Status parseStatus(String raw) {
-        String s = raw == null ? "" : raw.trim().toUpperCase().replace(' ', '_');
-        switch (s) {
-            case "COMPLETED": return Status.DONE;
-            case "IN_PROGRESS": return Status.RUNNING;
-            default:
-                try {
-                    return Status.valueOf(s);
-                } catch (IllegalArgumentException e) {
-                    throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION, "unknown status: " + raw);
-                }
-        }
-    }
-
-    private static String text(de.jare.jsoncasted.lang.JsonNode n, String key, String def) {
-        var v = n.asObjectValues().get(key);
-        return v == null || v.isNull() ? def : v.asText();
-    }
-
-    private static String abbrev(String s) {
-        return s == null ? "" : (s.length() > 200 ? s.substring(0, 200) + "…" : s);
+                .loopAction(new LoopSplit(quests, subloop));
     }
 }

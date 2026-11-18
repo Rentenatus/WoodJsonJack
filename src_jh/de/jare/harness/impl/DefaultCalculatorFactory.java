@@ -28,6 +28,7 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
 
     private final HarnessModel model;
     private final Map<String, ModelProvider> providers = new HashMap<>();
+    private final Map<String, de.jare.harness.rag.EmbeddingProvider> embeddingProviders = new HashMap<>();
     private final de.jare.harness.CalculatorRegistry registry = new de.jare.harness.CalculatorRegistry();
 
     public DefaultCalculatorFactory(HarnessModel model) {
@@ -53,6 +54,10 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
         registerNamed("scoring.countQuests", de.jare.harness.main.calculator.ScoringCountQuestsBuilder::new);
         registerNamed("askai.decompose", de.jare.harness.main.calculator.AskAiDecomposeBuilder::new);
         registerNamed("printig", PrintQuestsBuilder::new);
+        registerNamed("skill.collect", de.jare.harness.main.calculator.SkillCollectBuilder::new);
+        registerNamed("skill.match", de.jare.harness.main.calculator.SkillMatchBuilder::new);
+        registerNamed("guard.check", de.jare.harness.main.calculator.GuardCheckBuilder::new);
+        registerNamed("guard.escalate", de.jare.harness.main.calculator.GuardEscalateBuilder::new);
     }
 
     /** Register a provider, keyed by provider name (e.g. "ollama"). */
@@ -63,6 +68,41 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
 
     public ModelProvider provider(String key) {
         return providers.get(key);
+    }
+
+    /** Registers a custom embedding provider for a rag model name (tests, host wiring). */
+    public DefaultCalculatorFactory registerEmbeddingProvider(String modelName,
+            de.jare.harness.rag.EmbeddingProvider ep) {
+        embeddingProviders.put(modelName, ep);
+        return this;
+    }
+
+    /**
+     * The embedding provider for a {@code purpose: "rag"} modelclass: a custom registered
+     * provider wins, then an ollama-backed {@link de.jare.harness.impl.ollama.OllamaEmbeddingProvider}
+     * when the registered provider is an {@link de.jare.harness.impl.ollama.OllamaProvider},
+     * else the deterministic hash embedding. The RAG store is keyed by {@code modelName()},
+     * so two rag models get two separate stores (§11).
+     */
+    public de.jare.harness.rag.EmbeddingProvider embeddingProviderFor(Modelclass mc) {
+        if (mc != null) {
+            de.jare.harness.rag.EmbeddingProvider custom = embeddingProviders.get(mc.getModel());
+            if (custom != null) {
+                return custom;
+            }
+            if (mc.isSystem()) {
+                // declared deterministic rag fallback (provider "system"): the hash embedding,
+                // keyed by the declared model name so its store is persisted under it
+                return de.jare.harness.rag.EmbeddingProvider.hashEmbedding(mc.getModel());
+            }
+            if ("ollama".equals(mc.getProvider())) {
+                ModelProvider p = providers.get("ollama");
+                if (p instanceof de.jare.harness.impl.ollama.OllamaProvider op) {
+                    return new de.jare.harness.impl.ollama.OllamaEmbeddingProvider(op.getBaseUrl(), mc.getModel());
+                }
+            }
+        }
+        return de.jare.harness.rag.EmbeddingProvider.hashEmbedding();
     }
 
     @Override
@@ -78,6 +118,11 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
         String impl = node.getImpl() == null ? CalculatorNode.IMPL_DETERMINISTIC : node.getImpl();
         if (CalculatorNode.IMPL_AI.equals(impl)) {
             Modelclass mc = node.getModelclass() == null ? null : model.modelclass(node.getModelclass());
+            if (mc != null && mc.isSystem()) {
+                // provider "system" = built-in deterministic fallback as a declared model:
+                // no LLM call, the deterministic calculator of the kind answers
+                return DeterministicCalculators.forKind(kind);
+            }
             ModelProvider provider = mc == null ? null
                     : providers.get(mc.getProvider() == null ? "ollama" : mc.getProvider());
             return new AiCalculator(kind, mc, provider);

@@ -86,7 +86,8 @@ public class LoopConfigCodecNGTest {
         HarnessModel model = HarnessModelCodec.fromJson(root);
         Loop main = model.getLoop(Loop.MAIN);
         Assert.assertNotNull(main, "missing loops[] must fall back to the legacy default main loop");
-        Assert.assertEquals(main.itemsFor(Trigger.START).get(0).getKind(), Kind.ABORT);
+        Assert.assertEquals(main.itemsFor(Trigger.START).stream().map(i -> i.getKind()).toList(),
+                List.of(Kind.GUARD, Kind.SKILL), "main START = GUARD + SKILL (§15.6)");
         Assert.assertEquals(main.itemsFor(Trigger.EXECUTE).stream().map(i -> i.getKind()).toList(),
                 List.of(Kind.SPLIT, Kind.COMPLETE, Kind.WORK, Kind.EVALUATE,
                         Kind.RAG_STORE, Kind.CHECK, Kind.SUMMARIZE));
@@ -130,6 +131,38 @@ public class LoopConfigCodecNGTest {
         LoopItem sub = copy.getLoop("main").getItems().get(3);
         Assert.assertEquals(sub.getLoop(), "resolve");
         Assert.assertNotSame(sub, sampleModelWithLoops().getLoop("main").getItems().get(3));
+    }
+
+    @Test
+    public void testKinddefsAllowCustomKindLiteralsWithoutCompiling() throws Exception {
+        // a project-specific kind literal is declared in the root kinddefs[] and usable in
+        // quests + loop items - no built-in Kind constant needed (§2)
+        HarnessModel model = parse("{\"name\":\"x\",\"kinddefs\":[\"DEPLOY\"],"
+                + "\"quests\":[{\"kind\":\"DEPLOY\",\"slots\":[]}],"
+                + "\"loops\":[{\"id\":\"main\",\"items\":[{\"id\":\"d\",\"kind\":\"DEPLOY\"}]}]}");
+        Assert.assertEquals(model.getKinddefs(), List.of("DEPLOY"));
+        Assert.assertEquals(model.questFor(Kind.valueOf("DEPLOY")).getKind().name(), "DEPLOY");
+        Assert.assertEquals(model.getLoop("main").getItems().get(0).getKind().name(), "DEPLOY");
+        Assert.assertTrue(Kind.isBuiltin("WORK"));
+        Assert.assertFalse(Kind.isBuiltin("DEPLOY"), "kinddef literal is not a built-in constant");
+        Assert.assertTrue(model.isKnownKind("DEPLOY"));
+        Assert.assertFalse(model.isKnownKind("TYPO"));
+    }
+
+    @Test
+    public void testUnknownKindWithoutKinddefStillFails() {
+        Assert.assertThrows(IllegalArgumentException.class, () -> parse(
+                "{\"loops\":[{\"id\":\"main\",\"items\":[{\"id\":\"x\",\"kind\":\"NOPE\"}]}]}"));
+        Assert.assertThrows(IllegalArgumentException.class, () -> parse(
+                "{\"quests\":[{\"kind\":\"NOPE\",\"slots\":[]}]}"));
+    }
+
+    @Test
+    public void testKinddefsRoundTripThroughToJson() throws Exception {
+        HarnessModel model = parse("{\"name\":\"x\",\"kinddefs\":[\"DEPLOY\"],\"quests\":[]}");
+        JsonNode out = HarnessModelCodec.toJson(model);
+        HarnessModel reloaded = HarnessModelCodec.fromJson(out);
+        Assert.assertEquals(reloaded.getKinddefs(), List.of("DEPLOY"));
     }
 
     private static HarnessModel parse(String json) throws Exception {

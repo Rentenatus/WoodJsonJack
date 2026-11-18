@@ -31,10 +31,17 @@ gleich, `CalcResult` serialisiert polymorph über `kind()`):
 
 ```java
 interface HarnessCalculator {
-    Kind kind();                        // fester Zweck als Diskriminator
+    Kind kind();                        // Zweck als Diskriminator
     CalcResult calculate(CalcContext ctx);
 }
 ```
+
+**`Kind` ist kein geschlossenes Enum, sondern eine Registry-Klasse:** Die eingebauten Zwecke
+sind `public static final Kind`-Konstanten (quellkompatibel), zusätzliche Literale deklariert der
+User im Root des Modells als **`kinddefs[]`** und nutzt sie in `quests[]`/`loops[]` ohne zu
+kompilieren. Der Codec validiert jedes Kind-Literal gegen „built-ins ∪ kinddefs[]" — Tippfehler
+failen weiterhin mit klarer Meldung. Custom-Kinds ohne eingebautes impl bekommen den generischen
+deterministischen Fallback (`decision "done"`).
 
 | Kind | Aufgabe |
 |---|---|
@@ -63,8 +70,13 @@ ohne Tooling — ob ein Thema ins Fachgebiet X fällt, welche Aufgabenart Y, Sco
 nur die Anzahl der Tasks in einem Prompt. Billig und schnell, daher eigener purpose.
 **Deterministische Implementierung bleibt immer als Fallback** erhalten — auch für AI-Kalkulatoren bei
 JSON-Schema-Verstoß (Parse-Fail → Fallback, Event im Log).
-**Provider & Nebenläufigkeit:** `provider` in der Modelclass ist `ollama` (lokal) **oder `hosted`**
-(z. B. Mistral-API). Nebenläufigkeit ist denkbar, **aber nicht innerhalb von Ollama** (ein lokales Modell
+**Provider & Nebenläufigkeit:** `provider` in der Modelclass ist `ollama` (lokal), **`hosted`**
+(z. B. Mistral-API) **oder `system`** — der Pseudo-Provider für den eingebauten Determinismus:
+ein Slot mit `impl: "ai"` auf einer `system`-Modelclass ruft keinen Provider auf, die Fabrik
+liefert den deterministischen Kalkulator des Kind (dasselbe Verhalten wie der Catch-Mapping-
+Fallback); bei `purpose: "rag"` ist `system` das deklarierte Hash-Embedding (`model` =
+Store-Schlüssel, z. B. `hash-embedding`). Vergleich case-insensitiv (`Modelclass.isSystem()`).
+Nebenläufigkeit ist denkbar, **aber nicht innerhalb von Ollama** (ein lokales Modell
 wird sequenziell bedient); erlaubt ist aber, **mehrere Modelle für dieselbe Quest parallel** zu fahren —
 z. B. ein Ollama- und ein gehostetes Modell als zwei Kandidaten derselben Aufgabe (Evolutions-Kandidaten
 können lokale und gehostete Provider mischen).
@@ -81,14 +93,14 @@ Kalkulator-Protokoll. Pro Aufruf wird im Knoten ein Log-Eintrag angehängt: `kin
 **Wichtig:** Dieser Baum ist nicht die Source of Truth des Laufs, sondern deren Projektion — die
 Runtime-Wahrheit liegt im memory-Package (§3 unten, §10).
 
-**Baumstruktur = EditTree (entschieden, Umsetzungsplanung siehe PROGRESS_Harness.md §9):** Der Task-Baum
-ist **keine parallele Welt**, sondern eine echte `EditTree` (jsonCasted_edit) im Harness. `TaskNode` wird
-zu **`TaskData`** — einer **Facade mit Back-Reference**: TaskData hält den belegten `EditNodeObject` und
-führt das Attach intern aus (`setStatus/close/logCall/…` schreiben durch in die Captured Attributes des
-Node und feuern das Change-Event). Die Attributes bleiben primitive, serialisierbare Werte (Status-String,
-Score-long …), damit Persistierung via JsonNode und Anzeige via `rightString()` ohne Sonder-Codec laufen.
-Die Node→TaskData-Richtung läuft über eine Registry pro WorkOrder (`IdentityHashMap<EditNode, TaskData>`) —
-Struktur (parent/children) lebt im EditNode, Payload in der Registry; keine zwei Sources of Truth.
+**Baumstruktur = plain POJO (entschieden, revidiert — die frühere EditTree-Kopplung wurde entfernt,
+siehe PROGRESS_Harness.md §10.11):** `TaskData` ist ein **einfaches Datenobjekt** (id/taskType/title/status/
+score/attempt/… + `children[]` + `calculatorLog[]` + `calls[]`) — **JSON ist direkt seine Persistenzform**
+(`TaskData.toJson/fromJson`, der Codec baut nichts per Hand). Kein EditNode, keine Registry, kein
+Zwei-Welten-Problem; src_jh hängt dafür nicht mehr von jsonCasted_edit ab. Die UI baut ihren JTree direkt
+aus den TaskData-Objekten. Pro Kalkulator-Aufruf wird ein **`CalcCall`** an `calls[]` angehängt
+(input-Prompts, CalcResult-Payload, LoopAction mit type/flow/detail) — das ist die **sichtbare
+Datenbewegung** des Laufs im Baum.
 
 **Zwei Schichten — Runtime-Wahrheit vs. persistierte Projektion (entschieden):** Die Logik des Laufs
 lebt **unabhängig** in der Runtime-Schicht — dem Package `de.jare.harness.memory` (`MemoryQuest` mit
@@ -275,11 +287,22 @@ Pro Kalkulator-Aufruf landet nur das strukturierte Kennzahlen-Set im Log — **n
 ```
 { aufrufId, taskId, taskType, kind, slotId, modelVersion, attempt,
   dauerMs, tokensIn, tokensOut, score, status, decision,
+  loopId, loopItemId, trigger,         // Loop-Kontext des feuernden Items (§15.6) — null außerhalb konfigurierter Loops
+  paramError,                          // offending param key bei PARAMETER-Fehlern, sonst null
   parent1: {aufrufId, score, status},  // redundant (schnelle Aggregation ohne Join)
   parent2: aufrufId                    // Link genügt: parent3+ sind über den parent2-Eintrag
                                        // (dessen redundantes parent1) per Walk beliebig tief erreichbar
 }
 ```
+
+**Loop-Struktur und Parameterfehler werden mitgemessen (§6):** Jeder Call wird zusätzlich unter dem
+Key `loop:<loopId>/<itemId>@<trigger>` aggregiert — Loops sind damit genauso bewertbar wie Slots.
+`PARAMETER`-Fehler (unbekannter/invalider Config-Param, z. B. `temperature` nicht parsebar; strikte
+Builder via `CalculatorBuilder.rejectUnknown`) landen in der neuen Kategorie `PARAM_ERROR`, gekeyed
+pro Slot **und** pro Param (`slotId@paramKey`). **Mutation erbt anteilig:** `cloneWithInheritance`
+trägt die alte EMA als Prior mit (Count × priorWeight) statt hart zu resetten; `cloneWithReset` bleibt
+als priorWeight=0 erhalten. Die Struktur-Bewertung ist eine berechnete Sicht:
+`structureScore = ema(SCORE) − 100·(wFail·ema(FAIL_RATE) + wParam·ema(PARAM_ERROR))`.
 
 parent3 und tiefer werden **nicht** gespeichert — die Information liegt über die Kette bereits vor.
 
@@ -314,6 +337,13 @@ Der Roh-Log bleibt lokal; **global** landet nur die aggregierte Kennzahlenliste 
      (Commit `d846a30`). Dieselbe Messung (Mutationen eines Slot-Params gegeneinander scoren) ist genau das,
      was der Evolutions-Schritt im laufenden Betrieb automatisiert.
 3. **Stammbaum:** Jede Modell-Änderung (Swap, Evolution, manuelles Editieren) erzeugt eine neue Modell-Version mit Parent-Verweis — persistiert projekt-lokal in `<projekt>/.wood/harness/lineage.json` (versionId, parentId, created, changeDescription, statsSnapshot, slots). Rollback = Instanz auf ältere Version zeigen; Weiterschreiben = Kind-Version vom aktuellen Stand.
+4. **Parameterfehler als Mutations-Maß (§6):** Häufige `PARAM_ERROR` (Kategorie im MetricsStore, gekeyed pro
+   Slot **und** pro Param `slotId@paramKey`, dazu unter `loop:…`-Keys für die Loop-Struktur) sind ein
+   eigenes Schwellen-Kriterium der Feedback-Schleife: Überschreitet die PARAM_ERROR-Rate eines Slots/Loop-Items
+   im Messfenster eine Schwelle, ist das ein starker Hinweis auf falsche oder zu komplexe Parametrisierung —
+   der betroffene Slot (bzw. das Loop-Item) wird zum **Mutations-Kandidaten** (Punkt 2), z. B. Param fixen
+   oder Prompt/Guardrails mutieren. Die `structureScore` (§6) fasst SCORE, FAIL_RATE und PARAM_ERROR zu einer
+   Struktur-Bewertung zusammen, die Evolution und Swap gleichermaßen speist.
 
 ## 8. Kopplung lokal ↔ global: aggregierte Kennzahlen, nie Harnesses, keine Event-Sammlung
 
@@ -389,6 +419,11 @@ wandern niemals in die globale Ebene (vgl. §8).
 
 - **Einbettung:** kleines lokales Ollama-Embedding-Modell (Modelclass `rag`, z. B. `nomic-embed-text`) — alles lokal, kein externer Dienst.
 - **Nur ein RAG-Modell gleichzeitig:** Es ist immer nur **eine** `rag`-Modelclass aktiv. **Modellwechsel = Reset:** Beim Wechsel des Embedding-Modells wird die RAG geleert und neu aufgebaut — Skills etc. werden neu gelesen, die RAG-Historie stirbt. Ein Wechsel ist **nur möglich, wenn keine Prompt-Bearbeitung läuft** (kein aktiver Harness-Lauf / Prompt-Fenster in Arbeit); bei laufender Bearbeitung wird der Wechsel verweigert.
+- **Deklarierter Fallback:** Die `system`-Modelclass mit `purpose: "rag"` (z. B.
+  `{ "provider": "system", "model": "hash-embedding", "purpose": "rag", "size": 0, "costFactor": 0.0, "toolCapable": false }`
+  im gebündelten Modell) ist das Hash-Embedding als eigener, persistierter Store
+  (`.wood/harness/rag/hash-embedding.json`). `activeRag()` bevorzugt immer ein echtes
+  rag-Modell (ollama/hosted); erst wenn keines deklariert ist, greift der `system`-Fallback.
 - **Tabellenspalten der Embedding-RAG (Chunk-Tabelle):**
 
 | Spalte | Inhalt |
@@ -425,6 +460,16 @@ wandern niemals in die globale Ebene (vgl. §8).
 - **Import = RAG-Eintrag:** Wird ein Skill importiert bzw. lokal approved, wird er in die **Projekt-RAG** geschrieben mit `docType = SKILL`.
 - **N Descriptions = N RAG-Chunks:** Anders als übliche Harnesses muss der Skill seine Description nicht im Fenster halten — jede Description wird als **eigener RAG-Chunk** abgelegt (Metadaten: `{skillId, docType: SKILL, descIndex, scope, source}`). Beispiel: Desc 1 beschreibt, dass der Skill greift, wenn der User **sucht/analysiert** (scope `search`), Desc 2, wenn der User **Änderungen vornehmen** will (scope `edit`). Getrennte Scopes, getrenntes Matching gegen den User-Prompt — aber **ein Skill**.
 - **Matching:** RAG_RETRIEVE matcht das AUFTRAG-Segment (User-Prompt) gegen die SKILL-Chunks *pro Scope*; der RelevanceCalculator baut daraus das SKILL-Segment der Prompt-Liste — als Verweis auf die Skill-ID, nicht als Volltext (der Volltext liegt in der RAG).
+- **SKILL-Quest am START der main loop (§15.6):** Puzzle-Sequenz `[skill.collect, skill.match]`. `skill.collect`
+  lädt die SkillRegistry (global + projekt-lokal) und zählt sie in den WorkCache. `skill.match` matcht den
+  User-Prompt per Cosinus gegen **alle** SKILL-Descriptions in der RAG des gewählten Embedding-Modells —
+  optional gefiltert nach Namen (`filter`, kommasepariert = ODER) und mit Akzeptanzschwelle `minSimilarity`
+  (default = RAG-Default). Alle Treffer landen im laufenden Speicher (WorkCache: `skills.matched`,
+  `skills.matched.count`, `skill.match.<skillId>`, `skills.matched.detail`). `embedModel` wählt die
+  rag-Modelclass (z. B. `manutic/nomic-embed-code:latest`, Fallback purpose `rag`).
+- **Ein RAG-Store pro Embedding-Modell:** Die Stores liegen keyed by `modelName` in der Instanz —
+  **zwei rag Modelle = zwei getrennte DBs**, persistiert je Modell als `.wood/harness/rag/<model>.json`.
+  `RagStore.retrieve(query, docType, topK, minScore)` filtert den docType **vor** top-k.
 
 ## 13. Tooling & Composite Calculators (WORK-Zugriff)
 
@@ -586,18 +631,17 @@ ctx.ui          // * neu: Harness-Fenster
    mit Status-Farben/Score-Badges, Detail-Pane mit Kalkulator-Protokoll pro Knoten), geöffnet
    über das Harness-Menü in `JackMainMenu` („Show Harness Window“; „Run Task…“ startet einen
    Lauf gegen das aktuelle Projekt). Kein eigenes Andock-Panel.
-3. **Task-Baum als EditTree im Harness (entschieden, §3):** kein eigener Node-Typ, kein ViewNode —
-   die EditTree ist die Baumstruktur, `TaskNode` wird zur Facade `TaskData` **mit Back-Reference** auf
-   ihren `EditNodeObject` (Attach läuft intern, Attributes bleiben primitive Werte, Node→TaskData über
-   eine Registry pro WorkOrder). Gleiche Instanzen im Harness und im JTree
-   (`DefaultMutableTreeNode.userObject` = EditNode), Sync über die bestehenden EditTree-Events,
-   read-only für die UI (§3). src_jh darf dafür jsonCasted_edit abhängen (§10).
+3. **Task-Baum als plain POJO im Harness (entschieden, revidiert — ehemals EditTree, §10.11):**
+   `TaskData` ist ein plain Data-Object; JSON (`toJson/fromJson`) ist direkt die Persistenzform.
+   Jede Mutation feuert Change-Events (Subtask-Events bubblen zur Root, die `HarnessInstance` an die
+   UI durchreicht). Pro atomarem Kalkulator-Schritt hängt der Engine einen `CalcCall` an `calls[]`
+   (input, payload, loopAction) — die Datenbewegung (Input→Output) ist damit direkt im Baum sichtbar.
 4. **Schichtung Runtime vs. Projektion (entschieden, §3):** `de.jare.harness.memory` (MemoryQuest /
    WorkOrder / WorkCache / WorkResponse) + `HarnessInstance` sind die **Runtime-Wahrheit** eines Laufs;
-   `TaskData`/EditTree ist die **persistierte Projektion** — Struktur + überschreibbare Status-Zelle
-   (status/score/attempt, Fortschrittsbalken-Semantik) + append-only Call-Log (`calculatorLog[]`).
-   Der Engine mutiert die Runtime; die TaskData-Setter sind der schmale Bridge-Pfad, der in die
-   EditTree projiziert und die Change-Events feuert. TaskData ist der Trace, nie der State.
+   `TaskData` ist die **persistierte Projektion** — Struktur + überschreibbare Status-Zelle
+   (status/score/attempt, Fortschrittsbalken-Semantik) + append-only Call-Log (`calculatorLog[]`) +
+   projizierte Kalkulator-Schritte (`calls[]`). Der Engine mutiert die Runtime; die TaskData-Setter
+   feuern die Change-Events. TaskData ist der Trace, nie der State.
 5. **Steuerung objektorientiert via HarnessAction (entschieden):** Ein Kalkulator steuert den Automaten
    nicht über Decision-Strings, sondern indem er ein **`HarnessAction`**-Objekt im `CalcResult` erzeugt.
    Das Interface liegt in `de.jare.harness`, die Repräsentanten in **`de.jare.harness.main.actions`**
@@ -616,11 +660,22 @@ ctx.ui          // * neu: Harness-Fenster
    festem Attributsatz; `trigger` ∈ `START | EXECUTE | CATCH | CLOSE` (default `EXECUTE`) steuert den
    Lifecycle: START einmalig beim Eintritt, EXECUTE pro Iteration, CATCH bei **fachlichem** Fehler,
    CLOSE einmalig beim Verlassen (finally — CLOSE feuert immer, auch nach CATCH und Break).
+   **Main-START mit GUARD + SKILL (nur in `"main"`, nicht im Subloop):** Der `"main"`-Loop startet
+   mit `{ kind: "GUARD", trigger: "START" }` (Entry-Guard: blanker Prompt oder kein verfügbares Modell
+   → DOMAIN-`ErrorSignal`, CATCH feuert) und `{ kind: "SKILL", trigger: "START" }` (Slot mit dem
+   benannten Kalkulator `skill.collect`: prüft und sammelt die aktuellen Skills der SkillRegistry
+   (global + projekt-lokal) in den WorkCache — `skills.count`/`skills.ids`/`skills.descriptions`).
+   Der `"sub"`-Loop behält sein `ABORT`-START. Fällt `loops[]` ganz weg, baut `defaultMainLoop()`
+   GUARD+SKILL programmatisch, `defaultSubLoop()` das alte ABORT-START.
    **Zwei Action-Kanäle, klar getrennt:** die fachliche `HarnessAction` (Was passiert am Task —
    Split/Retry/Abort, §15.5) und die neue **LoopAction** (Wohin geht der Flow) im `CalcResult` —
    `Continue` (nächstes Item), `Restart` (aktueller Loop ab erstem EXECUTE-Item neu; START feuert
    nicht erneut), `Break` (aktueller Loop verlassen, CLOSE läuft, Rückgabe an den Aufrufer),
    `SubLoop(loopId)` (benannten Loop auf den Call-Stack pushen, Depth-Check), `ThrowError(errorSignal)`.
+   **`LoopSplit(prompts, loopId)`** (default `loopId="sub"`): der Split legt pro Subtask einen
+   **Subloop-Start** an — der in der JSON als Duplikat von `"main"` konfigurierte `"sub"`-Loop
+   (Fallback: programmatischer Default-Subloop) —, **keine neue main-Loop**; nach Rückkehr der N
+   Subloops werden die Consumption-Deltas (Slot + N Kinder) summiert und als aktuelles Output geschrieben.
    Interface `LoopAction` in `de.jare.harness`, Repräsentanten in `de.jare.harness.main.actions`.
    **Fehlerkanäle als Daten, nie als Throwable:** `ErrorSignal { kind: DOMAIN | TECHNICAL, reason,
    source }` — DOMAIN (Kalkulator meldet fachlichen Fehler, z. B. kein valides JSON vom Modell)

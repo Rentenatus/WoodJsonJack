@@ -43,6 +43,13 @@ public class HarnessServiceNGTest {
         HarnessInstance loaded = de.jare.harness.io.HarnessInstanceCodec.load(harnessJson);
         Assert.assertEquals(loaded.getRoot().getStatus(), Status.DONE);
         Assert.assertFalse(loaded.getCallLog().isEmpty());
+
+        // §11: the ACTIVE rag store (the default model's rag modelclass) is persisted per model
+        // name under .wood/harness/rag/ - not the hash fallback
+        File ragFile = new File(project.toFile(), ".wood/harness/rag/manutic_nomic-embed-code_latest.json");
+        Assert.assertTrue(ragFile.exists(), "active rag store persisted per rag model name");
+        Assert.assertFalse(new File(project.toFile(), ".wood/harness/rag/hash-embedding.json").exists(),
+                "hash fallback store must not be used when a rag modelclass is configured");
     }
 
     @Test
@@ -52,8 +59,11 @@ public class HarnessServiceNGTest {
         HarnessModel model = HarnessModelCodec.load(asset);
 
         Assert.assertEquals(model.getName(), "default-harness");
-        Assert.assertEquals(model.getModelclasses().size(), 11, "5 roles + local extras + phi4-mini (scoring)");
+        Assert.assertEquals(model.getModelclasses().size(), 12, "5 roles + local extras + phi4-mini (scoring) + system rag fallback");
         Assert.assertEquals(model.modelclass("scoring").getModel(), "phi4-mini:latest");
+        Assert.assertTrue(model.modelclassesForPurpose("rag").stream()
+                .anyMatch(de.jare.harness.model.Modelclass::isSystem),
+                "the declared system rag fallback (hash-embedding) must parse from the asset");
         Assert.assertEquals(model.modelclass("scoring").getSize(), 4, "phi4-mini ~3.8B -> size 4 (integer B)");
         Assert.assertEquals(model.modelclass("rag").getModel(), "manutic/nomic-embed-code:latest");
         Assert.assertEquals(model.modelclass("edit").getModel(), "devstral-small-2:24b");
@@ -166,8 +176,12 @@ public class HarnessServiceNGTest {
     private static void assertMainLoop(HarnessModel model, String what) {
         de.jare.harness.model.Loop main = model.getLoop(de.jare.harness.model.Loop.MAIN);
         Assert.assertNotNull(main, what + " must carry loops.main");
-        Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.START).get(0).getKind(), Kind.ABORT);
+        Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.START).stream()
+                .map(i -> i.getKind()).toList(), List.of(Kind.GUARD, Kind.SKILL),
+                "main START = GUARD + SKILL (only in main, §15.6)");
         Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.CATCH).get(0).getKind(), Kind.ABORT);
+        Assert.assertNotNull(model.questFor(Kind.GUARD));
+        Assert.assertNotNull(model.questFor(Kind.SKILL));
         Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.CLOSE).stream()
                 .map(i -> i.getKind()).toList(), List.of(Kind.CLOSE, Kind.RAG_PRUNE));
         Assert.assertEquals(main.itemsFor(de.jare.harness.model.Trigger.EXECUTE).stream()

@@ -148,3 +148,179 @@ Entschieden (siehe `CONCEPT_Harness.md` §17):
 SYSTEM-Segment (`memory:decision-<id>`) in jeden Folge-Run, `/decide <text>` Befehl im
 `ChatCommandService` (legt DECISION mit source `user:/decide` an), Popup-Eintrag „Record decision"
 legt `/decide ` in die Eingabe. Tests: ProjectMemoryNGTest + ChatCommandServiceNGTest erweitert.
+
+## 10.2 Umgesetzt: Split startet Subloops statt neuer Main-Loops (uncommittet)
+
+`LoopSplit` trägt jetzt die Ziel-Loop-ID (`loopId`, default `"sub"`, null/blank normalisiert auf `"sub"`).
+`HarnessEngine.handleSplit` startet pro Subtask `process(child, loopId)` — also einen Subloop — statt
+`process(child)` (frische main-Loop). `Loop.SUB = "sub"` + `HarnessModel.defaultSubLoop()` als Fallback,
+wenn die JSON zwar `loops[]` hat, aber keinen `"sub"`-Eintrag. `harness-model.json` enthält `"sub"` als
+exaktes Duplikat von `"main"`. Optionaler Config-Param `subloop` am `askai.decompose`-Slot (Builder
+`AskAiDecomposeBuilder.withSubloop`). WorkCache trägt zusätzlich `subloopId`. Tests: DecomposeSplitNGTest
+(neu `testLoopSplitCarriesSubloopId`, Engine-Test mit expliziten main/sub-Loops und SUMMARIZE-Marker in
+main — Kinder laufen sub, main-only Items feuern nicht). Harness-Suite 140/140, WJJ gesamt 248/248 grün.
+
+## 10.3 Umgesetzt: GUARD + SKILL am START der main loop (uncommittet)
+
+`Kind` um `GUARD` und `SKILL` erweitert (jetzt 14). In `harness-model.json` hat nur der `"main"`-Loop
+am START `{ "id": "guard", "kind": "GUARD" }` (ersetzt das bisherige `abort`) und zusätzlich
+`{ "id": "skill", "kind": "SKILL" }`; der `"sub"`-Loop behält `abort` am START. Neue Quests GUARD
+(deterministischer Slot) und SKILL (benannter Kalkulator `skill.collect`, registriert in
+`DefaultCalculatorFactory`). Deterministische GUARD-Logik in `DeterministicCalculators.guard`:
+blanker Prompt oder (konfigurierte, aber alle unavailable) Modelclasses → FAILED + `LoopThrowError`
+DOMAIN (CATCH feuert); sonst DONE mit `modelsAvailable`. `skill.collect`
+(`SkillCollectCalculator`/`SkillCollectBuilder`) sammelt die SkillRegistry (`ctx.skills()`) in den
+WorkCache (`skills.count`/`skills.ids`/`skills.descriptions`). `HarnessModel.defaultMainLoop()` baut
+GUARD+SKILL-START programmatisch, `defaultSubLoop()` behält ABORT. Tests: neuer `GuardSkillNGTest`
+(5 Tests, inkl. Engine-Lauf: GUARD/SKILL feuern genau 1× in main, Split-Kinder laufen sub mit ABORT),
+`LoopConfigCodecNGTest`/`LoopEngineNGTest`/`HarnessEngineNGTest`/`HarnessServiceNGTest`/`HarnessMetricsNGTest`
+angepasst. Harness-Suite 145/145, WJJ gesamt 248/248 grün.
+
+## 10.4 Umgesetzt: Kind als Registry-Klasse + kinddefs[] im Root; HarnessService gekapselt (uncommittet)
+
+`Kind` ist jetzt eine `final class` mit String-Registry: 14 eingebaute Konstanten
+(`public static final Kind`), `Kind.valueOf` registriert Custom-Literale on the fly,
+`Kind.values()/names()/isBuiltin()` vorhanden. `harness-model.json` trägt `"kinddefs": []` im Root;
+Codec + Definition-Bean/Converter lesen/schreiben `kinddefs[]` und validieren jedes Kind-Literal in
+quests/loops gegen built-ins ∪ kinddefs (Typo-Schutz bleibt). `DeterministicCalculators`: switch →
+Map, Custom-Kinds ohne built-in impl → generischer Fallback `done`. `HarnessModel`: kinddefs-Liste +
+`isKnownKind` + copy. Service-Kapselung: `setWoodHome`, `getProjectDir`, `modelFile()`,
+`instanceFile()`, `getProjectMemory()` jetzt package-private (nur noch same-package Tests/Intern);
+public bleiben Konstruktoren, `runTask`, `loadModel`, `getLastMemoryQuest`, `defaultModel`,
+`memoryFile()` (braucht `main.chat.ChatCommandService`) und die Datei-Konstanten. P.S. `subloop: "sub"`
+explizit im askai.decompose-Slot. Tests: 3 neue kinddef-Tests in LoopConfigCodecNGTest, EnumMap →
+HashMap in LoopEngineNGTest/GuardSkillNGTest. Harness-Suite 148/148, WJJ gesamt 248/248 grün.
+
+## 10.5 Umgesetzt: Loop-Struktur + Parameterfehler messen, Prior-Inheritance bei Mutation (uncommittet)
+
+- `CallLogEntry` trägt jetzt `loopId`/`loopItemId`/`trigger`/`paramError` (JSON-Roundtrip inklusive); die Engine
+  reicht den Loop-Kontext aus `runItem`/`handleThrow` in `execute(...)` durch.
+- `MetricsStore`: neue Kategorie `PARAM_ERROR`; `recordCall` aggregiert jeden Call zusätzlich unter
+  `loop:<loopId>/<itemId>@<trigger>` und zählt Param-Fehler unter `slotId` UND `slotId@paramKey`.
+- `HarnessException.Type.PARAMETER` + `paramKey`; `ErrorSignal` mappt es auf DOMAIN; `CalcContext.temperature()`
+  wirft bei invalider Zahl PARAMETER; Builder strikt via `CalculatorBuilder.rejectUnknown` (generische Params wie
+  `temperature` bleiben erlaubt).
+- `cloneWithInheritance(mutated, priorWeight)`: mutierter Knoten erbt alte EMA als Prior (Count skaliert),
+  `cloneWithReset` = priorWeight 0 (altes Verhalten). `structureScore(node, depth, wFail, wParam)` als
+  berechnete Sicht auf die Buckets.
+- Tests: +4 in HarnessMetricsNGTest (Loop-Keys, Param-Count, Prior-Inheritance, structureScore), +2 in
+  LoopEngineNGTest (Loop-Kontext im CallLog + End-to-End PARAM_ERROR), +2 in HarnessCodecNGTest (temperature
+  PARAMETER, strikte Builder). Harness-Suite 155/155, WJJ gesamt 253/253 grün.
+
+## 10.6 Konzept ergänzt: PARAM_ERROR als Mutations-Maß (committet mit Doku)
+
+CONCEPT_Harness.md §7 Punkt 4: Häufige Parameterfehler (`PARAM_ERROR` pro `slotId@paramKey` bzw. `loop:…`-Keys)
+sind ein eigenes Schwellen-Kriterium der Feedback-Schleife — betroffener Slot/Loop-Item wird Mutations-Kandidat;
+`structureScore` (§6) fasst SCORE + FAIL_RATE + PARAM_ERROR zur Struktur-Bewertung zusammen.
+
+## 10.7 Umgesetzt: skill.match + RAG pro Embedding-Modell (uncommittet)
+
+- Neuer benannter Kalkulator `skill.match` (`SkillMatchCalculator`/`SkillMatchBuilder`): Params `filter`
+  (optionaler Namensfilter, kommasepariert=ODER), `minSimilarity` (Cosinus-Akzeptanz, default RAG-Default),
+  `topK`, `embedModel` (rag-Modelclass by name, Fallback purpose "rag"; invalide Zahlen → PARAMETER).
+  Importiert die Registry-Skills idempotent in den gewählten Store, matcht den User-Prompt gegen alle
+  SKILL-Chunks (docType-Filter vor topK via neuem `RagStore.retrieve(query, docType, topK, minScore)`),
+  alle Treffer in den WorkCache (`skills.matched`, `skills.matched.count`, `skill.match.<id>`,
+  `skills.matched.detail`, `skills.matched.model`).
+- Modellauswahl: `OllamaEmbeddingProvider` (POST /api/embed) + `DefaultCalculatorFactory.embeddingProviderFor(mc)`
+  + `CalculatorCreationContext.embeddingProviderFor`; ohne Ollama-Provider → hashEmbedding-Fallback.
+- **Zwei rag Modelle = zwei DBs:** `HarnessInstance` hält jetzt `Map<modelName, RagStore>`; Persistenz pro
+  Modell als `.wood/harness/rag/<model>.json` (Load/Save in `HarnessService.runTask`).
+- Config: SKILL-Quest als Puzzle `[skill.collect, skill.match {embedModel: nomic-embed-code, minSimilarity: 0.35}]`.
+- Tests: +3 GuardSkillNGTest (Name-Filter + WorkCache-Treffer, Akzeptanzschwelle, zwei Stores), +1
+  HarnessRagNGTest (docType vor topK), +1 HarnessServiceNGTest (RAG-Persistenz). Harness-Suite 159/159,
+  WJJ gesamt 254/254 grün (HarnessViewNGTest flaky wie bekannt).
+
+## 10.8 Umgesetzt: zweistufiger GUARD (guard.check + guard.escalate) + Sandbox-Tuning des Systemprompts
+
+- `guard.check` (GuardCheckCalculator/Builder, scoring/phi4-mini): klassifiziert den User-Prompt als
+  SAFE/SUSPICIOUS/BLOCKED, striktes JSON + Emphasis-Retry; Verdict in WorkCache (`guard.verdict` etc.);
+  BLOCKED → `LoopThrowError(DOMAIN)` → CATCH feuert, Run stoppt. `guard.escalate` (evaluation/granite3.3:8b)
+  läuft nur bei SUSPICIOUS, liest das erste Verdict aus dem WorkCache, finalisiert als `guard.finalVerdict`.
+- Sandbox-Reasoning (C:/tmp/harnessprobe/GuardSandbox, live gegen ollama phi4-mini, temp 0, 6 böse + 6
+  harmlose Prompts): 8 Kandidaten-Systemprompts getestet; Gewinner „H" mit 12/12 → in
+  `harness-model.json` (guard.check systemPrompt) und als `DEFAULT_SYSTEM_PROMPT` im Kalkulator.
+- Config: GUARD-Quest = Puzzle `[guard.check, guard.escalate]`. Tests: GuardVerdictNGTest (6 Tests inkl.
+  Engine-Level: BLOCKED stoppt den Run, CATCH feuert, WORK wird nie erreicht). Harness-Suite 165/165,
+  WJJ gesamt 254/254 grün.
+
+## 10.9 Code-Review Harness: Redundanzen geschnitten, toter Code entfernt, RAG-Store-Bug gefixt
+
+Review-Fragen: Linientreue zum Konzept, redundanter/ungenutzter Code, Schnittstellen-Qualität.
+Schichtung (§10) verifiziert: src_jh hat 0 Swing/AWT- und 0 de.jare.tree-Imports.
+
+**Redundanz geschnitten (Commits 549ff43, 3205cc5, 9e143c6):**
+- Neu `impl/AiAnswers`: eine Stelle für Provider-Call (Availability + temperature + MODEL_UNAVAILABLE),
+  strict-JSON-Parse (SCHEMA_VIOLATION), tolerantes Status-Parsing, JsonNode-Text/Score-Accessors, abbrev
+  und den Emphasis-Retry (`callAndParse`). Ersetzt die 5 kopierten Blöcke in AiCalculator,
+  ScoringCountQuestsCalculator, AskAiDecomposeCalculator, GuardCheckCalculator, GuardEscalateCalculator.
+- Neu `io/JsonNodes` (child/text/longOf/doubleOf): ersetzt die 4 kopierten Helfer-Sets in CallLogEntry,
+  HarnessModelCodec, HarnessInstanceCodec, RagStore; AiAnswers.text delegiert dorthin.
+- Neu `impl/ollama/JsonEsc` (esc/quote): ersetzt esc/quote in OllamaProvider + OllamaEmbeddingProvider.
+
+**Toter Code entfernt (9e143c6):** `OllamaProvider.extractResponse`/`jsonString` (nie aufgerufen),
+`HarnessInstance.rag`-Feld (nur geschrieben, nie gelesen — Stores leben nur in der `rags`-Map).
+
+**Bug gefixt (d8d1ac3):** `engine.activeRag()` löst den Store der rag-Modelclass auf (Fallback hash);
+`ctx.rag()` und `buildSegments` benutzen ihn jetzt — vorher schrieb `skill.match` in den nomic-Store,
+das Prompt-Retrieval las aber den Hash-Store (Skill-Treffer kamen nie im Prompt an). Retrieval in
+`buildSegments` ist best-effort (leerer Store wird geskippt, Embedder-Ausfall wird geloggt, nicht fatal);
+RAG_STORE meldet Embedder-Ausfall als `store-failed` (Seitenkanal, kein Run-Fehler); der deterministische
+Fallback kann nicht mehr selbst werfen. `DefaultCalculatorFactory.registerEmbeddingProvider` erlaubt
+Hosts/Tests eigene Embedder pro Modellname. Neuer Test `testActiveRagStoreFollowsRagModelclass`.
+
+**Unbenutzter Code — tot vs. Chance (Entscheidung):**
+- TOT (entfernt): siehe oben.
+- CHANCE (behalten, bewusst): `WorkCache.previousResult` (Schnellzugriff für Deltas, §15.6);
+  `MetricsStore.structureScore` (wird als nächstes in `EvolutionRunner` eingehängt); `Kind.RAG_RETRIEVE`
+  + `DeterministicCalculators.ragRetrieve` (Loop-Item später; Retrieval läuft heute inline in
+  `buildSegments`); `HarnessTools.exposeScopes/allowed` (Exposure-Budget §13, wird als nächstes in
+  `AiCalculator.toolLoop` verdrahtet); `LoopItem.loop` (Subloop-Ref, in der Engine verdrahtet, in der
+  Konfig noch ungenutzt).
+
+**Noch offen nach dem Review:** TEMP-`[CALC >>]/[CALC <<]`-Printlns in der Engine (warten auf
+Debug-Ende); Legacy-`splitInto` prozessiert Kinder noch mit "main" statt "sub" (nur über Legacy-
+decision erreichbar); `HarnessEngine.RAG_STORE_MIN_SCORE` als Engine-Konstante (soll als Slot-Param in
+den Kalkulator); `HarnessViewNGTest` flaky (~1/3, EDT-Timing, isoliert grün); KI-Pane zeigt die
+WorkResponse-Antwort noch nicht an.
+
+Harness-Suite 166/166, WJJ gesamt 255/255 grün.
+
+## 10.10 Umgesetzt: Provider "system" als deklarierter eingebauter Fallback
+
+- `Modelclass.PROVIDER_SYSTEM` + `isSystem()` (case-insensitiv, "System" == "system").
+- `DefaultCalculatorFactory.createAtomic`: ai-Slot auf einer system-Modelclass → deterministischer
+  Kalkulator des Kind (kein Provider-Call, kein Netzwerk) — dasselbe Verhalten wie der
+  Catch-Mapping-Fallback, aber deklarierbar in der Konfig.
+- `embeddingProviderFor(system rag)` → `EmbeddingProvider.hashEmbedding(<declared model name>)`;
+  der Store keyed darunter und persistiert als `.wood/harness/rag/hash-embedding.json`.
+- `HarnessEngine.activeRag()`: echtes rag-Modell (ollama/hosted) schlägt immer den system-Fallback;
+  erst wenn nur system deklariert ist, greift es.
+- Asset `assets/harness/harness-model.json` + `HarnessService.defaultModel()` deklarieren
+  `{ "provider": "system", "model": "hash-embedding", "purpose": "rag", "size": 0, "costFactor": 0.0, "toolCapable": false }`.
+- Konzept ergänzt: CONCEPT_Harness.md §2 (Provider-Liste um `system`) und §11 (deklarierter Fallback).
+- Tests: +1 HarnessCodecNGTest (ai-auf-system → deterministisch, Codec-Roundtrip, Case-Insensitiv),
+  +2 HarnessRagPipelineNGTest (activeRag bevorzugt echtes Modell / fällt auf system zurück),
+  Asset-Count 11→12 + system-Assertion in HarnessServiceNGTest. Harness-Suite 169/169, WJJ gesamt 258/258 grün.
+
+## 10.11 Umgesetzt: Task-Baum als plain POJO (EditTree-Kopplung entfernt) + Datenbewegung als calls[]
+
+- **Entscheidungsrevision:** `TaskTree`/EditTree ist raus. `TaskData` ist ein plain POJO
+  (Felder + `children` + `calculatorLog` + `calls`), JSON (`toJson/fromJson`) ist direkt die
+  Persistenzform — der Codec delegiert an `TaskData.toJson`, kein Hand-Bau, kein EditNode→JSON.
+  `src_jh` hängt damit nicht mehr von jsonCasted_edit ab (ViewNode/EditTree-Bridge obsolet).
+- **Datenbewegung im Baum (§3):** Jeder atomare Kalkulator-Schritt hängt als `CalcCall` an das
+  `calls[]` des Task: `input` (Prompts), `payload` (CalcResult als Daten, z. B. `skills.matched.*`
+  von skill.match), `loopAction` (type/flow + `LoopAction.detail()` — LoopSplit trägt die
+  Sub-Prompts, LoopThrowError das ErrorSignal, LoopSubLoop die loopId). Hook: `HarnessEngine.runNode`
+  nach jedem atomaren `calculate()` → `task.appendCalcCall(...)`.
+- **Events:** Mutationen feuern `Consumer<TaskData>` direkt auf dem Task; Subtask-Events bubblen
+  mit Origin zur Root; `HarnessInstance.addChangeListener` reicht sie an die UI durch
+  (`HarnessViewPanel`, `WoodWindow.openHarnessTreeTab` bauen ihren JTree direkt aus TaskData).
+- `LoopAction` hat neues `default JsonNode detail()` (null = nur type/flow); Overrides in
+  `main.actions` (LoopSplit/LoopSubLoop/LoopThrowError) — erweiterbar wie die Kalkulatoren.
+- Legacy-Load: `id`→`taskId`, `children`→`tasks`, string-CalculatorLog→Array (beides Varianten
+  getestet). `WorkOrder` hält nur noch den `TaskData`-Root, `MemoryQuest` erstellt ihn direkt.
+- Tests: TaskTreeNGTest → TaskDataNGTest (POJO, Event-Bubbling, CalcCall-Projektion,
+  Codec-Roundtrip inkl. calls, Legacy-Load), DecomposeSplitNGTest mit Engine-Level-Assertion
+  auf `getCalls()`. wjj_testng.xml aktualisiert. Harness-Suite 170/170, WJJ gesamt 258/258 grün.

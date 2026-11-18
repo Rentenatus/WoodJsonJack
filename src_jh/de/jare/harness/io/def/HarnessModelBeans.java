@@ -148,6 +148,7 @@ public class HarnessModelBeans {
     public static class HarnessModelBean {
         private String name;
         private String version;
+        private List<String> kinddefs = new ArrayList<>();
         private List<String> taskTypes = new ArrayList<>();
         private Map<String, Integer> promptBudgets = new LinkedHashMap<>();
         private AbortLimitsBean abortLimits;
@@ -159,6 +160,8 @@ public class HarnessModelBeans {
         public void setName(String v) { this.name = v; }
         public String getVersion() { return version; }
         public void setVersion(String v) { this.version = v; }
+        public List<String> getKinddefs() { return kinddefs; }
+        public void setKinddefs(List<String> v) { this.kinddefs = v; }
         public List<String> getTaskTypes() { return taskTypes; }
         public void setTaskTypes(List<String> v) { this.taskTypes = v; }
         public Map<String, Integer> getPromptBudgets() { return promptBudgets; }

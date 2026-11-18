@@ -86,6 +86,7 @@ Zwei Kanäle im `CalcResult`, nie vermischt:
 | `Break` | aktuellen Loop verlassen; CLOSE feuert; Rückgabe an den aufrufenden Loop (nächstes Item) |
 | `SubLoop(loopId)` | benannten Loop auf den Call-Stack pushen und `runLoop(task, loopId)` rekursiv; Depth-Check gegen `maxDepth` |
 | `ThrowError(errorSignal)` | DOMAIN → CATCH-Items des aktuellen Loops; TECHNICAL → CATCH überspringen, Quest FAILED, Entrollen bis oben |
+| `Split(prompts, loopId)` | N Subtasks (Task-Starts) aus den Prompts anlegen, pro Subtask einen **Subloop** starten (`runLoop(child, loopId)`, default `"sub"` — Duplikat von `main` in der JSON, nie eine neue main-Loop); nach Rückkehr: Consumption-Deltas (Slot + N Kinder) summieren → WorkCache `consumption` |
 
 Platzierung: Interface `LoopAction` in `de.jare.harness` (neben `HarnessAction`), Repräsentanten
 in `de.jare.harness.main.actions` (`LoopContinue`, `LoopRestart`, `LoopBreak`, `LoopSubLoop`,

@@ -267,6 +267,33 @@ public class HarnessCodecNGTest {
         CalcContext ctx2 = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
                 noTemp, engine.getLimits(), List.of());
         Assert.assertNull(ctx2.temperature());
+
+        // invalid temperature -> PARAMETER error carrying the param key (counted as PARAM_ERROR, §6)
+        CalculatorNode badTemp = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
+                .params(java.util.Map.of("model", "phi4-mini:latest", "temperature", "abc"));
+        CalcContext ctx3 = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
+                badTemp, engine.getLimits(), List.of());
+        try {
+            ctx3.temperature();
+            Assert.fail("invalid temperature must throw PARAMETER");
+        } catch (HarnessException ex) {
+            Assert.assertEquals(ex.getType(), HarnessException.Type.PARAMETER);
+            Assert.assertEquals(ex.getParamKey(), "temperature");
+        }
+    }
+
+    @Test
+    public void testBuilderRejectsUnknownParamAsParameterError() {
+        // strict builders: an unknown param key throws PARAMETER with the key (counted per slot@param)
+        try {
+            new de.jare.harness.impl.deterministic.PrintQuestsBuilder().withParam("bogus", "1");
+            Assert.fail("unknown param must throw PARAMETER");
+        } catch (HarnessException ex) {
+            Assert.assertEquals(ex.getType(), HarnessException.Type.PARAMETER);
+            Assert.assertEquals(ex.getParamKey(), "bogus");
+        }
+        // generic params (temperature) are accepted silently - read via CalcContext
+        new de.jare.harness.impl.deterministic.PrintQuestsBuilder().withParam("temperature", "0.0");
     }
 
     @Test
@@ -334,10 +361,16 @@ public class HarnessCodecNGTest {
         Assert.assertEquals(((de.jare.harness.main.calculator.ScoringCountQuestsCalculator) calc).getModelclass().getModel(),
                 "phi4-mini:latest");
 
-        // printig builder ignores params, still builds
+        // printig builder has no params of its own: generic params pass, unknown keys throw PARAMETER
         HarnessCalculator p = factory.getRegistry().newBuilder("printig")
-                .withParams(java.util.Map.of("ignored", "x")).build(ctx);
+                .withParams(java.util.Map.of("temperature", "0.0")).build(ctx);
         Assert.assertTrue(p instanceof de.jare.harness.impl.deterministic.CalculatorPrintQuests);
+        try {
+            factory.getRegistry().newBuilder("printig").withParams(java.util.Map.of("ignored", "x"));
+            Assert.fail("unknown param must throw PARAMETER (counted as PARAM_ERROR)");
+        } catch (HarnessException expected) {
+            Assert.assertEquals(expected.getType(), HarnessException.Type.PARAMETER);
+        }
     }
 
     @Test
@@ -375,5 +408,39 @@ public class HarnessCodecNGTest {
         long maxAufruf = loaded.getCallLog().stream().mapToLong(CallLogEntry::getAufrufId).max().orElse(0);
         Assert.assertTrue(loaded.getNextAufrufId() > maxAufruf,
                 "nextAufrufId must stay ahead of every logged id after reload");
+    }
+
+    /**
+     * Provider "system" is the declared built-in deterministic fallback: an ai slot bound to a
+     * system modelclass never calls a provider - the factory returns the deterministic
+     * calculator of the kind (same behavior as the catch-mapping fallback).
+     */
+    @Test
+    public void testSystemProviderModelclassRunsDeterministic() {
+        HarnessModel model = sampleModel();
+        model.addModelclass(new Modelclass(Modelclass.PROVIDER_SYSTEM, "builtin-fallback", "edit", 0, 0.0, false));
+        // make the system entry the FIRST "edit" class so modelclass("edit") resolves to it
+        model.getModelclasses().add(0, model.getModelclasses().remove(model.getModelclasses().size() - 1));
+
+        CalculatorNode aiOnSystem = CalculatorNode.atomic(CalculatorNode.IMPL_AI).modelclass("edit");
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        HarnessCalculator calc = factory.createAtomic(aiOnSystem, Kind.WORK);
+        Assert.assertFalse(calc instanceof de.jare.harness.impl.AiCalculator,
+                "provider system must not produce an AiCalculator");
+
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        TaskData root = instance.newRootTask(instance.nextTaskId(), "CODE_EDIT", "do it");
+        HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        CalcContext ctx = new CalcContext(engine, instance, model, root, Kind.WORK, "work.base",
+                aiOnSystem, engine.getLimits(), List.of("AUFTRAG:inline:task\ndo it"));
+        CalcResult r = calc.calculate(ctx);
+        Assert.assertEquals(r.getDecision(), "worked", "deterministic WORK fallback answers directly");
+        Assert.assertEquals(r.getStatus(), Status.DONE);
+
+        // provider name is case-insensitive: "System" behaves the same
+        Assert.assertTrue(new Modelclass("System", "x", "edit", 0, 0.0, false).isSystem());
+        // codec round trip keeps the system provider
+        HarnessModel loaded = HarnessModelCodec.fromJson(HarnessModelCodec.toJson(model));
+        Assert.assertTrue(loaded.modelclass("edit").isSystem());
     }
 }

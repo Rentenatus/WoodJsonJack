@@ -37,6 +37,7 @@ public class HarnessModel {
     private final List<Modelclass> modelclasses = new ArrayList<>();
     private final List<Quest> quests = new ArrayList<>();
     private final Map<String, Loop> loops = new LinkedHashMap<>();   // named loops, §15.6; "main" = entry
+    private final List<String> kinddefs = new ArrayList<>();   // custom kind literals declared in the root, §2
 
     public String getName() {
         return name;
@@ -54,6 +55,27 @@ public class HarnessModel {
     public HarnessModel version(String version) {
         this.version = version;
         return this;
+    }
+
+    /**
+     * The custom kind literals declared in the model root ({@code kinddefs[]}): usable in
+     * quests and loop items without a built-in {@link Kind} constant (Kind is a registry,
+     * §2). The codec validates every kind literal against built-ins ∪ these.
+     */
+    public List<String> getKinddefs() {
+        return kinddefs;
+    }
+
+    public HarnessModel addKinddef(String kinddef) {
+        if (kinddef != null && !kinddef.isBlank() && !kinddefs.contains(kinddef)) {
+            kinddefs.add(kinddef);
+        }
+        return this;
+    }
+
+    /** Typo-safety at load: a kind literal must be a built-in constant or a declared kinddef. */
+    public boolean isKnownKind(String name) {
+        return Kind.isBuiltin(name) || kinddefs.contains(name);
     }
 
     public List<String> getTaskTypes() {
@@ -140,19 +162,41 @@ public class HarnessModel {
     }
 
     /**
-     * The legacy main loop: the previously hard-coded processLoop order of the engine
-     * (backward compat when the JSON has no {@code loops[]}, DESIGN_Loops.md §2).
+     * The default main loop: the previously hard-coded processLoop order of the engine,
+     * plus GUARD + SKILL at START (§15.6 — entry guard and skill collection fire once per
+     * run, only in "main"; backward compat when the JSON has no {@code loops[]},
+     * DESIGN_Loops.md §2).
      */
     public static Loop defaultMainLoop() {
-        Loop main = new Loop(Loop.MAIN);
-        main.addItem(new LoopItem("abort", Kind.ABORT).trigger(Trigger.START));
+        return defaultLoop(Loop.MAIN, true);
+    }
+
+    /**
+     * The default subloop: same legacy order as the main loop, but under the id
+     * {@link Loop#SUB} and with the plain ABORT START (backward compat when the JSON
+     * configures {@code loops[]} without a {@code "sub"} entry — split children still get
+     * a full loop, §15.6; GUARD/SKILL START live only in "main").
+     */
+    public static Loop defaultSubLoop() {
+        return defaultLoop(Loop.SUB, false);
+    }
+
+    private static Loop defaultLoop(String id, boolean guardSkillStart) {
+        Loop loop = new Loop(id);
+        if (guardSkillStart) {
+            // main only (§15.6): entry guard + skill collection fire once at START
+            loop.addItem(new LoopItem("guard", Kind.GUARD).trigger(Trigger.START));
+            loop.addItem(new LoopItem("skill", Kind.SKILL).trigger(Trigger.START));
+        } else {
+            loop.addItem(new LoopItem("abort", Kind.ABORT).trigger(Trigger.START));
+        }
         for (Kind k : new Kind[]{Kind.SPLIT, Kind.COMPLETE, Kind.WORK, Kind.EVALUATE,
                 Kind.RAG_STORE, Kind.CHECK, Kind.SUMMARIZE}) {
-            main.addItem(new LoopItem(k.name().toLowerCase(), k).trigger(Trigger.EXECUTE));
+            loop.addItem(new LoopItem(k.name().toLowerCase(), k).trigger(Trigger.EXECUTE));
         }
-        main.addItem(new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE));
-        main.addItem(new LoopItem("rag_prune", Kind.RAG_PRUNE).trigger(Trigger.CLOSE)); // prune after CLOSE (§11)
-        return main;
+        loop.addItem(new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE));
+        loop.addItem(new LoopItem("rag_prune", Kind.RAG_PRUNE).trigger(Trigger.CLOSE)); // prune after CLOSE (§11)
+        return loop;
     }
 
     /** Deep copy for lineage snapshots and evolution clones (§7). */
@@ -161,6 +205,7 @@ public class HarnessModel {
                 .abortLimits(maxIterations, maxDepth, maxRetries, maxToolCalls);
         c.maxTokensTotal = maxTokensTotal;
         c.taskTypes.addAll(taskTypes);
+        c.kinddefs.addAll(kinddefs);
         c.promptBudgets.putAll(promptBudgets);
         for (Modelclass mc : modelclasses) {
             Modelclass mcCopy = new Modelclass(mc.getProvider(), mc.getModel(), mc.getPurpose(),

@@ -41,6 +41,23 @@ public class HarnessRagNGTest {
     }
 
     @Test
+    public void testRetrieveByDocTypeFiltersBeforeTopK() {
+        RagStore rag = store();
+        // three FILE chunks sharing vocabulary with the query, one SKILL chunk
+        rag.store("FILE", "edit the json tree file now", Map.of());
+        rag.store("FILE", "edit the tree file content", Map.of());
+        rag.store("FILE", "tree file edit command", Map.of());
+        rag.store("SKILL", "skill for editing the json tree", Map.of("skillId", "tree-edit"));
+        // topK 1 with docType SKILL: the global top-k must not cut off the only SKILL hit
+        List<RagStore.Hit> hits = rag.retrieve("edit the json tree file", "SKILL", 1, 0.0);
+        Assert.assertEquals(hits.size(), 1);
+        Assert.assertEquals(hits.get(0).chunk().getDocType(), "SKILL");
+        Assert.assertEquals(hits.get(0).chunk().getMeta().get("skillId"), "tree-edit");
+        // without docType the FILE chunks may win the top-k
+        Assert.assertEquals(rag.retrieve("edit the json tree file", 1, 0.0).get(0).chunk().getDocType(), "FILE");
+    }
+
+    @Test
     public void testRetrieveIsVectorSimilarityTopK() {
         RagStore rag = store();
         rag.store("SKILL", "java stream api map filter collect", Map.of("skillId", "s1", "scope", "search"));
