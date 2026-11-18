@@ -6,32 +6,25 @@
  */
 package de.jare.harness;
 
-import de.jare.jsoncasted.editor.core.EditNode;
-import de.jare.jsoncasted.editor.core.EditNodeObject;
-import de.jare.jsoncasted.editor.core.EditNodeProperty;
-import de.jare.jsoncasted.io.JsonNodeWriter;
-import de.jare.debug.JsonDebugLevel;
-import de.jare.jsoncasted.io.parserservice.JsonParserService;
+import de.jare.harness.io.JsonNodes;
 import de.jare.jsoncasted.lang.JsonNode;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 
 /**
- * One task of the harness - the PERSISTED PROJECTION (trace) of the run, not its runtime state
- * (concept CONCEPT_Harness.md §3 layering): the runtime truth lives in
- * {@code de.jare.harness.memory} (MemoryQuest/WorkOrder) and {@link HarnessInstance}; this
- * facade only receives the projected values. It is a FACADE with a back-reference to its
- * {@link EditNodeObject}: the tree structure (parent/children) lives in the EditNode world,
- * the payload (id, taskType, title, ...) lives as primitive member properties of the node, so
- * persistence runs through the JsonNode root of the EditTree and the JTree shows the very same
- * node instances. Every setter writes through to the node and fires the change event - the
- * attach is internal, there is no second mutation path.
+ * One task of the harness - a plain data object (decided: the EditTree coupling is removed, the
+ * task tree is pure data and JSON is its persistence shape directly, CONCEPT_Harness.md §3).
+ * The runtime truth of a run lives in {@code de.jare.harness.memory} (MemoryQuest/WorkOrder);
+ * this object is the persisted PROJECTION (trace) of the run: structure (children), the
+ * overwritable "current" cell (status/score/attempt/summaryTask/artifact/promptSupplement),
+ * the append-only {@code calculatorLog[]} and the projected calculator steps {@code calls[]}
+ * ({@link CalcCall} - input prompts, payload, loop action = the data movement of the run).
  *
- * <p>Two kinds of payload, deliberately different semantics: the "current" cell
- * ({@code status}/{@code score}/{@code attempt}/{@code summaryTask}/{@code artifact}/
- * {@code promptSupplement}) is OVERWRITTEN on each change - progress-bar semantics, the UI
- * repaints it in place. The {@code calculatorLog[]} is APPEND-ONLY - the history of calculator
- * calls, never overwritten; it is the memory for HISTORY segments and the feedback loop.</p>
+ * <p>Every mutation fires the change listeners (the host repaints its view from there);
+ * subtask events bubble up to the root, so one listener on the root sees the whole tree.</p>
  *
  * @author Janusch Rentenatus
  */
@@ -47,259 +40,371 @@ public class TaskData {
     public static final String M_SUPPLEMENT = "promptSupplement";
     public static final String M_ARTIFACT = "artifact";
     public static final String M_LOG = "calculatorLog";
+    public static final String M_CALLS = "calls";
+    public static final String M_TASKS = "tasks";
 
-    private final EditNodeObject node;
-    private final TaskTree tree;
-    private final List<CallLogEntry> calculatorLog = new ArrayList<>();
-    private boolean muted;   // true while the constructor initializes - no events before register
+    /**
+     * The projected step of one executed atomic calculator (§3 data movement): the input
+     * prompts, the {@link CalcResult} (status/decision/score/message, the payload map) and the
+     * {@link LoopAction} (type/flow plus its detail, e.g. the split prompts). Serialized as one
+     * "call" object of the task's "calls" array.
+     */
+    public static class CalcCall {
 
-    /** Standalone task on its own fresh tree (tests, ad-hoc runs). */
-    public static TaskData create(long id, String taskType, String title) {
-        return new TaskTree().newRoot(id, taskType, title);
-    }
+        private final String calc;
+        private final String kind;
+        private final String slot;
+        private final String status;
+        private final String decision;
+        private final Integer score;
+        private final String message;
+        private final Map<String, String> payload = new LinkedHashMap<>();
+        private final String loopActionType;
+        private final String loopActionFlow;
+        private final JsonNode loopActionDetail;   // extra carried data, may be null
+        private final List<String> input = new ArrayList<>();
 
-    /** Creates a new task on a fresh node (runtime creation). */
-    TaskData(EditNodeObject node, TaskTree tree, long id, String taskType, String title) {
-        this.node = node;
-        this.tree = tree;
-        muted = true;
-        setMember(M_ID, Long.toString(id));
-        setMember(M_TYPE, taskType == null ? "" : taskType);
-        setMember(M_TITLE, title == null ? "" : title);
-        setMember(M_STATUS, Status.PENDING.name());
-        setMember(M_ATTEMPT, "0");
-        setMember(M_SUMMARY, "false");
-        setMember(M_SUPPLEMENT, "");
-        syncLogMember();
-        muted = false;
-    }
+        private CalcCall(String calc, String kind, String slot, Status status, String decision,
+                         Integer score, String message, Map<String, String> payload,
+                         LoopAction loopAction, List<String> input) {
+            this.calc = calc == null ? "" : calc;
+            this.kind = kind == null ? "" : kind;
+            this.slot = slot == null ? "" : slot;
+            this.status = status == null ? "" : status.name();
+            this.decision = decision == null ? "" : decision;
+            this.score = score;
+            this.message = message == null ? "" : message;
+            if (payload != null) {
+                this.payload.putAll(payload);
+            }
+            this.loopActionType = loopAction == null ? "" : loopAction.type();
+            this.loopActionFlow = loopAction == null ? "" : loopAction.flow().name();
+            this.loopActionDetail = loopAction == null ? null : loopAction.detail();
+            if (input != null) {
+                this.input.addAll(input);
+            }
+        }
 
-    /** Wraps an existing node (load) - reads the persisted payload from the members. */
-    TaskData(EditNodeObject node, TaskTree tree) {
-        this.node = node;
-        this.tree = tree;
-        String logJson = getMember(M_LOG, "");
-        if (!logJson.isEmpty()) {
-            try {
-                JsonNode arr = JsonParserService.parse(logJson, JsonDebugLevel.SIMPLE).getRoot();
-                if (arr != null && arr.isArray()) {
-                    for (JsonNode e : arr.asArray()) {
-                        calculatorLog.add(CallLogEntry.fromJson(e));
+        static CalcCall of(String calc, Kind kind, String slot, CalcResult res, List<String> input) {
+            return new CalcCall(calc, kind == null ? "" : kind.name(), slot,
+                    res.getStatus(), res.getDecision(), res.getScore(), res.getMessage(),
+                    res.getPayload(), res.getLoopAction(), input);
+        }
+
+        public String getCalc() { return calc; }
+        public String getKind() { return kind; }
+        public String getSlot() { return slot; }
+        public String getStatus() { return status; }
+        public String getDecision() { return decision; }
+        public Integer getScore() { return score; }
+        public String getMessage() { return message; }
+        public Map<String, String> getPayload() { return payload; }
+        public String getLoopActionType() { return loopActionType; }
+        public String getLoopActionFlow() { return loopActionFlow; }
+        public List<String> getInput() { return input; }
+
+        JsonNode toJson() {
+            JsonNode n = JsonNode.objectNode();
+            n.put("calc", JsonNode.stringNode(calc));
+            n.put("kind", JsonNode.stringNode(kind));
+            n.put("slot", JsonNode.stringNode(slot));
+            n.put("status", JsonNode.stringNode(status));
+            n.put("decision", JsonNode.stringNode(decision));
+            if (score != null) {
+                n.put("score", JsonNode.longNode(score));
+            }
+            if (!message.isEmpty()) {
+                n.put("message", JsonNode.stringNode(message));
+            }
+            JsonNode la = JsonNode.objectNode();
+            la.put("type", JsonNode.stringNode(loopActionType));
+            la.put("flow", JsonNode.stringNode(loopActionFlow));
+            if (loopActionDetail != null && loopActionDetail.isObject()) {
+                for (var e : loopActionDetail.asObjectValues().entrySet()) {
+                    la.put(e.getKey(), e.getValue());
+                }
+            }
+            n.put("loopAction", la);
+            JsonNode p = JsonNode.objectNode();
+            for (var e : payload.entrySet()) {
+                p.put(e.getKey(), JsonNode.stringNode(e.getValue() == null ? "" : e.getValue()));
+            }
+            n.put("payload", p);
+            JsonNode in = JsonNode.arrayNode();
+            for (String s : input) {
+                in.add(JsonNode.stringNode(s == null ? "" : s));
+            }
+            n.put("input", in);
+            return n;
+        }
+
+        static CalcCall fromJson(JsonNode n) {
+            Map<String, String> payload = new LinkedHashMap<>();
+            JsonNode pn = JsonNodes.child(n, "payload");
+            if (pn != null && pn.isObject()) {
+                for (var e : pn.asObjectValues().entrySet()) {
+                    payload.put(e.getKey(), e.getValue() == null || e.getValue().isNull() ? "" : e.getValue().asText());
+                }
+            }
+            JsonNode lan = JsonNodes.child(n, "loopAction");
+            List<String> input = new ArrayList<>();
+            JsonNode inn = JsonNodes.child(n, "input");
+            if (inn != null && inn.isArray()) {
+                for (JsonNode s : inn.asArray()) {
+                    input.add(s == null || s.isNull() ? "" : s.asText());
+                }
+            }
+            String laType = JsonNodes.text(lan, "type", "");
+            String laFlow = JsonNodes.text(lan, "flow", "");
+            JsonNode detailNode = null;
+            if (lan != null && lan.isObject()) {
+                JsonNode d = JsonNode.objectNode();
+                for (var e : lan.asObjectValues().entrySet()) {
+                    if (!"type".equals(e.getKey()) && !"flow".equals(e.getKey())) {
+                        d.put(e.getKey(), e.getValue());
                     }
                 }
-            } catch (Exception broken) {
-                // a broken log member must not break the load - start with an empty log
+                if (d.asObjectValues() != null && !d.asObjectValues().isEmpty()) {
+                    detailNode = d;
+                }
             }
+            final JsonNode detail = detailNode;
+            return new CalcCall(JsonNodes.text(n, "calc", ""), JsonNodes.text(n, "kind", ""),
+                    JsonNodes.text(n, "slot", ""),
+                    Status.valueOf(JsonNodes.text(n, "status", "PENDING")),
+                    JsonNodes.text(n, "decision", ""),
+                    JsonNodes.child(n, "score") == null ? null : JsonNodes.child(n, "score").asLong().intValue(),
+                    JsonNodes.text(n, "message", ""), payload,
+                    new LoopAction() {
+                        @Override public String type() { return laType; }
+                        @Override public Flow flow() { return Flow.valueOf(laFlow.isEmpty() ? "CONTINUE" : laFlow); }
+                        @Override public JsonNode detail() { return detail; }
+                    }, input);
         }
     }
 
-    /** The backing EditNode (the same instance the JTree shows). */
-    public EditNodeObject getNode() {
-        return node;
+    private final long id;
+    private String taskType;
+    private String title;
+    private Status status = Status.PENDING;
+    private Integer score;
+    private int attempt;
+    private boolean summaryTask;
+    private String promptSupplement = "";
+    private String artifact;
+    private TaskData parent;
+    private final List<TaskData> children = new ArrayList<>();
+    private final List<CallLogEntry> calculatorLog = new ArrayList<>();
+    private final List<CalcCall> calls = new ArrayList<>();
+    private final List<Consumer<TaskData>> changeListeners = new ArrayList<>();
+
+    public TaskData(long id, String taskType, String title) {
+        this.id = id;
+        this.taskType = taskType == null ? "" : taskType;
+        this.title = title == null ? "" : title;
     }
 
-    TaskTree tree() {
-        return tree;
+    /** Standalone task (tests, ad-hoc runs). */
+    public static TaskData create(long id, String taskType, String title) {
+        return new TaskData(id, taskType, title);
     }
 
     //
-    // member access (payload = primitive member properties of the node)
+    // change events (bubble up: a subtask forwards its events to its parent)
     //
 
-    private EditNodeProperty member(String name) {
-        for (EditNode c : node.getChildren()) {
-            if (name.equals(c.getName()) && c instanceof EditNodeProperty p
-                    && !TaskTree.TASK_ARRAY.equals(name)) {
-                return p;
-            }
-        }
-        return null;
-    }
-
-    String getMember(String name, String def) {
-        EditNodeProperty p = member(name);
-        String v = p == null ? null : p.getValue();
-        return v == null || v.isEmpty() ? def : v;
-    }
-
-    void setMember(String name, String value) {
-        EditNodeProperty p = member(name);
-        if (p == null) {
-            p = node.createChild(name);
-            tree.getEditTree().addChild(node, p);
-        }
-        p.setValue(value == null ? "" : value);
-        if (!muted) {
-            tree.fireChanged(node);
+    public void addChangeListener(Consumer<TaskData> listener) {
+        if (listener != null) {
+            changeListeners.add(listener);
         }
     }
 
-    /** The "tasks" array member holding the subtask objects (created on demand). */
-    EditNodeProperty tasksArray(boolean create) {
-        for (EditNode c : node.getChildren()) {
-            if (TaskTree.TASK_ARRAY.equals(c.getName()) && c instanceof EditNodeProperty p) {
-                return p;
-            }
+    private void fire() {
+        notify(this);
+    }
+
+    /** Fires the listeners with the originating task (bubble-up keeps the origin). */
+    private void notify(TaskData origin) {
+        for (Consumer<TaskData> l : new ArrayList<>(changeListeners)) {
+            l.accept(origin);
         }
-        if (create) {
-            EditNodeProperty p = node.createArrChild(TaskTree.TASK_ARRAY);
-            tree.getEditTree().addChild(node, p);
-            if (!muted) {
-                tree.fireChanged(node);
-            }
-            return p;
-        }
-        return null;
     }
 
     //
-    // the task API (same surface as the former TaskData)
+    // the task API
     //
 
-    public long getId() {
-        try {
-            return Long.parseLong(getMember(M_ID, "0"));
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
+    public long getId() { return id; }
 
-    public String getTaskType() {
-        return getMember(M_TYPE, "");
-    }
+    public String getTaskType() { return taskType; }
 
-    public String getTitle() {
-        return getMember(M_TITLE, "");
-    }
+    public String getTitle() { return title; }
 
-    public Status getStatus() {
-        return Status.valueOf(getMember(M_STATUS, Status.PENDING.name()));
-    }
+    public Status getStatus() { return status; }
 
     public void setStatus(Status status) {
-        setMember(M_STATUS, status.name());
+        this.status = status;
+        fire();
     }
 
-    public Integer getScore() {
-        String v = getMember(M_SCORE, "");
-        return v.isEmpty() ? null : Integer.valueOf(v);
-    }
+    public Integer getScore() { return score; }
 
     public void setScore(int score) {
-        setMember(M_SCORE, Integer.toString(score));
+        this.score = score;
+        fire();
     }
 
-    public int getAttempt() {
-        try {
-            return Integer.parseInt(getMember(M_ATTEMPT, "0"));
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
+    public int getAttempt() { return attempt; }
 
     public void incrementAttempt() {
-        setMember(M_ATTEMPT, Integer.toString(getAttempt() + 1));
+        attempt++;
+        fire();
     }
 
-    public boolean isSummaryTask() {
-        return "true".equals(getMember(M_SUMMARY, "false"));
-    }
+    public boolean isSummaryTask() { return summaryTask; }
 
     /** SPLIT: this task becomes a summarization task over its children. */
     public void rewriteAsSummary() {
-        setMember(M_SUMMARY, "true");
+        summaryTask = true;
+        fire();
     }
 
-    public String getPromptSupplement() {
-        return getMember(M_SUPPLEMENT, "");
-    }
+    public String getPromptSupplement() { return promptSupplement; }
 
     /** CHECK: retry with an improved task statement. */
     public void appendPromptSupplement(String text) {
-        String current = getPromptSupplement();
-        setMember(M_SUPPLEMENT, current.isEmpty() ? text : current + "\n" + text);
+        promptSupplement = promptSupplement.isEmpty() ? (text == null ? "" : text)
+                : promptSupplement + "\n" + text;
+        fire();
     }
 
-    public String getArtifact() {
-        String v = getMember(M_ARTIFACT, "");
-        return v.isEmpty() ? null : v;
-    }
+    public String getArtifact() { return artifact; }
 
     /** CLOSE: finalize and write the artifact. */
     public void close(String artifact) {
-        setMember(M_ARTIFACT, artifact == null ? "" : artifact);
+        this.artifact = artifact == null ? "" : artifact;
         // CLOSE fires in the loop's finally (§15.6) - it finalizes the artifact but must
         // never resurrect a terminal failure status (ABORTED/FAILED stay)
-        if (getStatus() != Status.ABORTED && getStatus() != Status.FAILED) {
-            setStatus(Status.DONE);
+        if (status != Status.ABORTED && status != Status.FAILED) {
+            status = Status.DONE;
         }
+        fire();
     }
 
-    /** The parent task - the task object above the "tasks" array (null for the tree root). */
-    public TaskData getParent() {
-        if (node.getParent() == null) {
-            return null; // the tree root object is the root task
-        }
-        EditNode p = node.getParent();
-        if (p instanceof EditNodeProperty) {
-            p = p.getParent();
-        }
-        return p instanceof EditNodeObject && TaskTree.isTaskObject(p) ? tree.dataOf(p) : null;
-    }
+    /** The parent task (null for the root). */
+    public TaskData getParent() { return parent; }
 
-    /** The subtasks - the task objects of the "tasks" array member. */
-    public List<TaskData> getChildren() {
-        List<TaskData> result = new ArrayList<>();
-        EditNodeProperty arr = tasksArray(false);
-        if (arr != null) {
-            for (EditNode c : arr.getChildren()) {
-                if (c instanceof EditNodeObject obj) {
-                    TaskData data = tree.dataOf(obj);
-                    if (data == null) {
-                        data = tree.register(obj, new TaskData(obj, tree));
-                    }
-                    result.add(data);
-                }
-            }
-        }
-        return result;
-    }
+    /** The subtasks. */
+    public List<TaskData> getChildren() { return children; }
 
     /** SPLIT / COMPLETE: adds a subtask (reasoning subtask or split part). */
     public TaskData addSubtask(long childId, String taskType, String title) {
-        return tree.addSubtask(this, childId, taskType, title);
+        TaskData child = new TaskData(childId, taskType, title);
+        child.parent = this;
+        children.add(child);
+        child.addChangeListener(this::notify);   // bubble: the root's listeners see every descendant, with origin
+        fire();
+        return child;
     }
 
-    public List<CallLogEntry> getCalculatorLog() {
-        return calculatorLog;
-    }
+    public List<CallLogEntry> getCalculatorLog() { return calculatorLog; }
 
     public void logCall(CallLogEntry entry) {
         calculatorLog.add(entry);
-        syncLogMember();
+        fire();
     }
 
-    /** Serializes the in-memory log into the node's log member (persisted with the tree). */
-    private void syncLogMember() {
-        JsonNode arr = JsonNode.arrayNode();
-        for (CallLogEntry e : calculatorLog) {
-            arr.add(e.toJson());
-        }
-        try {
-            setMember(M_LOG, JsonNodeWriter.writeToString(arr));
-        } catch (Exception e) {
-            throw new IllegalStateException("calculatorLog is not serializable: " + e.getMessage(), e);
-        }
+    /**
+     * Projects one executed atomic calculator call (§3 data movement): appends a {@link CalcCall}
+     * with the input prompts, the {@link CalcResult} payload and the {@link LoopAction} - the
+     * data the calculator read and wrote, visible in the task tree and persisted with it.
+     */
+    public void appendCalcCall(String calcName, Kind kind, String slotId, CalcResult res, List<String> input) {
+        calls.add(CalcCall.of(calcName, kind, slotId, res, input));
+        fire();
     }
+
+    /** The projected calculator steps of this task (the "calls" array). */
+    public List<CalcCall> getCalls() { return calls; }
 
     /** Depth in the task tree, root = 0. */
     public int depth() {
         int d = 0;
-        TaskData n = getParent();
+        TaskData n = parent;
         while (n != null) {
             d++;
-            n = n.getParent();
+            n = n.parent;
         }
         return d;
+    }
+
+    //
+    // JSON (the persistence shape - no EditNode detour)
+    //
+
+    public JsonNode toJson() {
+        JsonNode n = JsonNode.objectNode();
+        n.put(M_ID, JsonNode.longNode(id));
+        n.put(M_TYPE, JsonNode.stringNode(taskType));
+        n.put(M_TITLE, JsonNode.stringNode(title));
+        n.put(M_STATUS, JsonNode.stringNode(status.name()));
+        if (score != null) {
+            n.put(M_SCORE, JsonNode.longNode(score));
+        }
+        n.put(M_ATTEMPT, JsonNode.longNode(attempt));
+        n.put(M_SUMMARY, JsonNode.booleanNode(summaryTask));
+        n.put(M_SUPPLEMENT, JsonNode.stringNode(promptSupplement));
+        if (artifact != null) {
+            n.put(M_ARTIFACT, JsonNode.stringNode(artifact));
+        }
+        JsonNode tasks = JsonNode.arrayNode();
+        for (TaskData c : children) {
+            tasks.add(c.toJson());
+        }
+        n.put(M_TASKS, tasks);
+        JsonNode log = JsonNode.arrayNode();
+        for (CallLogEntry e : calculatorLog) {
+            log.add(e.toJson());
+        }
+        n.put(M_LOG, log);
+        JsonNode callsArr = JsonNode.arrayNode();
+        for (CalcCall c : calls) {
+            callsArr.add(c.toJson());
+        }
+        n.put(M_CALLS, callsArr);
+        return n;
+    }
+
+    public static TaskData fromJson(JsonNode n) {
+        TaskData t = new TaskData(JsonNodes.longOf(n, M_ID, 0),
+                JsonNodes.text(n, M_TYPE, ""), JsonNodes.text(n, M_TITLE, ""));
+        t.status = Status.valueOf(JsonNodes.text(n, M_STATUS, "PENDING"));
+        t.score = JsonNodes.child(n, M_SCORE) == null ? null : JsonNodes.child(n, M_SCORE).asLong().intValue();
+        t.attempt = (int) JsonNodes.longOf(n, M_ATTEMPT, 0);
+        JsonNode sum = JsonNodes.child(n, M_SUMMARY);
+        t.summaryTask = sum != null && "true".equals(sum.asText() == null ? String.valueOf(sum.asBoolean()) : sum.asText());
+        t.promptSupplement = JsonNodes.text(n, M_SUPPLEMENT, "");
+        t.artifact = JsonNodes.child(n, M_ARTIFACT) == null ? null : JsonNodes.text(n, M_ARTIFACT, null);
+        JsonNode tasks = JsonNodes.child(n, M_TASKS);
+        if (tasks != null && tasks.isArray()) {
+            for (JsonNode c : tasks.asArray()) {
+                TaskData child = fromJson(c);
+                child.parent = t;
+                t.children.add(child);
+            }
+        }
+        JsonNode log = JsonNodes.child(n, M_LOG);
+        if (log != null && log.isArray()) {
+            for (JsonNode e : log.asArray()) {
+                t.calculatorLog.add(CallLogEntry.fromJson(e));
+            }
+        }
+        JsonNode callsArr = JsonNodes.child(n, M_CALLS);
+        if (callsArr != null && callsArr.isArray()) {
+            for (JsonNode c : callsArr.asArray()) {
+                t.calls.add(CalcCall.fromJson(c));
+            }
+        }
+        return t;
     }
 }

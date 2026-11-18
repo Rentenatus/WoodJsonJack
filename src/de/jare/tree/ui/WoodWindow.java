@@ -909,8 +909,8 @@ public class WoodWindow extends JFrame {
      */
     /**
      * DEBUG: opens the harness task tree of the given instance READ-ONLY in a new center tab
-     * (later: only on demand). The tab rebuilds from the TaskData projection and refreshes live
-     * via the TaskTree change events; no edit commands are wired, so it is read-only.
+     * (later: only on demand). The tab rebuilds from the plain TaskData tree and refreshes live
+     * via the instance change events; no edit commands are wired, so it is read-only.
      */
     public void openHarnessTreeTab(String title, de.jare.harness.HarnessInstance instance) {
         if (instance == null || instance.getRoot() == null) {
@@ -937,7 +937,7 @@ public class WoodWindow extends JFrame {
                     tree.expandRow(i);
                 }
             };
-            instance.getTaskTree().addChangeListener(n -> SwingUtilities.invokeLater(refresh));
+            instance.addChangeListener(n -> SwingUtilities.invokeLater(refresh));
             refresh.run();
             harnessTreeTabs.put(title, panel);
             centerTabs.addTab(title, panel);

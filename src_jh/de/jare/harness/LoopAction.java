@@ -6,6 +6,8 @@
  */
 package de.jare.harness;
 
+import de.jare.jsoncasted.lang.JsonNode;
+
 /**
  * The FLOW channel of a calculator result, next to the domain {@link HarnessAction}
  * (CONCEPT_Harness.md §15.6, docs/working/DESIGN_Loops.md §4): where the loop goes after
@@ -40,4 +42,14 @@ public interface LoopAction {
 
     /** The flow effect the driver interprets. */
     Flow flow();
+
+    /**
+     * Extra carried data for the persisted projection of this action (the "loopAction" object of
+     * a task's "call" node, CONCEPT_Harness.md §3): e.g. the split prompts of a {@code LoopSplit}
+     * or the error signal of a {@code LoopThrowError}. Default null - then only type+flow are
+     * projected. Custom actions override this, exactly like the calculators.
+     */
+    default JsonNode detail() {
+        return null;
+    }
 }

@@ -7,6 +7,7 @@
 package de.jare.harness.main.actions;
 
 import de.jare.harness.LoopAction;
+import de.jare.jsoncasted.lang.JsonNode;
 
 /**
  * Enter the named subloop: pushed onto the driver's call stack (depth-checked against
@@ -17,4 +18,11 @@ import de.jare.harness.LoopAction;
 public record LoopSubLoop(String loopId) implements LoopAction {
     @Override public String type() { return "subloop"; }
     @Override public Flow flow() { return Flow.SUBLOOP; }
+
+    /** The target loop id, projected into the task tree (§3). */
+    @Override public JsonNode detail() {
+        JsonNode d = JsonNode.objectNode();
+        d.put("loopId", JsonNode.stringNode(loopId == null ? "" : loopId));
+        return d;
+    }
 }

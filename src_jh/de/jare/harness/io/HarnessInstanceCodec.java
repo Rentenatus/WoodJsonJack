@@ -11,7 +11,6 @@ import de.jare.harness.HarnessInstance;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
 import de.jare.harness.TaskData;
-import de.jare.harness.TaskTree;
 import de.jare.debug.JsonDebugLevel;
 import de.jare.jsoncasted.io.JsonNodeWriter;
 import de.jare.jsoncasted.io.JsonParseException;
@@ -50,12 +49,8 @@ public final class HarnessInstanceCodec {
         long maxAufrufId = 0;
         JsonNode task = JsonNodes.child(root, "rootTask");
         if (task != null) {
-            try {
-                instance.adoptTaskTree(TaskTree.fromJson(normalizeLegacyTask(task)));
-                maxTaskId = deepestTaskId(instance.getRoot());
-            } catch (JsonParseException e) {
-                throw new IllegalStateException("rootTask is no parseable task tree: " + e.getMessage(), e);
-            }
+            instance.adoptRoot(TaskData.fromJson(normalizeLegacyTask(task)));
+            maxTaskId = deepestTaskId(instance.getRoot());
         }
         JsonNode log = JsonNodes.child(root, "callLog");
         if (log != null && log.isArray()) {
@@ -93,45 +88,18 @@ public final class HarnessInstanceCodec {
     }
 
     /**
-     * Serializes a task into the EditTree-shaped JsonNode (member properties + "tasks"
-     * array of subtasks) - the same shape the EditTree writer produces, so a saved
-     * harness.json is directly re-importable via {@link TaskTree#fromJson}.
+     * Serializes a task into its JSON shape (member fields + "tasks" array of subtasks +
+     * "calculatorLog"/"calls" arrays) - {@link TaskData#toJson()} is the single writer, so a
+     * saved harness.json is directly re-readable via {@link TaskData#fromJson}.
      */
     private static JsonNode taskToJson(TaskData t) {
-        JsonNode n = JsonNode.objectNode();
-        n.put(TaskData.M_ID, JsonNode.longNode(t.getId()));
-        n.put(TaskData.M_TYPE, JsonNode.stringNode(t.getTaskType()));
-        n.put(TaskData.M_TITLE, JsonNode.stringNode(t.getTitle()));
-        n.put(TaskData.M_STATUS, JsonNode.stringNode(t.getStatus().name()));
-        if (t.getScore() != null) {
-            n.put(TaskData.M_SCORE, JsonNode.longNode(t.getScore()));
-        }
-        n.put(TaskData.M_ATTEMPT, JsonNode.longNode(t.getAttempt()));
-        n.put(TaskData.M_SUMMARY, JsonNode.booleanNode(t.isSummaryTask()));
-        n.put(TaskData.M_SUPPLEMENT, JsonNode.stringNode(t.getPromptSupplement()));
-        if (t.getArtifact() != null) {
-            n.put(TaskData.M_ARTIFACT, JsonNode.stringNode(t.getArtifact()));
-        }
-        JsonNode children = JsonNode.arrayNode();
-        for (TaskData c : t.getChildren()) {
-            children.add(taskToJson(c));
-        }
-        n.put(TaskTree.TASK_ARRAY, children);
-        JsonNode log = JsonNode.arrayNode();
-        for (CallLogEntry e : t.getCalculatorLog()) {
-            log.add(e.toJson());
-        }
-        try {
-            n.put(TaskData.M_LOG, JsonNode.stringNode(JsonNodeWriter.writeToString(log)));
-        } catch (Exception e) {
-            throw new IllegalStateException("calculatorLog is not serializable: " + e.getMessage(), e);
-        }
-        return n;
+        return t.toJson();
     }
 
     /**
-     * Converts the legacy persisted shape ("id"/"children") into the EditTree shape
-     * (member names + "tasks" array) so old harness.json files still load.
+     * Converts the legacy persisted shape ("id"/"children", calculatorLog as string member)
+     * into the current JSON shape (member names + "tasks"/"calculatorLog" arrays) so old
+     * harness.json files still load.
      */
     private static JsonNode normalizeLegacyTask(JsonNode n) {
         if (n == null || !n.isObject()) {
@@ -143,22 +111,22 @@ public final class HarnessInstanceCodec {
             if ("id".equals(key)) {
                 key = TaskData.M_ID;
             } else if ("children".equals(key)) {
-                key = TaskTree.TASK_ARRAY;
+                key = TaskData.M_TASKS;
             }
             JsonNode v = e.getValue();
-            if (TaskTree.TASK_ARRAY.equals(key) && v != null && v.isArray()) {
+            if (TaskData.M_TASKS.equals(key) && v != null && v.isArray()) {
                 JsonNode arr = JsonNode.arrayNode();
                 for (JsonNode c : v.asArray()) {
                     arr.add(normalizeLegacyTask(c));
                 }
                 out.put(key, arr);
-            } else if (TaskData.M_LOG.equals(key) && v != null && v.isArray()) {
-                // legacy stored the log as a JSON array; the EditTree shape stores it as a
-                // string member - without this conversion the log would be lost on load
+            } else if (TaskData.M_LOG.equals(key) && v != null && v.getType() == de.jare.jsoncasted.lang.JsonNodeType.STRING) {
+                // legacy stored the log as a JSON string member; the current shape stores it
+                // as an array - without this conversion the log would be lost on load
                 try {
-                    out.put(key, JsonNode.stringNode(JsonNodeWriter.writeToString(v)));
+                    out.put(key, JsonParserService.parse(v.asText(), JsonDebugLevel.SIMPLE).getRoot());
                 } catch (Exception ex) {
-                    throw new IllegalStateException("legacy calculatorLog is not serializable", ex);
+                    throw new IllegalStateException("legacy calculatorLog is not parseable", ex);
                 }
             } else {
                 out.put(key, v);

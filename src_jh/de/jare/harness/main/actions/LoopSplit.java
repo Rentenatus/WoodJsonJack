@@ -8,6 +8,7 @@ package de.jare.harness.main.actions;
 
 import de.jare.harness.LoopAction;
 import de.jare.harness.model.Loop;
+import de.jare.jsoncasted.lang.JsonNode;
 import java.util.List;
 
 /**
@@ -34,4 +35,19 @@ public record LoopSplit(List<String> prompts, String loopId) implements LoopActi
 
     @Override public String type() { return "split"; }
     @Override public Flow flow() { return Flow.SPLIT; }
+
+    /** The carried sub-prompts and the target loop id, projected into the task tree (§3). */
+    @Override public JsonNode detail() {
+        JsonNode d = JsonNode.objectNode();
+        d.put("loopId", JsonNode.stringNode(loopId));
+        d.put("count", JsonNode.longNode(prompts == null ? 0 : prompts.size()));
+        JsonNode arr = JsonNode.arrayNode();
+        if (prompts != null) {
+            for (String p : prompts) {
+                arr.add(JsonNode.stringNode(p == null ? "" : p));
+            }
+        }
+        d.put("prompts", arr);
+        return d;
+    }
 }

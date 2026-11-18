@@ -58,15 +58,14 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
     }
 
     /**
-     * Binds the view to a running instance and engine notifications. The task tree is a real
-     * EditTree (CONCEPT_Harness.md §3) - the panel also listens to its change events, the same
-     * events a JackTreeModel over the EditTree would consume, so both views show the same
-     * node instances. Read-only by construction: this tree is never wired to edit commands.
+     * Binds the view to a running instance and engine notifications. The task tree is a plain
+     * TaskData tree (CONCEPT_Harness.md §3) - the panel listens to its change events (bubble up
+     * to the instance) and rebuilds its own read-only JTree from the TaskData objects.
      */
     public void bind(HarnessInstance instance, HarnessEngine engine) {
         this.instance = instance;
         engine.addListener((task, msg) -> SwingUtilities.invokeLater(this::refresh));
-        instance.getTaskTree().addChangeListener(n -> SwingUtilities.invokeLater(this::refresh));
+        instance.addChangeListener(t -> SwingUtilities.invokeLater(this::refresh));
         refresh();
     }
 

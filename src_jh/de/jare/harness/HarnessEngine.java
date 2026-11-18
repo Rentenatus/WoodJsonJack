@@ -815,6 +815,9 @@ public class HarnessEngine implements HarnessDriver {
         if (ctx.workCache() != null) {
             ctx.workCache().putResult(calcName, res).setLastResult(res);
         }
+        // §3 projection: every atomic calculator step lands as a "call" child node in the task
+        // tree (input prompts, CalcResult payload, LoopAction) so the JTree shows the data movement
+        ctx.task().appendCalcCall(calcName, kind, ctx.slotId(), res, ctx.prompts());
         return res;
     }
 

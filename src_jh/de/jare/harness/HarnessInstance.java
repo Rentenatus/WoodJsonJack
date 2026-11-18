@@ -26,8 +26,8 @@ public class HarnessInstance {
     private final String modelName;
     private final String modelVersion;
     private java.io.File projectRoot;   // sandbox root for the fs.* tools (§13)
-    private TaskTree taskTree = new TaskTree();  // the task tree as a real EditTree (§3)
-    private TaskData root;
+    private TaskData root;   // the task tree as plain data (§3, JSON is its persistence shape)
+    private final List<java.util.function.Consumer<TaskData>> changeListeners = new ArrayList<>();
     private long nextTaskId = 1;
     private long nextAufrufId = 1;
     private final List<CallLogEntry> callLog = new ArrayList<>();
@@ -56,29 +56,39 @@ public class HarnessInstance {
         this.projectRoot = projectRoot;
     }
 
-    /** The task tree of this instance as a real EditTree - the same instances the editor shows. */
-    public TaskTree getTaskTree() {
-        return taskTree;
+    /** Change listener on the task tree - fires for the root and every descendant (bubble-up). */
+    public void addChangeListener(java.util.function.Consumer<TaskData> listener) {
+        if (listener != null) {
+            changeListeners.add(listener);
+        }
     }
 
-    /** Adopts a loaded task tree (codec) and sets its root task. */
-    public void adoptTaskTree(TaskTree taskTree) {
-        this.taskTree = taskTree;
-        this.root = taskTree.getRootTask();
+    private void notifyChange(TaskData t) {
+        for (java.util.function.Consumer<TaskData> l : new ArrayList<>(changeListeners)) {
+            l.accept(t);
+        }
     }
 
-    /** Creates the root task on this instance's own task tree. */
+    /** Adopts a loaded root task (codec). */
+    public void adoptRoot(TaskData root) {
+        setRoot(root);
+    }
+
+    /** Creates the root task of this instance's task tree. */
     public TaskData newRootTask(long id, String taskType, String title) {
-        this.root = taskTree.newRoot(id, taskType, title);
-        return this.root;
+        return setRoot(TaskData.create(id, taskType, title));
     }
 
     public TaskData getRoot() {
         return root;
     }
 
-    public void setRoot(TaskData root) {
+    public TaskData setRoot(TaskData root) {
         this.root = root;
+        if (root != null) {
+            root.addChangeListener(this::notifyChange);
+        }
+        return root;
     }
 
     /**

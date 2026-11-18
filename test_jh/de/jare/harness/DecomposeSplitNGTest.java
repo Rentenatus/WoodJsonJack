@@ -240,4 +240,34 @@ public class DecomposeSplitNGTest {
         Assert.assertEquals(cache.get("subloops"), "2");
         Assert.assertNotNull(cache.get("consumption"));
     }
+
+    /**
+     * §3 data-movement projection: an engine run appends one "call" node per executed atomic
+     * calculator to the task's "calls" array - input, payload and loopAction included.
+     */
+    @Test
+    public void testEngineRunProjectsAtomicCalculatorCallsIntoTaskTree() {
+        HarnessModel model = modelWithAllQuests();
+        Loop main = new Loop(Loop.MAIN);
+        main.addItem(new LoopItem("work", Kind.WORK).trigger(Trigger.EXECUTE));
+        main.addItem(new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE));
+        model.addLoop(main);
+
+        DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
+        HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
+        TaskData root = instance.newRootTask(instance.nextTaskId(), "AskAi", "hallo");
+        instance.setRoot(root);
+        HarnessEngine engine = new HarnessEngine(model, instance, factory);
+        engine.setWorkCache(new WorkCache());
+
+        engine.run();
+
+        Assert.assertFalse(root.getCalls().isEmpty(),
+                "every atomic calculator step is projected as a call");
+        for (TaskData.CalcCall c : root.getCalls()) {
+            Assert.assertFalse(c.getLoopActionType().isEmpty(), "each call carries its loop action");
+            Assert.assertNotNull(c.getPayload(), "each call carries its payload");
+            Assert.assertNotNull(c.getInput(), "each call carries its input prompts");
+        }
+    }
 }

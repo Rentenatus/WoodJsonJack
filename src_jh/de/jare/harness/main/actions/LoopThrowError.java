@@ -8,6 +8,7 @@ package de.jare.harness.main.actions;
 
 import de.jare.harness.ErrorSignal;
 import de.jare.harness.LoopAction;
+import de.jare.jsoncasted.lang.JsonNode;
 
 /**
  * Raise an {@link ErrorSignal} into the loop. DOMAIN fires the CATCH items of the current
@@ -19,4 +20,13 @@ import de.jare.harness.LoopAction;
 public record LoopThrowError(ErrorSignal signal) implements LoopAction {
     @Override public String type() { return "throw"; }
     @Override public Flow flow() { return Flow.THROW; }
+
+    /** The carried error signal, projected into the task tree (§3). */
+    @Override public JsonNode detail() {
+        JsonNode d = JsonNode.objectNode();
+        d.put("severity", JsonNode.stringNode(signal == null ? "" : signal.severity().name()));
+        d.put("reason", JsonNode.stringNode(signal == null || signal.reason() == null ? "" : signal.reason()));
+        d.put("source", JsonNode.stringNode(signal == null || signal.source() == null ? "" : signal.source()));
+        return d;
+    }
 }

@@ -302,3 +302,25 @@ Harness-Suite 166/166, WJJ gesamt 255/255 grün.
 - Tests: +1 HarnessCodecNGTest (ai-auf-system → deterministisch, Codec-Roundtrip, Case-Insensitiv),
   +2 HarnessRagPipelineNGTest (activeRag bevorzugt echtes Modell / fällt auf system zurück),
   Asset-Count 11→12 + system-Assertion in HarnessServiceNGTest. Harness-Suite 169/169, WJJ gesamt 258/258 grün.
+
+## 10.11 Umgesetzt: Task-Baum als plain POJO (EditTree-Kopplung entfernt) + Datenbewegung als calls[]
+
+- **Entscheidungsrevision:** `TaskTree`/EditTree ist raus. `TaskData` ist ein plain POJO
+  (Felder + `children` + `calculatorLog` + `calls`), JSON (`toJson/fromJson`) ist direkt die
+  Persistenzform — der Codec delegiert an `TaskData.toJson`, kein Hand-Bau, kein EditNode→JSON.
+  `src_jh` hängt damit nicht mehr von jsonCasted_edit ab (ViewNode/EditTree-Bridge obsolet).
+- **Datenbewegung im Baum (§3):** Jeder atomare Kalkulator-Schritt hängt als `CalcCall` an das
+  `calls[]` des Task: `input` (Prompts), `payload` (CalcResult als Daten, z. B. `skills.matched.*`
+  von skill.match), `loopAction` (type/flow + `LoopAction.detail()` — LoopSplit trägt die
+  Sub-Prompts, LoopThrowError das ErrorSignal, LoopSubLoop die loopId). Hook: `HarnessEngine.runNode`
+  nach jedem atomaren `calculate()` → `task.appendCalcCall(...)`.
+- **Events:** Mutationen feuern `Consumer<TaskData>` direkt auf dem Task; Subtask-Events bubblen
+  mit Origin zur Root; `HarnessInstance.addChangeListener` reicht sie an die UI durch
+  (`HarnessViewPanel`, `WoodWindow.openHarnessTreeTab` bauen ihren JTree direkt aus TaskData).
+- `LoopAction` hat neues `default JsonNode detail()` (null = nur type/flow); Overrides in
+  `main.actions` (LoopSplit/LoopSubLoop/LoopThrowError) — erweiterbar wie die Kalkulatoren.
+- Legacy-Load: `id`→`taskId`, `children`→`tasks`, string-CalculatorLog→Array (beides Varianten
+  getestet). `WorkOrder` hält nur noch den `TaskData`-Root, `MemoryQuest` erstellt ihn direkt.
+- Tests: TaskTreeNGTest → TaskDataNGTest (POJO, Event-Bubbling, CalcCall-Projektion,
+  Codec-Roundtrip inkl. calls, Legacy-Load), DecomposeSplitNGTest mit Engine-Level-Assertion
+  auf `getCalls()`. wjj_testng.xml aktualisiert. Harness-Suite 170/170, WJJ gesamt 258/258 grün.

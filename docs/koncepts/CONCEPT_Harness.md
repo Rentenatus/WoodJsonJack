@@ -93,14 +93,14 @@ Kalkulator-Protokoll. Pro Aufruf wird im Knoten ein Log-Eintrag angehängt: `kin
 **Wichtig:** Dieser Baum ist nicht die Source of Truth des Laufs, sondern deren Projektion — die
 Runtime-Wahrheit liegt im memory-Package (§3 unten, §10).
 
-**Baumstruktur = EditTree (entschieden, Umsetzungsplanung siehe PROGRESS_Harness.md §9):** Der Task-Baum
-ist **keine parallele Welt**, sondern eine echte `EditTree` (jsonCasted_edit) im Harness. `TaskNode` wird
-zu **`TaskData`** — einer **Facade mit Back-Reference**: TaskData hält den belegten `EditNodeObject` und
-führt das Attach intern aus (`setStatus/close/logCall/…` schreiben durch in die Captured Attributes des
-Node und feuern das Change-Event). Die Attributes bleiben primitive, serialisierbare Werte (Status-String,
-Score-long …), damit Persistierung via JsonNode und Anzeige via `rightString()` ohne Sonder-Codec laufen.
-Die Node→TaskData-Richtung läuft über eine Registry pro WorkOrder (`IdentityHashMap<EditNode, TaskData>`) —
-Struktur (parent/children) lebt im EditNode, Payload in der Registry; keine zwei Sources of Truth.
+**Baumstruktur = plain POJO (entschieden, revidiert — die frühere EditTree-Kopplung wurde entfernt,
+siehe PROGRESS_Harness.md §10.11):** `TaskData` ist ein **einfaches Datenobjekt** (id/taskType/title/status/
+score/attempt/… + `children[]` + `calculatorLog[]` + `calls[]`) — **JSON ist direkt seine Persistenzform**
+(`TaskData.toJson/fromJson`, der Codec baut nichts per Hand). Kein EditNode, keine Registry, kein
+Zwei-Welten-Problem; src_jh hängt dafür nicht mehr von jsonCasted_edit ab. Die UI baut ihren JTree direkt
+aus den TaskData-Objekten. Pro Kalkulator-Aufruf wird ein **`CalcCall`** an `calls[]` angehängt
+(input-Prompts, CalcResult-Payload, LoopAction mit type/flow/detail) — das ist die **sichtbare
+Datenbewegung** des Laufs im Baum.
 
 **Zwei Schichten — Runtime-Wahrheit vs. persistierte Projektion (entschieden):** Die Logik des Laufs
 lebt **unabhängig** in der Runtime-Schicht — dem Package `de.jare.harness.memory` (`MemoryQuest` mit
@@ -631,18 +631,17 @@ ctx.ui          // * neu: Harness-Fenster
    mit Status-Farben/Score-Badges, Detail-Pane mit Kalkulator-Protokoll pro Knoten), geöffnet
    über das Harness-Menü in `JackMainMenu` („Show Harness Window“; „Run Task…“ startet einen
    Lauf gegen das aktuelle Projekt). Kein eigenes Andock-Panel.
-3. **Task-Baum als EditTree im Harness (entschieden, §3):** kein eigener Node-Typ, kein ViewNode —
-   die EditTree ist die Baumstruktur, `TaskNode` wird zur Facade `TaskData` **mit Back-Reference** auf
-   ihren `EditNodeObject` (Attach läuft intern, Attributes bleiben primitive Werte, Node→TaskData über
-   eine Registry pro WorkOrder). Gleiche Instanzen im Harness und im JTree
-   (`DefaultMutableTreeNode.userObject` = EditNode), Sync über die bestehenden EditTree-Events,
-   read-only für die UI (§3). src_jh darf dafür jsonCasted_edit abhängen (§10).
+3. **Task-Baum als plain POJO im Harness (entschieden, revidiert — ehemals EditTree, §10.11):**
+   `TaskData` ist ein plain Data-Object; JSON (`toJson/fromJson`) ist direkt die Persistenzform.
+   Jede Mutation feuert Change-Events (Subtask-Events bubblen zur Root, die `HarnessInstance` an die
+   UI durchreicht). Pro atomarem Kalkulator-Schritt hängt der Engine einen `CalcCall` an `calls[]`
+   (input, payload, loopAction) — die Datenbewegung (Input→Output) ist damit direkt im Baum sichtbar.
 4. **Schichtung Runtime vs. Projektion (entschieden, §3):** `de.jare.harness.memory` (MemoryQuest /
    WorkOrder / WorkCache / WorkResponse) + `HarnessInstance` sind die **Runtime-Wahrheit** eines Laufs;
-   `TaskData`/EditTree ist die **persistierte Projektion** — Struktur + überschreibbare Status-Zelle
-   (status/score/attempt, Fortschrittsbalken-Semantik) + append-only Call-Log (`calculatorLog[]`).
-   Der Engine mutiert die Runtime; die TaskData-Setter sind der schmale Bridge-Pfad, der in die
-   EditTree projiziert und die Change-Events feuert. TaskData ist der Trace, nie der State.
+   `TaskData` ist die **persistierte Projektion** — Struktur + überschreibbare Status-Zelle
+   (status/score/attempt, Fortschrittsbalken-Semantik) + append-only Call-Log (`calculatorLog[]`) +
+   projizierte Kalkulator-Schritte (`calls[]`). Der Engine mutiert die Runtime; die TaskData-Setter
+   feuern die Change-Events. TaskData ist der Trace, nie der State.
 5. **Steuerung objektorientiert via HarnessAction (entschieden):** Ein Kalkulator steuert den Automaten
    nicht über Decision-Strings, sondern indem er ein **`HarnessAction`**-Objekt im `CalcResult` erzeugt.
    Das Interface liegt in `de.jare.harness`, die Repräsentanten in **`de.jare.harness.main.actions`**

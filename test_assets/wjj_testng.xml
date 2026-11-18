@@ -22,7 +22,7 @@
     <class name="de.jare.tree.settings.project.ProjectHistoryNGTest"/>
     <class name="de.jare.harness.HarnessEngineNGTest"/>
     <class name="de.jare.harness.HarnessCodecNGTest"/>
-    <class name="de.jare.harness.TaskTreeNGTest"/>
+    <class name="de.jare.harness.TaskDataNGTest"/>
     <class name="de.jare.harness.HarnessPromptsNGTest"/>
     <class name="de.jare.harness.HarnessMetricsNGTest"/>
     <class name="de.jare.harness.HarnessToolsNGTest"/>
