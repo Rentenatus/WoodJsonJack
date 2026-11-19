@@ -452,8 +452,17 @@ public class HarnessEngine implements HarnessDriver {
      */
     private ItemFlow handleSplit(TaskData task, LoopSplit split, Limits.Snapshot loopEntry) {
         List<String> prompts = split.prompts();
-        if (prompts == null || prompts.isEmpty()) {
+        if ((prompts == null || prompts.isEmpty()) && split.parts() <= 0) {
             return ItemFlow.CONTINUE;
+        }
+        // legacy semantics preserved: the split task becomes a summary over its children
+        task.rewriteAsSummary();
+        if (prompts == null || prompts.isEmpty()) {
+            // parts fallback: generated part titles from the task title
+            prompts = new ArrayList<>();
+            for (int i = 0; i < Math.max(1, split.parts()); i++) {
+                prompts.add(task.getTitle() + " / part " + (i + 1));
+            }
         }
         String loopId = split.loopId() == null || split.loopId().isBlank() ? Loop.SUB : split.loopId();
         Limits.Snapshot splitPoint = limits.snapshot();
@@ -479,6 +488,8 @@ public class HarnessEngine implements HarnessDriver {
         }
         notify(task, Kind.SPLIT, "split into " + children.size() + " subloops (loop \"" + loopId
                 + "\", task starts created), consumption = slot+children " + total);
+        // legacy semantics preserved: after the N subloops the parent summarizes over them
+        execute(task, Kind.SUMMARIZE);
         return ItemFlow.EXIT; // the N subloops returned - leave this loop (CLOSE fires in finally)
     }
 
@@ -553,20 +564,6 @@ public class HarnessEngine implements HarnessDriver {
     //
     // HarnessDriver - the operations HarnessActions execute (§15.5)
     //
-
-    @Override
-    public void splitInto(TaskData task, List<String> prompts, int parts) {
-        task.rewriteAsSummary();
-        int n = prompts != null && !prompts.isEmpty() ? prompts.size() : Math.max(1, parts);
-        for (int i = 0; i < n; i++) {
-            String title = prompts != null && !prompts.isEmpty()
-                    ? prompts.get(i) : task.getTitle() + " / part " + (i + 1);
-            process(task.addSubtask(instance.nextTaskId(), task.getTaskType(), title));
-        }
-        execute(task, Kind.SUMMARIZE);
-        execute(task, Kind.CLOSE);
-        execute(task, Kind.RAG_PRUNE);
-    }
 
     @Override
     public void addReasoningSubtask(TaskData task) {

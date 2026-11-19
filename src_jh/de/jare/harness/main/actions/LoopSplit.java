@@ -21,16 +21,24 @@ import java.util.List;
  *
  * @author Janusch Rentenatus
  */
-public record LoopSplit(List<String> prompts, String loopId) implements LoopAction {
+public record LoopSplit(List<String> prompts, String loopId, int parts) implements LoopAction {
     public LoopSplit {
         if (loopId == null || loopId.isBlank()) {
             loopId = Loop.SUB;
+        }
+        if (parts < 0) {
+            parts = 0;
         }
     }
 
     /** Default target subloop: {@link Loop#SUB}. */
     public LoopSplit(List<String> prompts) {
-        this(prompts, Loop.SUB);
+        this(prompts, Loop.SUB, 0);
+    }
+
+    /** Default target subloop {@link Loop#SUB}, prompts carried: {@link #prompts}. */
+    public LoopSplit(List<String> prompts, String loopId) {
+        this(prompts, loopId, 0);
     }
 
     @Override public String type() { return "split"; }
@@ -40,6 +48,9 @@ public record LoopSplit(List<String> prompts, String loopId) implements LoopActi
     @Override public JsonNode detail() {
         JsonNode d = JsonNode.objectNode();
         d.put("loopId", JsonNode.stringNode(loopId));
+        if (parts > 0) {
+            d.put("parts", JsonNode.longNode(parts));
+        }
         d.put("count", JsonNode.longNode(prompts == null ? 0 : prompts.size()));
         JsonNode arr = JsonNode.arrayNode();
         if (prompts != null) {

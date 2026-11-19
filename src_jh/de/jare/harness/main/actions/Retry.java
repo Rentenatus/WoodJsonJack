@@ -22,4 +22,7 @@ public record Retry(String reason) implements HarnessAction {
         d.retry(t, reason);
         return Control.LOOP;
     }
+    /** retry steuert den Loop als RESTART (§15.6). */
+    @Override public de.jare.harness.LoopAction loopAction() { return new LoopRestart(); }
+    @Override public Control control() { return Control.LOOP; }
 }

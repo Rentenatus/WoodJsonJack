@@ -47,17 +47,43 @@ public class LoopActionNGTest {
         Assert.assertTrue(CalcResult.of(Kind.CHECK, "retry").getLoopAction() instanceof LoopRestart);
         Assert.assertTrue(CalcResult.of(Kind.CHECK, "incomplete").getLoopAction() instanceof LoopRestart);
         Assert.assertTrue(CalcResult.of(Kind.ABORT, "abort").getLoopAction() instanceof LoopThrowError);
-        Assert.assertTrue(CalcResult.of(Kind.WORK, "split").getLoopAction() instanceof LoopContinue);
         Assert.assertTrue(CalcResult.of(Kind.WORK, "whatever").getLoopAction() instanceof LoopContinue);
     }
 
     @Test
+    public void testLegacySplitDecisionMapsToLoopSplit() {
+        // "split" ohne payload quests -> LoopSplit mit parts-Fallback (payload parts=3)
+        CalcResult partsOnly = CalcResult.of(Kind.SPLIT, "split").put("parts", "3");
+        Assert.assertTrue(partsOnly.getLoopAction() instanceof de.jare.harness.main.actions.LoopSplit);
+        de.jare.harness.main.actions.LoopSplit ls =
+                (de.jare.harness.main.actions.LoopSplit) partsOnly.getLoopAction();
+        Assert.assertEquals(ls.flow(), LoopAction.Flow.SPLIT);
+        Assert.assertEquals(ls.parts(), 3);
+        Assert.assertEquals(ls.loopId(), "sub", "legacy split targets the subloop like LoopSplit");
+        // "split" mit payload quests -> die Prompts werden getragen
+        CalcResult withQuests = CalcResult.of(Kind.SPLIT, "split").put("quests", "a\nb");
+        de.jare.harness.main.actions.LoopSplit ls2 =
+                (de.jare.harness.main.actions.LoopSplit) withQuests.getLoopAction();
+        Assert.assertEquals(ls2.prompts(), java.util.List.of("a", "b"));
+        Assert.assertEquals(ls2.parts(), 2, "default parts fallback");
+    }
+
+    @Test
     public void testLegacyActionControlDerivation() {
+        // actions declare their flow polymorphically now (§15.6 migration): abort = DOMAIN throw
         CalcResult abort = CalcResult.of(Kind.ABORT, "").action(new Abort("done"));
-        Assert.assertTrue(abort.getLoopAction() instanceof LoopBreak,
-                "legacy STOP control maps to Break (leave loop, CLOSE fires)");
+        Assert.assertTrue(abort.getLoopAction() instanceof LoopThrowError,
+                "abort action maps to a DOMAIN LoopThrowError (CATCH fires), not a silent Break");
+        Assert.assertEquals(abort.getLoopAction().flow(), LoopAction.Flow.THROW);
         CalcResult plain = CalcResult.of(Kind.WORK, "").action(new None());
         Assert.assertTrue(plain.getLoopAction() instanceof LoopContinue);
+        // split action -> LoopSplit on the subloop: the single split path (no legacy splitInto)
+        CalcResult split = CalcResult.of(Kind.SPLIT, "split")
+                .action(new de.jare.harness.main.actions.Split(java.util.List.of("p1", "p2"), 0));
+        Assert.assertTrue(split.getLoopAction() instanceof de.jare.harness.main.actions.LoopSplit);
+        Assert.assertEquals(split.getLoopAction().flow(), LoopAction.Flow.SPLIT);
+        Assert.assertEquals(((de.jare.harness.main.actions.LoopSplit) split.getLoopAction()).prompts(),
+                java.util.List.of("p1", "p2"));
     }
 
     @Test

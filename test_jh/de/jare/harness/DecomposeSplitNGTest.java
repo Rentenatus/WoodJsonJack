@@ -185,10 +185,11 @@ public class DecomposeSplitNGTest {
         // one subloop per subtask: WORK ran once per child via the "sub" loop (2 children)
         Assert.assertEquals(calls.stream().filter(k -> k == Kind.WORK).count(), 2L,
                 "each of the N subloops ran the sub loop");
-        // the children did NOT run a fresh main loop: the main-only SUMMARIZE marker never fired
-        // (the parent exits at the SPLIT item before reaching it either)
-        Assert.assertEquals(calls.stream().filter(k -> k == Kind.SUMMARIZE).count(), 0L,
-                "split children run the subloop, not a new main loop");
+        // the children did NOT run a fresh main loop: the main-only SUMMARIZE marker fires
+        // exactly once - the parent's own summary AFTER the N subloops returned (§15.6,
+        // legacy splitInto semantics preserved in handleSplit), never per child
+        Assert.assertEquals(calls.stream().filter(k -> k == Kind.SUMMARIZE).count(), 1L,
+                "parent summarizes once after the subloops; split children run the subloop, not a new main loop");
         Assert.assertEquals(cache.get("subloopId"), "sub");
         // consumption: slot + N deltas summed into the current output (WorkCache)
         Assert.assertEquals(cache.get("subloops"), "2");

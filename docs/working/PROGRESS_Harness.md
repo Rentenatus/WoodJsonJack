@@ -324,3 +324,19 @@ Harness-Suite 166/166, WJJ gesamt 255/255 grün.
 - Tests: TaskTreeNGTest → TaskDataNGTest (POJO, Event-Bubbling, CalcCall-Projektion,
   Codec-Roundtrip inkl. calls, Legacy-Load), DecomposeSplitNGTest mit Engine-Level-Assertion
   auf `getCalls()`. wjj_testng.xml aktualisiert. Harness-Suite 170/170, WJJ gesamt 258/258 grün.
+
+## 10.12 Umgesetzt: Legacy-Aktionen auf LoopAction migriert — ein Split-Pfad (splitInto entfernt)
+
+- `HarnessAction` hat zwei neue Default-Methoden: `loopAction()` (null → Fallback über `control()`)
+  und `control()` — Ableitung polymorph, kein Type-String-Switch mehr in `CalcResult`.
+- Alle Built-ins in `main/actions` deklarieren ihren Flow: `None`→Continue, `Retry`/`ReasoningSubtask`→Restart,
+  `Abort`→LoopThrowError(DOMAIN) (CATCH feuert statt stillem Break), `Split`→`LoopSplit(prompts, "sub", parts)`.
+- `LoopSplit` trägt jetzt optional `parts` (Fallback für generierte Part-Titles); `LoopActions.fromDecision`
+  hat Payload-Overload: legacy decision `"split"` + payload `quests`/`parts` → derselbe `LoopSplit`.
+- `HarnessDriver.splitInto` und die Engine-Implementierung sind **entfernt** — `handleSplit` ist der
+  einzige Split-Pfad (subloop pro Subtask, Verbrauchsvererbung, Deltas) und macht jetzt auch
+  `rewriteAsSummary()` + parent-SUMMARIZE nach den Subloops (Legacy-Semantik bewahrt).
+- Tests: LoopActionNGTest (Split/Abort-Mapping, legacy split-decision mit/ohne payload),
+  HarnessEngineNGTest.testSplitRewritesTaskAsSummaryAndClosesChildren unverändert grün,
+  DecomposeSplitNGTest: SUMMARIZE feuert genau 1× am Parent nach den Subloops.
+  Harness-Suite 171/171, WJJ gesamt 258/258 grün.
