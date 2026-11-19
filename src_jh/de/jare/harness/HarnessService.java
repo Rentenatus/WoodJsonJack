@@ -290,68 +290,30 @@ public class HarnessService {
         }
     }
 
-    /** The bundled default model: all twelve quests deterministic, modelclasses per §5 example. */
-    public static HarnessModel defaultModel() {
-        HarnessModel model = new HarnessModel().name("default-harness").version("1.0.0")
-                .abortLimits(50, 5, 3, 10);
-        model.getTaskTypes().add(de.jare.harness.model.HarnessModel.QUEST_ASK_AI);
-        model.getTaskTypes().add("RESEARCH");
-        model.getTaskTypes().add("CODE_EDIT");
-        model.getTaskTypes().add("TEST_RUN");
-        model.getTaskTypes().add("SUMMARIZE");
-        model.getPromptBudgets().put("SYSTEM", 2);
-        model.getPromptBudgets().put("SKILL", 1);
-        model.getPromptBudgets().put("HISTORY", 3);
-        model.getPromptBudgets().put("DATA", 2);
-        model.getPromptBudgets().put("AUFTRAG", 1);
-        model.addModelclass(new Modelclass("ollama", "qwen3.8:27b", "investigation", 27, 1.0, true));
-        model.addModelclass(new Modelclass("ollama", "nemotron3:33b", "investigation", 33, 1.5, true));
-        model.addModelclass(new Modelclass("ollama", "muse-glimmer:30b", "investigation", 30, 1.5, true));
-        model.addModelclass(new Modelclass("ollama", "devstral-small-2:24b", "edit", 24, 2.0, true));
-        model.addModelclass(new Modelclass("ollama", "gemma4:26b", "edit", 26, 1.5, true));
-        model.addModelclass(new Modelclass("ollama", "glm-4.7-flash:latest", "plan", 30, 1.0, true));
-        model.addModelclass(new Modelclass("ollama", "gpt-oss:20b", "plan", 20, 1.0, true));
-        model.addModelclass(new Modelclass("ollama", "granite3.3:8b", "evaluation", 8, 0.5, false));
-        model.addModelclass(new Modelclass("ollama", "gemma3:27b", "evaluation", 27, 1.5, false));
-        model.addModelclass(new Modelclass("ollama", "manutic/nomic-embed-code:latest", "rag", 0, 0.2, false));
-        model.addModelclass(new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false));
-        // declared deterministic fallback: provider "system" = built-in, no network (rag hash embedding)
-        model.addModelclass(new Modelclass(Modelclass.PROVIDER_SYSTEM, "hash-embedding", "rag", 0, 0.0, false));
-
-        for (Kind kind : Kind.values()) {
-            Quest quest = new Quest(kind).evolvable(kind == Kind.WORK);
-            quest.addSlot(new Slot(kind.name().toLowerCase() + ".base")
-                    .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC)));
-            model.addQuest(quest);
-        }
-        // the main AskAi quest (SPLIT): scoring counts the quests, investigation decomposes, printig prints
-        CalculatorNode askAiCalc = CalculatorNode.puzzle("sequence")
-                .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
-                        .params(java.util.Map.of(
-                                "model", "phi4-mini:latest",
-                                "systemPrompt", de.jare.harness.main.calculator.ScoringCountQuestsCalculator.DEFAULT_SYSTEM_PROMPT,
-                                "emphasisPrompt", de.jare.harness.main.calculator.ScoringCountQuestsCalculator.DEFAULT_EMPHASIS_PROMPT,
-                                "temperature", "0.0")))
-                .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
-                        .params(java.util.Map.of(
-                                "model", "nemotron3:33b",
-                                "systemPrompt", askAiDecomposeSystemPrompt(),
-                                "temperature", "0.3")))
-                .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig"));
-        model.questFor(Kind.SPLIT).baseSlot().calculator(askAiCalc);
-        // the entry loop (§15.6): legacy order + a CATCH handler on the ABORT quest
-        de.jare.harness.model.Loop main = HarnessModel.defaultMainLoop();
-        main.addItem(new de.jare.harness.model.LoopItem("err", Kind.ABORT)
-                .trigger(de.jare.harness.model.Trigger.CATCH));
-        model.addLoop(main);
-        return model;
-    }
-
     /**
-     * The system prompt of the askai.decompose call - handed to the builder via the config
-     * params, so mutations can be tried purely at the config level (asset harness-model.json).
+     * The bundled default model - loaded from the config asset
+     * {@code assets/harness/harness-model.json}. RULE: prompts live ONLY in this config JSON,
+     * never in code, so there is no programmatic fallback with hardcoded prompts anymore.
      */
-    private static String askAiDecomposeSystemPrompt() {
-        return de.jare.harness.main.calculator.AskAiDecomposeCalculator.DEFAULT_SYSTEM_PROMPT;
+    public static HarnessModel defaultModel() {
+        File asset = new File("assets/harness/harness-model.json");
+        if (!asset.exists()) {
+            throw new IllegalStateException("bundled harness model asset missing: " + asset.getPath()
+                    + " (prompts live only in the config JSON, there is no code fallback)");
+        }
+        try {
+            HarnessModel model = HarnessModelCodec.load(asset);
+            // the asset carries the configured quests (with their config prompts); every kind
+            // NOT modelled there gets a deterministic fallback quest - still no prompts in code
+            for (Kind kind : Kind.values()) {
+                if (model.questFor(kind) == null) {
+                    model.addQuest(new Quest(kind).addSlot(new Slot(kind.name().toLowerCase() + ".base")
+                            .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+                }
+            }
+            return model;
+        } catch (Exception e) {
+            throw new IllegalStateException("bundled harness model asset is not parseable: " + e.getMessage(), e);
+        }
     }
 }

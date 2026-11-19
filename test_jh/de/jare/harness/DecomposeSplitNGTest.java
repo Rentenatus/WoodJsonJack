@@ -51,7 +51,7 @@ public class DecomposeSplitNGTest {
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
         engine.setWorkCache(cache);
         CalculatorNode node = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
-                .params(java.util.Map.of("model", "nemotron3:33b"));
+                .params(java.util.Map.of("model", "nemotron3:33b", "systemPrompt", "decompose into {data.count} quests"));
         return new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
                 node, engine.getLimits(), List.of("AUFTRAG:inline:task\n" + userPrompt));
     }
@@ -95,7 +95,7 @@ public class DecomposeSplitNGTest {
         Assert.assertEquals(split.loopId(), Loop.SUB, "split steers the subloop, not a fresh main loop");
         Assert.assertEquals(r.getPayload().get("count"), "2");
         Assert.assertTrue(r.getPayload().get("quests").contains("wie viel ist 2*4?"));
-        Assert.assertTrue(sentSystem.get(0).contains("into 2 atomic quests"),
+        Assert.assertTrue(sentSystem.get(0).contains("decompose into 2 quests"),
                 "{data.count} was resolved by the PromptFormatter: " + sentSystem.get(0));
     }
 
@@ -209,7 +209,7 @@ public class DecomposeSplitNGTest {
         HarnessModel model = modelWithAllQuests();
         CalculatorNode splitPuzzle = CalculatorNode.puzzle("sequence")
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
-                        .params(java.util.Map.of("model", "nemotron3:33b")))
+                        .params(java.util.Map.of("model", "nemotron3:33b", "systemPrompt", "decompose into {data.count} quests")))
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig"));
         model.questFor(Kind.SPLIT).baseSlot().calculator(splitPuzzle);
 

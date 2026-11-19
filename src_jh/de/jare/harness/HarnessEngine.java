@@ -77,7 +77,12 @@ public class HarnessEngine implements HarnessDriver {
         this.relevanceRegistry = new RelevanceRegistry();
         Map<PromptSegment.Category, Integer> budgets = new EnumMap<>(PromptSegment.Category.class);
         for (Map.Entry<String, Integer> e : model.getPromptBudgets().entrySet()) {
-            budgets.put(PromptSegment.Category.valueOf(e.getKey()), e.getValue());
+            // only real categories are budgets (defensive: unknown keys are skipped, not crashed)
+            try {
+                budgets.put(PromptSegment.Category.valueOf(e.getKey()), e.getValue());
+            } catch (IllegalArgumentException notACategory) {
+                // e.g. "maxTokensTotal" - a model field, not a per-category budget
+            }
         }
         this.promptAssembler = new PromptAssembler(budgets, model.getMaxTokensTotal(),
                 "sticky: harness " + model.getName() + " v" + model.getVersion());

@@ -340,3 +340,24 @@ Harness-Suite 166/166, WJJ gesamt 255/255 grün.
   HarnessEngineNGTest.testSplitRewritesTaskAsSummaryAndClosesChildren unverändert grün,
   DecomposeSplitNGTest: SUMMARIZE feuert genau 1× am Parent nach den Subloops.
   Harness-Suite 171/171, WJJ gesamt 258/258 grün.
+
+## 10.13 Umgesetzt: Prompts nur noch in der Config-JSON + structureScore in der Evolution + Embed-API-Fix
+
+- **Prompt-Regel durchgesetzt:** `DEFAULT_SYSTEM_PROMPT`/`DEFAULT_EMPHASIS_PROMPT` aus allen 4
+  KI-Kalkulatoren entfernt; fehlt der Config-Param `systemPrompt`, wirft der Kalkulator einen
+  PARAMETER-Fehler (PARAM_ERROR-Metrik) — kein hartkodierter Fallback mehr. `emphasisPrompt` ist
+  optional (null = kein Retry). `HarnessService.defaultModel()` lädt das gebundelte Asset
+  `assets/harness/harness-model.json` (fehlende Kinds werden deterministisch ergänzt, ohne Prompts).
+- **Codec/Engine:** `promptBudgets.maxTokensTotal` ist Modell-Feld, keine Kategorie — Codec und
+  Bean-Converter routen es auf `HarnessModel.setMaxTokensTotal`, Engine skippt Nicht-Kategorie-Keys.
+- **Bugfix OllamaEmbeddingProvider:** `/api/embed` antwortet `{"embeddings":[[...]]}` — der Provider
+  parste das Legacy-Feld `embedding` und warf SCHEMA_VIOLATION. Jetzt `embeddings[0]` (Legacy-Feld
+  als Fallback). Betrifft skill.match/RAG gegen live Ollama.
+- **Evolution (§7.2 Selection-Regel):** `EvolutionRunner` nutzt jetzt beides — harte Gates
+  (Ø-Score +15 UND FAIL-Rate halbiert vs. base) entscheiden WER gewinnt; unter den Gate-Passern
+  rangiert die `structureScore` (Gewichte wFail=wParam=1.0), bei < MIN_SAMPLES=3 Samples der rohe
+  Ø-Score (dünne Daten = structureScore-Rauschen). `CandidateResult` trägt structureScore.
+  Test: Kandidat mit höherem Ø-Score (100) aber PARAM_ERROR verliert gegen sauberen Kandidaten (95).
+- Tests angepasst (systemPrompt als Param in Codec/Guard/Decompose-Tests). Harness-Suite 172/172,
+  WJJ gesamt 259/259 grün (Service-Tests gegen live Ollama im Vollsuite gelegentlich flaky,
+  isoliert und im Rerun grün).

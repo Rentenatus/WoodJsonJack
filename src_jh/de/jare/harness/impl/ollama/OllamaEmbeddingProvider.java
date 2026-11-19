@@ -55,7 +55,11 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         try {
             var root = de.jare.jsoncasted.io.parserservice.JsonParserService.parse(raw,
                     de.jare.debug.JsonDebugLevel.SIMPLE).getRoot();
-            var emb = root.asObjectValues().get("embedding");
+            // /api/embed answers {"embeddings": [[...], ...]} (one array per input) - the first
+            // is our single input's vector; the legacy /api/embeddings field "embedding" is NOT sent
+            var embs = root.asObjectValues().get("embeddings");
+            var emb = embs != null && embs.isArray() && !embs.asArray().isEmpty()
+                    ? embs.asArray().get(0) : root.asObjectValues().get("embedding");   // legacy fallback
             if (emb == null || !emb.isArray() || emb.asArray().isEmpty()) {
                 throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
                         "embed answer carries no embedding array");

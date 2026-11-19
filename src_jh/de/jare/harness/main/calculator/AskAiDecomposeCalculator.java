@@ -40,12 +40,6 @@ import java.util.List;
  */
 public class AskAiDecomposeCalculator implements HarnessCalculator {
 
-    public static final String DEFAULT_SYSTEM_PROMPT =
-            "You decompose the user prompt into {data.count} atomic quests ({data.count} = the "
-            + "questCount from the scoring call). Answer with strict JSON only: {\"status\":\"DONE\","
-            + "\"decision\":\"decomposed\",\"score\":100,\"payload\":{\"quests\":[\"...\",\"...\"]}} "
-            + "where quests is the list of atomic user prompts.";
-
     private final Kind kind;
     private final Modelclass modelclass;
     private final ModelProvider provider;
@@ -61,8 +55,12 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
         this.kind = kind;
         this.modelclass = modelclass;
         this.provider = provider;
-        this.systemPrompt = systemPrompt == null || systemPrompt.isBlank()
-                ? DEFAULT_SYSTEM_PROMPT : systemPrompt;
+        if (systemPrompt == null || systemPrompt.isBlank()) {
+            throw new de.jare.harness.HarnessException(de.jare.harness.HarnessException.Type.PARAMETER,
+                    "askai.decompose needs the config param \"systemPrompt\" (prompts live only in the config JSON)",
+                    "systemPrompt");
+        }
+        this.systemPrompt = systemPrompt;
         this.subloop = subloop;
     }
 

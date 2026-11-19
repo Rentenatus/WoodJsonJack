@@ -137,11 +137,11 @@ public class HarnessCodecNGTest {
 
         // params survive the codec round trip
         CalculatorNode withParams = CalculatorNode.atomic(CalculatorNode.IMPL_AI)
-                .calculator("scoring.countQuests").params(java.util.Map.of("model", "phi4-mini:latest"));
+                .calculator("scoring.countQuests").params(java.util.Map.of("model", "phi4-mini:latest", "systemPrompt", "count quests"));
         model.questFor(Kind.SPLIT).baseSlot().calculator(withParams);
         HarnessModel loadedParams = HarnessModelCodec.fromJson(HarnessModelCodec.toJson(model));
         CalculatorNode pn = loadedParams.questFor(Kind.SPLIT).baseSlot().getCalculator();
-        Assert.assertEquals(pn.getParams(), java.util.Map.of("model", "phi4-mini:latest"));
+        Assert.assertEquals(pn.getParams(), java.util.Map.of("model", "phi4-mini:latest", "systemPrompt", "count quests"));
 
         // the factory resolves the name to a real AiCalculator bound via params to phi4-mini
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(loadedParams);
@@ -247,7 +247,7 @@ public class HarnessCodecNGTest {
             }
         });
         CalculatorNode node = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
-                .params(java.util.Map.of("model", "phi4-mini:latest", "temperature", "0.0"));
+                .params(java.util.Map.of("model", "phi4-mini:latest", "temperature", "0.0", "systemPrompt", "count quests"));
         model.questFor(Kind.SPLIT).baseSlot().calculator(node);
 
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
@@ -263,7 +263,7 @@ public class HarnessCodecNGTest {
 
         // absent param -> null -> provider default
         CalculatorNode noTemp = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
-                .params(java.util.Map.of("model", "phi4-mini:latest"));
+                .params(java.util.Map.of("model", "phi4-mini:latest", "systemPrompt", "count quests"));
         CalcContext ctx2 = new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
                 noTemp, engine.getLimits(), List.of());
         Assert.assertNull(ctx2.temperature());
@@ -320,7 +320,7 @@ public class HarnessCodecNGTest {
         });
         CalculatorNode node = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
                 .params(java.util.Map.of("model", "phi4-mini:latest",
-                        "emphasisPrompt", "Attention: You must strictly adhere to the JSON structure!"));
+                        "emphasisPrompt", "Attention: You must strictly adhere to the JSON structure!", "systemPrompt", "count quests"));
         model.questFor(Kind.SPLIT).baseSlot().calculator(node);
 
         HarnessCalculator calc = factory.createAtomic(node, Kind.SPLIT);

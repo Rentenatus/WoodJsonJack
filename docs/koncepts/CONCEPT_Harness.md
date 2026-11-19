@@ -86,6 +86,12 @@ deterministischen Fallback oder einen anderen Provider zurück. **Kostenlimits i
 
 ## 3. Task-Baum als persistierte Projektion (Trace) des Laufs
 
+**Prompt-Regel (entschieden, §10.13): Prompts stehen AUSSCHLIESSLICH als Params in der Konfig-JSON**
+(`assets/harness/harness-model.json` bzw. `<projekt>/.wood/harness-model.json`) — nie als
+Code-Default in Kalkulatoren. Fehlt `systemPrompt`, ist das ein PARAMETER-Fehler (PARAM_ERROR-Metrik),
+kein versteckter hartkodierter Prompt. `HarnessService.defaultModel()` lädt deshalb das gebundelte
+Asset (fehlende Kinds werden deterministisch ohne Prompts ergänzt).
+
 Die Daten des Harness-Fensters werden **als Baum gespeichert** und via jsonCasted persistiert
 (`<projekt>/.wood/harness.json`, §5). Jeder Task-Knoten: `id, taskType, title, status, score, children, calculatorLog[]`.
 Das Harness-Fenster zeigt den Baum live (Status-Farben, Score-Badges); Klick auf einen Knoten zeigt dessen
@@ -322,6 +328,7 @@ Der Roh-Log bleibt lokal; **global** landet nur die aggregierte Kennzahlenliste 
    wird ein Swap vorgeschlagen und als **Kind-Version im Stammbaum** erzeugt — wirksam ab dem nächsten Lauf
    (das alte Modell wird dann entladen). Während des Laufs bleibt die Modell-Version frozen.
 2. **Evolutions-Schritt:** An als `evolvable` markierten Task-Punkten dürfen kurzfristig **3 alternative Implementierungen** desselben Slots parallel laufen. Nach einem Messfenster (z. B. 20 Aufrufe) werden zwei verworfen, sobald eine Alternative die Zuverlässigkeitsschwelle signifikant schlägt (z. B. Ø-Score +15 und FAIL-Rate halbiert). Verlierer landen mit ihren Stats ins Archiv.
+   **Selection-Regel (umgesetzt, §10.13):** (a) harte Gates zuerst — ein Kandidat gewinnt nur, wenn er base um `SCORE_DELTA` schlägt UND die FAIL-Rate auf höchstens `FAIL_RATE_FACTOR`·base drückt; (b) unter den Gate-Passern rangiert die **`structureScore`** (`ema(SCORE) − 100·(wFail·ema(FAIL_RATE) + wParam·ema(PARAM_ERROR))`), nicht der rohe Ø-Score — Parameterfehler werden so bestraft; (c) bei dünnem Messfenster (< `MIN_SAMPLES` = 3) ist die structureScore eines frischen Knotens 0-Rauschen, dann rangiert der rohe Ø-Score.
    **Herkunft der 3 Kandidaten — alles drei, gewichtet:**
    - **Hauptquelle: feste Kandidatenliste** (im Modell/Repo versioniert) — am meisten Kandidaten.
    - **Selten: zwei zufällige Mutationen** — fallen sie schlechter aus, verfallen sie einfach (ins Archiv).

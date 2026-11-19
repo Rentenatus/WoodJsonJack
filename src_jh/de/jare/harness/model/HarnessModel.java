@@ -90,6 +90,10 @@ public class HarnessModel {
         return maxTokensTotal;
     }
 
+    public void setMaxTokensTotal(int maxTokensTotal) {
+        this.maxTokensTotal = maxTokensTotal;
+    }
+
     public int getMaxIterations() {
         return maxIterations;
     }

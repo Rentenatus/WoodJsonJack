@@ -85,12 +85,12 @@ public class GuardVerdictNGTest {
 
     private static CalculatorNode guardCheckNode() {
         return CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("guard.check")
-                .params(Map.of("model", "phi4-mini:latest"));
+                .params(Map.of("model", "phi4-mini:latest", "systemPrompt", "guard prompt", "emphasisPrompt", "Attention: You must strictly adhere to the JSON structure!"));
     }
 
     private static CalculatorNode guardEscalateNode() {
         return CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("guard.escalate")
-                .params(Map.of("model", "granite3.3:8b"));
+                .params(Map.of("model", "granite3.3:8b", "systemPrompt", "escalation prompt"));
     }
 
     @Test

@@ -106,4 +106,61 @@ public class HarnessEvolutionNGTest {
         EvolutionRunner runner = new EvolutionRunner(model, new DefaultCalculatorFactory(model));
         Assert.assertNull(runner.run(Kind.ABORT, samples()), "ABORT quest is not evolvable");
     }
+
+    /**
+     * §7.2 rule: hard gates (score delta + halved fail rate vs. base) decide WHO may win;
+     * among gate-passers the structureScore ranks (score − 100·(wFail·FAIL + wParam·PARAM_ERROR)),
+     * so a candidate with a higher raw avgScore but parameter errors loses to a cleaner one.
+     * Base always fails (score 70, fail rate 1.0) so the gates admit fail rates up to 0.5.
+     */
+    @Test
+    public void testStructureScoreRanksAmongGatePassers() {
+        HarnessModel model = evolvableModel();
+        model.questFor(Kind.WORK).getSlots().get(0).getCalculator().tool("basefail");   // work.base
+        model.questFor(Kind.WORK).getSlots().get(1).getCalculator().tool("flaky");      // work.m1
+        model.questFor(Kind.WORK).getSlots().get(2).getCalculator().tool("good");       // work.m2
+        DefaultCalculatorFactory base = new DefaultCalculatorFactory(model);
+        CalculatorFactory factory = (node, kind) -> {
+            if (kind == Kind.WORK) {
+                String tool = node.getTool();
+                if ("basefail".equals(tool)) {
+                    return calc(Kind.WORK, CalcResult.of(Kind.WORK, "failed").score(70).status(Status.FAILED));
+                }
+                if ("flaky".equals(tool)) {
+                    return new HarnessCalculator() {
+                        @Override public Kind kind() { return Kind.WORK; }
+                        @Override public CalcResult calculate(CalcContext c) {
+                            if (c.task().getTitle().contains("two")) {
+                                throw new HarnessException(HarnessException.Type.PARAMETER, "bad param", "temperature");
+                            }
+                            return CalcResult.of(Kind.WORK, "worked").score(100).status(Status.DONE);
+                        }
+                    };
+                }
+                if ("good".equals(tool)) {
+                    return calc(Kind.WORK, CalcResult.of(Kind.WORK, "worked").score(95).status(Status.DONE));
+                }
+            }
+            return base.createAtomic(node, kind);
+        };
+        EvolutionRunner runner = new EvolutionRunner(model, factory);
+        EvolutionRunner.Selection sel = runner.run(Kind.WORK, samples());   // 3 samples >= MIN_SAMPLES
+        Assert.assertNotNull(sel);
+        Assert.assertTrue(sel.swapped(), "a challenger passes the gates (100/95 >= 70+15, fail <= 0.5)");
+        Assert.assertEquals(sel.winner().slot().getId(), "work.m2",
+                "m2 wins by structureScore although m1 has the higher raw avgScore (100 vs 95) "
+                        + "- m1's PARAM_ERROR and FAIL drag its structureScore below m2's");
+        Assert.assertTrue(sel.winner().structureScore() > 0);
+        EvolutionRunner.CandidateResult m1 = sel.losers().stream()
+                .filter(l -> l.slot().getId().equals("work.m1")).findFirst().orElseThrow();
+        Assert.assertTrue(m1.structureScore() < sel.winner().structureScore(),
+                "m1 structureScore is penalized by fail + param errors");
+    }
+
+    private static HarnessCalculator calc(Kind kind, CalcResult result) {
+        return new HarnessCalculator() {
+            @Override public Kind kind() { return kind; }
+            @Override public CalcResult calculate(CalcContext c) { return result; }
+        };
+    }
 }

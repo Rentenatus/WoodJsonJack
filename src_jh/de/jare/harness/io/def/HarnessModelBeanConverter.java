@@ -46,6 +46,11 @@ public final class HarnessModelBeanConverter {
             }
         }
         model.getTaskTypes().addAll(bean.getTaskTypes());
+        // "maxTokensTotal" is a model field, not a per-category budget
+        Integer maxTokens = bean.getPromptBudgets().remove("maxTokensTotal");
+        if (maxTokens != null) {
+            model.setMaxTokensTotal(maxTokens);
+        }
         model.getPromptBudgets().putAll(bean.getPromptBudgets());
         AbortLimitsBean al = bean.getAbortLimits();
         if (al != null) {

@@ -70,7 +70,12 @@ public final class HarnessModelCodec {
         JsonNode budgets = JsonNodes.child(root, "promptBudgets");
         if (budgets != null && budgets.isObject()) {
             for (Map.Entry<String, JsonNode> e : budgets.asObjectValues().entrySet()) {
-                model.getPromptBudgets().put(e.getKey(), e.getValue().asLong().intValue());
+                // "maxTokensTotal" is a model field, not a per-category budget
+                if ("maxTokensTotal".equals(e.getKey())) {
+                    model.setMaxTokensTotal(e.getValue().asLong().intValue());
+                } else {
+                    model.getPromptBudgets().put(e.getKey(), e.getValue().asLong().intValue());
+                }
             }
         }
         JsonNode limits = JsonNodes.child(root, "abortLimits");
@@ -256,6 +261,7 @@ public final class HarnessModelCodec {
         for (Map.Entry<String, Integer> e : model.getPromptBudgets().entrySet()) {
             budgets.put(e.getKey(), JsonNode.longNode(e.getValue()));
         }
+        budgets.put("maxTokensTotal", JsonNode.longNode(model.getMaxTokensTotal()));
         root.put("promptBudgets", budgets);
         JsonNode limits = JsonNode.objectNode();
         limits.put("maxIterations", JsonNode.longNode(model.getMaxIterations()));
