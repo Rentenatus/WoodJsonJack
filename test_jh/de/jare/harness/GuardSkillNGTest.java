@@ -6,6 +6,7 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.TaskCommands;
 import de.jare.harness.impl.DefaultCalculatorFactory;
 import de.jare.harness.main.actions.LoopSplit;
 import de.jare.harness.main.actions.LoopThrowError;
@@ -239,7 +240,7 @@ public class GuardSkillNGTest {
                                 .loopAction(new LoopSplit(List.of("rechne 2*4", "rechne 7*8")));
                     }
                     if (kind == Kind.CLOSE) {
-                        c.task().close("closed");
+                        c.commands().apply(new TaskCommands.CloseTask("closed"));   // §18
                     }
                     return CalcResult.of(kind, "done").status(Status.DONE);
                 }

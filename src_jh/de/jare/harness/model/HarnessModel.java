@@ -156,7 +156,19 @@ public class HarnessModel {
         return loops;
     }
 
+    /**
+     * Adds a named loop. §18.5: loop item ids must be unique PER LOOP (the history origin
+     * triple is {@code loopId/loopItemId/trigger}) - a duplicate is a PARAMETER error.
+     */
     public HarnessModel addLoop(Loop loop) {
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (LoopItem item : loop.getItems()) {
+            if (!ids.add(item.getId())) {
+                throw new de.jare.harness.HarnessException(de.jare.harness.HarnessException.Type.PARAMETER,
+                        "duplicate loop item id \"" + item.getId() + "\" in loop \"" + loop.getId()
+                                + "\" (§18.5: ids must be unique per loop)", "loopItemId");
+            }
+        }
         loops.put(loop.getId(), loop);
         return this;
     }

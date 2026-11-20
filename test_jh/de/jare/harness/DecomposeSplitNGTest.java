@@ -6,6 +6,7 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.TaskCommands;
 import de.jare.harness.impl.DefaultCalculatorFactory;
 import de.jare.harness.main.actions.LoopSplit;
 import de.jare.harness.main.calculator.AskAiDecomposeCalculator;
@@ -163,7 +164,7 @@ public class DecomposeSplitNGTest {
                 @Override public Kind kind() { return kind; }
                 @Override public CalcResult calculate(CalcContext c) {
                     if (kind == Kind.CLOSE) {
-                        c.task().close("closed");
+                        c.commands().apply(new TaskCommands.CloseTask("closed"));   // §18
                     }
                     return CalcResult.of(kind, "done");
                 }

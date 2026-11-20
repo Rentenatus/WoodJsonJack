@@ -47,6 +47,33 @@ public class LoopConfigCodecNGTest {
         return model;
     }
 
+    /**
+     * §18.5: loop item ids must be unique PER LOOP (the command-history origin triple is
+     * {@code loopId/loopItemId/trigger}) - a duplicate id inside one loop is a PARAMETER error.
+     * Ids reused across DIFFERENT loops (e.g. "split" in "main" and "sub") stay valid.
+     */
+    @Test
+    public void testDuplicateLoopItemIdPerLoopIsParameterError() {
+        HarnessModel model = new HarnessModel().name("dup-test");
+        Loop main = new Loop(Loop.MAIN);
+        main.addItem(new LoopItem("split", Kind.SPLIT));
+        model.addLoop(main);
+        Loop dup = new Loop("dup");
+        dup.addItem(new LoopItem("work", Kind.WORK));
+        dup.addItem(new LoopItem("work", Kind.EVALUATE));
+        try {
+            model.addLoop(dup);
+            Assert.fail("duplicate loop item id must throw a PARAMETER HarnessException (§18.5)");
+        } catch (de.jare.harness.HarnessException e) {
+            Assert.assertEquals(e.getType(), de.jare.harness.HarnessException.Type.PARAMETER);
+        }
+        // same id in another loop is fine - the origin triple disambiguates
+        Loop other = new Loop("other");
+        other.addItem(new LoopItem("work", Kind.WORK));
+        model.addLoop(other);
+        Assert.assertNotNull(model.getLoop("other"));
+    }
+
     @Test
     public void testLoopRoundTripThroughFile() throws Exception {
         File tmp = Files.createTempDirectory("harness-loops").resolve("harness-model.json").toFile();

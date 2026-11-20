@@ -35,6 +35,9 @@ public class CalcContext {
     private final CalculatorNode node;
     private final Limits limits;
     private final List<String> currentPrompts;
+    private String loopId;        // loop context of this call (§18 origin triple, like CallLogEntry)
+    private String loopItemId;
+    private String trigger;
     private HarnessTools tools;
     private de.jare.harness.memory.WorkCache workCache;   // result channel between calculators (§3 layering)
     private de.jare.harness.memory.ProjectMemory projectMemory;   // project-local memory across runs (§17)
@@ -53,9 +56,33 @@ public class CalcContext {
         this.currentPrompts = currentPrompts == null ? Collections.emptyList() : currentPrompts;
     }
 
-    /** ctx.task - the task node of the current call. */
-    public TaskData task() {
+    /**
+     * ctx.task - the task of the current call as READ-ONLY {@link TaskView} (§18.1):
+     * calculators can never mutate the tree directly; mutations go through
+     * {@link #commands()} as {@link TaskCommand}s.
+     */
+    public TaskView task() {
         return task;
+    }
+
+    /** The loop context of this call, set by the engine (§18 origin triple). */
+    public void setLoopContext(String loopId, String loopItemId, String trigger) {
+        this.loopId = loopId;
+        this.loopItemId = loopItemId;
+        this.trigger = trigger;
+    }
+
+    /** The command sink: applies a {@link TaskCommand} to this call's task via the dispatcher. */
+    public interface CommandSink {
+        void apply(TaskCommand cmd);
+    }
+
+    /**
+     * ctx.commands (§18): the ONLY way a calculator mutates the task tree - the command is
+     * executed and recorded in the CommandHistory with this call's loop origin triple.
+     */
+    public CommandSink commands() {
+        return cmd -> engine.applyCmd(task, cmd, loopId, loopItemId, trigger);
     }
 
     public Kind kind() {
@@ -261,13 +288,13 @@ public class CalcContext {
      */
     public String compact(String condensed) {
         String marked = "[compacted] " + condensed;
-        task.appendPromptSupplement(marked);
+        commands().apply(new TaskCommands.AppendPromptSupplement(marked));
         return marked;
     }
 
     /** ctx.catch.abort (§13): kontrollierten Abbruch einleiten. */
     public void abort(String reason) {
-        task.setStatus(Status.ABORTED);
+        commands().apply(new TaskCommands.SetStatus(Status.ABORTED));
         engine.notify(task, kind, "abort: " + reason);
         throw new HarnessException(HarnessException.Type.ABORTED, reason);
     }

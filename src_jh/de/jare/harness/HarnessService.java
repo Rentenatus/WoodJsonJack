@@ -153,6 +153,7 @@ public class HarnessService {
         // every CalcContext, so calculators of one puzzle sequence read predecessor results
         if (lastMemoryQuest != null) {
             engine.setWorkCache(lastMemoryQuest.getWorkCache());
+            engine.setCommandHistory(lastMemoryQuest.getCommandHistory());   // §18: task mutations via commands
         }
         engine.setProjectMemory(projectMemory);   // §17: fed as HISTORY/DATA segments + via ctx.projectMemory()
         if (host != null) {
