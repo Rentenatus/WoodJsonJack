@@ -14,7 +14,6 @@ import de.jare.harness.HarnessEngine;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
 import de.jare.harness.TaskCommands;
-import de.jare.harness.TaskData;
 import de.jare.harness.TaskView;
 import de.jare.harness.main.actions.LoopThrowError;
 import de.jare.harness.model.Modelclass;

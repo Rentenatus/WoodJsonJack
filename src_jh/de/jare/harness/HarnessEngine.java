@@ -823,20 +823,9 @@ public class HarnessEngine implements HarnessDriver {
             }
             return last;
         }
-        // TEMP debug: trace every atomic calculator call (to be removed)
         String calcName = node.getCalculator() != null ? node.getCalculator()
                 : (node.getImpl() != null ? node.getImpl() : node.getType());
-        System.out.println("[CALC >>] kind=" + kind + " slot=" + ctx.slotId()
-                + " calc=" + calcName
-                + (node.getModelclass() != null ? " modelclass=" + node.getModelclass() : "")
-                + " task=" + ctx.task().getId() + " \"" + abbrev(ctx.task().getTitle()) + "\"");
-        long t0 = System.currentTimeMillis();
         CalcResult res = factory.createAtomic(node, kind).calculate(ctx);
-        System.out.println("[CALC <<] kind=" + kind + " slot=" + ctx.slotId()
-                + " calc=" + calcName + " task=" + ctx.task().getId()
-                + " -> decision=" + res.getDecision() + " status=" + res.getStatus()
-                + (res.getScore() != null ? " score=" + res.getScore() : "")
-                + " (" + (System.currentTimeMillis() - t0) + " ms)");
         if (ctx.workCache() != null) {
             ctx.workCache().putResult(calcName, res).setLastResult(res);
         }
@@ -847,18 +836,9 @@ public class HarnessEngine implements HarnessDriver {
         return res;
     }
 
-    private static String abbrev(String s) {
-        if (s == null) return "";
-        String one = s.replace('\n', ' ');
-        return one.length() <= 60 ? one : one.substring(0, 57) + "...";
-    }
-
     /** The deterministic fallback used by the catch-mapping (§13). */
     private static final class DeterministicFallback {
         static CalcResult run(Kind kind, CalcContext ctx, HarnessException e) {
-            // TEMP debug: trace the fallback calculator call (to be removed)
-            System.out.println("[CALC >>] kind=" + kind + " slot=" + ctx.slotId()
-                    + " calc=fallback:" + kind + " task=" + ctx.task().getId() + " (after " + e.getType() + ")");
             CalcResult r;
             try {
                 r = de.jare.harness.impl.deterministic.DeterministicCalculators.forKind(kind).calculate(ctx);
@@ -867,8 +847,6 @@ public class HarnessEngine implements HarnessDriver {
                 r = CalcResult.of(kind, "fallback-failed")
                         .message("fallback also failed: " + t.getMessage());
             }
-            System.out.println("[CALC <<] kind=" + kind + " calc=fallback:" + kind
-                    + " -> decision=" + r.getDecision() + " status=FAILED");
             return r.decision(r.getDecision()).status(Status.FAILED).message("fallback after " + e.getType());
         }
     }

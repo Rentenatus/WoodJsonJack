@@ -124,7 +124,7 @@ Entschieden in `CONCEPT_Harness.md` §3/§10/§15 (Diskussion ViewNode vs. EditN
 
 **Verworfene Alternativen (festgehalten):** TaskNode extends EditNode (sealed permits), ViewNode als 5. permit in jsonCasted_edit (src_jh dürfte ihn nicht nutzen), ViewNode als eigener Baum in jsonCasted (Editor müsste konvertieren), TaskNode als JsonNode-Facade (Zwei-Welten-Problem bleibt für die Anzeige bestehen).
 
-**Umgesetzt in §9 (Working Tree, uncommittet):** `TaskNode` ist gelöscht, ersetzt durch **`TaskData`** (Facade mit Back-Reference auf `EditNodeObject`, Attach intern in jedem Setter) + **`TaskTree`** (EditTree + `IdentityHashMap`-Registry + Change-Listener). WorkOrder/MemoryQuest/HarnessInstance halten den Baum als echte EditTree (`getTaskTree()`); Payload als primitive Member-Properties des Task-Objekts, Subtasks als Objekte im `tasks`-Array-Member. Codec persistiert die EditTree-Form (`taskId`/`tasks`), Legacy-`id`/`children`-Dateien werden beim Load normalisiert. Sync-Brücke: `TaskTree.fireChanged` → Change-Lovable + `TypeParserListener`; `HarnessViewPanel.bind` hängt sich ein (EDT via invokeLater), Read-only host-seitig (kein Command-Wiring am Harness-Baum). `CallLogEntry` trägt jetzt `toJson/fromJson`. Tests: neuer `TaskTreeNGTest` (4 Tests: Root=Tree-Root, Subtasks+Events, Codec-Roundtrip, Legacy-Load). **Suite 242/242 grün**, src_jh kompiliert gegen jsonCasted_edit.
+**Veraltet — überholt durch §10.11:** die hier beschriebene EditTree-Kopplung (`TaskTree`, Facade auf `EditNodeObject`) wurde verworfen; umgesetzt wurde §10.11 (TaskData als plain POJO, JSON als Persistenzform). §9 bleibt als verworfene Alternative dokumentiert.
 
 ## 10. Projektgedächtnis + Chat-Befehle (Konzept §17 entschieden, noch nicht umgesetzt)
 
@@ -361,3 +361,23 @@ Harness-Suite 166/166, WJJ gesamt 255/255 grün.
 - Tests angepasst (systemPrompt als Param in Codec/Guard/Decompose-Tests). Harness-Suite 172/172,
   WJJ gesamt 259/259 grün (Service-Tests gegen live Ollama im Vollsuite gelegentlich flaky,
   isoliert und im Rerun grün).
+
+## 10.14 Umgesetzt: TaskData-Mutationen nur noch als Commands + Command-History (committet `0aeb4f2`, Konzept §18)
+
+- **Neu:** `TaskView` (Read-Only-Fassade; `ctx.task()` liefert nur das), `TaskCommand`/`TaskCommands`
+  (10 Commands als Daten im Package `de.jare.harness`), `CommandHistory` (memory-Package:
+  Dispatcher + History, Entry mit Origin-Tripel `loopId/loopItemId/trigger` + `invertible`, default true).
+- **TaskData:** `implements TaskView`; alle 9 Mutatoren package-private und feuern nicht mehr selbst —
+  jedes Command feuert genau einmal. `SplitInto` ist das Composite (rewriteAsSummary + N×addSubtask,
+  1 Entry, 1 Event, Kinder am Command abholbar). `CalcContext` hat den Kanal `ctx.commands()`;
+  `abort`/`compact`/`close`/`appendCalcCall` laufen darüber. Engine: alle ~21 Mutationsstellen auf
+  `applyCmd(...)`; History hängt an der MemoryQuest (pro User-Call, RAM only — NICHT persistiert,
+  `calls[]` deckt das bereits ab).
+- **Config:** `HarnessModel.addLoop` prüft doppelte LoopItem-IDs pro Loop → PARAM_ERROR (§18.5;
+  gleiche ID in anderem Loop ist ok, das Tripel macht sie eindeutig).
+- **Kein Undo** (§18.3): Commands sind Daten, `invertible` startet true; Demotion später per Pull-Scan
+  gegen die aktuelle Loop-Config. Read-Seite der History (Anzeige/Demoting/Undo) ist bewusst offen.
+- **Cleanup:** TEMP `[CALC >>]/[CALC <<]`-Printlns entfernt, ungenutzte TaskData-Imports gestrichen.
+- Tests: `TaskDataNGTest` umgestellt (1 Event pro Command, SplitInto-Composite-Test), Duplikat-Test in
+  `LoopConfigCodecNGTest`. Harness-Suite 174 Tests, WJJ gesamt **260/260 grün** (HarnessServiceNGTest
+  gegen live Ollama gelegentlich flaky — Baseline zeigt identisches Flaken, kein Regression).

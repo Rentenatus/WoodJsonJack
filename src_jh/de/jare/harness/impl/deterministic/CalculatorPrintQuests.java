@@ -10,7 +10,6 @@ import de.jare.harness.CalcContext;
 import de.jare.harness.CalcResult;
 import de.jare.harness.HarnessCalculator;
 import de.jare.harness.Kind;
-import de.jare.harness.TaskData;
 import de.jare.harness.TaskView;
 
 /**
