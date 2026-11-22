@@ -7,9 +7,8 @@
 package de.jare.harness.memory;
 
 import de.jare.harness.Status;
+import de.jare.tree.control.Orator;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -25,15 +24,12 @@ public class WorkResponse {
     private Integer score;
     private Status status = Status.PENDING;
     private long updatedTs = System.currentTimeMillis();
-    private final List<Consumer<WorkResponse>> listeners = new ArrayList<>();
+    // weak orator (jsonCasted Orator, §18.6): subscribers must hold their listener in a field
+    private final Orator<Consumer<WorkResponse>> orator = new Orator<>();
 
-    /** Orator: fires with this response on every update. */
+    /** Orator registration (§18.6): held weakly - keep a field reference on the subscriber side. */
     public void addListener(Consumer<WorkResponse> listener) {
-        if (listener != null) {
-            synchronized (this) {
-                listeners.add(listener);
-            }
-        }
+        orator.addListener(listener);
     }
 
     public synchronized WorkResponse update(String text, Integer score, Status status) {
@@ -47,9 +43,7 @@ public class WorkResponse {
             this.status = status;
         }
         this.updatedTs = System.currentTimeMillis();
-        for (Consumer<WorkResponse> l : new ArrayList<>(listeners)) {
-            l.accept(this);
-        }
+        orator.say((level, l) -> l.accept(this));
         return this;
     }
 

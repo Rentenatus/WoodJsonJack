@@ -133,6 +133,21 @@ public class KIAssistantPanel extends JPanel {
 
     private java.util.function.Consumer<String> thinkingHandler;
 
+    // §18.6: the orators (CommandHistory/WorkResponse) hold listeners WEAKLY - this pane is the
+    // subscriber, so it holds its own listeners in fields to keep them alive
+    java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry> commandListener;
+    java.util.function.Consumer<de.jare.harness.memory.WorkResponse> responseListener;
+
+    /**
+     * §18.6: creates this pane's harness-orator listeners AND stores them in fields (the
+     * orators are weak). The caller registers the returned listeners on the controller
+     * pass-through. EDT marshalling happens here.
+     */
+    public void installHarnessOrators() {
+        commandListener = entry -> javax.swing.SwingUtilities.invokeLater(() -> appendCommandEntry(entry));
+        responseListener = resp -> javax.swing.SwingUtilities.invokeLater(() -> appendResponse(resp));
+    }
+
     /** The host (JackMainMenu via HarnessController) installs this: input text -> WoodHarness AskAi run. */
     public void setThinkingHandler(java.util.function.Consumer<String> thinkingHandler) {
         this.thinkingHandler = thinkingHandler;

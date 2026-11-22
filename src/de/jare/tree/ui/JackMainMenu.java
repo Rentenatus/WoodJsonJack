@@ -251,13 +251,13 @@ public class JackMainMenu extends JMenuBar {
             harnessController.setCommandReplyHandler(woodWindow.getKIAssistantPanel()::appendOutput);
             // §18 orators: the KI pane subscribes on the memory objects (CommandHistory /
             // WorkResponse of every run's MemoryQuest) - the controller holds no UI reference.
-            // Loop actions render as gray lines (60% fg + 40% bg) live during the run,
-            // the final answer in normal color when the run ends (EDT marshalling here).
+            // The pane holds its listeners as fields (orators are weak, §18.6); loop actions
+            // render as gray lines (60% fg + 40% bg) live during the run, the final answer
+            // in normal color when the run ends.
             File kiProjectRoot = woodWindow.getProjectSidebar().getProjectRoot();
-            harnessController.addCommandListener(kiProjectRoot, entry -> javax.swing.SwingUtilities.invokeLater(
-                    () -> woodWindow.getKIAssistantPanel().appendCommandEntry(entry)));
-            harnessController.addResponseListener(kiProjectRoot, resp -> javax.swing.SwingUtilities.invokeLater(
-                    () -> woodWindow.getKIAssistantPanel().appendResponse(resp)));
+            woodWindow.getKIAssistantPanel().installHarnessOrators();
+            harnessController.addCommandListener(kiProjectRoot, woodWindow.getKIAssistantPanel().commandListener);
+            harnessController.addResponseListener(kiProjectRoot, woodWindow.getKIAssistantPanel().responseListener);
         }
         harnessMenu.add(runTaskItem);
         harnessMenu.add(runSelectionItem);

@@ -8,6 +8,7 @@ package de.jare.harness;
 
 import de.jare.harness.io.JsonNodes;
 import de.jare.jsoncasted.lang.JsonNode;
+import de.jare.tree.control.Orator;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -201,7 +202,10 @@ public class TaskData implements TaskView {
     private final List<TaskData> children = new ArrayList<>();
     private final List<CallLogEntry> calculatorLog = new ArrayList<>();
     private final List<CalcCall> calls = new ArrayList<>();
-    private final List<Consumer<TaskData>> changeListeners = new ArrayList<>();
+    // weak orator (jsonCasted Orator, §18.6): subscribers hold their listener in a field;
+    // the bubble forwarder below is such a field so it is never GC'd while the parent lives
+    private final Orator<Consumer<TaskData>> changeListeners = new Orator<>();
+    private final Consumer<TaskData> childEventForwarder = this::notify;
 
     public TaskData(long id, String taskType, String title) {
         this.id = id;
@@ -218,10 +222,9 @@ public class TaskData implements TaskView {
     // change events (bubble up: a subtask forwards its events to its parent)
     //
 
+    /** Orator registration (§18.6): held weakly - keep a field reference on the subscriber side. */
     public void addChangeListener(Consumer<TaskData> listener) {
-        if (listener != null) {
-            changeListeners.add(listener);
-        }
+        changeListeners.addListener(listener);
     }
 
     /** Package-private: fired exactly once per executed {@link TaskCommand} (§18). */
@@ -231,9 +234,7 @@ public class TaskData implements TaskView {
 
     /** Fires the listeners with the originating task (bubble-up keeps the origin). */
     private void notify(TaskData origin) {
-        for (Consumer<TaskData> l : new ArrayList<>(changeListeners)) {
-            l.accept(origin);
-        }
+        changeListeners.say((level, l) -> l.accept(origin));
     }
 
     //
@@ -302,7 +303,7 @@ public class TaskData implements TaskView {
         TaskData child = new TaskData(childId, taskType, title);
         child.parent = this;
         children.add(child);
-        child.addChangeListener(this::notify);   // bubble: the root's listeners see every descendant, with origin
+        child.addChangeListener(childEventForwarder);   // bubble: the root's listeners see every descendant, with origin
         return child;
     }
 

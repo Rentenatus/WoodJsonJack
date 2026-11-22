@@ -774,9 +774,14 @@ dieselbe Flag-Mechanik. Beim Config-Load wird pro Loop auf doppelte Item-IDs gep
 Dispatcher + History liegen im memory-Package; die `TaskData`-Setter werden package-private und
 wandern in die Command-Implementierungen.
 
-**Orator-Prinzip (§18.6):** Weder Controller noch Service halten UI-Referenzen. Die
-`CommandHistory` feuert bei jedem `apply` ihre registrierten Listener mit dem neuen Entry
-(`addListener`), die `WorkResponse` feuert bei jedem `update` ihre Listener
-(`addListener`); `HarnessService` reicht registrierte Listener an die jeweilige MemoryQuest
+**Orator-Prinzip (§18.6):** Weder Controller noch Service halten UI-Referenzen. Alle
+Oratoren (`TaskData`, `HarnessInstance`, `CommandHistory`, `WorkResponse`) benutzen die
+jsonCasted-core-Klasse **`de.jare.tree.control.Orator`** (Swing-frei, src_jh darf jsonCasted
+benutzen) und halten ihre Listener **nur weak** — jeder Anmelder muss seinen Listener als
+**Feld** festhalten, sonst deregistriert der GC ihn unbemerkt (KI-Pane: `commandListener`/
+`responseListener`-Felder; TaskData-Bubble und HarnessInstance-Root-Forwarder sind solche
+Felder). Die `CommandHistory` feuert bei jedem `apply` den neuen Entry, die `WorkResponse`
+bei jedem `update`; `HarnessService` reicht Registrierungen an die jeweilige MemoryQuest
 durch, die UI (KI-Pane) abonniert direkt die Memory-Objekte — Loop-Actions als graue
 Zeilen (60% fg + 40% bg) während des Laufs, die terminale Antwort in Normalfarbe.
+`HarnessEngine.addListener` bleibt strong — der Engine lebt nur einen Run.

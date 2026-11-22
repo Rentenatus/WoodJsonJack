@@ -48,7 +48,8 @@ public class TaskDataNGTest {
         TaskData root = TaskData.create(1, "SPLIT", "root");
         de.jare.harness.memory.CommandHistory history = new de.jare.harness.memory.CommandHistory();
         List<TaskData> events = new ArrayList<>();
-        root.addChangeListener(events::add);
+        java.util.function.Consumer<TaskData> eventsListener = events::add; // §18.6: field/local held, orator is weak
+        root.addChangeListener(eventsListener);
 
         TaskCommands.AddSubtask add = new TaskCommands.AddSubtask(2, "WORK", "part one");
         history.apply(add, root, "main", "split", "EXECUTE");
@@ -82,7 +83,8 @@ public class TaskDataNGTest {
         TaskData root = TaskData.create(1, "WORK", "root");
         de.jare.harness.memory.CommandHistory history = new de.jare.harness.memory.CommandHistory();
         List<de.jare.harness.memory.CommandHistory.Entry> seen = new ArrayList<>();
-        history.addListener(seen::add);
+        java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry> seenListener = seen::add; // §18.6 held
+        history.addListener(seenListener);
 
         history.apply(new TaskCommands.SetStatus(Status.RUNNING), root, "main", "work", "EXECUTE");
         history.apply(new TaskCommands.SetScore(42), root, "main", "evaluate", "EXECUTE");
@@ -102,7 +104,8 @@ public class TaskDataNGTest {
         TaskData root = TaskData.create(1, "SPLIT", "2*4 und 7*8");
         de.jare.harness.memory.CommandHistory history = new de.jare.harness.memory.CommandHistory();
         List<TaskData> events = new ArrayList<>();
-        root.addChangeListener(events::add);
+        java.util.function.Consumer<TaskData> eventsListener = events::add; // §18.6: field/local held, orator is weak
+        root.addChangeListener(eventsListener);
 
         long[] ids = {10};
         TaskCommands.SplitInto split = new TaskCommands.SplitInto("sub",
@@ -125,7 +128,8 @@ public class TaskDataNGTest {
     public void testAppendCalcCallProjectsResultLoopActionAndInput() {
         TaskData root = TaskData.create(1, "SPLIT", "2*4 und 7*8");
         List<TaskData> events = new ArrayList<>();
-        root.addChangeListener(events::add);
+        java.util.function.Consumer<TaskData> eventsListener = events::add; // §18.6: field/local held, orator is weak
+        root.addChangeListener(eventsListener);
 
         CalcResult res = CalcResult.of(Kind.SPLIT, "split").status(Status.DONE).score(100)
                 .put("quests", "rechne 2*4 | rechne 7*8")

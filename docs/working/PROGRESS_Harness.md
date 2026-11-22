@@ -393,3 +393,9 @@ Harness-Suite 166/166, WJJ gesamt 255/255 grün.
 - `CommandHistory.addListener(Consumer<Entry>)` — feuert pro `apply` mit dem neuen Entry; `WorkResponse.addListener` — feuert pro `update`. `HarnessService.addCommandListener/addResponseListener` reicht Registrierungen an jede neue MemoryQuest durch.
 - `HarnessController` hält **keine** UI-Handler mehr (`setActionLineHandler`/`setAnswerHandler` entfernt, Engine-Listener in `wireInto` raus); nur noch `addCommandListener/addResponseListener`-Pass-through.
 - `JackMainMenu` abonniert direkt: CommandHistory-Entry → `KIAssistantPanel.appendCommandEntry` (graue Action-Zeile nur bei echten Flow-Actions: non-CONTINUE LoopAction oder SplitInto), WorkResponse → `appendResponse` (Antwort in Normalfarbe bei terminalem Status). EDT-Marshalling im Menü. WJJ 261/261 grün.
+
+## 10.17 Umgestellt: alle Harness-Oratoren auf jsonCasted Orator (weak listeners, §18.6)
+
+- `TaskData`, `HarnessInstance`, `CommandHistory`, `WorkResponse` nutzen `de.jare.tree.control.Orator` (jsonCasted core, Swing-frei) — Listener werden nur weak gehalten, tote Referenzen werden gepuragt.
+- Anmelder halten ihre Listener als Feld: `KIAssistantPanel.commandListener/responseListener` (via `installHarnessOrators()`), `HarnessViewPanel.changeListener`, `TaskData.childEventForwarder` (Bubble), `HarnessInstance.rootForwarder`. Tests halten Listener in lokalen Variablen.
+- `HarnessEngine.addListener` bleibt strong (Engine lebt nur einen Run). WJJ 261/261 grün (2 HarnessServiceNGTest gegen live Ollama im ersten Lauf flaky, Rerun grün — wie Baseline).

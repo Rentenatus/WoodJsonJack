@@ -8,10 +8,10 @@ package de.jare.harness.memory;
 
 import de.jare.harness.TaskCommand;
 import de.jare.harness.TaskData;
+import de.jare.tree.control.Orator;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * The command history of one run (CONCEPT_Harness.md §18): the dispatcher AND the audit
@@ -29,7 +29,9 @@ import java.util.function.Consumer;
  *
  * <p>The history is also the ORATOR for task mutations: {@link #addListener} registers a
  * listener that fires with each new {@link Entry} right after it is recorded - the UI
- * subscribes here (not on the controller), so the controller never knows the UI.</p>
+ * subscribes here (not on the controller), so the controller never knows the UI.
+ * Listeners are held WEAKLY (jsonCasted {@link Orator}): every subscriber must hold its
+ * listener in a field, otherwise the GC silently deregisters it (§18.6).</p>
  *
  * @author Janusch Rentenatus
  */
@@ -57,14 +59,12 @@ public class CommandHistory {
     }
 
     private final List<Entry> entries = new ArrayList<>();
-    private final List<Consumer<Entry>> listeners = new ArrayList<>();
+    private final Orator<java.util.function.Consumer<Entry>> orator = new Orator<>();   // weak listeners (§18.6)
     private long seq;
 
-    /** Orator: fires with each new entry right after it is recorded (§18). */
-    public void addListener(Consumer<Entry> listener) {
-        if (listener != null) {
-            listeners.add(listener);
-        }
+    /** Orator registration (§18.6): the listener is held weakly - keep a field reference on the subscriber side. */
+    public void addListener(java.util.function.Consumer<Entry> listener) {
+        orator.addListener(listener);
     }
 
     /**
@@ -76,9 +76,7 @@ public class CommandHistory {
         cmd.execute(target);
         Entry e = new Entry(++seq, cmd, loopId, loopItemId, trigger);
         entries.add(e);
-        for (Consumer<Entry> l : new ArrayList<>(listeners)) {
-            l.accept(e);
-        }
+        orator.say((level, l) -> l.accept(e));
         return e;
     }
 
