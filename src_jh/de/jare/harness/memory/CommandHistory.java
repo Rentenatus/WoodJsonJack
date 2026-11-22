@@ -11,6 +11,7 @@ import de.jare.harness.TaskData;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * The command history of one run (CONCEPT_Harness.md §18): the dispatcher AND the audit
@@ -25,6 +26,10 @@ import java.util.List;
  * flag (default {@code true}, §18.5) and is later demoted by a scan against the current
  * loop config - pull, never push. No undo yet (§18.3): entries are data, so a later undo
  * only has to skip non-invertible entries.</p>
+ *
+ * <p>The history is also the ORATOR for task mutations: {@link #addListener} registers a
+ * listener that fires with each new {@link Entry} right after it is recorded - the UI
+ * subscribes here (not on the controller), so the controller never knows the UI.</p>
  *
  * @author Janusch Rentenatus
  */
@@ -52,16 +57,28 @@ public class CommandHistory {
     }
 
     private final List<Entry> entries = new ArrayList<>();
+    private final List<Consumer<Entry>> listeners = new ArrayList<>();
     private long seq;
 
+    /** Orator: fires with each new entry right after it is recorded (§18). */
+    public void addListener(Consumer<Entry> listener) {
+        if (listener != null) {
+            listeners.add(listener);
+        }
+    }
+
     /**
-     * Executes the command on the target task and records it. When no history is wired
-     * (ad-hoc engines in tests), the caller executes the command directly without recording.
+     * Executes the command on the target task, records it and notifies the listeners.
+     * When no history is wired (ad-hoc engines in tests), the caller executes the command
+     * directly without recording.
      */
     public Entry apply(TaskCommand cmd, TaskData target, String loopId, String loopItemId, String trigger) {
         cmd.execute(target);
         Entry e = new Entry(++seq, cmd, loopId, loopItemId, trigger);
         entries.add(e);
+        for (Consumer<Entry> l : new ArrayList<>(listeners)) {
+            l.accept(e);
+        }
         return e;
     }
 

@@ -8,6 +8,10 @@ package de.jare.harness.memory;
 
 import de.jare.harness.Status;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
 /**
  * The WorkResponse (Bearbeitungsantwort) - the current, still-changing ANSWER of the run, owned by
  * the Quest and shown live in the UI via the host SPI. This is not the final persisted result;
@@ -21,6 +25,16 @@ public class WorkResponse {
     private Integer score;
     private Status status = Status.PENDING;
     private long updatedTs = System.currentTimeMillis();
+    private final List<Consumer<WorkResponse>> listeners = new ArrayList<>();
+
+    /** Orator: fires with this response on every update. */
+    public void addListener(Consumer<WorkResponse> listener) {
+        if (listener != null) {
+            synchronized (this) {
+                listeners.add(listener);
+            }
+        }
+    }
 
     public synchronized WorkResponse update(String text, Integer score, Status status) {
         if (text != null) {
@@ -33,6 +47,9 @@ public class WorkResponse {
             this.status = status;
         }
         this.updatedTs = System.currentTimeMillis();
+        for (Consumer<WorkResponse> l : new ArrayList<>(listeners)) {
+            l.accept(this);
+        }
         return this;
     }
 

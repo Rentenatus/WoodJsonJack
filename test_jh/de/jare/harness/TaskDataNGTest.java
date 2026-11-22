@@ -74,6 +74,26 @@ public class TaskDataNGTest {
     }
 
     /**
+     * §18 orator: the CommandHistory fires its listeners with each new entry right after
+     * recording (the UI subscribes here - the controller never holds a UI reference).
+     */
+    @Test
+    public void testCommandHistoryFiresListenersPerEntry() {
+        TaskData root = TaskData.create(1, "WORK", "root");
+        de.jare.harness.memory.CommandHistory history = new de.jare.harness.memory.CommandHistory();
+        List<de.jare.harness.memory.CommandHistory.Entry> seen = new ArrayList<>();
+        history.addListener(seen::add);
+
+        history.apply(new TaskCommands.SetStatus(Status.RUNNING), root, "main", "work", "EXECUTE");
+        history.apply(new TaskCommands.SetScore(42), root, "main", "evaluate", "EXECUTE");
+
+        assertEquals(seen.size(), 2, "one listener call per applied command");
+        assertEquals(seen.get(0).seq, 1);
+        assertEquals(seen.get(1).description, "setScore(42)");
+        assertEquals(seen.get(0).loopItemId, "work", "origin triple is on the entry");
+    }
+
+    /**
      * §18.2: the composite SplitInto is ONE history entry with ONE change event, and the
      * created children come back from the command.
      */

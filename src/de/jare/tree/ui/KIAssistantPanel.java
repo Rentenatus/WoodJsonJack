@@ -224,6 +224,52 @@ public class KIAssistantPanel extends JPanel {
         appendOutput(text);
     }
 
+    /**
+     * Renders one CommandHistory entry as a gray action line - but only real flow actions:
+     * a non-CONTINUE {@code LoopAction} of an appended calculator call, or a composite
+     * {@code SplitInto}. Plain mutations (setStatus, logCall, …) stay invisible here.
+     */
+    public void appendCommandEntry(de.jare.harness.memory.CommandHistory.Entry e) {
+        String text = actionText(e);
+        if (text != null) {
+            appendAction(text);
+        }
+    }
+
+    /** Short text for the loop action an entry carries (null = not an action line). */
+    private static String actionText(de.jare.harness.memory.CommandHistory.Entry e) {
+        if (e.command instanceof de.jare.harness.TaskCommands.SplitInto sp) {
+            return "→ SPLIT into " + sp.children().size() + " parts (loop \"" + sp.loopId() + "\")";
+        }
+        if (e.command instanceof de.jare.harness.TaskCommands.AppendCalcCall acc) {
+            de.jare.harness.LoopAction la = acc.res().getLoopAction();
+            if (la != null && la.flow() != de.jare.harness.LoopAction.Flow.CONTINUE) {
+                String detail = "";
+                if (la instanceof de.jare.harness.main.actions.LoopSplit split) {
+                    detail = " → loop \"" + split.loopId() + "\", " + split.prompts().size() + " prompts";
+                } else if (la instanceof de.jare.harness.main.actions.LoopSubLoop sub) {
+                    detail = " → loop \"" + sub.loopId() + "\"";
+                }
+                return "→ " + la.flow() + detail;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * WorkResponse orator: when the run reaches a terminal status, the answer is appended
+     * in normal color (the gray action lines above stay subordinate).
+     */
+    public void appendResponse(de.jare.harness.memory.WorkResponse r) {
+        de.jare.harness.Status s = r.getStatus();
+        if (s == de.jare.harness.Status.DONE || s == de.jare.harness.Status.FAILED
+                || s == de.jare.harness.Status.ABORTED) {
+            if (r.getText() != null && !r.getText().isBlank()) {
+                appendAnswer(r.getText());
+            }
+        }
+    }
+
     /** 60% Label.foreground + 40% Label.background, blended per RGB channel, as HTML hex. */
     private static String grayHex() {
         java.awt.Color fg = javax.swing.UIManager.getColor("Label.foreground");

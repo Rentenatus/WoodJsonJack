@@ -773,3 +773,10 @@ dieselbe Flag-Mechanik. Beim Config-Load wird pro Loop auf doppelte Item-IDs gep
 `AppendCalcCall`, `LogCall`, `AddSubtask`, `CloseTask`, `RewriteAsSummary`, `SplitInto` (composite).
 Dispatcher + History liegen im memory-Package; die `TaskData`-Setter werden package-private und
 wandern in die Command-Implementierungen.
+
+**Orator-Prinzip (§18.6):** Weder Controller noch Service halten UI-Referenzen. Die
+`CommandHistory` feuert bei jedem `apply` ihre registrierten Listener mit dem neuen Entry
+(`addListener`), die `WorkResponse` feuert bei jedem `update` ihre Listener
+(`addListener`); `HarnessService` reicht registrierte Listener an die jeweilige MemoryQuest
+durch, die UI (KI-Pane) abonniert direkt die Memory-Objekte — Loop-Actions als graue
+Zeilen (60% fg + 40% bg) während des Laufs, die terminale Antwort in Normalfarbe.

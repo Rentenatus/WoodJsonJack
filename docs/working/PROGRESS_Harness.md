@@ -387,3 +387,9 @@ Harness-Suite 166/166, WJJ gesamt 255/255 grün.
 - `KIAssistantPanel.appendAction(text)` — hängt eine Action-Zeile als HTML-Span in **Grau (60% Label.foreground + 40% Label.background**, pro Kanal geblendet, theme-abhängig) an; `appendAnswer(text)` — die finale Antwort in normaler Farbe.
 - `HarnessController`: `wireInto` hängt einen Engine-Listener ein, der jede `notify`-Zeile (Split/CATCH/Limits/…) live per EDT als graue Action-Zeile an den `actionLineHandler` reicht; nach Run-Ende (`SwingWorker.done`) landet der `WorkResponse`-Text der MemoryQuest über den `answerHandler` in Normalfarbe in der Pane.
 - `JackMainMenu` verdrahtet beide Handler auf die KI-Pane. WJJ 260/260 grün.
+
+## 10.16 Umgestellt: Orator statt UI-Referenzen im Controller (committet, Nachfolge `66af887`)
+
+- `CommandHistory.addListener(Consumer<Entry>)` — feuert pro `apply` mit dem neuen Entry; `WorkResponse.addListener` — feuert pro `update`. `HarnessService.addCommandListener/addResponseListener` reicht Registrierungen an jede neue MemoryQuest durch.
+- `HarnessController` hält **keine** UI-Handler mehr (`setActionLineHandler`/`setAnswerHandler` entfernt, Engine-Listener in `wireInto` raus); nur noch `addCommandListener/addResponseListener`-Pass-through.
+- `JackMainMenu` abonniert direkt: CommandHistory-Entry → `KIAssistantPanel.appendCommandEntry` (graue Action-Zeile nur bei echten Flow-Actions: non-CONTINUE LoopAction oder SplitInto), WorkResponse → `appendResponse` (Antwort in Normalfarbe bei terminalem Status). EDT-Marshalling im Menü. WJJ 261/261 grün.

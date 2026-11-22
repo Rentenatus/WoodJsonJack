@@ -49,6 +49,24 @@ public class HarnessService {
     private final de.jare.harness.spi.HarnessHost host;   // embedding application (WJJ/TUI); never a host class import
     private File woodHome;   // null -> GlobalWood default (user.home); settable for tests
     private de.jare.harness.memory.MemoryQuest lastMemoryQuest;   // the memory-side quest instance of the last run
+    // orator registrations (§18): forwarded to every new MemoryQuest's CommandHistory/WorkResponse,
+    // so the UI subscribes on the memory objects - the service/controller never hold UI references
+    private final java.util.List<java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry>> commandListeners = new java.util.ArrayList<>();
+    private final java.util.List<java.util.function.Consumer<de.jare.harness.memory.WorkResponse>> responseListeners = new java.util.ArrayList<>();
+
+    /** Registers a listener on the CommandHistory of EVERY run's MemoryQuest (fired per applied command). */
+    public void addCommandListener(java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry> l) {
+        if (l != null) {
+            commandListeners.add(l);
+        }
+    }
+
+    /** Registers a listener on the WorkResponse of EVERY run's MemoryQuest (fired per update). */
+    public void addResponseListener(java.util.function.Consumer<de.jare.harness.memory.WorkResponse> l) {
+        if (l != null) {
+            responseListeners.add(l);
+        }
+    }
     private de.jare.harness.memory.ProjectMemory projectMemory;   // §17 the project-local memory across runs
 
     public HarnessService(File projectDir) {
@@ -133,6 +151,12 @@ public class HarnessService {
         if (recipeQuest != null && recipeQuest.baseSlot() != null) {
             lastMemoryQuest = new de.jare.harness.memory.MemoryQuest(recipeQuest, recipeQuest.baseSlot().getId(),
                     title, taskType, instance::nextTaskId);
+            for (var l : commandListeners) {
+                lastMemoryQuest.getCommandHistory().addListener(l);
+            }
+            for (var l : responseListeners) {
+                lastMemoryQuest.getWorkResponse().addListener(l);
+            }
             instance.setRoot(lastMemoryQuest.getWorkOrder().getRoot());
         } else {
             instance.newRootTask(instance.nextTaskId(), taskType, title);

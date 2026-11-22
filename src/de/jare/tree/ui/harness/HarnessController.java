@@ -41,8 +41,6 @@ public class HarnessController {
     private JDialog viewDialog;
     private final List<BiConsumer<TaskData, String>> runListeners = new ArrayList<>();
     private java.util.function.Consumer<String> commandReplyHandler;   // §17: /cmd replies shown in the KI pane
-    private java.util.function.Consumer<String> actionLineHandler;     // loop actions as gray lines in the KI pane
-    private java.util.function.Consumer<String> answerHandler;         // final AI answer in normal color
 
     public HarnessController(JFrame owner) {
         this.owner = owner;
@@ -66,14 +64,20 @@ public class HarnessController {
         this.commandReplyHandler = commandReplyHandler;
     }
 
-    /** The KI pane installs this: engine notify lines (loop actions) are shown as gray lines, live on the EDT. */
-    public void setActionLineHandler(java.util.function.Consumer<String> actionLineHandler) {
-        this.actionLineHandler = actionLineHandler;
+    /**
+     * Orator pass-through (§18): registers a listener on the CommandHistory of every run's
+     * MemoryQuest. The controller holds NO UI reference - the caller (menu) maps entries
+     * to whatever view it wants.
+     */
+    public void addCommandListener(File projectRoot,
+                                   java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry> l) {
+        service(projectRoot).addCommandListener(l);
     }
 
-    /** The KI pane installs this: after the run, the WorkResponse answer is shown in normal color. */
-    public void setAnswerHandler(java.util.function.Consumer<String> answerHandler) {
-        this.answerHandler = answerHandler;
+    /** Orator pass-through: registers a listener on the WorkResponse of every run's MemoryQuest. */
+    public void addResponseListener(File projectRoot,
+                                    java.util.function.Consumer<de.jare.harness.memory.WorkResponse> l) {
+        service(projectRoot).addResponseListener(l);
     }
 
     /**
@@ -133,17 +137,6 @@ public class HarnessController {
                 runListeners.add(listener);
             }
 
-            @Override
-            public void wireInto(HarnessEngine engine) {
-                HarnessHost.super.wireInto(engine);
-                // loop actions (engine notify: split/catch/limits/...) go live to the KI pane
-                // as gray lines - marshalled to the EDT, the run itself is a background thread
-                engine.addListener((task, msg) -> {
-                    if (actionLineHandler != null) {
-                        javax.swing.SwingUtilities.invokeLater(() -> actionLineHandler.accept(msg));
-                    }
-                });
-            }
         };
     }
 
@@ -208,13 +201,6 @@ public class HarnessController {
             protected void done() {
                 try {
                     get();
-                    // the loop closed: the answer of the run lands in the KI pane in normal color
-                    de.jare.harness.memory.MemoryQuest mq = getLastMemoryQuest();
-                    if (answerHandler != null && mq != null && mq.getWorkResponse().getText() != null
-                            && !mq.getWorkResponse().getText().isBlank()) {
-                        String answer = mq.getWorkResponse().getText();
-                        javax.swing.SwingUtilities.invokeLater(() -> answerHandler.accept(answer));
-                    }
                     showView();
                 } catch (Exception e) {
                     JOptionPane.showMessageDialog(owner, "Harness run failed: " + e.getMessage(),
