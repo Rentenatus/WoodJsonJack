@@ -381,3 +381,9 @@ Harness-Suite 166/166, WJJ gesamt 255/255 grün.
 - Tests: `TaskDataNGTest` umgestellt (1 Event pro Command, SplitInto-Composite-Test), Duplikat-Test in
   `LoopConfigCodecNGTest`. Harness-Suite 174 Tests, WJJ gesamt **260/260 grün** (HarnessServiceNGTest
   gegen live Ollama gelegentlich flaky — Baseline zeigt identisches Flaken, kein Regression).
+
+## 10.15 Umgesetzt: KI-Pane zeigt Loop-Actions grau + Antwort in Normalfarbe (committet `e251179` Nachfolge)
+
+- `KIAssistantPanel.appendAction(text)` — hängt eine Action-Zeile als HTML-Span in **Grau (60% Label.foreground + 40% Label.background**, pro Kanal geblendet, theme-abhängig) an; `appendAnswer(text)` — die finale Antwort in normaler Farbe.
+- `HarnessController`: `wireInto` hängt einen Engine-Listener ein, der jede `notify`-Zeile (Split/CATCH/Limits/…) live per EDT als graue Action-Zeile an den `actionLineHandler` reicht; nach Run-Ende (`SwingWorker.done`) landet der `WorkResponse`-Text der MemoryQuest über den `answerHandler` in Normalfarbe in der Pane.
+- `JackMainMenu` verdrahtet beide Handler auf die KI-Pane. WJJ 260/260 grün.

@@ -249,6 +249,10 @@ public class JackMainMenu extends JMenuBar {
                     woodWindow.getProjectSidebar().getProjectRoot(), prompt));
             // §17: /cmd replies (ChatCommandService via HarnessController) land in the output area
             harnessController.setCommandReplyHandler(woodWindow.getKIAssistantPanel()::appendOutput);
+            // loop actions live as gray lines (60% fg + 40% bg) during the run,
+            // the final answer in normal color after the loop closed
+            harnessController.setActionLineHandler(woodWindow.getKIAssistantPanel()::appendAction);
+            harnessController.setAnswerHandler(woodWindow.getKIAssistantPanel()::appendAnswer);
         }
         harnessMenu.add(runTaskItem);
         harnessMenu.add(runSelectionItem);

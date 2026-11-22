@@ -198,6 +198,44 @@ public class KIAssistantPanel extends JPanel {
         outputPane.setCaretPosition(doc.getLength());
     }
 
+    /**
+     * Appends one LOOP ACTION as a short gray line to the output area: 60% foreground +
+     * 40% background of the current theme, blended per channel (CONCEPT: actions stay
+     * visually subordinate to the AI answer).
+     */
+    public void appendAction(String text) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        String html = "<span style=\"color:" + grayHex() + "\">"
+                + text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\n", "<br>") + "</span><br>";
+        javax.swing.text.StyledDocument doc = outputPane.getStyledDocument();
+        try {
+            doc.insertString(doc.getLength(), html, null);
+        } catch (Exception ignored) {
+            // output is best-effort
+        }
+        outputPane.setCaretPosition(doc.getLength());
+    }
+
+    /** Appends the final AI ANSWER in normal foreground color (after the loop closed). */
+    public void appendAnswer(String text) {
+        appendOutput(text);
+    }
+
+    /** 60% Label.foreground + 40% Label.background, blended per RGB channel, as HTML hex. */
+    private static String grayHex() {
+        java.awt.Color fg = javax.swing.UIManager.getColor("Label.foreground");
+        java.awt.Color bg = javax.swing.UIManager.getColor("Label.background");
+        if (fg == null) fg = java.awt.Color.BLACK;
+        if (bg == null) bg = java.awt.Color.WHITE;
+        int r = (int) (fg.getRed() * 0.6 + bg.getRed() * 0.4);
+        int g = (int) (fg.getGreen() * 0.6 + bg.getGreen() * 0.4);
+        int b = (int) (fg.getBlue() * 0.6 + bg.getBlue() * 0.4);
+        return String.format("#%02x%02x%02x", r, g, b);
+    }
+
     public JTextPane getOutputPane() {
         return outputPane;
     }
