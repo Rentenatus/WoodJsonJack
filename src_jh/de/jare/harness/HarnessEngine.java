@@ -819,7 +819,10 @@ public class HarnessEngine implements HarnessDriver {
                 last = r;
             }
             if (steering != null && last.getLoopAction().flow() == LoopAction.Flow.CONTINUE) {
-                last.loopAction(steering);
+                // copy, never mutate: the child's CalcResult is already recorded as an
+                // AppendCalcCall in the CommandHistory - mutating it would double-render
+                // the steering action in the UI (§18.6)
+                last = last.copy().loopAction(steering);
             }
             return last;
         }

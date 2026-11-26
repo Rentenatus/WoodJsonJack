@@ -148,6 +148,9 @@ public class HarnessService {
         // field; the host only passes taskType + prompt text, no TaskData logic
         Kind questKind = de.jare.harness.model.HarnessModel.QUEST_ASK_AI.equals(taskType) ? Kind.SPLIT : Kind.WORK;
         Quest recipeQuest = model.questFor(questKind);
+        System.out.println("[DIAG] HarnessService.runTask: type=" + taskType + " model=" + model.getName()
+                + " v" + model.getVersion() + " questKind=" + questKind + " recipeQuest=" + (recipeQuest != null)
+                + " commandListeners=" + commandListeners.size() + " responseListeners=" + responseListeners.size());
         if (recipeQuest != null && recipeQuest.baseSlot() != null) {
             lastMemoryQuest = new de.jare.harness.memory.MemoryQuest(recipeQuest, recipeQuest.baseSlot().getId(),
                     title, taskType, instance::nextTaskId);
@@ -319,26 +322,68 @@ public class HarnessService {
      * The bundled default model - loaded from the config asset
      * {@code assets/harness/harness-model.json}. RULE: prompts live ONLY in this config JSON,
      * never in code, so there is no programmatic fallback with hardcoded prompts anymore.
+     *
+     * <p>Lookup order (the working directory of the running app is irrelevant, e.g. the IDE
+     * starts with {@code test_assets} as cwd - exactly like the editor icons):
+     * 1. classpath resource {@code /harness/harness-model.json} - {@code assets/} is a
+     *    resource root of the app module (that is why {@code /icons/...} resolves), so the
+     *    asset is on the classpath as {@code /harness/harness-model.json},
+     * 2. classpath resource {@code /assets/harness/harness-model.json} (assets/ itself on the cp),
+     * 3. file relative to the working directory (dev run from the repo root),
+     * 4. file found by walking up from this class's code source.</p>
      */
     public static HarnessModel defaultModel() {
-        File asset = new File("assets/harness/harness-model.json");
-        if (!asset.exists()) {
-            throw new IllegalStateException("bundled harness model asset missing: " + asset.getPath()
-                    + " (prompts live only in the config JSON, there is no code fallback)");
-        }
+        String assetPath = "assets/harness/harness-model.json";
         try {
-            HarnessModel model = HarnessModelCodec.load(asset);
-            // the asset carries the configured quests (with their config prompts); every kind
-            // NOT modelled there gets a deterministic fallback quest - still no prompts in code
-            for (Kind kind : Kind.values()) {
-                if (model.questFor(kind) == null) {
-                    model.addQuest(new Quest(kind).addSlot(new Slot(kind.name().toLowerCase() + ".base")
-                            .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+            for (String resPath : new String[]{"/harness/harness-model.json", "/" + assetPath}) {
+                java.net.URL res = HarnessService.class.getResource(resPath);
+                if (res != null) {
+                    return completeModel(HarnessModelCodec.fromJson(
+                            de.jare.jsoncasted.io.parserservice.JsonParserService
+                                    .parse(res, de.jare.debug.JsonDebugLevel.SIMPLE).getRoot()));
                 }
             }
-            return model;
+            File asset = new File(assetPath);
+            if (!asset.exists()) {
+                // IDE run (working dir is NOT the repo root, e.g. test_assets): walk up from this
+                // class's code source (out/, out/production/..., jar dir) until the repo root with
+                // assets/harness/harness-model.json is found
+                java.net.URL codeSource = HarnessService.class.getProtectionDomain()
+                        .getCodeSource().getLocation();
+                File dir = new File(codeSource.toURI());
+                if (dir.isFile()) {
+                    dir = dir.getParentFile();   // jar file -> its directory
+                }
+                for (int i = 0; i < 6 && dir != null; i++) {
+                    File candidate = new File(dir, assetPath);
+                    if (candidate.exists()) {
+                        asset = candidate;
+                        break;
+                    }
+                    dir = dir.getParentFile();
+                }
+            }
+            if (!asset.exists()) {
+                throw new IllegalStateException("bundled harness model asset missing: " + assetPath
+                        + " (tried classpath, working dir and code-source walk-up; prompts live only in"
+                        + " the config JSON, there is no code fallback)");
+            }
+            return completeModel(HarnessModelCodec.load(asset));
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
             throw new IllegalStateException("bundled harness model asset is not parseable: " + e.getMessage(), e);
         }
+    }
+
+    /** Completes a loaded model: every kind NOT modelled gets a deterministic fallback quest (no prompts in code). */
+    private static HarnessModel completeModel(HarnessModel model) {
+        for (Kind kind : Kind.values()) {
+            if (model.questFor(kind) == null) {
+                model.addQuest(new Quest(kind).addSlot(new Slot(kind.name().toLowerCase() + ".base")
+                        .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+            }
+        }
+        return model;
     }
 }

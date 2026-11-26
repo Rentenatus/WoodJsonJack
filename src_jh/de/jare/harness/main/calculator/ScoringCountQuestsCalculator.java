@@ -90,6 +90,8 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
         if (ctx.workCache() != null) {
             ctx.workCache().put("count", String.valueOf(questCount));
         }
+        System.out.println("[DIAG] countQuests task=\"" + ctx.task().getTitle() + "\" -> questCount=" + questCount
+                + " raw=" + parsed.rawAnswer());
         return CalcResult.of(kind, AiAnswers.text(root, "decision", "counted"))
                 .status(AiAnswers.parseStatus(AiAnswers.text(root, "status", "DONE")))
                 .put("questCount", String.valueOf(questCount))

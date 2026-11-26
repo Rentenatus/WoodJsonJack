@@ -36,6 +36,23 @@ public class CalcResult {
         return r;
     }
 
+    /**
+     * Shallow copy (payload map is copied too). Used to graft a steering loop action onto a
+     * puzzle's result WITHOUT mutating the child result that was already recorded in the
+     * CommandHistory (§18) - otherwise the history entry would render/execute the steering twice.
+     */
+    public CalcResult copy() {
+        CalcResult r = new CalcResult(kind);
+        r.status = status;
+        r.score = score;
+        r.decision = decision;
+        r.message = message;
+        r.action = action;
+        r.loopAction = loopAction;
+        r.payload.putAll(payload);
+        return r;
+    }
+
     public Kind getKind() {
         return kind;
     }

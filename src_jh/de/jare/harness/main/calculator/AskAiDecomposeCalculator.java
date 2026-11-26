@@ -116,11 +116,10 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
             return CalcResult.of(kind, "decompose-nocount").status(Status.FAILED)
                     .message("no quest count in work cache");
         }
-        if (count <= 1) {
-            // nothing to decompose - no error, the task is simply not splittable
-            return CalcResult.of(kind, "nosplit").status(Status.INVALID)
-                    .message("quest count " + count + " <= 1, nothing to decompose");
-        }
+        System.out.println("[DIAG] decompose task=\"" + ctx.task().getTitle() + "\" countHint=" + count);
+        // NOTE: the split decision is NOT based on the small scoring model's count (too
+        // unreliable) - the strong genAI below returns the atomic quest list and only a
+        // list with >1 entries steers a LoopSplit. The count stays a prompt hint ({data.count}).
         // count > 1: decompose. The system prompt template is formatted against the runtime data
         // cache - "{data.count}" becomes the count written by scoring.countQuests.
         String sys = PromptFormatter.format(systemPrompt, ctx.workCache());
@@ -143,6 +142,11 @@ public class AskAiDecomposeCalculator implements HarnessCalculator {
         if (quests.isEmpty()) {
             throw new HarnessException(HarnessException.Type.SCHEMA_VIOLATION,
                     "decompose answer carries no quests: " + AiAnswers.abbrev(parsed.rawAnswer()));
+        }
+        if (quests.size() <= 1) {
+            // the strong model sees only ONE atomic quest - nothing to split (no error)
+            return CalcResult.of(kind, "nosplit").status(Status.INVALID)
+                    .message("decompose returned " + quests.size() + " quest(s), nothing to split");
         }
 
         // the result steers via the LoopSplit loop action: the driver creates the N subtasks and

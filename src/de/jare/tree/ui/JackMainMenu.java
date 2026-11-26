@@ -245,19 +245,20 @@ public class JackMainMenu extends JMenuBar {
         showHarnessItem.addActionListener(e -> harnessController.showView());
         // KI pane (Enter / "Ask AI") -> main harness control instance -> AskAi run with the prompt
         if (woodWindow.getKIAssistantPanel() != null) {
-            woodWindow.getKIAssistantPanel().setThinkingHandler(prompt -> harnessController.runAskAi(
-                    woodWindow.getProjectSidebar().getProjectRoot(), prompt));
             // §17: /cmd replies (ChatCommandService via HarnessController) land in the output area
             harnessController.setCommandReplyHandler(woodWindow.getKIAssistantPanel()::appendOutput);
             // §18 orators: the KI pane subscribes on the memory objects (CommandHistory /
-            // WorkResponse of every run's MemoryQuest) - the controller holds no UI reference.
-            // The pane holds its listeners as fields (orators are weak, §18.6); loop actions
-            // render as gray lines (60% fg + 40% bg) live during the run, the final answer
-            // in normal color when the run ends.
-            File kiProjectRoot = woodWindow.getProjectSidebar().getProjectRoot();
+            // WorkResponse of every run's MemoryQuest) - the controller holds no UI reference
+            // and no project root is needed here (the sidebar does not exist yet in this
+            // constructor; the controller attaches pending listeners when the service is
+            // created). The pane holds its listeners as fields (orators are weak, §18.6).
+            // Loop actions render as gray lines (60% fg + 40% bg) live during the run, the
+            // final answer in normal color when the run ends.
             woodWindow.getKIAssistantPanel().installHarnessOrators();
-            harnessController.addCommandListener(kiProjectRoot, woodWindow.getKIAssistantPanel().commandListener);
-            harnessController.addResponseListener(kiProjectRoot, woodWindow.getKIAssistantPanel().responseListener);
+            harnessController.addCommandListener(woodWindow.getKIAssistantPanel().commandListener);
+            harnessController.addResponseListener(woodWindow.getKIAssistantPanel().responseListener);
+            woodWindow.getKIAssistantPanel().setThinkingHandler(prompt -> harnessController.runAskAi(
+                    woodWindow.getProjectSidebar().getProjectRoot(), prompt));
         }
         harnessMenu.add(runTaskItem);
         harnessMenu.add(runSelectionItem);

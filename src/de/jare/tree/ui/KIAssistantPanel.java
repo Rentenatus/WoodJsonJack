@@ -48,12 +48,7 @@ public class KIAssistantPanel extends JPanel {
         outputPane = new JTextPane();
         outputPane.setEditable(false);
         outputPane.setContentType("text/html");
-        StyledDocument doc = outputPane.getStyledDocument();
-        try {
-            doc.insertString(0, "<i>AI output appears here...</i>", null);
-        } catch (Exception ignored) {
-            // placeholder only
-        }
+        outputPane.setText("<i>AI output appears here...</i>");   // setText parses HTML (insertString would not)
         JScrollPane outputScroll = new JScrollPane(outputPane);
         add(outputScroll, BorderLayout.CENTER);
 
@@ -144,8 +139,17 @@ public class KIAssistantPanel extends JPanel {
      * pass-through. EDT marshalling happens here.
      */
     public void installHarnessOrators() {
-        commandListener = entry -> javax.swing.SwingUtilities.invokeLater(() -> appendCommandEntry(entry));
-        responseListener = resp -> javax.swing.SwingUtilities.invokeLater(() -> appendResponse(resp));
+        commandListener = entry -> {
+            String t = actionText(entry);   // [DIAG] temporary: which entries would render as action lines
+            if (t != null) {
+                System.out.println("[DIAG] action line seq=" + entry.seq + ": " + t);
+            }
+            javax.swing.SwingUtilities.invokeLater(() -> appendCommandEntry(entry));
+        };
+        responseListener = resp -> {
+            System.out.println("[DIAG] response event status=" + resp.getStatus() + " text=" + resp.getText());
+            javax.swing.SwingUtilities.invokeLater(() -> appendResponse(resp));
+        };
     }
 
     /** The host (JackMainMenu via HarnessController) installs this: input text -> WoodHarness AskAi run. */
@@ -204,13 +208,26 @@ public class KIAssistantPanel extends JPanel {
         }
         String html = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 .replace("\n", "<br>");
-        javax.swing.text.StyledDocument doc = outputPane.getStyledDocument();
+        appendHtml(html + "<br>");
+    }
+
+    /**
+     * Appends an HTML fragment at the end of the output pane. IMPORTANT: a plain
+     * {@code StyledDocument.insertString} does NOT parse HTML on a text/html JTextPane -
+     * the tags would show up as literal text. {@link javax.swing.text.html.HTMLEditorKit#insertHTML}
+     * parses the fragment in the document context.
+     */
+    private void appendHtml(String html) {
         try {
-            doc.insertString(doc.getLength(), html + "<br>", null);
+            javax.swing.text.html.HTMLEditorKit kit =
+                    (javax.swing.text.html.HTMLEditorKit) outputPane.getEditorKit();
+            javax.swing.text.html.HTMLDocument doc =
+                    (javax.swing.text.html.HTMLDocument) outputPane.getDocument();
+            kit.insertHTML(doc, doc.getLength(), html, 0, 0, null);
+            outputPane.setCaretPosition(doc.getLength());
         } catch (Exception ignored) {
             // output is best-effort
         }
-        outputPane.setCaretPosition(doc.getLength());
     }
 
     /**
@@ -225,13 +242,7 @@ public class KIAssistantPanel extends JPanel {
         String html = "<span style=\"color:" + grayHex() + "\">"
                 + text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 .replace("\n", "<br>") + "</span><br>";
-        javax.swing.text.StyledDocument doc = outputPane.getStyledDocument();
-        try {
-            doc.insertString(doc.getLength(), html, null);
-        } catch (Exception ignored) {
-            // output is best-effort
-        }
-        outputPane.setCaretPosition(doc.getLength());
+        appendHtml(html);
     }
 
     /** Appends the final AI ANSWER in normal foreground color (after the loop closed). */
@@ -246,6 +257,7 @@ public class KIAssistantPanel extends JPanel {
      */
     public void appendCommandEntry(de.jare.harness.memory.CommandHistory.Entry e) {
         String text = actionText(e);
+        System.out.println("[DIAG] appendCommandEntry seq=" + e.seq + " render=" + (text != null));
         if (text != null) {
             appendAction(text);
         }
