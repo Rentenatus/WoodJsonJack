@@ -63,6 +63,7 @@ public class HarnessEngine implements HarnessDriver {
     private de.jare.harness.mindset.Mindset mindset = new de.jare.harness.mindset.Mindset();   // global ~/.wood/mindset (§16)
     private de.jare.harness.skills.SkillRegistry skillRegistry = new de.jare.harness.skills.SkillRegistry();   // §12
     private de.jare.harness.memory.WorkCache workCache;   // result channel between calculators (§3 layering)
+    private de.jare.harness.memory.CommandHistory commandHistory;   // §18: every TaskData mutation goes through here
     private java.util.function.BiFunction<String, List<String>, String> userAskHandler;   // §14 ctx.ui.askUser
     private int loopDepth;                                  // subloop nesting, bounded by maxDepth (§15.6)
     private ErrorSignal pendingTechnical;                   // TECHNICAL unwinds all loops to the top (§15.6)
@@ -77,7 +78,12 @@ public class HarnessEngine implements HarnessDriver {
         this.relevanceRegistry = new RelevanceRegistry();
         Map<PromptSegment.Category, Integer> budgets = new EnumMap<>(PromptSegment.Category.class);
         for (Map.Entry<String, Integer> e : model.getPromptBudgets().entrySet()) {
-            budgets.put(PromptSegment.Category.valueOf(e.getKey()), e.getValue());
+            // only real categories are budgets (defensive: unknown keys are skipped, not crashed)
+            try {
+                budgets.put(PromptSegment.Category.valueOf(e.getKey()), e.getValue());
+            } catch (IllegalArgumentException notACategory) {
+                // e.g. "maxTokensTotal" - a model field, not a per-category budget
+            }
         }
         this.promptAssembler = new PromptAssembler(budgets, model.getMaxTokensTotal(),
                 "sticky: harness " + model.getName() + " v" + model.getVersion());
@@ -162,6 +168,24 @@ public class HarnessEngine implements HarnessDriver {
     /** The WorkCache of the current MemoryQuest - the runtime result channel handed to every CalcContext. */
     public void setWorkCache(de.jare.harness.memory.WorkCache workCache) {
         this.workCache = workCache;
+    }
+
+    /** The CommandHistory of the current MemoryQuest (§18) - every task mutation is dispatched through it. */
+    public void setCommandHistory(de.jare.harness.memory.CommandHistory commandHistory) {
+        this.commandHistory = commandHistory;
+    }
+
+    /**
+     * §18: the single mutation path - applies a {@link TaskCommand} to the task and records
+     * it in the CommandHistory with the origin triple {@code loopId/loopItemId/trigger}.
+     * Without a wired history (ad-hoc engines) the command executes directly, unrecorded.
+     */
+    void applyCmd(TaskData task, TaskCommand cmd, String loopId, String loopItemId, String trigger) {
+        if (commandHistory != null) {
+            commandHistory.apply(cmd, task, loopId, loopItemId, trigger);
+        } else {
+            de.jare.harness.memory.CommandHistory.applyDirect(cmd, task);
+        }
     }
 
     private de.jare.harness.memory.ProjectMemory projectMemory;   // project-local memory across runs (§17)
@@ -285,11 +309,11 @@ public class HarnessEngine implements HarnessDriver {
             ErrorSignal sig = t instanceof HarnessException he
                     ? ErrorSignal.fromHarnessException(he, "engine")
                     : ErrorSignal.fromThrowable(t, "engine");
-            instance.getRoot().setStatus(Status.FAILED);
+            applyCmd(instance.getRoot(), new TaskCommands.SetStatus(Status.FAILED), null, null, null);
             notify(instance.getRoot(), Kind.ABORT, "technical error: " + sig.reason() + " (" + sig.severity() + ")");
         }
         if (pendingTechnical != null) {
-            instance.getRoot().setStatus(Status.FAILED);
+            applyCmd(instance.getRoot(), new TaskCommands.SetStatus(Status.FAILED), null, null, null);
             notify(instance.getRoot(), Kind.ABORT, "technical error: " + pendingTechnical.reason());
             pendingTechnical = null;
         }
@@ -302,7 +326,7 @@ public class HarnessEngine implements HarnessDriver {
 
     /** Starts the named loop for one task — "main" for the root, the subloop id for split children (§15.6). */
     private void process(TaskData task, String loopId) {
-        task.setStatus(Status.RUNNING);
+        applyCmd(task, new TaskCommands.SetStatus(Status.RUNNING), loopId, null, null);
         int stackBase = callStack.size();
         try {
             runLoop(task, loopId);
@@ -339,7 +363,7 @@ public class HarnessEngine implements HarnessDriver {
             model.addLoop(loop);
         }
         if (loop == null) {
-            task.setStatus(Status.FAILED);
+            applyCmd(task, new TaskCommands.SetStatus(Status.FAILED), loopId, null, null);
             notify(task, Kind.ABORT, "unknown loop \"" + loopId + "\"");
             return;
         }
@@ -347,7 +371,7 @@ public class HarnessEngine implements HarnessDriver {
         Limits.Snapshot loopEntry = limits.snapshot();   // slot consumption base for SPLIT deltas
         try {
             if (loopDepth > model.getMaxDepth()) {
-                task.setStatus(Status.ABORTED);
+                applyCmd(task, new TaskCommands.SetStatus(Status.ABORTED), loopId, null, null);
                 notify(task, Kind.ABORT, "hard stop: loop depth exceeded (loop \"" + loopId + "\")");
                 return;
             }
@@ -362,7 +386,7 @@ public class HarnessEngine implements HarnessDriver {
             while (true) {
                 limits.countIteration();
                 if (limits.isAborted(task.depth())) {
-                    task.setStatus(Status.ABORTED);
+                    applyCmd(task, new TaskCommands.SetStatus(Status.ABORTED), loopId, null, null);
                     notify(task, Kind.ABORT, "hard stop: limits exceeded");
                     return;
                 }
@@ -413,10 +437,11 @@ public class HarnessEngine implements HarnessDriver {
             r.getAction().execute(this, task, r);
         }
         if (item.getKind() == Kind.EVALUATE) {
+            String trig = item.getTrigger() == null ? null : item.getTrigger().name();
             if (r.getScore() != null) {
-                task.setScore(r.getScore());
+                applyCmd(task, new TaskCommands.SetScore(r.getScore()), loop.getId(), item.getId(), trig);
             }
-            task.setStatus(r.getStatus());
+            applyCmd(task, new TaskCommands.SetStatus(r.getStatus()), loop.getId(), item.getId(), trig);
         }
         switch (la.flow()) {
             case RESTART -> {
@@ -452,15 +477,24 @@ public class HarnessEngine implements HarnessDriver {
      */
     private ItemFlow handleSplit(TaskData task, LoopSplit split, Limits.Snapshot loopEntry) {
         List<String> prompts = split.prompts();
-        if (prompts == null || prompts.isEmpty()) {
+        if ((prompts == null || prompts.isEmpty()) && split.parts() <= 0) {
             return ItemFlow.CONTINUE;
+        }
+        if (prompts == null || prompts.isEmpty()) {
+            // parts fallback: generated part titles from the task title
+            prompts = new ArrayList<>();
+            for (int i = 0; i < Math.max(1, split.parts()); i++) {
+                prompts.add(task.getTitle() + " / part " + (i + 1));
+            }
         }
         String loopId = split.loopId() == null || split.loopId().isBlank() ? Loop.SUB : split.loopId();
         Limits.Snapshot splitPoint = limits.snapshot();
-        List<TaskData> children = new ArrayList<>();
-        for (String p : prompts) {
-            children.add(task.addSubtask(instance.nextTaskId(), task.getTaskType(), p)); // task starts
-        }
+        // §18.2: ONE composite command - rewriteAsSummary + N x addSubtask as a single
+        // history entry with a single change event; the created children come back from it
+        TaskCommands.SplitInto splitCmd =
+                new TaskCommands.SplitInto(loopId, prompts, task.getTaskType(), instance::nextTaskId);
+        applyCmd(task, splitCmd, loopId, null, null);
+        List<TaskData> children = splitCmd.children();
         Limits.Delta total = limits.deltaSince(loopEntry);   // slot delta up to the split point
         List<String> childDeltas = new ArrayList<>();
         for (TaskData child : children) {
@@ -479,6 +513,8 @@ public class HarnessEngine implements HarnessDriver {
         }
         notify(task, Kind.SPLIT, "split into " + children.size() + " subloops (loop \"" + loopId
                 + "\", task starts created), consumption = slot+children " + total);
+        // legacy semantics preserved: after the N subloops the parent summarizes over them
+        execute(task, Kind.SUMMARIZE);
         return ItemFlow.EXIT; // the N subloops returned - leave this loop (CLOSE fires in finally)
     }
 
@@ -504,12 +540,12 @@ public class HarnessEngine implements HarnessDriver {
     private ItemFlow handleThrow(TaskData task, Loop loop, LoopThrowError t) {
         ErrorSignal sig = t.signal() == null ? ErrorSignal.domain("throw", "loop") : t.signal();
         if (!sig.isDomain()) {
-            task.setStatus(Status.FAILED);
+            applyCmd(task, new TaskCommands.SetStatus(Status.FAILED), loop.getId(), null, null);
             notify(task, Kind.ABORT, "technical error: " + sig.reason() + " -> unwind (CATCH bypassed)");
             pendingTechnical = sig;
             return ItemFlow.EXIT;
         }
-        task.setStatus(Status.FAILED);
+        applyCmd(task, new TaskCommands.SetStatus(Status.FAILED), loop.getId(), null, null);
         List<LoopItem> catchItems = loop.itemsFor(Trigger.CATCH);
         if (catchItems.isEmpty()) {
             // no handler in this loop - unwind one level up so the caller loop's CATCH can handle it
@@ -555,36 +591,24 @@ public class HarnessEngine implements HarnessDriver {
     //
 
     @Override
-    public void splitInto(TaskData task, List<String> prompts, int parts) {
-        task.rewriteAsSummary();
-        int n = prompts != null && !prompts.isEmpty() ? prompts.size() : Math.max(1, parts);
-        for (int i = 0; i < n; i++) {
-            String title = prompts != null && !prompts.isEmpty()
-                    ? prompts.get(i) : task.getTitle() + " / part " + (i + 1);
-            process(task.addSubtask(instance.nextTaskId(), task.getTaskType(), title));
-        }
-        execute(task, Kind.SUMMARIZE);
-        execute(task, Kind.CLOSE);
-        execute(task, Kind.RAG_PRUNE);
-    }
-
-    @Override
     public void addReasoningSubtask(TaskData task) {
-        process(task.addSubtask(instance.nextTaskId(), "REASONING",
-                "reasoning about " + task.getTitle().replaceAll("\\?+$", "")));
+        TaskCommands.AddSubtask cmd = new TaskCommands.AddSubtask(instance.nextTaskId(), "REASONING",
+                "reasoning about " + task.getTitle().replaceAll("\\?+$", ""));
+        applyCmd(task, cmd, null, null, null);
+        process(cmd.created());
     }
 
     @Override
     public void retry(TaskData task, String reason) {
         limits.countRetry();
-        task.incrementAttempt();
-        task.setStatus(Status.RETRY);
-        task.appendPromptSupplement("retry " + task.getAttempt());
+        applyCmd(task, new TaskCommands.IncrementAttempt(), null, null, null);
+        applyCmd(task, new TaskCommands.SetStatus(Status.RETRY), null, null, null);
+        applyCmd(task, new TaskCommands.AppendPromptSupplement("retry " + task.getAttempt()), null, null, null);
     }
 
     @Override
     public void abort(TaskData task, String reason) {
-        task.setStatus(Status.ABORTED);
+        applyCmd(task, new TaskCommands.SetStatus(Status.ABORTED), null, null, null);
         notify(task, Kind.ABORT, reason);
     }
 
@@ -628,6 +652,7 @@ public class HarnessEngine implements HarnessDriver {
         ctx.setTools(tools);
         ctx.setWorkCache(workCache);
         ctx.setProjectMemory(projectMemory);
+        ctx.setLoopContext(loopId, loopItemId, trigger);   // §18 origin triple for commands
 
         long start = System.currentTimeMillis();
         CalcResult result;
@@ -667,9 +692,9 @@ public class HarnessEngine implements HarnessDriver {
                 result.getScore(), result.getStatus(),
                 result.getDecision() + decisionSuffix, result.getMessage(), result.getPayload(), p1, p2,
                 loopId, loopItemId, trigger, paramError);
-        // layering (§3): instance.logCall = RUNTIME truth (memory layer), task.logCall = the
-        // bridge write into the PERSISTED PROJECTION (TaskData -> EditTree, fires change events)
-        task.logCall(entry);
+        // layering (§3): instance.logCall = RUNTIME truth (memory layer), the LogCall command = the
+        // bridge write into the PERSISTED PROJECTION (TaskData, recorded in the CommandHistory §18)
+        applyCmd(task, new TaskCommands.LogCall(entry), loopId, loopItemId, trigger);
         instance.logCall(entry);
         callStack.push(entry); // stays on the stack until the owning task's process() ends
         return result;
@@ -794,45 +819,29 @@ public class HarnessEngine implements HarnessDriver {
                 last = r;
             }
             if (steering != null && last.getLoopAction().flow() == LoopAction.Flow.CONTINUE) {
-                last.loopAction(steering);
+                // copy, never mutate: the child's CalcResult is already recorded as an
+                // AppendCalcCall in the CommandHistory - mutating it would double-render
+                // the steering action in the UI (§18.6)
+                last = last.copy().loopAction(steering);
             }
             return last;
         }
-        // TEMP debug: trace every atomic calculator call (to be removed)
         String calcName = node.getCalculator() != null ? node.getCalculator()
                 : (node.getImpl() != null ? node.getImpl() : node.getType());
-        System.out.println("[CALC >>] kind=" + kind + " slot=" + ctx.slotId()
-                + " calc=" + calcName
-                + (node.getModelclass() != null ? " modelclass=" + node.getModelclass() : "")
-                + " task=" + ctx.task().getId() + " \"" + abbrev(ctx.task().getTitle()) + "\"");
-        long t0 = System.currentTimeMillis();
         CalcResult res = factory.createAtomic(node, kind).calculate(ctx);
-        System.out.println("[CALC <<] kind=" + kind + " slot=" + ctx.slotId()
-                + " calc=" + calcName + " task=" + ctx.task().getId()
-                + " -> decision=" + res.getDecision() + " status=" + res.getStatus()
-                + (res.getScore() != null ? " score=" + res.getScore() : "")
-                + " (" + (System.currentTimeMillis() - t0) + " ms)");
         if (ctx.workCache() != null) {
             ctx.workCache().putResult(calcName, res).setLastResult(res);
         }
         // §3 projection: every atomic calculator step lands as a "call" child node in the task
-        // tree (input prompts, CalcResult payload, LoopAction) so the JTree shows the data movement
-        ctx.task().appendCalcCall(calcName, kind, ctx.slotId(), res, ctx.prompts());
+        // tree (input prompts, CalcResult payload, LoopAction) so the JTree shows the data
+        // movement - as a command on the ctx channel (§18), recorded with this call's origin
+        ctx.commands().apply(new TaskCommands.AppendCalcCall(calcName, kind, ctx.slotId(), res, ctx.prompts()));
         return res;
-    }
-
-    private static String abbrev(String s) {
-        if (s == null) return "";
-        String one = s.replace('\n', ' ');
-        return one.length() <= 60 ? one : one.substring(0, 57) + "...";
     }
 
     /** The deterministic fallback used by the catch-mapping (§13). */
     private static final class DeterministicFallback {
         static CalcResult run(Kind kind, CalcContext ctx, HarnessException e) {
-            // TEMP debug: trace the fallback calculator call (to be removed)
-            System.out.println("[CALC >>] kind=" + kind + " slot=" + ctx.slotId()
-                    + " calc=fallback:" + kind + " task=" + ctx.task().getId() + " (after " + e.getType() + ")");
             CalcResult r;
             try {
                 r = de.jare.harness.impl.deterministic.DeterministicCalculators.forKind(kind).calculate(ctx);
@@ -841,8 +850,6 @@ public class HarnessEngine implements HarnessDriver {
                 r = CalcResult.of(kind, "fallback-failed")
                         .message("fallback also failed: " + t.getMessage());
             }
-            System.out.println("[CALC <<] kind=" + kind + " calc=fallback:" + kind
-                    + " -> decision=" + r.getDecision() + " status=FAILED");
             return r.decision(r.getDecision()).status(Status.FAILED).message("fallback after " + e.getType());
         }
     }

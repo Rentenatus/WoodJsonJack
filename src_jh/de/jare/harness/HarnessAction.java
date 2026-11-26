@@ -38,4 +38,22 @@ public interface HarnessAction {
 
     /** Executes this action on the driver; returns how the process loop continues. */
     Control execute(HarnessDriver driver, TaskData task, CalcResult result);
+
+    /**
+     * The {@link LoopAction} this action maps to on the flow channel (§15.6) — the migration
+     * target: every built-in action declares its loop flow polymorphically here, so the driver
+     * never parses decision strings or type names. Default null: the flow is then derived
+     * from {@link #control()} via {@code LoopActions.fromControl} (custom actions).
+     */
+    default LoopAction loopAction() {
+        return null;
+    }
+
+    /**
+     * The control this action would return from {@link #execute}, declared without executing
+     * (used for the flow fallback when {@link #loopAction()} is null). Default CONTINUE.
+     */
+    default Control control() {
+        return Control.CONTINUE;
+    }
 }

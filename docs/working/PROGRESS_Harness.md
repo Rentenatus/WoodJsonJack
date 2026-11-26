@@ -124,7 +124,7 @@ Entschieden in `CONCEPT_Harness.md` §3/§10/§15 (Diskussion ViewNode vs. EditN
 
 **Verworfene Alternativen (festgehalten):** TaskNode extends EditNode (sealed permits), ViewNode als 5. permit in jsonCasted_edit (src_jh dürfte ihn nicht nutzen), ViewNode als eigener Baum in jsonCasted (Editor müsste konvertieren), TaskNode als JsonNode-Facade (Zwei-Welten-Problem bleibt für die Anzeige bestehen).
 
-**Umgesetzt in §9 (Working Tree, uncommittet):** `TaskNode` ist gelöscht, ersetzt durch **`TaskData`** (Facade mit Back-Reference auf `EditNodeObject`, Attach intern in jedem Setter) + **`TaskTree`** (EditTree + `IdentityHashMap`-Registry + Change-Listener). WorkOrder/MemoryQuest/HarnessInstance halten den Baum als echte EditTree (`getTaskTree()`); Payload als primitive Member-Properties des Task-Objekts, Subtasks als Objekte im `tasks`-Array-Member. Codec persistiert die EditTree-Form (`taskId`/`tasks`), Legacy-`id`/`children`-Dateien werden beim Load normalisiert. Sync-Brücke: `TaskTree.fireChanged` → Change-Lovable + `TypeParserListener`; `HarnessViewPanel.bind` hängt sich ein (EDT via invokeLater), Read-only host-seitig (kein Command-Wiring am Harness-Baum). `CallLogEntry` trägt jetzt `toJson/fromJson`. Tests: neuer `TaskTreeNGTest` (4 Tests: Root=Tree-Root, Subtasks+Events, Codec-Roundtrip, Legacy-Load). **Suite 242/242 grün**, src_jh kompiliert gegen jsonCasted_edit.
+**Veraltet — überholt durch §10.11:** die hier beschriebene EditTree-Kopplung (`TaskTree`, Facade auf `EditNodeObject`) wurde verworfen; umgesetzt wurde §10.11 (TaskData als plain POJO, JSON als Persistenzform). §9 bleibt als verworfene Alternative dokumentiert.
 
 ## 10. Projektgedächtnis + Chat-Befehle (Konzept §17 entschieden, noch nicht umgesetzt)
 
@@ -324,3 +324,78 @@ Harness-Suite 166/166, WJJ gesamt 255/255 grün.
 - Tests: TaskTreeNGTest → TaskDataNGTest (POJO, Event-Bubbling, CalcCall-Projektion,
   Codec-Roundtrip inkl. calls, Legacy-Load), DecomposeSplitNGTest mit Engine-Level-Assertion
   auf `getCalls()`. wjj_testng.xml aktualisiert. Harness-Suite 170/170, WJJ gesamt 258/258 grün.
+
+## 10.12 Umgesetzt: Legacy-Aktionen auf LoopAction migriert — ein Split-Pfad (splitInto entfernt)
+
+- `HarnessAction` hat zwei neue Default-Methoden: `loopAction()` (null → Fallback über `control()`)
+  und `control()` — Ableitung polymorph, kein Type-String-Switch mehr in `CalcResult`.
+- Alle Built-ins in `main/actions` deklarieren ihren Flow: `None`→Continue, `Retry`/`ReasoningSubtask`→Restart,
+  `Abort`→LoopThrowError(DOMAIN) (CATCH feuert statt stillem Break), `Split`→`LoopSplit(prompts, "sub", parts)`.
+- `LoopSplit` trägt jetzt optional `parts` (Fallback für generierte Part-Titles); `LoopActions.fromDecision`
+  hat Payload-Overload: legacy decision `"split"` + payload `quests`/`parts` → derselbe `LoopSplit`.
+- `HarnessDriver.splitInto` und die Engine-Implementierung sind **entfernt** — `handleSplit` ist der
+  einzige Split-Pfad (subloop pro Subtask, Verbrauchsvererbung, Deltas) und macht jetzt auch
+  `rewriteAsSummary()` + parent-SUMMARIZE nach den Subloops (Legacy-Semantik bewahrt).
+- Tests: LoopActionNGTest (Split/Abort-Mapping, legacy split-decision mit/ohne payload),
+  HarnessEngineNGTest.testSplitRewritesTaskAsSummaryAndClosesChildren unverändert grün,
+  DecomposeSplitNGTest: SUMMARIZE feuert genau 1× am Parent nach den Subloops.
+  Harness-Suite 171/171, WJJ gesamt 258/258 grün.
+
+## 10.13 Umgesetzt: Prompts nur noch in der Config-JSON + structureScore in der Evolution + Embed-API-Fix
+
+- **Prompt-Regel durchgesetzt:** `DEFAULT_SYSTEM_PROMPT`/`DEFAULT_EMPHASIS_PROMPT` aus allen 4
+  KI-Kalkulatoren entfernt; fehlt der Config-Param `systemPrompt`, wirft der Kalkulator einen
+  PARAMETER-Fehler (PARAM_ERROR-Metrik) — kein hartkodierter Fallback mehr. `emphasisPrompt` ist
+  optional (null = kein Retry). `HarnessService.defaultModel()` lädt das gebundelte Asset
+  `assets/harness/harness-model.json` (fehlende Kinds werden deterministisch ergänzt, ohne Prompts).
+- **Codec/Engine:** `promptBudgets.maxTokensTotal` ist Modell-Feld, keine Kategorie — Codec und
+  Bean-Converter routen es auf `HarnessModel.setMaxTokensTotal`, Engine skippt Nicht-Kategorie-Keys.
+- **Bugfix OllamaEmbeddingProvider:** `/api/embed` antwortet `{"embeddings":[[...]]}` — der Provider
+  parste das Legacy-Feld `embedding` und warf SCHEMA_VIOLATION. Jetzt `embeddings[0]` (Legacy-Feld
+  als Fallback). Betrifft skill.match/RAG gegen live Ollama.
+- **Evolution (§7.2 Selection-Regel):** `EvolutionRunner` nutzt jetzt beides — harte Gates
+  (Ø-Score +15 UND FAIL-Rate halbiert vs. base) entscheiden WER gewinnt; unter den Gate-Passern
+  rangiert die `structureScore` (Gewichte wFail=wParam=1.0), bei < MIN_SAMPLES=3 Samples der rohe
+  Ø-Score (dünne Daten = structureScore-Rauschen). `CandidateResult` trägt structureScore.
+  Test: Kandidat mit höherem Ø-Score (100) aber PARAM_ERROR verliert gegen sauberen Kandidaten (95).
+- Tests angepasst (systemPrompt als Param in Codec/Guard/Decompose-Tests). Harness-Suite 172/172,
+  WJJ gesamt 259/259 grün (Service-Tests gegen live Ollama im Vollsuite gelegentlich flaky,
+  isoliert und im Rerun grün).
+
+## 10.14 Umgesetzt: TaskData-Mutationen nur noch als Commands + Command-History (committet `0aeb4f2`, Konzept §18)
+
+- **Neu:** `TaskView` (Read-Only-Fassade; `ctx.task()` liefert nur das), `TaskCommand`/`TaskCommands`
+  (10 Commands als Daten im Package `de.jare.harness`), `CommandHistory` (memory-Package:
+  Dispatcher + History, Entry mit Origin-Tripel `loopId/loopItemId/trigger` + `invertible`, default true).
+- **TaskData:** `implements TaskView`; alle 9 Mutatoren package-private und feuern nicht mehr selbst —
+  jedes Command feuert genau einmal. `SplitInto` ist das Composite (rewriteAsSummary + N×addSubtask,
+  1 Entry, 1 Event, Kinder am Command abholbar). `CalcContext` hat den Kanal `ctx.commands()`;
+  `abort`/`compact`/`close`/`appendCalcCall` laufen darüber. Engine: alle ~21 Mutationsstellen auf
+  `applyCmd(...)`; History hängt an der MemoryQuest (pro User-Call, RAM only — NICHT persistiert,
+  `calls[]` deckt das bereits ab).
+- **Config:** `HarnessModel.addLoop` prüft doppelte LoopItem-IDs pro Loop → PARAM_ERROR (§18.5;
+  gleiche ID in anderem Loop ist ok, das Tripel macht sie eindeutig).
+- **Kein Undo** (§18.3): Commands sind Daten, `invertible` startet true; Demotion später per Pull-Scan
+  gegen die aktuelle Loop-Config. Read-Seite der History (Anzeige/Demoting/Undo) ist bewusst offen.
+- **Cleanup:** TEMP `[CALC >>]/[CALC <<]`-Printlns entfernt, ungenutzte TaskData-Imports gestrichen.
+- Tests: `TaskDataNGTest` umgestellt (1 Event pro Command, SplitInto-Composite-Test), Duplikat-Test in
+  `LoopConfigCodecNGTest`. Harness-Suite 174 Tests, WJJ gesamt **260/260 grün** (HarnessServiceNGTest
+  gegen live Ollama gelegentlich flaky — Baseline zeigt identisches Flaken, kein Regression).
+
+## 10.15 Umgesetzt: KI-Pane zeigt Loop-Actions grau + Antwort in Normalfarbe (committet `e251179` Nachfolge)
+
+- `KIAssistantPanel.appendAction(text)` — hängt eine Action-Zeile als HTML-Span in **Grau (60% Label.foreground + 40% Label.background**, pro Kanal geblendet, theme-abhängig) an; `appendAnswer(text)` — die finale Antwort in normaler Farbe.
+- `HarnessController`: `wireInto` hängt einen Engine-Listener ein, der jede `notify`-Zeile (Split/CATCH/Limits/…) live per EDT als graue Action-Zeile an den `actionLineHandler` reicht; nach Run-Ende (`SwingWorker.done`) landet der `WorkResponse`-Text der MemoryQuest über den `answerHandler` in Normalfarbe in der Pane.
+- `JackMainMenu` verdrahtet beide Handler auf die KI-Pane. WJJ 260/260 grün.
+
+## 10.16 Umgestellt: Orator statt UI-Referenzen im Controller (committet, Nachfolge `66af887`)
+
+- `CommandHistory.addListener(Consumer<Entry>)` — feuert pro `apply` mit dem neuen Entry; `WorkResponse.addListener` — feuert pro `update`. `HarnessService.addCommandListener/addResponseListener` reicht Registrierungen an jede neue MemoryQuest durch.
+- `HarnessController` hält **keine** UI-Handler mehr (`setActionLineHandler`/`setAnswerHandler` entfernt, Engine-Listener in `wireInto` raus); nur noch `addCommandListener/addResponseListener`-Pass-through.
+- `JackMainMenu` abonniert direkt: CommandHistory-Entry → `KIAssistantPanel.appendCommandEntry` (graue Action-Zeile nur bei echten Flow-Actions: non-CONTINUE LoopAction oder SplitInto), WorkResponse → `appendResponse` (Antwort in Normalfarbe bei terminalem Status). EDT-Marshalling im Menü. WJJ 261/261 grün.
+
+## 10.17 Umgestellt: alle Harness-Oratoren auf jsonCasted Orator (weak listeners, §18.6)
+
+- `TaskData`, `HarnessInstance`, `CommandHistory`, `WorkResponse` nutzen `de.jare.tree.control.Orator` (jsonCasted core, Swing-frei) — Listener werden nur weak gehalten, tote Referenzen werden gepuragt.
+- Anmelder halten ihre Listener als Feld: `KIAssistantPanel.commandListener/responseListener` (via `installHarnessOrators()`), `HarnessViewPanel.changeListener`, `TaskData.childEventForwarder` (Bubble), `HarnessInstance.rootForwarder`. Tests halten Listener in lokalen Variablen.
+- `HarnessEngine.addListener` bleibt strong (Engine lebt nur einen Run). WJJ 261/261 grün (2 HarnessServiceNGTest gegen live Ollama im ersten Lauf flaky, Rerun grün — wie Baseline).

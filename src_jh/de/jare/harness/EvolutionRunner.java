@@ -33,8 +33,17 @@ public class EvolutionRunner {
     public static final double SCORE_DELTA = 15.0;
     /** … and at most half the base's fail rate. */
     public static final double FAIL_RATE_FACTOR = 0.5;
+    /** structureScore weights: fail rate and param errors both weigh 1.0 (§7.2). */
+    public static final double STRUCTURE_W_FAIL = 1.0;
+    public static final double STRUCTURE_W_PARAM = 1.0;
+    /**
+     * Thin-data fallback (§7.2): below this sample count the structureScore is noise (a fresh
+     * node starts at 0), so candidates are ranked by raw avgScore instead.
+     */
+    public static final int MIN_SAMPLES = 3;
 
-    public record CandidateResult(Slot slot, double avgScore, double failRate, long samples) {
+    public record CandidateResult(Slot slot, double avgScore, double failRate, long samples,
+                                  double structureScore) {
     }
 
     public record Selection(CandidateResult winner, List<CandidateResult> losers, boolean swapped) {
@@ -68,9 +77,12 @@ public class EvolutionRunner {
             if (r.slot().isBase()) {
                 continue;
             }
+            // hard reliability gates vs. base (§7.2): score delta AND halved fail rate
             boolean scoreOk = r.avgScore() >= baseResult.avgScore() + SCORE_DELTA;
             boolean failOk = r.failRate() <= baseResult.failRate() * FAIL_RATE_FACTOR + 1e-9;
-            if (scoreOk && failOk && r.avgScore() > winner.avgScore()) {
+            // ranking among gate-passers: structureScore (score − 100·(wFail·FAIL + wParam·PARAM_ERROR))
+            // when the window is big enough, raw avgScore on thin data
+            if (scoreOk && failOk && rankKey(r, sampleTasks.size()) > rankKey(winner, sampleTasks.size())) {
                 winner = r;
             }
         }
@@ -100,7 +112,17 @@ public class EvolutionRunner {
         MetricBucket fail = stats.get(MetricsStore.Category.FAIL_RATE);
         double avg = score == null ? 0 : score.getAvg();
         double failRate = fail == null || fail.getCount() == 0 ? 0 : fail.getAvg();
-        return new CandidateResult(slot, avg, failRate, sampleTasks.size());
+        double structure = aggregate.structureScore(slot.getId(), 1, STRUCTURE_W_FAIL, STRUCTURE_W_PARAM);
+        return new CandidateResult(slot, avg, failRate, sampleTasks.size(), structure);
+    }
+
+    /**
+     * Ranking key (§7.2): with enough samples the structureScore decides (it also punishes
+     * parameter errors that the raw average ignores); on a thin window (< {@link #MIN_SAMPLES})
+     * the structureScore of a fresh node would be 0-noise, so the raw avgScore ranks.
+     */
+    private static double rankKey(CandidateResult r, int sampleCount) {
+        return sampleCount >= MIN_SAMPLES ? r.structureScore() : r.avgScore();
     }
 
     /**

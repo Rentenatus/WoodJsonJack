@@ -62,10 +62,15 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
      * TaskData tree (CONCEPT_Harness.md §3) - the panel listens to its change events (bubble up
      * to the instance) and rebuilds its own read-only JTree from the TaskData objects.
      */
+    // §18.6: the instance's change orator holds listeners weakly - this panel is the
+    // subscriber, so it keeps its own listener in a field
+    private java.util.function.Consumer<TaskData> changeListener;
+
     public void bind(HarnessInstance instance, HarnessEngine engine) {
         this.instance = instance;
         engine.addListener((task, msg) -> SwingUtilities.invokeLater(this::refresh));
-        instance.addChangeListener(t -> SwingUtilities.invokeLater(this::refresh));
+        changeListener = t -> SwingUtilities.invokeLater(this::refresh);
+        instance.addChangeListener(changeListener);
         refresh();
     }
 

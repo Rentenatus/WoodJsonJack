@@ -10,7 +10,7 @@ import de.jare.harness.CalcContext;
 import de.jare.harness.CalcResult;
 import de.jare.harness.HarnessCalculator;
 import de.jare.harness.Kind;
-import de.jare.harness.TaskData;
+import de.jare.harness.TaskView;
 
 /**
  * Deterministic named calculator, registered as {@code "printig"}
@@ -40,7 +40,7 @@ public class CalculatorPrintQuests implements HarnessCalculator {
         var children = ctx.task().getChildren();
         out.append("Quests (").append(children.size()).append("):");
         int i = 1;
-        for (TaskData child : children) {
+        for (TaskView child : children) {
             out.append("\n  ").append(i++).append(". [").append(child.getTaskType()).append("] ")
                     .append(child.getTitle());
         }

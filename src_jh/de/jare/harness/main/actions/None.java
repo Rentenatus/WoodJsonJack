@@ -19,4 +19,6 @@ import de.jare.harness.TaskData;
 public record None() implements HarnessAction {
     @Override public String type() { return "none"; }
     @Override public Control execute(HarnessDriver d, TaskData t, CalcResult r) { return Control.CONTINUE; }
+    @Override public de.jare.harness.LoopAction loopAction() { return new LoopContinue(); }
+    @Override public Control control() { return Control.CONTINUE; }
 }

@@ -7,6 +7,9 @@
 package de.jare.harness.memory;
 
 import de.jare.harness.Status;
+import de.jare.tree.control.Orator;
+
+import java.util.function.Consumer;
 
 /**
  * The WorkResponse (Bearbeitungsantwort) - the current, still-changing ANSWER of the run, owned by
@@ -21,6 +24,13 @@ public class WorkResponse {
     private Integer score;
     private Status status = Status.PENDING;
     private long updatedTs = System.currentTimeMillis();
+    // weak orator (jsonCasted Orator, §18.6): subscribers must hold their listener in a field
+    private final Orator<Consumer<WorkResponse>> orator = new Orator<>();
+
+    /** Orator registration (§18.6): held weakly - keep a field reference on the subscriber side. */
+    public void addListener(Consumer<WorkResponse> listener) {
+        orator.addListener(listener);
+    }
 
     public synchronized WorkResponse update(String text, Integer score, Status status) {
         if (text != null) {
@@ -33,6 +43,7 @@ public class WorkResponse {
             this.status = status;
         }
         this.updatedTs = System.currentTimeMillis();
+        orator.say((level, l) -> l.accept(this));
         return this;
     }
 

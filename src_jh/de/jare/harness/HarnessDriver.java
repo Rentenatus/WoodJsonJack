@@ -6,19 +6,15 @@
  */
 package de.jare.harness;
 
-import java.util.List;
-
 /**
  * The HarnessDriver - the operations a {@link HarnessAction} can execute on the automaton.
  * Implemented by the {@link HarnessEngine}; keeps the steering object-oriented (the action
- * calls driver operations, the driver never parses decision strings).
+ * calls driver operations, the driver never parses decision strings). SPLIT is no legacy
+ * driver operation anymore - it runs as {@code LoopSplit} on the flow channel (§15.6).
  *
  * @author Janusch Rentenatus
  */
 public interface HarnessDriver {
-
-    /** SPLIT: rewrite the task as summary and process one subtask per sub-prompt (or parts). */
-    void splitInto(TaskData task, List<String> prompts, int parts);
 
     /** COMPLETE/incomplete: add one reasoning subtask. */
     void addReasoningSubtask(TaskData task);

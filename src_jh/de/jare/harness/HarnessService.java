@@ -49,6 +49,24 @@ public class HarnessService {
     private final de.jare.harness.spi.HarnessHost host;   // embedding application (WJJ/TUI); never a host class import
     private File woodHome;   // null -> GlobalWood default (user.home); settable for tests
     private de.jare.harness.memory.MemoryQuest lastMemoryQuest;   // the memory-side quest instance of the last run
+    // orator registrations (§18): forwarded to every new MemoryQuest's CommandHistory/WorkResponse,
+    // so the UI subscribes on the memory objects - the service/controller never hold UI references
+    private final java.util.List<java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry>> commandListeners = new java.util.ArrayList<>();
+    private final java.util.List<java.util.function.Consumer<de.jare.harness.memory.WorkResponse>> responseListeners = new java.util.ArrayList<>();
+
+    /** Registers a listener on the CommandHistory of EVERY run's MemoryQuest (fired per applied command). */
+    public void addCommandListener(java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry> l) {
+        if (l != null) {
+            commandListeners.add(l);
+        }
+    }
+
+    /** Registers a listener on the WorkResponse of EVERY run's MemoryQuest (fired per update). */
+    public void addResponseListener(java.util.function.Consumer<de.jare.harness.memory.WorkResponse> l) {
+        if (l != null) {
+            responseListeners.add(l);
+        }
+    }
     private de.jare.harness.memory.ProjectMemory projectMemory;   // §17 the project-local memory across runs
 
     public HarnessService(File projectDir) {
@@ -130,9 +148,18 @@ public class HarnessService {
         // field; the host only passes taskType + prompt text, no TaskData logic
         Kind questKind = de.jare.harness.model.HarnessModel.QUEST_ASK_AI.equals(taskType) ? Kind.SPLIT : Kind.WORK;
         Quest recipeQuest = model.questFor(questKind);
+        System.out.println("[DIAG] HarnessService.runTask: type=" + taskType + " model=" + model.getName()
+                + " v" + model.getVersion() + " questKind=" + questKind + " recipeQuest=" + (recipeQuest != null)
+                + " commandListeners=" + commandListeners.size() + " responseListeners=" + responseListeners.size());
         if (recipeQuest != null && recipeQuest.baseSlot() != null) {
             lastMemoryQuest = new de.jare.harness.memory.MemoryQuest(recipeQuest, recipeQuest.baseSlot().getId(),
                     title, taskType, instance::nextTaskId);
+            for (var l : commandListeners) {
+                lastMemoryQuest.getCommandHistory().addListener(l);
+            }
+            for (var l : responseListeners) {
+                lastMemoryQuest.getWorkResponse().addListener(l);
+            }
             instance.setRoot(lastMemoryQuest.getWorkOrder().getRoot());
         } else {
             instance.newRootTask(instance.nextTaskId(), taskType, title);
@@ -153,6 +180,7 @@ public class HarnessService {
         // every CalcContext, so calculators of one puzzle sequence read predecessor results
         if (lastMemoryQuest != null) {
             engine.setWorkCache(lastMemoryQuest.getWorkCache());
+            engine.setCommandHistory(lastMemoryQuest.getCommandHistory());   // §18: task mutations via commands
         }
         engine.setProjectMemory(projectMemory);   // §17: fed as HISTORY/DATA segments + via ctx.projectMemory()
         if (host != null) {
@@ -290,68 +318,72 @@ public class HarnessService {
         }
     }
 
-    /** The bundled default model: all twelve quests deterministic, modelclasses per §5 example. */
+    /**
+     * The bundled default model - loaded from the config asset
+     * {@code assets/harness/harness-model.json}. RULE: prompts live ONLY in this config JSON,
+     * never in code, so there is no programmatic fallback with hardcoded prompts anymore.
+     *
+     * <p>Lookup order (the working directory of the running app is irrelevant, e.g. the IDE
+     * starts with {@code test_assets} as cwd - exactly like the editor icons):
+     * 1. classpath resource {@code /harness/harness-model.json} - {@code assets/} is a
+     *    resource root of the app module (that is why {@code /icons/...} resolves), so the
+     *    asset is on the classpath as {@code /harness/harness-model.json},
+     * 2. classpath resource {@code /assets/harness/harness-model.json} (assets/ itself on the cp),
+     * 3. file relative to the working directory (dev run from the repo root),
+     * 4. file found by walking up from this class's code source.</p>
+     */
     public static HarnessModel defaultModel() {
-        HarnessModel model = new HarnessModel().name("default-harness").version("1.0.0")
-                .abortLimits(50, 5, 3, 10);
-        model.getTaskTypes().add(de.jare.harness.model.HarnessModel.QUEST_ASK_AI);
-        model.getTaskTypes().add("RESEARCH");
-        model.getTaskTypes().add("CODE_EDIT");
-        model.getTaskTypes().add("TEST_RUN");
-        model.getTaskTypes().add("SUMMARIZE");
-        model.getPromptBudgets().put("SYSTEM", 2);
-        model.getPromptBudgets().put("SKILL", 1);
-        model.getPromptBudgets().put("HISTORY", 3);
-        model.getPromptBudgets().put("DATA", 2);
-        model.getPromptBudgets().put("AUFTRAG", 1);
-        model.addModelclass(new Modelclass("ollama", "qwen3.8:27b", "investigation", 27, 1.0, true));
-        model.addModelclass(new Modelclass("ollama", "nemotron3:33b", "investigation", 33, 1.5, true));
-        model.addModelclass(new Modelclass("ollama", "muse-glimmer:30b", "investigation", 30, 1.5, true));
-        model.addModelclass(new Modelclass("ollama", "devstral-small-2:24b", "edit", 24, 2.0, true));
-        model.addModelclass(new Modelclass("ollama", "gemma4:26b", "edit", 26, 1.5, true));
-        model.addModelclass(new Modelclass("ollama", "glm-4.7-flash:latest", "plan", 30, 1.0, true));
-        model.addModelclass(new Modelclass("ollama", "gpt-oss:20b", "plan", 20, 1.0, true));
-        model.addModelclass(new Modelclass("ollama", "granite3.3:8b", "evaluation", 8, 0.5, false));
-        model.addModelclass(new Modelclass("ollama", "gemma3:27b", "evaluation", 27, 1.5, false));
-        model.addModelclass(new Modelclass("ollama", "manutic/nomic-embed-code:latest", "rag", 0, 0.2, false));
-        model.addModelclass(new Modelclass("ollama", "phi4-mini:latest", "scoring", 4, 0.3, false));
-        // declared deterministic fallback: provider "system" = built-in, no network (rag hash embedding)
-        model.addModelclass(new Modelclass(Modelclass.PROVIDER_SYSTEM, "hash-embedding", "rag", 0, 0.0, false));
-
-        for (Kind kind : Kind.values()) {
-            Quest quest = new Quest(kind).evolvable(kind == Kind.WORK);
-            quest.addSlot(new Slot(kind.name().toLowerCase() + ".base")
-                    .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC)));
-            model.addQuest(quest);
+        String assetPath = "assets/harness/harness-model.json";
+        try {
+            for (String resPath : new String[]{"/harness/harness-model.json", "/" + assetPath}) {
+                java.net.URL res = HarnessService.class.getResource(resPath);
+                if (res != null) {
+                    return completeModel(HarnessModelCodec.fromJson(
+                            de.jare.jsoncasted.io.parserservice.JsonParserService
+                                    .parse(res, de.jare.debug.JsonDebugLevel.SIMPLE).getRoot()));
+                }
+            }
+            File asset = new File(assetPath);
+            if (!asset.exists()) {
+                // IDE run (working dir is NOT the repo root, e.g. test_assets): walk up from this
+                // class's code source (out/, out/production/..., jar dir) until the repo root with
+                // assets/harness/harness-model.json is found
+                java.net.URL codeSource = HarnessService.class.getProtectionDomain()
+                        .getCodeSource().getLocation();
+                File dir = new File(codeSource.toURI());
+                if (dir.isFile()) {
+                    dir = dir.getParentFile();   // jar file -> its directory
+                }
+                for (int i = 0; i < 6 && dir != null; i++) {
+                    File candidate = new File(dir, assetPath);
+                    if (candidate.exists()) {
+                        asset = candidate;
+                        break;
+                    }
+                    dir = dir.getParentFile();
+                }
+            }
+            if (!asset.exists()) {
+                throw new IllegalStateException("bundled harness model asset missing: " + assetPath
+                        + " (tried classpath, working dir and code-source walk-up; prompts live only in"
+                        + " the config JSON, there is no code fallback)");
+            }
+            return completeModel(HarnessModelCodec.load(asset));
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("bundled harness model asset is not parseable: " + e.getMessage(), e);
         }
-        // the main AskAi quest (SPLIT): scoring counts the quests, investigation decomposes, printig prints
-        CalculatorNode askAiCalc = CalculatorNode.puzzle("sequence")
-                .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("scoring.countQuests")
-                        .params(java.util.Map.of(
-                                "model", "phi4-mini:latest",
-                                "systemPrompt", de.jare.harness.main.calculator.ScoringCountQuestsCalculator.DEFAULT_SYSTEM_PROMPT,
-                                "emphasisPrompt", de.jare.harness.main.calculator.ScoringCountQuestsCalculator.DEFAULT_EMPHASIS_PROMPT,
-                                "temperature", "0.0")))
-                .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
-                        .params(java.util.Map.of(
-                                "model", "nemotron3:33b",
-                                "systemPrompt", askAiDecomposeSystemPrompt(),
-                                "temperature", "0.3")))
-                .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig"));
-        model.questFor(Kind.SPLIT).baseSlot().calculator(askAiCalc);
-        // the entry loop (§15.6): legacy order + a CATCH handler on the ABORT quest
-        de.jare.harness.model.Loop main = HarnessModel.defaultMainLoop();
-        main.addItem(new de.jare.harness.model.LoopItem("err", Kind.ABORT)
-                .trigger(de.jare.harness.model.Trigger.CATCH));
-        model.addLoop(main);
-        return model;
     }
 
-    /**
-     * The system prompt of the askai.decompose call - handed to the builder via the config
-     * params, so mutations can be tried purely at the config level (asset harness-model.json).
-     */
-    private static String askAiDecomposeSystemPrompt() {
-        return de.jare.harness.main.calculator.AskAiDecomposeCalculator.DEFAULT_SYSTEM_PROMPT;
+    /** Completes a loaded model: every kind NOT modelled gets a deterministic fallback quest (no prompts in code). */
+    private static HarnessModel completeModel(HarnessModel model) {
+        for (Kind kind : Kind.values()) {
+            if (model.questFor(kind) == null) {
+                model.addQuest(new Quest(kind).addSlot(new Slot(kind.name().toLowerCase() + ".base")
+                        .calculator(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC))));
+            }
+        }
+        return model;
     }
 }

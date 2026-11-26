@@ -8,6 +8,7 @@ package de.jare.harness;
 
 import de.jare.harness.io.JsonNodes;
 import de.jare.jsoncasted.lang.JsonNode;
+import de.jare.tree.control.Orator;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,12 +24,17 @@ import java.util.function.Consumer;
  * the append-only {@code calculatorLog[]} and the projected calculator steps {@code calls[]}
  * ({@link CalcCall} - input prompts, payload, loop action = the data movement of the run).
  *
- * <p>Every mutation fires the change listeners (the host repaints its view from there);
- * subtask events bubble up to the root, so one listener on the root sees the whole tree.</p>
+ * <p>Mutations never happen directly (CONCEPT_Harness.md §18): every change is a
+ * {@link TaskCommand} (see {@link TaskCommands}) executed through the command dispatcher
+ * ({@code de.jare.harness.memory.CommandHistory}), which fires the change listeners exactly
+ * once per command - the host repaints its view from there; subtask events bubble up to
+ * the root, so one listener on the root sees the whole tree. The mutators below are
+ * package-private on purpose: only commands (same package) can call them. Calculators see
+ * the read-only {@link TaskView} facade via {@code ctx.task()}.</p>
  *
  * @author Janusch Rentenatus
  */
-public class TaskData {
+public class TaskData implements TaskView {
 
     public static final String M_ID = "taskId";
     public static final String M_TYPE = "taskType";
@@ -196,7 +202,10 @@ public class TaskData {
     private final List<TaskData> children = new ArrayList<>();
     private final List<CallLogEntry> calculatorLog = new ArrayList<>();
     private final List<CalcCall> calls = new ArrayList<>();
-    private final List<Consumer<TaskData>> changeListeners = new ArrayList<>();
+    // weak orator (jsonCasted Orator, §18.6): subscribers hold their listener in a field;
+    // the bubble forwarder below is such a field so it is never GC'd while the parent lives
+    private final Orator<Consumer<TaskData>> changeListeners = new Orator<>();
+    private final Consumer<TaskData> childEventForwarder = this::notify;
 
     public TaskData(long id, String taskType, String title) {
         this.id = id;
@@ -213,21 +222,19 @@ public class TaskData {
     // change events (bubble up: a subtask forwards its events to its parent)
     //
 
+    /** Orator registration (§18.6): held weakly - keep a field reference on the subscriber side. */
     public void addChangeListener(Consumer<TaskData> listener) {
-        if (listener != null) {
-            changeListeners.add(listener);
-        }
+        changeListeners.addListener(listener);
     }
 
-    private void fire() {
+    /** Package-private: fired exactly once per executed {@link TaskCommand} (§18). */
+    void fire() {
         notify(this);
     }
 
     /** Fires the listeners with the originating task (bubble-up keeps the origin). */
     private void notify(TaskData origin) {
-        for (Consumer<TaskData> l : new ArrayList<>(changeListeners)) {
-            l.accept(origin);
-        }
+        changeListeners.say((level, l) -> l.accept(origin));
     }
 
     //
@@ -242,53 +249,47 @@ public class TaskData {
 
     public Status getStatus() { return status; }
 
-    public void setStatus(Status status) {
+    void setStatus(Status status) {
         this.status = status;
-        fire();
     }
 
     public Integer getScore() { return score; }
 
-    public void setScore(int score) {
+    void setScore(int score) {
         this.score = score;
-        fire();
     }
 
     public int getAttempt() { return attempt; }
 
-    public void incrementAttempt() {
+    void incrementAttempt() {
         attempt++;
-        fire();
     }
 
     public boolean isSummaryTask() { return summaryTask; }
 
     /** SPLIT: this task becomes a summarization task over its children. */
-    public void rewriteAsSummary() {
+    void rewriteAsSummary() {
         summaryTask = true;
-        fire();
     }
 
     public String getPromptSupplement() { return promptSupplement; }
 
     /** CHECK: retry with an improved task statement. */
-    public void appendPromptSupplement(String text) {
+    void appendPromptSupplement(String text) {
         promptSupplement = promptSupplement.isEmpty() ? (text == null ? "" : text)
                 : promptSupplement + "\n" + text;
-        fire();
     }
 
     public String getArtifact() { return artifact; }
 
     /** CLOSE: finalize and write the artifact. */
-    public void close(String artifact) {
+    void close(String artifact) {
         this.artifact = artifact == null ? "" : artifact;
         // CLOSE fires in the loop's finally (§15.6) - it finalizes the artifact but must
         // never resurrect a terminal failure status (ABORTED/FAILED stay)
         if (status != Status.ABORTED && status != Status.FAILED) {
             status = Status.DONE;
         }
-        fire();
     }
 
     /** The parent task (null for the root). */
@@ -298,20 +299,18 @@ public class TaskData {
     public List<TaskData> getChildren() { return children; }
 
     /** SPLIT / COMPLETE: adds a subtask (reasoning subtask or split part). */
-    public TaskData addSubtask(long childId, String taskType, String title) {
+    TaskData addSubtask(long childId, String taskType, String title) {
         TaskData child = new TaskData(childId, taskType, title);
         child.parent = this;
         children.add(child);
-        child.addChangeListener(this::notify);   // bubble: the root's listeners see every descendant, with origin
-        fire();
+        child.addChangeListener(childEventForwarder);   // bubble: the root's listeners see every descendant, with origin
         return child;
     }
 
     public List<CallLogEntry> getCalculatorLog() { return calculatorLog; }
 
-    public void logCall(CallLogEntry entry) {
+    void logCall(CallLogEntry entry) {
         calculatorLog.add(entry);
-        fire();
     }
 
     /**
@@ -319,9 +318,8 @@ public class TaskData {
      * with the input prompts, the {@link CalcResult} payload and the {@link LoopAction} - the
      * data the calculator read and wrote, visible in the task tree and persisted with it.
      */
-    public void appendCalcCall(String calcName, Kind kind, String slotId, CalcResult res, List<String> input) {
+    void appendCalcCall(String calcName, Kind kind, String slotId, CalcResult res, List<String> input) {
         calls.add(CalcCall.of(calcName, kind, slotId, res, input));
-        fire();
     }
 
     /** The projected calculator steps of this task (the "calls" array). */

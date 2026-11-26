@@ -50,6 +50,20 @@ public class HarnessController {
     private HarnessService service(File projectRoot) {
         if (service == null) {
             service = new HarnessService(projectRoot, wjjHost(projectRoot));
+            // attach the orator listeners registered before the service existed (§18.6)
+            synchronized (pendingCommandListeners) {
+                for (var l : pendingCommandListeners) {
+                    service.addCommandListener(l);
+                }
+            }
+            synchronized (pendingResponseListeners) {
+                for (var l : pendingResponseListeners) {
+                    service.addResponseListener(l);
+                }
+            }
+            System.out.println("[DIAG] HarnessController: service created, attached "
+                    + pendingCommandListeners.size() + " command + "
+                    + pendingResponseListeners.size() + " response listeners");
         }
         return service;
     }
@@ -62,6 +76,44 @@ public class HarnessController {
     /** §17: the KI pane installs this to show /cmd replies (e.g. /clear, /memory) in the output area. */
     public void setCommandReplyHandler(java.util.function.Consumer<String> commandReplyHandler) {
         this.commandReplyHandler = commandReplyHandler;
+    }
+
+    // pending orator registrations (§18.6): no projectRoot needed - they are attached to the
+    // service as soon as the service instance exists, so the menu can register in its
+    // constructor without touching the (not yet existing) project sidebar
+    private final List<java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry>> pendingCommandListeners = new ArrayList<>();
+    private final List<java.util.function.Consumer<de.jare.harness.memory.WorkResponse>> pendingResponseListeners = new ArrayList<>();
+
+    /**
+     * Orator pass-through (§18): registers a listener on the CommandHistory of every run's
+     * MemoryQuest. The controller holds NO UI reference - the caller (menu) maps entries
+     * to whatever view it wants.
+     */
+    public void addCommandListener(java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry> l) {
+        if (l == null) {
+            return;
+        }
+        synchronized (pendingCommandListeners) {
+            pendingCommandListeners.add(l);
+        }
+        System.out.println("[DIAG] HarnessController.addCommandListener: pending now "
+                + pendingCommandListeners.size() + ", service exists=" + (service != null));
+        if (service != null) {
+            service.addCommandListener(l);
+        }
+    }
+
+    /** Orator pass-through: registers a listener on the WorkResponse of every run's MemoryQuest. */
+    public void addResponseListener(java.util.function.Consumer<de.jare.harness.memory.WorkResponse> l) {
+        if (l == null) {
+            return;
+        }
+        synchronized (pendingResponseListeners) {
+            pendingResponseListeners.add(l);
+        }
+        if (service != null) {
+            service.addResponseListener(l);
+        }
     }
 
     /**
@@ -120,6 +172,7 @@ public class HarnessController {
             public void addRunListener(BiConsumer<TaskData, String> listener) {
                 runListeners.add(listener);
             }
+
         };
     }
 

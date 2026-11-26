@@ -36,6 +36,23 @@ public class CalcResult {
         return r;
     }
 
+    /**
+     * Shallow copy (payload map is copied too). Used to graft a steering loop action onto a
+     * puzzle's result WITHOUT mutating the child result that was already recorded in the
+     * CommandHistory (§18) - otherwise the history entry would render/execute the steering twice.
+     */
+    public CalcResult copy() {
+        CalcResult r = new CalcResult(kind);
+        r.status = status;
+        r.score = score;
+        r.decision = decision;
+        r.message = message;
+        r.action = action;
+        r.loopAction = loopAction;
+        r.payload.putAll(payload);
+        return r;
+    }
+
     public Kind getKind() {
         return kind;
     }
@@ -94,19 +111,13 @@ public class CalcResult {
             return loopAction;
         }
         if (action != null) {
-            return de.jare.harness.main.actions.LoopActions.fromControl(controlOf(action));
+            // migrated actions declare their flow polymorphically; custom actions fall back
+            // to the Control they declare (no type-string parsing)
+            LoopAction la = action.loopAction();
+            return la != null ? la
+                    : de.jare.harness.main.actions.LoopActions.fromControl(action.control());
         }
-        return de.jare.harness.main.actions.LoopActions.fromDecision(decision, message);
-    }
-
-    private static HarnessAction.Control controlOf(HarnessAction a) {
-        // the Control is what the action's execute() returns on the driver; for derivation we
-        // ask the built-in factory - unknown custom actions fall back to CONTINUE
-        return switch (a.type()) {
-            case "abort" -> HarnessAction.Control.STOP;
-            case "retry", "incomplete" -> HarnessAction.Control.LOOP;
-            default -> HarnessAction.Control.CONTINUE;
-        };
+        return de.jare.harness.main.actions.LoopActions.fromDecision(decision, payload, message);
     }
 
     public CalcResult loopAction(LoopAction loopAction) {

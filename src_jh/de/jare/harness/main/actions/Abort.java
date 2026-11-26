@@ -22,4 +22,10 @@ public record Abort(String reason) implements HarnessAction {
         d.abort(t, reason);
         return Control.STOP;
     }
+    /** abort ist ein DOMAIN-ErrorSignal auf dem Flow-Kanal: CATCH feuert, kein harter Stopp (§15.6). */
+    @Override public de.jare.harness.LoopAction loopAction() {
+        return new LoopThrowError(de.jare.harness.ErrorSignal.domain(
+                reason == null || reason.isBlank() ? "abort" : reason, "action:abort"));
+    }
+    @Override public Control control() { return Control.STOP; }
 }

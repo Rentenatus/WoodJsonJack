@@ -86,6 +86,12 @@ deterministischen Fallback oder einen anderen Provider zurück. **Kostenlimits i
 
 ## 3. Task-Baum als persistierte Projektion (Trace) des Laufs
 
+**Prompt-Regel (entschieden, §10.13): Prompts stehen AUSSCHLIESSLICH als Params in der Konfig-JSON**
+(`assets/harness/harness-model.json` bzw. `<projekt>/.wood/harness-model.json`) — nie als
+Code-Default in Kalkulatoren. Fehlt `systemPrompt`, ist das ein PARAMETER-Fehler (PARAM_ERROR-Metrik),
+kein versteckter hartkodierter Prompt. `HarnessService.defaultModel()` lädt deshalb das gebundelte
+Asset (fehlende Kinds werden deterministisch ohne Prompts ergänzt).
+
 Die Daten des Harness-Fensters werden **als Baum gespeichert** und via jsonCasted persistiert
 (`<projekt>/.wood/harness.json`, §5). Jeder Task-Knoten: `id, taskType, title, status, score, children, calculatorLog[]`.
 Das Harness-Fenster zeigt den Baum live (Status-Farben, Score-Badges); Klick auf einen Knoten zeigt dessen
@@ -100,7 +106,8 @@ score/attempt/… + `children[]` + `calculatorLog[]` + `calls[]`) — **JSON ist
 Zwei-Welten-Problem; src_jh hängt dafür nicht mehr von jsonCasted_edit ab. Die UI baut ihren JTree direkt
 aus den TaskData-Objekten. Pro Kalkulator-Aufruf wird ein **`CalcCall`** an `calls[]` angehängt
 (input-Prompts, CalcResult-Payload, LoopAction mit type/flow/detail) — das ist die **sichtbare
-Datenbewegung** des Laufs im Baum.
+Datenbewegung** des Laufs im Baum. **Mutationen laufen nicht direkt, sondern als Commands über eine
+Command-History — entschieden in §18.**
 
 **Zwei Schichten — Runtime-Wahrheit vs. persistierte Projektion (entschieden):** Die Logik des Laufs
 lebt **unabhängig** in der Runtime-Schicht — dem Package `de.jare.harness.memory` (`MemoryQuest` mit
@@ -322,6 +329,7 @@ Der Roh-Log bleibt lokal; **global** landet nur die aggregierte Kennzahlenliste 
    wird ein Swap vorgeschlagen und als **Kind-Version im Stammbaum** erzeugt — wirksam ab dem nächsten Lauf
    (das alte Modell wird dann entladen). Während des Laufs bleibt die Modell-Version frozen.
 2. **Evolutions-Schritt:** An als `evolvable` markierten Task-Punkten dürfen kurzfristig **3 alternative Implementierungen** desselben Slots parallel laufen. Nach einem Messfenster (z. B. 20 Aufrufe) werden zwei verworfen, sobald eine Alternative die Zuverlässigkeitsschwelle signifikant schlägt (z. B. Ø-Score +15 und FAIL-Rate halbiert). Verlierer landen mit ihren Stats ins Archiv.
+   **Selection-Regel (umgesetzt, §10.13):** (a) harte Gates zuerst — ein Kandidat gewinnt nur, wenn er base um `SCORE_DELTA` schlägt UND die FAIL-Rate auf höchstens `FAIL_RATE_FACTOR`·base drückt; (b) unter den Gate-Passern rangiert die **`structureScore`** (`ema(SCORE) − 100·(wFail·ema(FAIL_RATE) + wParam·ema(PARAM_ERROR))`), nicht der rohe Ø-Score — Parameterfehler werden so bestraft; (c) bei dünnem Messfenster (< `MIN_SAMPLES` = 3) ist die structureScore eines frischen Knotens 0-Rauschen, dann rangiert der rohe Ø-Score.
    **Herkunft der 3 Kandidaten — alles drei, gewichtet:**
    - **Hauptquelle: feste Kandidatenliste** (im Modell/Repo versioniert) — am meisten Kandidaten.
    - **Selten: zwei zufällige Mutationen** — fallen sie schlechter aus, verfallen sie einfach (ins Archiv).
@@ -640,8 +648,8 @@ ctx.ui          // * neu: Harness-Fenster
    WorkOrder / WorkCache / WorkResponse) + `HarnessInstance` sind die **Runtime-Wahrheit** eines Laufs;
    `TaskData` ist die **persistierte Projektion** — Struktur + überschreibbare Status-Zelle
    (status/score/attempt, Fortschrittsbalken-Semantik) + append-only Call-Log (`calculatorLog[]`) +
-   projizierte Kalkulator-Schritte (`calls[]`). Der Engine mutiert die Runtime; die TaskData-Setter
-   feuern die Change-Events. TaskData ist der Trace, nie der State.
+   projizierte Kalkulator-Schritte (`calls[]`). Der Engine mutiert die Runtime; TaskData-Mutationen
+   laufen als Commands über die Command-History (§18), die Change-Events feuert. TaskData ist der Trace, nie der State.
 5. **Steuerung objektorientiert via HarnessAction (entschieden):** Ein Kalkulator steuert den Automaten
    nicht über Decision-Strings, sondern indem er ein **`HarnessAction`**-Objekt im `CalcResult` erzeugt.
    Das Interface liegt in `de.jare.harness`, die Repräsentanten in **`de.jare.harness.main.actions`**
@@ -724,3 +732,56 @@ ctx.ui          // * neu: Harness-Fenster
 - **Verfall („gestern stört nicht heute"):** TTL pro Eintrag (`ttlMs`, Default z. B. 7 Tage CHAT, länger NUGGET; `0` = nie), plus explizite Steuerung via `/clear` und `/forget <id>`. Später optional score-basiertes Verdrängen bei Größenbudget (niedriges `hits/uses`-Verhältnis zuerst).
 - **Einspeisung in Prompts:** CHAT-Einträge als **HISTORY-Segment** (Budget `promptBudgets.HISTORY` greift automatisch), NUGGETs als DATA-Segment, DECISIONs als **SYSTEM-Segment** — alles lesbar auch direkt über `CalcContext`, **getrennt von der RAG** (RagStore bleibt eigener Zyklus, §11).
 - **Chat-Befehle:** eigener Service **`de.jare.harness.main.chat.ChatCommandService`** (Tendenz: immer mehr `/cmd`). Vor jedem Run prüft der Service, ob die Eingabe mit `/` beginnt: `/clear` (ProjectMemory leeren), `/forget <id>`, `/decide <text>` (DECISION anlegen), `/decisions` (Liste `<id> <text>`), `/memory` (Liste), `/help` … Kein `/`-Prefix → normaler Harness-Run. Die UI bleibt dumm: Enter/Ask-AI → Handler → `ChatCommandService.dispatch(input)` entscheidet Befehl vs. Run. Das Popup-Menü der KI-Pane (host-seitig) ruft nur dieselben Service-Befehle — keine doppelte Logik.
+
+## 18. Command-History für TaskData-Mutationen (entschieden)
+
+**Grundsatz:** `TaskData` wird **nie direkt mutiert** — jede Änderung läuft als **`TaskCommand`**
+(Record, JSON-serialisierbar) über einen **Command-Dispatcher**, der das Command ausführt, in die
+**Command-History** der laufenden MemoryQuest einträgt und genau einmal den Change-Event feuert.
+Die History ist reines Audit/Protokoll (noch **kein Undo**), Commands sind Daten — ein späteres
+Undo/Redo ergänzt nur `undo()` an den invertierbaren Commands, ohne Redesign.
+
+1. **Facade gegen Umgehung (entschieden):** Kalkulatoren sehen über `CalcContext.task()` nur noch
+eine Read-Only-Fassade **`TaskView`** (Getter: id/taskType/title/status/score/attempt/children/
+depth/promptSupplement/calls). Die zwei externen Mutationsaufrufe werden in Commands verlagert:
+`appendCalcCall` (Engine-seitig, HarnessEngine.runNode) und `close` (CLOSE-Kalkulator) laufen über
+einen Command-Kanal auf `CalcContext` (z. B. `ctx.commands().apply(new CloseTask(artifact))`).
+Damit ist „keine direkten Änderungen" keine Konvention, sondern durch die Schnittstelle erzwungen.
+2. **Composite-Commands (entschieden):** `handleSplit` erzeugt **ein** Command `SplitInto(loopId,
+prompts[])` — atomar `rewriteAsSummary` + N×`addSubtask` + Statuswechsel, **ein** History-Eintrag,
+**ein** `fire()`. Der Command umfasst nur die Baum-Mutation; das Ausführen der N Subloops bleibt
+Engine-Flow. Die erzeugten Child-IDs werden im Command mitgeführt.
+3. **Kein Undo jetzt (entschieden):** Commands werden aufgezeichnet, aber nicht invertiert.
+Voraussetzung fürs spätere Undo ist nur, dass jedes Command ein Daten-Record mit `invertible`-Feld ist.
+4. **Lebensdauer der History (entschieden):** pro **User-Call** auf der `MemoryQuest` (RAM), weg mit
+der WorkResponse. **Keine** volle Persistenz in `<projekt>/.wood/harness/memory.json` — `calls[]` im
+TaskData speichert bereits jedes Kalkulator-Ergebnis, eine persistente Command-History wäre doppelt
+gemoppelt. Persistiert wird später höchstens ein bounded tail (Cap), falls Audit über Sitzungen
+gebraucht wird.
+5. **Invertible-Flag: default true, Demotion per Pull-Scan (entschieden):** Jedes Command startet
+mit `invertible=true`. Fällt der **Trigger einer Systemmutation zu Opfer** (LoopItem per Evolution
+aus der Loop-Konfig entfernt/geändert), wird bei der Undo-/Validierungs-Auswertung **lazy gegen die
+aktuelle Loop-Konfig geprüft** (Pull, nie Push-Event): Entry-Key ist das Tripel
+**`loopId / loopItemId / trigger`** (gleiches Schlüssel-Tripel wie `CallLogEntry`; LoopItem-IDs sind
+nur pro Loop eindeutig — `main` und `sub` teilen sich z. B. `"split"` — das Tripel macht sie global
+eindeutig). Fehlt Loop oder Item in der aktuellen Konfig → `invertible=false`, dauerhaft im Entry
+persistiert. Engine-originierte Commands (z. B. `SplitInto`, Retry) haben keinen LoopItem als Origin
+und können zusätzlich **explizit durch den Engine-Dispatcher demotiert** werden — beides nutzt
+dieselbe Flag-Mechanik. Beim Config-Load wird pro Loop auf doppelte Item-IDs geprüft (PARAM_ERROR).
+
+**Command-Katalog (Start):** `SetStatus`, `SetScore`, `IncrementAttempt`, `AppendPromptSupplement`,
+`AppendCalcCall`, `LogCall`, `AddSubtask`, `CloseTask`, `RewriteAsSummary`, `SplitInto` (composite).
+Dispatcher + History liegen im memory-Package; die `TaskData`-Setter werden package-private und
+wandern in die Command-Implementierungen.
+
+**Orator-Prinzip (§18.6):** Weder Controller noch Service halten UI-Referenzen. Alle
+Oratoren (`TaskData`, `HarnessInstance`, `CommandHistory`, `WorkResponse`) benutzen die
+jsonCasted-core-Klasse **`de.jare.tree.control.Orator`** (Swing-frei, src_jh darf jsonCasted
+benutzen) und halten ihre Listener **nur weak** — jeder Anmelder muss seinen Listener als
+**Feld** festhalten, sonst deregistriert der GC ihn unbemerkt (KI-Pane: `commandListener`/
+`responseListener`-Felder; TaskData-Bubble und HarnessInstance-Root-Forwarder sind solche
+Felder). Die `CommandHistory` feuert bei jedem `apply` den neuen Entry, die `WorkResponse`
+bei jedem `update`; `HarnessService` reicht Registrierungen an die jeweilige MemoryQuest
+durch, die UI (KI-Pane) abonniert direkt die Memory-Objekte — Loop-Actions als graue
+Zeilen (60% fg + 40% bg) während des Laufs, die terminale Antwort in Normalfarbe.
+`HarnessEngine.addListener` bleibt strong — der Engine lebt nur einen Run.

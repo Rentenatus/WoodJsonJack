@@ -13,7 +13,8 @@ import de.jare.harness.HarnessCalculator;
 import de.jare.harness.HarnessEngine;
 import de.jare.harness.Kind;
 import de.jare.harness.Status;
-import de.jare.harness.TaskData;
+import de.jare.harness.TaskCommands;
+import de.jare.harness.TaskView;
 import de.jare.harness.main.actions.LoopThrowError;
 import de.jare.harness.model.Modelclass;
 import de.jare.harness.skills.Skill;
@@ -96,7 +97,7 @@ public final class DeterministicCalculators {
     }
 
     private static CalcResult work(CalcContext ctx) {
-        TaskData t = ctx.task();
+        TaskView t = ctx.task();
         String artifact = "worked:" + t.getTitle();
         return CalcResult.of(Kind.WORK, "worked").put("artifact", artifact).status(Status.DONE);
     }
@@ -170,7 +171,7 @@ public final class DeterministicCalculators {
             return CalcResult.of(Kind.SUMMARIZE, "skipped").put("reason", "no-children").status(Status.DONE);
         }
         List<String> parts = new ArrayList<>();
-        for (TaskData c : ctx.task().getChildren()) {
+        for (TaskView c : ctx.task().getChildren()) {
             if (c.getArtifact() != null) {
                 parts.add(c.getArtifact());
             }
@@ -186,7 +187,7 @@ public final class DeterministicCalculators {
      * so the calculator decides. The store itself just stores + dedups by contentHash.
      */
     private static CalcResult ragStore(CalcContext ctx) {
-        TaskData t = ctx.task();
+        TaskView t = ctx.task();
         int minScore = HarnessEngine.RAG_STORE_MIN_SCORE;
         String p = ctx.calculatorNode() == null ? null : ctx.calculatorNode().getParams().get("minScore");
         if (p != null) {
@@ -244,7 +245,7 @@ public final class DeterministicCalculators {
         String artifact = ctx.task().getChildren().isEmpty()
                 ? "closed:" + ctx.task().getTitle()
                 : "closed:summary";
-        ctx.task().close(artifact);
+        ctx.commands().apply(new TaskCommands.CloseTask(artifact));   // §18: mutation only as command
         return CalcResult.of(Kind.CLOSE, "closed").put("artifact", artifact).status(Status.DONE);
     }
 }

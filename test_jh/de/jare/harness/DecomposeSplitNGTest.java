@@ -6,6 +6,7 @@
  */
 package de.jare.harness;
 
+import de.jare.harness.TaskCommands;
 import de.jare.harness.impl.DefaultCalculatorFactory;
 import de.jare.harness.main.actions.LoopSplit;
 import de.jare.harness.main.calculator.AskAiDecomposeCalculator;
@@ -51,7 +52,7 @@ public class DecomposeSplitNGTest {
         HarnessEngine engine = new HarnessEngine(model, instance, factory);
         engine.setWorkCache(cache);
         CalculatorNode node = CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
-                .params(java.util.Map.of("model", "nemotron3:33b"));
+                .params(java.util.Map.of("model", "nemotron3:33b", "systemPrompt", "decompose into {data.count} quests"));
         return new CalcContext(engine, instance, model, root, Kind.SPLIT, "askai.base",
                 node, engine.getLimits(), List.of("AUFTRAG:inline:task\n" + userPrompt));
     }
@@ -95,7 +96,7 @@ public class DecomposeSplitNGTest {
         Assert.assertEquals(split.loopId(), Loop.SUB, "split steers the subloop, not a fresh main loop");
         Assert.assertEquals(r.getPayload().get("count"), "2");
         Assert.assertTrue(r.getPayload().get("quests").contains("wie viel ist 2*4?"));
-        Assert.assertTrue(sentSystem.get(0).contains("into 2 atomic quests"),
+        Assert.assertTrue(sentSystem.get(0).contains("decompose into 2 quests"),
                 "{data.count} was resolved by the PromptFormatter: " + sentSystem.get(0));
     }
 
@@ -163,7 +164,7 @@ public class DecomposeSplitNGTest {
                 @Override public Kind kind() { return kind; }
                 @Override public CalcResult calculate(CalcContext c) {
                     if (kind == Kind.CLOSE) {
-                        c.task().close("closed");
+                        c.commands().apply(new TaskCommands.CloseTask("closed"));   // §18
                     }
                     return CalcResult.of(kind, "done");
                 }
@@ -185,10 +186,11 @@ public class DecomposeSplitNGTest {
         // one subloop per subtask: WORK ran once per child via the "sub" loop (2 children)
         Assert.assertEquals(calls.stream().filter(k -> k == Kind.WORK).count(), 2L,
                 "each of the N subloops ran the sub loop");
-        // the children did NOT run a fresh main loop: the main-only SUMMARIZE marker never fired
-        // (the parent exits at the SPLIT item before reaching it either)
-        Assert.assertEquals(calls.stream().filter(k -> k == Kind.SUMMARIZE).count(), 0L,
-                "split children run the subloop, not a new main loop");
+        // the children did NOT run a fresh main loop: the main-only SUMMARIZE marker fires
+        // exactly once - the parent's own summary AFTER the N subloops returned (§15.6,
+        // legacy splitInto semantics preserved in handleSplit), never per child
+        Assert.assertEquals(calls.stream().filter(k -> k == Kind.SUMMARIZE).count(), 1L,
+                "parent summarizes once after the subloops; split children run the subloop, not a new main loop");
         Assert.assertEquals(cache.get("subloopId"), "sub");
         // consumption: slot + N deltas summed into the current output (WorkCache)
         Assert.assertEquals(cache.get("subloops"), "2");
@@ -208,7 +210,7 @@ public class DecomposeSplitNGTest {
         HarnessModel model = modelWithAllQuests();
         CalculatorNode splitPuzzle = CalculatorNode.puzzle("sequence")
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_AI).calculator("askai.decompose")
-                        .params(java.util.Map.of("model", "nemotron3:33b")))
+                        .params(java.util.Map.of("model", "nemotron3:33b", "systemPrompt", "decompose into {data.count} quests")))
                 .addChild(CalculatorNode.atomic(CalculatorNode.IMPL_DETERMINISTIC).calculator("printig"));
         model.questFor(Kind.SPLIT).baseSlot().calculator(splitPuzzle);
 

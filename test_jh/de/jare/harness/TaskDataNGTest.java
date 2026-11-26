@@ -39,31 +39,85 @@ public class TaskDataNGTest {
     }
 
     /**
-     * Subtasks are plain children; every mutation fires a change event, and subtask events
+     * §18: mutations never happen directly - every change is a {@link TaskCommand} through the
+     * {@link CommandHistory}, which fires exactly ONE change event per command; subtask events
      * bubble up so a listener on the root sees every descendant.
      */
     @Test
     public void testSubtasksAndChangeEventsBubbleUp() {
         TaskData root = TaskData.create(1, "SPLIT", "root");
+        de.jare.harness.memory.CommandHistory history = new de.jare.harness.memory.CommandHistory();
         List<TaskData> events = new ArrayList<>();
-        root.addChangeListener(events::add);
+        java.util.function.Consumer<TaskData> eventsListener = events::add; // §18.6: field/local held, orator is weak
+        root.addChangeListener(eventsListener);
 
-        TaskData child = root.addSubtask(2, "WORK", "part one");
+        TaskCommands.AddSubtask add = new TaskCommands.AddSubtask(2, "WORK", "part one");
+        history.apply(add, root, "main", "split", "EXECUTE");
+        TaskData child = add.created();
         assertEquals(root.getChildren().size(), 1);
         assertSame(root.getChildren().get(0), child);
         assertSame(child.getParent(), root);
         assertEquals(child.depth(), 1);
-        assertFalse(events.isEmpty(), "addSubtask fired a change event");
+        assertEquals(events.size(), 1, "exactly one event for the AddSubtask command");
+        assertEquals(history.size(), 1, "the command is recorded in the history");
+        assertEquals(history.entries().get(0).loopItemId, "split", "origin triple is recorded (§18.5)");
+        assertTrue(history.entries().get(0).invertible, "commands start invertible (§18.5)");
 
         events.clear();
-        child.setStatus(Status.RUNNING);
-        child.setScore(7);
-        child.incrementAttempt();
+        history.apply(new TaskCommands.SetStatus(Status.RUNNING), child, null, null, null);
+        history.apply(new TaskCommands.SetScore(7), child, null, null, null);
+        history.apply(new TaskCommands.IncrementAttempt(), child, null, null, null);
         assertEquals(child.getStatus(), Status.RUNNING);
         assertEquals(child.getScore(), Integer.valueOf(7));
         assertEquals(child.getAttempt(), 1);
-        assertEquals(events.size(), 3, "every setter fired, and the child's events bubbled to the root listener");
+        assertEquals(events.size(), 3, "one event per command, and the child's events bubbled to the root listener");
         assertSame(events.get(0), child, "the event carries the changed task");
+    }
+
+    /**
+     * §18 orator: the CommandHistory fires its listeners with each new entry right after
+     * recording (the UI subscribes here - the controller never holds a UI reference).
+     */
+    @Test
+    public void testCommandHistoryFiresListenersPerEntry() {
+        TaskData root = TaskData.create(1, "WORK", "root");
+        de.jare.harness.memory.CommandHistory history = new de.jare.harness.memory.CommandHistory();
+        List<de.jare.harness.memory.CommandHistory.Entry> seen = new ArrayList<>();
+        java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry> seenListener = seen::add; // §18.6 held
+        history.addListener(seenListener);
+
+        history.apply(new TaskCommands.SetStatus(Status.RUNNING), root, "main", "work", "EXECUTE");
+        history.apply(new TaskCommands.SetScore(42), root, "main", "evaluate", "EXECUTE");
+
+        assertEquals(seen.size(), 2, "one listener call per applied command");
+        assertEquals(seen.get(0).seq, 1);
+        assertEquals(seen.get(1).description, "setScore(42)");
+        assertEquals(seen.get(0).loopItemId, "work", "origin triple is on the entry");
+    }
+
+    /**
+     * §18.2: the composite SplitInto is ONE history entry with ONE change event, and the
+     * created children come back from the command.
+     */
+    @Test
+    public void testSplitIntoCompositeIsOneEntryOneEvent() {
+        TaskData root = TaskData.create(1, "SPLIT", "2*4 und 7*8");
+        de.jare.harness.memory.CommandHistory history = new de.jare.harness.memory.CommandHistory();
+        List<TaskData> events = new ArrayList<>();
+        java.util.function.Consumer<TaskData> eventsListener = events::add; // §18.6: field/local held, orator is weak
+        root.addChangeListener(eventsListener);
+
+        long[] ids = {10};
+        TaskCommands.SplitInto split = new TaskCommands.SplitInto("sub",
+                List.of("rechne 2*4", "rechne 7*8"), "SPLIT", () -> ids[0]++);
+        history.apply(split, root, "main", "split", "EXECUTE");
+
+        assertTrue(root.isSummaryTask(), "rewriteAsSummary was applied");
+        assertEquals(root.getChildren().size(), 2, "N subtasks created");
+        assertEquals(split.children().size(), 2, "the command exposes the created children");
+        assertEquals(history.size(), 1, "the whole composite is ONE history entry");
+        assertEquals(events.size(), 1, "the whole composite fired ONE change event");
+        assertEquals(history.entries().get(0).description, "splitInto(loop=\"sub\", parts=2)");
     }
 
     /**
@@ -74,13 +128,15 @@ public class TaskDataNGTest {
     public void testAppendCalcCallProjectsResultLoopActionAndInput() {
         TaskData root = TaskData.create(1, "SPLIT", "2*4 und 7*8");
         List<TaskData> events = new ArrayList<>();
-        root.addChangeListener(events::add);
+        java.util.function.Consumer<TaskData> eventsListener = events::add; // §18.6: field/local held, orator is weak
+        root.addChangeListener(eventsListener);
 
         CalcResult res = CalcResult.of(Kind.SPLIT, "split").status(Status.DONE).score(100)
                 .put("quests", "rechne 2*4 | rechne 7*8")
                 .loopAction(new LoopSplit(List.of("rechne 2*4", "rechne 7*8")));
-        root.appendCalcCall("askai.decompose", Kind.SPLIT, "askai.base", res,
-                List.of("AUFTRAG:inline:task\n2*4 und 7*8"));
+        new de.jare.harness.memory.CommandHistory().apply(
+                new TaskCommands.AppendCalcCall("askai.decompose", Kind.SPLIT, "askai.base", res,
+                        List.of("AUFTRAG:inline:task\n2*4 und 7*8")), root, "main", "split", "EXECUTE");
 
         assertEquals(root.getCalls().size(), 1, "one call per calculator step");
         TaskData.CalcCall call = root.getCalls().get(0);

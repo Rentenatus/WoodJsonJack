@@ -48,12 +48,7 @@ public class KIAssistantPanel extends JPanel {
         outputPane = new JTextPane();
         outputPane.setEditable(false);
         outputPane.setContentType("text/html");
-        StyledDocument doc = outputPane.getStyledDocument();
-        try {
-            doc.insertString(0, "<i>AI output appears here...</i>", null);
-        } catch (Exception ignored) {
-            // placeholder only
-        }
+        outputPane.setText("<i>AI output appears here...</i>");   // setText parses HTML (insertString would not)
         JScrollPane outputScroll = new JScrollPane(outputPane);
         add(outputScroll, BorderLayout.CENTER);
 
@@ -133,6 +128,30 @@ public class KIAssistantPanel extends JPanel {
 
     private java.util.function.Consumer<String> thinkingHandler;
 
+    // §18.6: the orators (CommandHistory/WorkResponse) hold listeners WEAKLY - this pane is the
+    // subscriber, so it holds its own listeners in fields to keep them alive
+    java.util.function.Consumer<de.jare.harness.memory.CommandHistory.Entry> commandListener;
+    java.util.function.Consumer<de.jare.harness.memory.WorkResponse> responseListener;
+
+    /**
+     * §18.6: creates this pane's harness-orator listeners AND stores them in fields (the
+     * orators are weak). The caller registers the returned listeners on the controller
+     * pass-through. EDT marshalling happens here.
+     */
+    public void installHarnessOrators() {
+        commandListener = entry -> {
+            String t = actionText(entry);   // [DIAG] temporary: which entries would render as action lines
+            if (t != null) {
+                System.out.println("[DIAG] action line seq=" + entry.seq + ": " + t);
+            }
+            javax.swing.SwingUtilities.invokeLater(() -> appendCommandEntry(entry));
+        };
+        responseListener = resp -> {
+            System.out.println("[DIAG] response event status=" + resp.getStatus() + " text=" + resp.getText());
+            javax.swing.SwingUtilities.invokeLater(() -> appendResponse(resp));
+        };
+    }
+
     /** The host (JackMainMenu via HarnessController) installs this: input text -> WoodHarness AskAi run. */
     public void setThinkingHandler(java.util.function.Consumer<String> thinkingHandler) {
         this.thinkingHandler = thinkingHandler;
@@ -189,13 +208,105 @@ public class KIAssistantPanel extends JPanel {
         }
         String html = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 .replace("\n", "<br>");
-        javax.swing.text.StyledDocument doc = outputPane.getStyledDocument();
+        appendHtml(html + "<br>");
+    }
+
+    /**
+     * Appends an HTML fragment at the end of the output pane. IMPORTANT: a plain
+     * {@code StyledDocument.insertString} does NOT parse HTML on a text/html JTextPane -
+     * the tags would show up as literal text. {@link javax.swing.text.html.HTMLEditorKit#insertHTML}
+     * parses the fragment in the document context.
+     */
+    private void appendHtml(String html) {
         try {
-            doc.insertString(doc.getLength(), html + "<br>", null);
+            javax.swing.text.html.HTMLEditorKit kit =
+                    (javax.swing.text.html.HTMLEditorKit) outputPane.getEditorKit();
+            javax.swing.text.html.HTMLDocument doc =
+                    (javax.swing.text.html.HTMLDocument) outputPane.getDocument();
+            kit.insertHTML(doc, doc.getLength(), html, 0, 0, null);
+            outputPane.setCaretPosition(doc.getLength());
         } catch (Exception ignored) {
             // output is best-effort
         }
-        outputPane.setCaretPosition(doc.getLength());
+    }
+
+    /**
+     * Appends one LOOP ACTION as a short gray line to the output area: 60% foreground +
+     * 40% background of the current theme, blended per channel (CONCEPT: actions stay
+     * visually subordinate to the AI answer).
+     */
+    public void appendAction(String text) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        String html = "<span style=\"color:" + grayHex() + "\">"
+                + text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\n", "<br>") + "</span><br>";
+        appendHtml(html);
+    }
+
+    /** Appends the final AI ANSWER in normal foreground color (after the loop closed). */
+    public void appendAnswer(String text) {
+        appendOutput(text);
+    }
+
+    /**
+     * Renders one CommandHistory entry as a gray action line - but only real flow actions:
+     * a non-CONTINUE {@code LoopAction} of an appended calculator call, or a composite
+     * {@code SplitInto}. Plain mutations (setStatus, logCall, …) stay invisible here.
+     */
+    public void appendCommandEntry(de.jare.harness.memory.CommandHistory.Entry e) {
+        String text = actionText(e);
+        System.out.println("[DIAG] appendCommandEntry seq=" + e.seq + " render=" + (text != null));
+        if (text != null) {
+            appendAction(text);
+        }
+    }
+
+    /** Short text for the loop action an entry carries (null = not an action line). */
+    private static String actionText(de.jare.harness.memory.CommandHistory.Entry e) {
+        if (e.command instanceof de.jare.harness.TaskCommands.SplitInto sp) {
+            return "→ SPLIT into " + sp.children().size() + " parts (loop \"" + sp.loopId() + "\")";
+        }
+        if (e.command instanceof de.jare.harness.TaskCommands.AppendCalcCall acc) {
+            de.jare.harness.LoopAction la = acc.res().getLoopAction();
+            if (la != null && la.flow() != de.jare.harness.LoopAction.Flow.CONTINUE) {
+                String detail = "";
+                if (la instanceof de.jare.harness.main.actions.LoopSplit split) {
+                    detail = " → loop \"" + split.loopId() + "\", " + split.prompts().size() + " prompts";
+                } else if (la instanceof de.jare.harness.main.actions.LoopSubLoop sub) {
+                    detail = " → loop \"" + sub.loopId() + "\"";
+                }
+                return "→ " + la.flow() + detail;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * WorkResponse orator: when the run reaches a terminal status, the answer is appended
+     * in normal color (the gray action lines above stay subordinate).
+     */
+    public void appendResponse(de.jare.harness.memory.WorkResponse r) {
+        de.jare.harness.Status s = r.getStatus();
+        if (s == de.jare.harness.Status.DONE || s == de.jare.harness.Status.FAILED
+                || s == de.jare.harness.Status.ABORTED) {
+            if (r.getText() != null && !r.getText().isBlank()) {
+                appendAnswer(r.getText());
+            }
+        }
+    }
+
+    /** 60% Label.foreground + 40% Label.background, blended per RGB channel, as HTML hex. */
+    private static String grayHex() {
+        java.awt.Color fg = javax.swing.UIManager.getColor("Label.foreground");
+        java.awt.Color bg = javax.swing.UIManager.getColor("Label.background");
+        if (fg == null) fg = java.awt.Color.BLACK;
+        if (bg == null) bg = java.awt.Color.WHITE;
+        int r = (int) (fg.getRed() * 0.6 + bg.getRed() * 0.4);
+        int g = (int) (fg.getGreen() * 0.6 + bg.getGreen() * 0.4);
+        int b = (int) (fg.getBlue() * 0.6 + bg.getBlue() * 0.4);
+        return String.format("#%02x%02x%02x", r, g, b);
     }
 
     public JTextPane getOutputPane() {

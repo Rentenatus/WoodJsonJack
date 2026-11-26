@@ -9,6 +9,11 @@ package de.jare.harness.main.actions;
 import de.jare.harness.ErrorSignal;
 import de.jare.harness.HarnessAction;
 import de.jare.harness.LoopAction;
+import de.jare.harness.model.Loop;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Factory for the {@link LoopAction} representatives (package
@@ -37,6 +42,15 @@ public final class LoopActions {
 
     /** Legacy mapping: decision string to flow. "abort" throws a DOMAIN signal (CATCH/ABORT quest handles it). */
     public static LoopAction fromDecision(String decision, String message) {
+        return fromDecision(decision, null, message);
+    }
+
+    /**
+     * Legacy mapping with payload: decision string + payload to flow. "split" becomes a
+     * {@link LoopSplit} carrying the payload's {@code quests} (and {@code parts} as fallback),
+     * so the legacy decision path runs the SAME subloop split as an explicit LoopSplit (§15.6).
+     */
+    public static LoopAction fromDecision(String decision, Map<String, String> payload, String message) {
         if (decision == null) {
             return new LoopContinue();
         }
@@ -44,7 +58,22 @@ public final class LoopActions {
             case "abort" -> new LoopThrowError(ErrorSignal.domain(
                     message == null || message.isBlank() ? "abort" : message, "decision"));
             case "retry", "incomplete" -> new LoopRestart();
-            case "split" -> new LoopContinue();
+            case "split" -> {
+                List<String> prompts = new ArrayList<>();
+                String q = payload == null ? null : payload.get("quests");
+                if (q != null && !q.isBlank()) {
+                    prompts.addAll(Arrays.asList(q.split("\n")));
+                }
+                int parts = 2;
+                if (payload != null) {
+                    try {
+                        parts = Integer.parseInt(payload.getOrDefault("parts", "2"));
+                    } catch (NumberFormatException ignored) {
+                        parts = 2;
+                    }
+                }
+                yield new LoopSplit(prompts, Loop.SUB, parts);
+            }
             default -> new LoopContinue();
         };
     }

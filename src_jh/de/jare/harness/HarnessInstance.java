@@ -9,6 +9,7 @@ package de.jare.harness;
 import de.jare.harness.metrics.MetricsStore;
 import de.jare.harness.rag.EmbeddingProvider;
 import de.jare.harness.rag.RagStore;
+import de.jare.tree.control.Orator;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,7 +28,9 @@ public class HarnessInstance {
     private final String modelVersion;
     private java.io.File projectRoot;   // sandbox root for the fs.* tools (§13)
     private TaskData root;   // the task tree as plain data (§3, JSON is its persistence shape)
-    private final List<java.util.function.Consumer<TaskData>> changeListeners = new ArrayList<>();
+    // weak orator (jsonCasted Orator, §18.6); rootForwarder is a field so the root registration never GCs
+    private final Orator<java.util.function.Consumer<TaskData>> changeListeners = new Orator<>();
+    private final java.util.function.Consumer<TaskData> rootForwarder = this::notifyChange;
     private long nextTaskId = 1;
     private long nextAufrufId = 1;
     private final List<CallLogEntry> callLog = new ArrayList<>();
@@ -56,17 +59,13 @@ public class HarnessInstance {
         this.projectRoot = projectRoot;
     }
 
-    /** Change listener on the task tree - fires for the root and every descendant (bubble-up). */
+    /** Change listener on the task tree - fires for the root and every descendant (bubble-up). Held weakly (§18.6). */
     public void addChangeListener(java.util.function.Consumer<TaskData> listener) {
-        if (listener != null) {
-            changeListeners.add(listener);
-        }
+        changeListeners.addListener(listener);
     }
 
     private void notifyChange(TaskData t) {
-        for (java.util.function.Consumer<TaskData> l : new ArrayList<>(changeListeners)) {
-            l.accept(t);
-        }
+        changeListeners.say((level, l) -> l.accept(t));
     }
 
     /** Adopts a loaded root task (codec). */
@@ -86,7 +85,7 @@ public class HarnessInstance {
     public TaskData setRoot(TaskData root) {
         this.root = root;
         if (root != null) {
-            root.addChangeListener(this::notifyChange);
+            root.addChangeListener(rootForwarder);
         }
         return root;
     }

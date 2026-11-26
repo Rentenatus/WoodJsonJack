@@ -30,6 +30,7 @@ public class MemoryQuest {
     private final WorkOrder workOrder;  // memory of the current calculation
     private final WorkCache workCache = new WorkCache();
     private final WorkResponse workResponse = new WorkResponse();
+    private final CommandHistory commandHistory = new CommandHistory();   // §18: one per user call, RAM only
 
     /**
      * Creates the memory quest AND its root task (plain TaskData tree) - the UI/host only
@@ -62,5 +63,13 @@ public class MemoryQuest {
     /** The live, changing answer of the current run - the UI attaches here. */
     public WorkResponse getWorkResponse() {
         return workResponse;
+    }
+
+    /**
+     * The command history of this run (§18): every TaskData mutation of the run is recorded
+     * here (per user call, RAM only - not persisted, §18.4). The engine dispatches through it.
+     */
+    public CommandHistory getCommandHistory() {
+        return commandHistory;
     }
 }

@@ -30,26 +30,6 @@ import java.util.List;
  */
 public class ScoringCountQuestsCalculator implements HarnessCalculator {
 
-    public static final String DEFAULT_SYSTEM_PROMPT =
-            "Count the distinct questions or tasks in the user prompt. "
-            + "Each clause that asks for something or requests an action is ONE quest, even when "
-            + "clauses are joined with \"and\"/\"und\"/\",\". Never merge joined clauses into one. "
-            + "Pure greetings or statements without a question or instruction count as 0. "
-            + "Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"counted\","
-            + "\"score\":100,\"payload\":{\"questCount\":N}} where N is the total number of quests. "
-            // tuned against phi4-mini (3.8B): rule-based, NO few-shot examples - a tiny model
-            // tends to parrot examples instead of analysing the user prompt
-            ;
-
-    /**
-     * Appended to the system prompt for ONE retry when the first answer is not strict JSON
-     * (small models sometimes answer with prose or markdown fences first). Config param
-     * {@code "emphasisPrompt"} overrides it.
-     */
-    public static final String DEFAULT_EMPHASIS_PROMPT =
-            "Attention: You must strictly adhere to the JSON structure! "
-            + "Answer with strict JSON only, no other text, no markdown fences.";
-
     private final Kind kind;
     private final Modelclass modelclass;
     private final ModelProvider provider;
@@ -61,10 +41,13 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
         this.kind = kind;
         this.modelclass = modelclass;
         this.provider = provider;
-        this.systemPrompt = systemPrompt == null || systemPrompt.isBlank()
-                ? DEFAULT_SYSTEM_PROMPT : systemPrompt;
-        this.emphasisPrompt = emphasisPrompt == null || emphasisPrompt.isBlank()
-                ? DEFAULT_EMPHASIS_PROMPT : emphasisPrompt;
+        if (systemPrompt == null || systemPrompt.isBlank()) {
+            throw new de.jare.harness.HarnessException(de.jare.harness.HarnessException.Type.PARAMETER,
+                    "scoring.countQuests needs the config param \"systemPrompt\" (prompts live only in the config JSON)",
+                    "systemPrompt");
+        }
+        this.systemPrompt = systemPrompt;
+        this.emphasisPrompt = emphasisPrompt == null || emphasisPrompt.isBlank() ? null : emphasisPrompt;
     }
 
     // Instances are built by ScoringCountQuestsBuilder (Builder pattern): the factory fills the
@@ -107,6 +90,8 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
         if (ctx.workCache() != null) {
             ctx.workCache().put("count", String.valueOf(questCount));
         }
+        System.out.println("[DIAG] countQuests task=\"" + ctx.task().getTitle() + "\" -> questCount=" + questCount
+                + " raw=" + parsed.rawAnswer());
         return CalcResult.of(kind, AiAnswers.text(root, "decision", "counted"))
                 .status(AiAnswers.parseStatus(AiAnswers.text(root, "status", "DONE")))
                 .put("questCount", String.valueOf(questCount))
