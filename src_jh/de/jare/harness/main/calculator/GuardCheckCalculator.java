@@ -64,6 +64,15 @@ public class GuardCheckCalculator implements HarnessCalculator {
         return kind;
     }
 
+    /**
+     * The model call - extracted as an overridable seam: tests subclass and return a canned
+     * answer, so no live Ollama is needed. Input assembly (segments) and result processing
+     * stay separate steps around this call.
+     */
+    protected AiAnswers.Parsed callModel(CalcContext ctx, List<String> segments, String emphasisPrompt) {
+        return AiAnswers.callAndParse(ctx, provider, modelclass, segments, emphasisPrompt);
+    }
+
     public Modelclass getModelclass() {
         return modelclass;
     }

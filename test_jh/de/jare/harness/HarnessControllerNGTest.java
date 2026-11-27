@@ -24,7 +24,14 @@ public class HarnessControllerNGTest {
     @Test
     public void testRunLandsInControllerAndPersists() throws Exception {
         Path project = Files.createTempDirectory("harness-ui");
-        HarnessService service = new HarnessService(project.toFile());
+        // fake provider: the suite must not depend on live Ollama answers - only input
+        // assembly and result processing are under test, the model call is canned
+        HarnessService service = new HarnessService(project.toFile()) {
+            @Override
+            protected de.jare.harness.impl.ModelProvider createProvider(de.jare.harness.model.Modelclass mc) {
+                return new FakeModelProvider(mc);
+            }
+        };
         HarnessInstance instance = service.runTask("RESEARCH", "menu driven run");
 
         HarnessController controller = new HarnessController(null);

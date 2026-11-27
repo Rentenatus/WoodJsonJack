@@ -25,6 +25,7 @@ public class AskAiDecomposeBuilder implements CalculatorBuilder {
     private String model;
     private String systemPrompt;
     private String subloop;
+    private String connectors;
 
     /** Typed setter: the concrete model, e.g. "nemotron3:33b". */
     public AskAiDecomposeBuilder withModel(String model) {
@@ -44,6 +45,12 @@ public class AskAiDecomposeBuilder implements CalculatorBuilder {
         return this;
     }
 
+    /** Typed setter: comma-separated joining connectors the model must absorb, never echo as a quest. */
+    public AskAiDecomposeBuilder withConnectors(String connectors) {
+        this.connectors = connectors;
+        return this;
+    }
+
     @Override
     public CalculatorBuilder withParam(String key, String value) {
         if ("model".equals(key)) {
@@ -52,6 +59,8 @@ public class AskAiDecomposeBuilder implements CalculatorBuilder {
             withSystemPrompt(value);
         } else if ("subloop".equals(key)) {
             withSubloop(value);
+        } else if ("connectors".equals(key)) {
+            withConnectors(value);
         } else {
             rejectUnknown(key);
         }
@@ -64,6 +73,6 @@ public class AskAiDecomposeBuilder implements CalculatorBuilder {
         if (mc == null) {
             mc = ctx.modelclassByPurpose("investigation");
         }
-        return new AskAiDecomposeCalculator(ctx.kind(), mc, ctx.providerFor(mc), systemPrompt, subloop);
+        return new AskAiDecomposeCalculator(ctx.kind(), mc, ctx.providerFor(mc), systemPrompt, subloop, connectors);
     }
 }

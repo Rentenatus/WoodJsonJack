@@ -7,6 +7,7 @@
 package de.jare.harness;
 
 import de.jare.harness.impl.DefaultCalculatorFactory;
+import de.jare.harness.impl.ModelProvider;
 import de.jare.harness.impl.ollama.OllamaProvider;
 import de.jare.harness.io.HarnessInstanceCodec;
 import de.jare.harness.io.HarnessModelCodec;
@@ -67,6 +68,13 @@ public class HarnessService {
             responseListeners.add(l);
         }
     }
+    /** Optional hook fired with (instance, engine) right before {@code engine.run()} - live views bind here. */
+    private java.util.function.BiConsumer<HarnessInstance, HarnessEngine> runStartHook;
+
+    public void setRunStartHook(java.util.function.BiConsumer<HarnessInstance, HarnessEngine> runStartHook) {
+        this.runStartHook = runStartHook;
+    }
+
     private de.jare.harness.memory.ProjectMemory projectMemory;   // §17 the project-local memory across runs
 
     public HarnessService(File projectDir) {
@@ -77,6 +85,22 @@ public class HarnessService {
     public HarnessService(File projectDir, de.jare.harness.spi.HarnessHost host) {
         this.projectDir = projectDir;
         this.host = host;
+    }
+
+    /**
+     * Creates the provider for one modelclass - extracted as an overridable seam so tests can
+     * inject a fake (canned answers, no live Ollama; the suite must stay stable offline).
+     * Returns null for provider "system" (built-in deterministic fallback, no provider needed).
+     */
+    protected ModelProvider createProvider(Modelclass mc) {
+        if ("ollama".equals(mc.getProvider())) {
+            return new OllamaProvider(mc);
+        }
+        if ("hosted".equals(mc.getProvider())) {
+            String apiKey = host != null ? host.hostedApiKey() : "";
+            return new de.jare.harness.impl.hosted.HostedProvider(apiKey, mc);
+        }
+        return null;
     }
 
     /** Redirects the global wood level (tests, same package); null restores {@code user.home}. */
@@ -138,17 +162,17 @@ public class HarnessService {
         HarnessInstance instance = new HarnessInstance(model.getName(), model.getVersion());
         instance.setProjectRoot(projectDir);
 
-        // §17: load the project-local memory; the user prompt becomes a CHAT entry, the run's
-        // outcome an assistant entry - saved back after the run
+        // §17: load the project-local memory. The user prompt becomes a CHAT entry only AFTER
+        // the run when it was not guard-blocked (ABORTED) - injection test prompts must not
+        // persist in memory.json
         projectMemory = de.jare.harness.memory.ProjectMemory.load(memoryFile());
-        projectMemory.addChat("user", title);
 
         // runtime model (DESIGN_Quest_WorkOrder.md): the MemoryQuest creates the WorkOrder AND the
         // root TaskData itself in memory - id = slot id (e.g. "askai.base"), user prompt as its own
         // field; the host only passes taskType + prompt text, no TaskData logic
         Kind questKind = de.jare.harness.model.HarnessModel.QUEST_ASK_AI.equals(taskType) ? Kind.SPLIT : Kind.WORK;
         Quest recipeQuest = model.questFor(questKind);
-        System.out.println("[DIAG] HarnessService.runTask: type=" + taskType + " model=" + model.getName()
+        System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] HarnessService.runTask: type=" + taskType + " model=" + model.getName()
                 + " v" + model.getVersion() + " questKind=" + questKind + " recipeQuest=" + (recipeQuest != null)
                 + " commandListeners=" + commandListeners.size() + " responseListeners=" + responseListeners.size());
         if (recipeQuest != null && recipeQuest.baseSlot() != null) {
@@ -167,11 +191,9 @@ public class HarnessService {
 
         DefaultCalculatorFactory factory = new DefaultCalculatorFactory(model);
         for (Modelclass mc : model.getModelclasses()) {
-            if ("ollama".equals(mc.getProvider())) {
-                factory.registerProvider("ollama", new OllamaProvider(mc));
-            } else if ("hosted".equals(mc.getProvider())) {
-                String apiKey = host != null ? host.hostedApiKey() : "";
-                factory.registerProvider("hosted", new de.jare.harness.impl.hosted.HostedProvider(apiKey, mc));
+            ModelProvider p = createProvider(mc);
+            if (p != null) {
+                factory.registerProvider(mc.getProvider() == null ? "ollama" : mc.getProvider(), p);
             }
             // provider "system" needs no registered provider - it is the built-in deterministic fallback
         }
@@ -181,6 +203,10 @@ public class HarnessService {
         if (lastMemoryQuest != null) {
             engine.setWorkCache(lastMemoryQuest.getWorkCache());
             engine.setCommandHistory(lastMemoryQuest.getCommandHistory());   // §18: task mutations via commands
+            // live partial answers of split children -> WorkResponse as RUNNING update (the pane
+            // renders non-terminal updates as normal-color answer lines)
+            engine.setAnswerSink(text -> lastMemoryQuest.getWorkResponse()
+                    .update(text, null, Status.RUNNING));
         }
         engine.setProjectMemory(projectMemory);   // §17: fed as HISTORY/DATA segments + via ctx.projectMemory()
         if (host != null) {
@@ -221,6 +247,10 @@ public class HarnessService {
             }
         }
 
+        // run-start hook: the host can bind a live view to instance+engine BEFORE the run starts
+        if (runStartHook != null) {
+            runStartHook.accept(instance, engine);
+        }
         engine.run();
 
         // feedback loop between runs (§7.1): threshold check against the metrics,
@@ -230,6 +260,7 @@ public class HarnessService {
                 ? HarnessLineage.load(lineageFile) : new HarnessLineage(model);
         engine.setLineage(lineage);
         engine.feedbackLoop(50.0, 1);
+        System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] save: lineage");
         lineage.save(lineageFile);
 
         // §17 feedback hook: the nuggets fed into prompts this run get uses (+hits when the
@@ -258,16 +289,27 @@ public class HarnessService {
 
         // the live answer of the run lands in the de.jare.harness.memory.MemoryQuest's WorkResponse
         if (lastMemoryQuest != null) {
-            lastMemoryQuest.getWorkResponse().update("done: " + instance.getRoot().getStatus(),
+            lastMemoryQuest.getWorkResponse().update(composeAnswer(instance.getRoot()),
                     instance.getRoot().getScore(), instance.getRoot().getStatus());
             lastMemoryQuest.getWorkOrder().setStatus(instance.getRoot().getStatus());
         }
 
         // §17: the run's outcome as assistant CHAT entry, then persist the project memory
         if (projectMemory != null) {
-            String answer = lastMemoryQuest != null ? lastMemoryQuest.getWorkResponse().getText()
+            // user prompt lands in the chat trace only when the run was not aborted by the guard
+            if (instance.getRoot().getStatus() != de.jare.harness.Status.ABORTED) {
+                projectMemory.addChat("user", title);
+            }
+            // the real answer is the root's summary artifact (written by SUMMARIZE/CLOSE),
+            // not the WorkResponse status line
+            String artifact = instance.getRoot().getArtifact();
+            String answer = artifact != null && !artifact.isBlank() ? artifact
+                    : lastMemoryQuest != null ? lastMemoryQuest.getWorkResponse().getText()
                     : "done: " + instance.getRoot().getStatus();
-            projectMemory.addChat("assistant", answer);
+            if (instance.getRoot().getStatus() != de.jare.harness.Status.ABORTED) {
+                projectMemory.addChat("assistant", answer, "run:" + instance.getRoot().getTaskType());
+            }
+            System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] save: memory");
             projectMemory.save(memoryFile());
         }
 
@@ -277,8 +319,37 @@ public class HarnessService {
             e.getValue().save(new File(ragDirOut, sanitizeFileName(e.getKey()) + ".json"));
         }
 
-        HarnessInstanceCodec.save(instance, instanceFile());
+        System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] before instance save: tasks=" + countTasks(instance.getRoot())
+                + " calls=" + countCalls(instance.getRoot()) + " logEntries=" + instance.getRoot().getCalculatorLog().size());
+        try {
+            HarnessInstanceCodec.save(instance, instanceFile());
+        } catch (Throwable t) {   // persistence must never kill the run (incl. OOM in the writer)
+            System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] instance save failed (run result stays in memory/UI): " + t);
+            t.printStackTrace(System.out);
+        }
         return instance;
+    }
+
+    private static int countTasks(de.jare.harness.TaskData t) {
+        if (t == null) {
+            return 0;
+        }
+        int n = 1;
+        for (var c : t.getChildren()) {
+            n += countTasks(c);
+        }
+        return n;
+    }
+
+    private static int countCalls(de.jare.harness.TaskData t) {
+        if (t == null) {
+            return 0;
+        }
+        int n = t.getCalls().size();
+        for (var c : t.getChildren()) {
+            n += countCalls(c);
+        }
+        return n;
     }
 
     private static String sanitizeFileName(String model) {
@@ -290,6 +361,38 @@ public class HarnessService {
      * least {@code advantage} over enough samples, the winning slot config - not prompts,
      * not task data - is exported as a lesson to {@code ~/.wood/harness/lessons.json}.
      */
+    /**
+     * The answer text for the WorkResponse: the status line plus the run's real content -
+     * the SUMMARIZE payload ("summary") after a split, else the WORK artifact, else the
+     * CLOSE artifact - so the pane shows the answer, not only "done: DONE".
+     */
+    private static String composeAnswer(TaskData root) {
+        String statusLine = "done: " + root.getStatus();
+        String summary = null;
+        String workArtifact = null;
+        String closeArtifact = null;
+        for (TaskData.CalcCall c : root.getCalls()) {
+            String s = c.getPayload().get("summary");
+            if (s != null && !s.isBlank()) {
+                summary = s;
+            }
+            if ("WORK".equalsIgnoreCase(c.getKind())) {
+                String a = c.getPayload().get("artifact");
+                if (a != null && !a.isBlank()) {
+                    workArtifact = a;
+                }
+            }
+            if ("CLOSE".equalsIgnoreCase(c.getKind())) {
+                String a = c.getPayload().get("artifact");
+                if (a != null && !a.isBlank()) {
+                    closeArtifact = a;
+                }
+            }
+        }
+        String body = summary != null ? summary : (workArtifact != null ? workArtifact : closeArtifact);
+        return body == null || body.isBlank() ? statusLine : statusLine + "\n" + body;
+    }
+
     private void exportLessons(Lessons lessons, HarnessEngine engine, double advantage, int minSamples) {
         String projectHash = Integer.toHexString(projectDir.getAbsolutePath().hashCode());
         for (Quest quest : engine.getModel().getQuests()) {

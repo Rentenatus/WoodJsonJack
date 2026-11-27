@@ -25,6 +25,9 @@ public interface TaskView {
 
     String getTitle();
 
+    /** The prompt text for the models - not necessarily the title (reasoning subtasks keep the original prompt here). */
+    String getPrompt();
+
     Status getStatus();
 
     Integer getScore();

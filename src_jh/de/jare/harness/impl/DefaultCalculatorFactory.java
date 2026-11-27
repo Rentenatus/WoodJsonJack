@@ -53,6 +53,12 @@ public class DefaultCalculatorFactory implements CalculatorFactory {
     private void registerNamedDefaults() {
         registerNamed("scoring.countQuests", de.jare.harness.main.calculator.ScoringCountQuestsBuilder::new);
         registerNamed("askai.decompose", de.jare.harness.main.calculator.AskAiDecomposeBuilder::new);
+        registerNamed("work.answer", de.jare.harness.main.calculator.WorkAnswerBuilder::new);
+        registerNamed("summarize.compose", de.jare.harness.main.calculator.SummarizeComposeBuilder::new);
+        registerNamed("complete.check", de.jare.harness.main.calculator.CompleteCheckBuilder::new);
+        registerNamed("evaluate.score", de.jare.harness.main.calculator.EvaluateScoreBuilder::new);
+        registerNamed("evaluate.aggregate", de.jare.harness.main.calculator.EvaluateAggregateBuilder::new);
+        registerNamed("check.verify", de.jare.harness.main.calculator.CheckVerifyBuilder::new);
         registerNamed("printig", PrintQuestsBuilder::new);
         registerNamed("skill.collect", de.jare.harness.main.calculator.SkillCollectBuilder::new);
         registerNamed("skill.match", de.jare.harness.main.calculator.SkillMatchBuilder::new);

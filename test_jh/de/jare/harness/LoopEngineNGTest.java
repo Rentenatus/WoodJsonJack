@@ -39,6 +39,7 @@ public class LoopEngineNGTest {
     /** Scripted factory: per kind a queue of calculators, consumed per call; records the call order. */
     private static final class ScriptedFactory implements CalculatorFactory {
         final Map<Kind, Queue<HarnessCalculator>> scripts = new java.util.HashMap<>();
+        final Map<Kind, HarnessCalculator> always = new java.util.HashMap<>();
         final List<Kind> calls = new ArrayList<>();
 
         ScriptedFactory on(Kind kind, HarnessCalculator... calcs) {
@@ -50,9 +51,19 @@ public class LoopEngineNGTest {
             return this;
         }
 
+        /** Every call of this kind gets the same calculator (e.g. a permanent RESTART). */
+        ScriptedFactory onEvery(Kind kind, HarnessCalculator c) {
+            always.put(kind, c);
+            return this;
+        }
+
         @Override
         public HarnessCalculator createAtomic(CalculatorNode node, Kind kind) {
             calls.add(kind);
+            HarnessCalculator a = always.get(kind);
+            if (a != null) {
+                return a;
+            }
             Queue<HarnessCalculator> q = scripts.get(kind);
             if (q != null && !q.isEmpty()) {
                 return q.poll();
@@ -316,5 +327,39 @@ public class LoopEngineNGTest {
                 .get(de.jare.harness.metrics.MetricsStore.Category.PARAM_ERROR).getCount(), 1L);
         Assert.assertEquals(engine.getInstance().getMetrics().stats("split.base@bogus", 1)
                 .get(de.jare.harness.metrics.MetricsStore.Category.PARAM_ERROR).getCount(), 1L);
+    }
+
+    @Test
+    public void testStagnationGuardFiresDespiteGrowingReasoningChildren() {
+        // every WORK call executes a ReasoningSubtask action: a child whose title grows per
+        // RESTART ("reasoning about …" wrappers) is added AND a nested loop runs on it, and the
+        // loop restarts. The stagnation guard must still fire: the iteration signature
+        // normalizes the reasoning wrapper and dedups the children titles, so repeated
+        // RESTARTs look like the repetition they are.
+        ScriptedFactory factory = new ScriptedFactory()
+                .onEvery(Kind.WORK, calc(Kind.WORK, ctx -> CalcResult.of(Kind.WORK, "thinking")
+                        .action(new de.jare.harness.main.actions.ReasoningSubtask())
+                        .loopAction(new LoopRestart())));
+        HarnessModel model = modelWithLoop(mainLoop(
+                new LoopItem("work", Kind.WORK),
+                new LoopItem("err", Kind.ABORT).trigger(Trigger.CATCH),
+                new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE)));
+        HarnessEngine engine = engineFor(model, factory);
+
+        engine.run();
+
+        // with the normalized signature the guard fires at iteration 2 on every loop level
+        // (WORK = 2 iterations x nesting up to maxDepth 4 = 30 calls); without normalization the
+        // signature changes every iteration, the guard never fires and the run burns the global
+        // maxIterations (50) and ends ABORTED via the hard-stop, with no CATCH at all
+        Assert.assertTrue(factory.count(Kind.WORK) <= 40,
+                "stagnation guard must stop the RESTART loop despite growing reasoning titles, WORK calls="
+                        + factory.count(Kind.WORK));
+        Assert.assertTrue(factory.count(Kind.ABORT) >= 1, "CATCH must fire on the stagnation error");
+        Assert.assertEquals(engine.getInstance().getRoot().getStatus(), Status.FAILED);
+        // the reasoning wrappers really did accumulate as children - the guard fired anyway
+        Assert.assertTrue(engine.getInstance().getRoot().getChildren().stream()
+                        .anyMatch(c -> c.getTitle().startsWith("reasoning about ")),
+                "test premise: reasoning children were created");
     }
 }

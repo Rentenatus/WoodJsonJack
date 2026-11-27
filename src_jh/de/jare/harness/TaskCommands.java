@@ -33,6 +33,12 @@ public final class TaskCommands {
         @Override public String describe() { return "setScore(" + score + ")"; }
     }
 
+    /** Clears the score - per-iteration transient reset at the start of each EXECUTE iteration. */
+    public record ClearScore() implements TaskCommand {
+        @Override public void execute(TaskData t) { t.clearScore(); t.fire(); }
+        @Override public String describe() { return "clearScore()"; }
+    }
+
     public record IncrementAttempt() implements TaskCommand {
         @Override public void execute(TaskData t) { t.incrementAttempt(); t.fire(); }
         @Override public String describe() { return "incrementAttempt()"; }
@@ -69,16 +75,23 @@ public final class TaskCommands {
         private final long childId;
         private final String taskType;
         private final String title;
+        private final String prompt;      // null = title is the prompt
         private TaskData created;
 
         public AddSubtask(long childId, String taskType, String title) {
+            this(childId, taskType, title, null);
+        }
+
+        /** @param prompt the prompt text of the child (title stays a pure label, e.g. "reasoning about …") */
+        public AddSubtask(long childId, String taskType, String title, String prompt) {
             this.childId = childId;
             this.taskType = taskType;
             this.title = title;
+            this.prompt = prompt;
         }
 
         @Override public void execute(TaskData t) {
-            created = t.addSubtask(childId, taskType, title);
+            created = t.addSubtask(childId, taskType, title, prompt);
             t.fire();
         }
 

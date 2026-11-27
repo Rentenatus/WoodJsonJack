@@ -10,10 +10,12 @@ import de.jare.harness.Kind;
 
 /**
  * One item of a {@link Loop} (CONCEPT_Harness.md §5 Loop-Regel, §15.6): fixed attribute set
- * {@code id}, {@code kind}, optional {@code loop} (subloop reference) and {@code trigger}
- * (default {@link Trigger#EXECUTE}). The item carries NO conditions and NO flow control -
- * all semantic decisions stay in the calculators; the loop only executes per prescription
- * and evaluates the calculator's LoopAction.
+ * {@code id}, {@code kind}, optional {@code loop} (subloop reference), {@code trigger}
+ * (default {@link Trigger#EXECUTE}) and optional {@code skipAfter} (list of item ids: when one
+ * of them steers a non-CONTINUE LoopAction in the same EXECUTE iteration, this item is skipped
+ * for the rest of that iteration - the steered set is fresh per iteration). The item carries
+ * NO conditions and NO flow control - all semantic decisions stay in the calculators; the
+ * loop only executes per prescription and evaluates the calculator's LoopAction.
  *
  * @author Janusch Rentenatus
  */
@@ -23,6 +25,7 @@ public class LoopItem {
     private final Kind kind;
     private String loop;                    // optional: ref to another loop id (subloop call instead of quest execution)
     private Trigger trigger = Trigger.EXECUTE;
+    private java.util.List<String> skipAfter = new java.util.ArrayList<>();   // item ids whose steering skips this item in the same EXECUTE iteration
 
     public LoopItem(String id, Kind kind) {
         this.id = id;
@@ -60,12 +63,40 @@ public class LoopItem {
         return this;
     }
 
+    /**
+     * IDs of steering items (e.g. {@code "split"}): when one of them steered a non-CONTINUE
+     * LoopAction in the current EXECUTE iteration, this item is skipped for the rest of that
+     * iteration (the split slot handles its own aggregation/work via subloops).
+     */
+    public java.util.List<String> getSkipAfter() {
+        return skipAfter;
+    }
+
+    public LoopItem skipAfter(java.util.List<String> skipAfter) {
+        this.skipAfter = skipAfter == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(skipAfter);
+        return this;
+    }
+
+    /** True when one of {@code steeredIds} is in this item's skipAfter list. */
+    public boolean isSkippedAfter(java.util.Collection<String> steeredIds) {
+        if (skipAfter.isEmpty() || steeredIds == null || steeredIds.isEmpty()) {
+            return false;
+        }
+        for (String s : steeredIds) {
+            if (skipAfter.contains(s)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public LoopItem copy() {
         LoopItem c = new LoopItem(id, kind);
         if (loop != null) {
             c.loop(loop);
         }
         c.trigger(trigger);
+        c.skipAfter(skipAfter);
         return c;
     }
 }

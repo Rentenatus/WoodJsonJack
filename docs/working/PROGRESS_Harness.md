@@ -1,11 +1,11 @@
 # PROGRESS_Harness — Fortschrittsdokument zur Harness-Implementierung
 
-**Stand:** 2026-11-06, Branch `feature/harness-impl` @ `a7cbfc7` + Working Tree (Trennung, uncommittet)
+**Stand:** 2026-11-27, Branch `develop` @ `787b24e` + Working Tree (uncommittet, siehe §10.18)
 **Produktname:** WoodHarness — Architektur `jsonCasted → jsonCasted_edit → WoodHarness (src_jh/) → WoodJsonJack (src/)`
-**Konzept:** `docs/koncepts/CONCEPT_Harness.md` (16 Abschnitte)
+**Konzept:** `docs/koncepts/CONCEPT_Harness.md` (18 Abschnitte)
 **Verifikation:** frischer Build (javac, WJJ + jsonCasted + jsonCasted_edit + ndimcol) und
-TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **233/233 bestanden, 0 Failures**
-(Headless-Lauf am 2026-11-06; die beiden Asset-Tests brauchen das Repo-Root als Working-Dir)
+TestNG-Suite `test_assets/wjj_testng.xml` von Repo-Root aus — **253/253 bestanden, 0 Failures**
+(Headless-Lauf am 2026-11-27; die beiden Asset-Tests brauchen das Repo-Root als Working-Dir)
 
 ---
 
@@ -399,3 +399,57 @@ Harness-Suite 166/166, WJJ gesamt 255/255 grün.
 - `TaskData`, `HarnessInstance`, `CommandHistory`, `WorkResponse` nutzen `de.jare.tree.control.Orator` (jsonCasted core, Swing-frei) — Listener werden nur weak gehalten, tote Referenzen werden gepuragt.
 - Anmelder halten ihre Listener als Feld: `KIAssistantPanel.commandListener/responseListener` (via `installHarnessOrators()`), `HarnessViewPanel.changeListener`, `TaskData.childEventForwarder` (Bubble), `HarnessInstance.rootForwarder`. Tests halten Listener in lokalen Variablen.
 - `HarnessEngine.addListener` bleibt strong (Engine lebt nur einen Run). WJJ 261/261 grün (2 HarnessServiceNGTest gegen live Ollama im ersten Lauf flaky, Rerun grün — wie Baseline).
+
+## 10.18 Umgesetzt (uncommittet, develop): Split-Prompts, Work-Antwort, Quest-Kalkulatoren, skipAfter, Stagnations-Guard, Konversations-Konvention
+
+- **Split-Prompts reworked:** `countQuests`/`decompose`-Systemprompts in `assets/harness/harness-model.json`
+  so umgebaut, dass Konnektoren („und“, „unf“, „,“) in die jeweilige Teilfrage aufgenommen werden und
+  jede Quest eine in sich geschlossene Pseudo-Frage ist; neuer Param `connectors` am `askai.decompose`
+  (`AskAiDecomposeBuilder`/`AskAiDecomposeCalculator`), `dropConnectorOnly` filtert reine
+  Konnektor-Quests, der Fallback-Split trägt `FALLBACK_SCORE = 10` (stark bestraft).
+- **`work.answer`** (`WorkAnswerCalculator`/`Builder`): WORK beantwortet tatsächlich per AI, die
+  Antwort landet im CalcResult-Payload als `answer`; CLOSE liest die Blatt-Antworten
+  (`Answers.leafAnswers`/`answerOf`, DFS über die Blätter) als Artefakt.
+- **Neue benannte Kalkulatoren + Config-Quests:** `summarize.compose`, `complete.check`,
+  `evaluate.score` (completeness/correctness/readability als 3 Einzel-Evaluatoren) +
+  `evaluate.aggregate` (min nur über die EVALUATE-Calls der **aktuellen** Iteration ab
+  `ctx.iterationCallBase`) + `check.verify`; alle in `DefaultCalculatorFactory` registriert.
+  SPLIT-Slot `askai.base` hat `summarize.compose` als Child nach `decompose` — der Slot ist damit
+  abgeschlossen; `handleSplit` führt den Child über die `executeNode`-Refaktorierung aus und
+  liefert `CONTINUE` (nicht EXIT).
+- **`skipAfter`:** `LoopItem.skipAfter` (Liste von Item-IDs) + Codec/Bean-Support; die Engine sammelt
+  pro EXECUTE-Iteration die `steered`-IDs **frisch** und überspringt passende Items. Main-Loop:
+  complete/work/rag_store/summarize tragen `"skipAfter": ["split"]`, evaluate/check bewusst nicht;
+  der sub-Loop trägt keine Tags. `HarnessModel.defaultLoop` taggt analog.
+- **Per-Iteration-Reset:** `TaskCommands.ClearScore` + `TaskData.clearScore()` am Start jeder
+  EXECUTE-Iteration (transiente Werte wie Score werden pro Durchlauf neu initialisiert);
+  `promptSupplement` bleibt bewusst über Iterationen stehen (Retry-Feedback).
+- **Stagnations-Guard** in `runLoop`: Signatur pro Iteration = steered-IDs + Kinder-Titel + letzter
+  CHECK-Verifier; ab Iteration 2 bei gleicher Signatur **und** nicht besserem Score → DOMAIN-
+  `ErrorSignal` „stagnation: iteration N repeats without change - Ich habe diese Antwort
+  ausgearbeitet, ich finde sie nicht ausreichend: <Answers.answerOf>" → CATCH. (Verifiziert per
+  Probe: feuert bei Iteration 2.) **Fix nach Live-Test:** die Signatur normalisiert Kinder-Titel
+  (`^(?:reasoning about )+` wird gestrippt) und dedupliziert sie — sonst ändert sich die Signatur
+  durch jeden RESTART, der einen weiteren „reasoning about …"-Child anhängt, und der Guard feuert
+  nie. Der CHECK-Anteil der Signatur ist nur das Decision (der Reason-Text jittert bei AI).
+- **Titel vs. Prompt getrennt:** `TaskData.prompt` (M_PROMPT, default = Titel, serialisiert,
+  fromJson-Fallback auf Titel), `TaskView.getPrompt()`; `AddSubtask` 4-arg mit Prompt;
+  `addReasoningSubtask` setzt Titel „reasoning about X“, aber Prompt = Original. `executeNode`
+  und `conversation()` lesen `getPrompt()`.
+- **Konversations-Konvention:** `PromptFormatter.conversationLines(task)` → immer alle vier
+  gelabelten Zeilen `AUFTRAG:`/`ANTWORT:`/`BEWERTUNG:`/`ZUSATZ:` (leer, wenn noch nichts da);
+  `conversationSegment(task)` = ein AUFTRAG-Segment (ref `conversation`) mit diesen Zeilen;
+  `buildSegments` ersetzt das Plain-AUFTRAG-Segment → jede `execute()`/Loop-Iteration startet mit
+  der Konversation. `userPromptOnly` liest nur die AUFTRAG-Zeile (stoppt an den anderen Labels);
+  antwortseitige Kalkulatoren (work.answer, summarize.compose, complete.check, evaluate.score,
+  check.verify) nutzen `ctx.conversation()`.
+- **Tests ohne live Ollama:** `callModel`-Seam (protected) in allen AI-Kalkulatoren + `AiCalculator`,
+  `HarnessService.createProvider(Modelclass)`-Seam, neuer `test_jh/.../FakeModelProvider`
+  (Keyword → canned JSON); `HarnessControllerNGTest`/`HarnessFeedbackNGTest` feuern über Fake.
+  Suite stabil **253/253 grün**.
+- **UI (dieselbe Session):** KI-Pane mit Platzhalter „AI prompt here…“ (Focus-Löschen/-Wiederherstellen),
+  HTML-Rendering der Pane (graue Action-Zeilen 60% fg + 40% bg, Antwort in Normalfarbe),
+  `HarnessViewPanel` arbeitet auf Snapshot-Kopien (ConcurrentModificationException gefixt),
+  `HarnessController` startet den Run in einem SwingWorker.
+- **Diag:** `[DIAG]`-Prints mit manueller Edit-Version (`Diag.EDIT_VERSION`, z. Z. 5) — vor dem
+  Commit aufraeumen.

@@ -148,7 +148,11 @@ public class CallLogEntry {
         if (!payload.isEmpty()) {
             JsonNode p = JsonNode.objectNode();
             for (var e : payload.entrySet()) {
-                p.put(e.getKey(), JsonNode.stringNode(e.getValue()));
+                // truncated for persistence - rawAnswer can be long and would blow up the
+                // saved log on long runs (OOM in the JSON writer)
+                String v = e.getValue();
+                p.put(e.getKey(), JsonNode.stringNode(v != null && v.length() > 500
+                        ? v.substring(0, 500) + "…(" + v.length() + " chars)" : v));
             }
             n.put("payload", p);
         }

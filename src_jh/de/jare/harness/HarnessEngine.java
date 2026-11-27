@@ -43,6 +43,15 @@ import java.util.function.BiConsumer;
  * {@link LoopAction}. State lives only in the task tree; every call lands
  * metrics-only in the call log (§6).
  *
+ * <p>Per EXECUTE iteration the engine keeps the transient state clean: the score is reset
+ * ({@code ClearScore}), {@code ctx.iterationCallBase} is set to the current call index, and
+ * the {@code steered} set (items whose LoopAction was not CONTINUE) is fresh - items tagged
+ * {@code skipAfter} are skipped when a listed item steered in the same iteration. A
+ * stagnation guard compares an iteration signature (steered ids + normalized, deduplicated
+ * children titles + last CHECK decision) against the previous iteration and raises a DOMAIN
+ * error when an iteration repeats exactly without score improvement, so RESTART loops always
+ * terminate via CATCH.</p>
+ *
  * @author Janusch Rentenatus
  */
 public class HarnessEngine implements HarnessDriver {
@@ -287,6 +296,17 @@ public class HarnessEngine implements HarnessDriver {
         listeners.add(listener);
     }
 
+    /**
+     * Optional sink for per-subtask answers: fired in {@link #handleSplit} after each child
+     * subloop returned, with the child's artifact (the real answer). The service forwards it
+     * to the run's WorkResponse as a RUNNING update so the UI can show partial answers live.
+     */
+    private java.util.function.Consumer<String> answerSink;
+
+    public void setAnswerSink(java.util.function.Consumer<String> answerSink) {
+        this.answerSink = answerSink;
+    }
+
     public void notify(TaskData task, Kind kind, String text) {
         String msg = "[task " + task.getId() + " / " + kind + "] " + text;
         for (BiConsumer<TaskData, String> l : listeners) {
@@ -383,6 +403,9 @@ public class HarnessEngine implements HarnessDriver {
                 }
             }
             // EXECUTE: one iteration = the whole EXECUTE list in order; RESTART repeats it
+            int iteration = 0;
+            String prevIterationSig = null;
+            Integer prevScore = null;
             while (true) {
                 limits.countIteration();
                 if (limits.isAborted(task.depth())) {
@@ -390,9 +413,23 @@ public class HarnessEngine implements HarnessDriver {
                     notify(task, Kind.ABORT, "hard stop: limits exceeded");
                     return;
                 }
+                // per-iteration transient reset: the score of the previous iteration must not
+                // leak into this one (EVALUATE sets it again, CHECK reads it within the same
+                // iteration); the steered set below is fresh per iteration as well. The
+                // promptSupplement deliberately persists - it is the retry feedback.
+                applyCmd(task, new TaskCommands.ClearScore(), loopId, null, null);
+                iteration++;
                 boolean restart = false;
+                // ids of items that steered a non-CONTINUE LoopAction in THIS iteration;
+                // items with a matching skipAfter tag are skipped for the rest of it
+                java.util.Set<String> steered = new java.util.HashSet<>();
                 for (LoopItem item : loop.itemsFor(Trigger.EXECUTE)) {
-                    ItemFlow f = runItem(task, loop, item, loopEntry);
+                    if (item.isSkippedAfter(steered)) {
+                        notify(task, item.getKind(), "skipped: skipAfter " + item.getSkipAfter()
+                                + " hit by steered " + steered);
+                        continue;
+                    }
+                    ItemFlow f = runItem(task, loop, item, loopEntry, steered);
                     if (f == ItemFlow.RESTART) {
                         restart = true;
                         break;
@@ -404,6 +441,22 @@ public class HarnessEngine implements HarnessDriver {
                 if (!restart) {
                     return; // EXECUTE list completed without RESTART -> leave the loop
                 }
+                // stagnation guard: when an iteration repeats EXACTLY (same steering, same
+                // children, same CHECK verdict) and the score did NOT improve, further RESTARTs
+                // are pointless - raise a DOMAIN error so the loop's CATCH handles it
+                String sig = iterationSignature(task, steered);
+                Integer score = task.getScore();
+                boolean noImprovement = prevScore == null || score == null || score <= prevScore;
+                if (iteration >= 2 && sig.equals(prevIterationSig) && noImprovement) {
+                    ErrorSignal stag = ErrorSignal.domain("stagnation: iteration " + iteration
+                            + " repeats without change - Ich habe diese Antwort ausgearbeitet, ich finde sie nicht ausreichend: "
+                            + Answers.answerOf(task), "loop");
+                    notify(task, Kind.ABORT, "stagnation guard: " + stag.reason());
+                    handleThrow(task, loop, new LoopThrowError(stag));
+                    return;
+                }
+                prevIterationSig = sig;
+                prevScore = score;
             }
         } finally {
             loopDepth--;
@@ -418,8 +471,48 @@ public class HarnessEngine implements HarnessDriver {
         }
     }
 
+    /**
+     * Signature of one EXECUTE iteration for the stagnation guard: which items steered,
+     * which children exist (titles) and the verdict of the last CHECK call. Deliberately NOT
+     * the answer text or score (model answers jitter even when nothing structurally changed) -
+     * "no improvement" is judged separately via the score comparison.
+     *
+     * Children enter the signature by NORMALIZED, deduplicated title: a reasoning wrapper
+     * ("reasoning about …") is only a tree label, and every RESTART via ReasoningSubtask adds
+     * another, ever longer wrapper child - with raw titles the signature would change every
+     * iteration and the guard would never fire. The CHECK free-text reason is likewise left
+     * out (it jitters between identical model calls); only the decision counts.
+     */
+    private static String iterationSignature(TaskData task, java.util.Set<String> steered) {
+        java.util.Set<String> children = new java.util.TreeSet<>();
+        for (TaskData c : task.getChildren()) {
+            children.add(c.getTitle().replaceAll("^(?:reasoning about )+", ""));
+        }
+        String verdict = "";
+        java.util.List<TaskData.CalcCall> calls = task.getCalls();
+        for (int i = calls.size() - 1; i >= 0; i--) {
+            if ("CHECK".equalsIgnoreCase(calls.get(i).getKind())) {
+                verdict = String.valueOf(calls.get(i).getDecision());
+                break;
+            }
+        }
+        return "steered=" + new java.util.TreeSet<>(steered)
+                + "|children=" + children
+                + "|verdict=" + verdict;
+    }
+
     /** Runs one loop item: subloop call or quest execution + action/loopAction evaluation. */
     private ItemFlow runItem(TaskData task, Loop loop, LoopItem item, Limits.Snapshot loopEntry) {
+        return runItem(task, loop, item, loopEntry, null);
+    }
+
+    /**
+     * @param steered when non-null, the id of an item whose result steered a non-CONTINUE
+     *                LoopAction is added to this set (per EXECUTE iteration; skipAfter tags
+     *                of the following items match against it)
+     */
+    private ItemFlow runItem(TaskData task, Loop loop, LoopItem item, Limits.Snapshot loopEntry,
+                             java.util.Set<String> steered) {
         if (item.isSubLoop()) {
             runLoop(task, item.getLoop());
             return afterSubLoop(task, loop);
@@ -430,6 +523,9 @@ public class HarnessEngine implements HarnessDriver {
             return ItemFlow.CONTINUE; // kind not modelled - skipped deterministically
         }
         LoopAction la = r.getLoopAction();
+        if (steered != null && la.flow() != LoopAction.Flow.CONTINUE) {
+            steered.add(item.getId());
+        }
         // domain action side effects (retry/abort) - object-oriented, §15.5. A LoopSplit carries the
         // split itself as loop action, so the derived domain Split action must NOT also execute
         // (no double split)
@@ -495,6 +591,14 @@ public class HarnessEngine implements HarnessDriver {
                 new TaskCommands.SplitInto(loopId, prompts, task.getTaskType(), instance::nextTaskId);
         applyCmd(task, splitCmd, loopId, null, null);
         List<TaskData> children = splitCmd.children();
+        // §17 chat trace: the N split sub-prompts land in the project memory (source = calculator)
+        if (projectMemory != null) {
+            int i = 1;
+            for (String p : prompts) {
+                projectMemory.addChat("user", i + "> " + p, "askai.decompose");
+                i++;
+            }
+        }
         Limits.Delta total = limits.deltaSince(loopEntry);   // slot delta up to the split point
         List<String> childDeltas = new ArrayList<>();
         for (TaskData child : children) {
@@ -503,6 +607,19 @@ public class HarnessEngine implements HarnessDriver {
             Limits.Delta d = limits.deltaSince(childBase);
             childDeltas.add("child " + child.getId() + ": " + d);
             total = total.plus(d);                            // slot + N deltas summed
+            // §17 chat trace: the sub-quest's answer as assistant entry; the answer of a child
+            // that split again is the joined LEAF artifacts, not its "closed:summary" placeholder
+            String childAnswer = answerOf(child);
+            if (projectMemory != null) {
+                projectMemory.addChat("assistant",
+                        "#" + child.getId() + " " + child.getTitle()
+                                + (childAnswer.isBlank() ? "" : " → " + childAnswer),
+                        "split:" + loopId);
+            }
+            // live partial answer: forward the child's answer to the answer sink (UI pane)
+            if (answerSink != null && !childAnswer.isBlank()) {
+                answerSink.accept("#" + child.getId() + " " + child.getTitle() + " → " + childAnswer);
+            }
         }
         // current output: summed consumption lands in the runtime WorkCache + listener notify
         if (workCache != null) {
@@ -513,9 +630,40 @@ public class HarnessEngine implements HarnessDriver {
         }
         notify(task, Kind.SPLIT, "split into " + children.size() + " subloops (loop \"" + loopId
                 + "\", task starts created), consumption = slot+children " + total);
-        // legacy semantics preserved: after the N subloops the parent summarizes over them
-        execute(task, Kind.SUMMARIZE);
-        return ItemFlow.EXIT; // the N subloops returned - leave this loop (CLOSE fires in finally)
+        // SPLIT is self-contained: after the N subloops the SPLIT slot's OWN summarize child
+        // composes the final answer (no dependency on the separate SUMMARIZE loop item)
+        if (!runSplitSummarize(task, loopId)) {
+            execute(task, Kind.SUMMARIZE);   // backward compat: slot has no summarize child
+        }
+        // CONTINUE (not EXIT): the remaining EXECUTE items decide via their skipAfter tags
+        // whether they still run for the split parent (CLOSE fires in finally either way)
+        return ItemFlow.CONTINUE;
+    }
+
+    /**
+     * Runs the SPLIT slot's own summarize child ({@code "summarize.compose"}) after the
+     * subloops returned. Returns false when the slot has no such child (caller falls back
+     * to the SUMMARIZE kind).
+     */
+    private boolean runSplitSummarize(TaskData task, String loopId) {
+        Quest quest = model.questFor(Kind.SPLIT);
+        Slot slot = quest == null ? null : quest.baseSlot();
+        CalculatorNode node = slot == null ? null : slot.getCalculator();
+        if (node == null || !node.isPuzzle()) {
+            return false;
+        }
+        for (CalculatorNode child : node.getChildren()) {
+            if ("summarize.compose".equals(child.getCalculator())) {
+                executeNode(task, Kind.SPLIT, slot.getId(), child, loopId, "split", "EXECUTE");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The answer text of a (sub-)task: joined leaf answers (shared helper {@link Answers}). */
+    private static String answerOf(TaskData t) {
+        return Answers.answerOf(t);
     }
 
     /** After a subloop returned: propagate pending error signals to this loop's CATCH. */
@@ -592,8 +740,11 @@ public class HarnessEngine implements HarnessDriver {
 
     @Override
     public void addReasoningSubtask(TaskData task) {
+        // the title is only a tree label ("reasoning about …") - the PROMPT stays the original
+        // task prompt, so split/count models never see the wrapper
         TaskCommands.AddSubtask cmd = new TaskCommands.AddSubtask(instance.nextTaskId(), "REASONING",
-                "reasoning about " + task.getTitle().replaceAll("\\?+$", ""));
+                "reasoning about " + task.getTitle().replaceAll("\\?+$", ""),
+                task.getPrompt());
         applyCmd(task, cmd, null, null, null);
         process(cmd.created());
     }
@@ -637,18 +788,32 @@ public class HarnessEngine implements HarnessDriver {
         if (slot == null || slot.getCalculator() == null) {
             return null;
         }
-        CalculatorNode node = slot.getCalculator();
+        return executeNode(task, kind, slot.getId(), slot.getCalculator(), loopId, loopItemId, trigger);
+    }
+
+    /**
+     * Executes one calculator node of a quest slot with the full run plumbing (segments,
+     * WorkCache, commands). Used by {@link #execute} for the base slot and by
+     * {@link #handleSplit} for the SPLIT slot's own summarize child - so the SPLIT kind is
+     * self-contained: its aggregation runs after the subloops, without depending on the
+     * separate SUMMARIZE loop item.
+     */
+    private CalcResult executeNode(TaskData task, Kind kind, String slotId, CalculatorNode node,
+                                   String loopId, String loopItemId, String trigger) {
         long aufrufId = instance.nextAufrufId();
         CallLogEntry parent = callStack.peek();
         CallLogEntry.Parent1 p1 = parent == null ? null
                 : new CallLogEntry.Parent1(parent.getAufrufId(), parent.getScore(), parent.getStatus());
         Long p2 = parent == null || parent.getParent1() == null ? null : parent.getParent1().aufrufId;
 
-        String auftrag = task.getTitle()
+        // the prompt text comes from task.getPrompt() (title is only a label - a reasoning
+        // subtask keeps the original prompt there, its title is "reasoning about …")
+        String auftrag = task.getPrompt()
                 + (task.getPromptSupplement().isEmpty() ? "" : "\n" + task.getPromptSupplement());
         List<PromptSegment> resolved = buildSegments(task, kind, auftrag);
         List<String> prompts = PromptAssembler.toTexts(promptAssembler.assemble(resolved));
-        CalcContext ctx = new CalcContext(this, instance, model, task, kind, slot.getId(), node, limits, prompts);
+        CalcContext ctx = new CalcContext(this, instance, model, task, kind, slotId, node, limits, prompts);
+        ctx.setIterationCallBase(task.getCalls().size());   // calls before this belong to a previous iteration
         ctx.setTools(tools);
         ctx.setWorkCache(workCache);
         ctx.setProjectMemory(projectMemory);
@@ -688,7 +853,7 @@ public class HarnessEngine implements HarnessDriver {
         long dauerMs = System.currentTimeMillis() - start;
 
         CallLogEntry entry = new CallLogEntry(aufrufId, task.getId(), task.getTaskType(), kind,
-                slot.getId(), model.getVersion(), task.getAttempt(), dauerMs, 0, 0,
+                slotId, model.getVersion(), task.getAttempt(), dauerMs, 0, 0,
                 result.getScore(), result.getStatus(),
                 result.getDecision() + decisionSuffix, result.getMessage(), result.getPayload(), p1, p2,
                 loopId, loopItemId, trigger, paramError);
@@ -710,6 +875,10 @@ public class HarnessEngine implements HarnessDriver {
     private List<PromptSegment> buildSegments(TaskData task, Kind kind, String auftrag) {
         List<PromptSegment> resolved = new ArrayList<>(relevanceRegistry.resolve(task.getTaskType(),
                 task.getAttempt(), kind, model.getVersion(), auftrag));
+        // new convention: every execute()/loop iteration starts with the full conversation
+        // (AUFTRAG/ANTWORT/BEWERTUNG/ZUSATZ) - the plain AUFTRAG segment is replaced by it
+        resolved.removeIf(s -> s.cat() == PromptSegment.Category.AUFTRAG);
+        resolved.add(de.jare.harness.prompts.PromptFormatter.conversationSegment(task));
         if (kind == Kind.WORK || kind == Kind.CHECK || kind == Kind.COMPLETE) {
             // RAG_RETRIEVE enrichment is best-effort: an empty store or an embedder outage
             // must never kill the run - the DATA/SKILL segments are simply left out

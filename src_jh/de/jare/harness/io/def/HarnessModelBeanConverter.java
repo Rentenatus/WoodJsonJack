@@ -92,6 +92,9 @@ public final class HarnessModelBeanConverter {
                 if (ib.getTrigger() != null) {
                     item.trigger(Trigger.valueOf(ib.getTrigger()));
                 }
+                if (ib.getSkipAfter() != null && !ib.getSkipAfter().isEmpty()) {
+                    item.skipAfter(ib.getSkipAfter());
+                }
                 loop.addItem(item);
             }
             model.addLoop(loop);

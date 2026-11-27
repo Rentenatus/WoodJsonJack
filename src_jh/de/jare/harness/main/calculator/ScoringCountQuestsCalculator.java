@@ -58,6 +58,15 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
         return kind;
     }
 
+    /**
+     * The model call - extracted as an overridable seam: tests subclass and return a canned
+     * answer, so no live Ollama is needed. Input assembly (segments) and result processing
+     * stay separate steps around this call.
+     */
+    protected AiAnswers.Parsed callModel(CalcContext ctx, List<String> segments, String emphasisPrompt) {
+        return AiAnswers.callAndParse(ctx, provider, modelclass, segments, emphasisPrompt);
+    }
+
     public Modelclass getModelclass() {
         return modelclass;
     }
@@ -74,9 +83,9 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
     public CalcResult calculate(CalcContext ctx) {
         List<String> segments = new ArrayList<>();
         segments.add("SYSTEM:scoring.countQuests\n" + systemPrompt);   // system prompt as config param
-        segments.addAll(ctx.prompts());
+        segments.addAll(de.jare.harness.prompts.PromptFormatter.userPromptOnly(ctx));   // only the AUFTRAG segment - history/memory/rag segments must not be counted as quests
         // provider call + strict JSON parse with one emphasis retry (shared in AiAnswers)
-        AiAnswers.Parsed parsed = AiAnswers.callAndParse(ctx, provider, modelclass, segments, emphasisPrompt);
+        AiAnswers.Parsed parsed = callModel(ctx, segments, emphasisPrompt);
         var root = parsed.root();
 
         int questCount = 0;
@@ -90,7 +99,7 @@ public class ScoringCountQuestsCalculator implements HarnessCalculator {
         if (ctx.workCache() != null) {
             ctx.workCache().put("count", String.valueOf(questCount));
         }
-        System.out.println("[DIAG] countQuests task=\"" + ctx.task().getTitle() + "\" -> questCount=" + questCount
+        System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] countQuests task=\"" + ctx.task().getPrompt() + "\" -> questCount=" + questCount
                 + " raw=" + parsed.rawAnswer());
         return CalcResult.of(kind, AiAnswers.text(root, "decision", "counted"))
                 .status(AiAnswers.parseStatus(AiAnswers.text(root, "status", "DONE")))

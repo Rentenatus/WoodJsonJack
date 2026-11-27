@@ -20,7 +20,9 @@ import java.util.function.Consumer;
  * task tree is pure data and JSON is its persistence shape directly, CONCEPT_Harness.md §3).
  * The runtime truth of a run lives in {@code de.jare.harness.memory} (MemoryQuest/WorkOrder);
  * this object is the persisted PROJECTION (trace) of the run: structure (children), the
- * overwritable "current" cell (status/score/attempt/summaryTask/artifact/promptSupplement),
+ * overwritable "current" cell (status/score/attempt/summaryTask/artifact/promptSupplement/
+ * prompt - the model prompt text, defaults to the title; a reasoning subtask keeps the ORIGINAL
+ * prompt here and only its label "reasoning about …" in the title),
  * the append-only {@code calculatorLog[]} and the projected calculator steps {@code calls[]}
  * ({@link CalcCall} - input prompts, payload, loop action = the data movement of the run).
  *
@@ -39,6 +41,7 @@ public class TaskData implements TaskView {
     public static final String M_ID = "taskId";
     public static final String M_TYPE = "taskType";
     public static final String M_TITLE = "title";
+    public static final String M_PROMPT = "prompt";   // the prompt text - defaults to the title, but a reasoning subtask keeps the ORIGINAL prompt here and only its label in the title
     public static final String M_STATUS = "status";
     public static final String M_SCORE = "score";
     public static final String M_ATTEMPT = "attempt";
@@ -133,16 +136,26 @@ public class TaskData implements TaskView {
             n.put("loopAction", la);
             JsonNode p = JsonNode.objectNode();
             for (var e : payload.entrySet()) {
-                p.put(e.getKey(), JsonNode.stringNode(e.getValue() == null ? "" : e.getValue()));
+                p.put(e.getKey(), JsonNode.stringNode(abbrev(e.getValue(), 500)));
             }
             n.put("payload", p);
             JsonNode in = JsonNode.arrayNode();
             for (String s : input) {
-                in.add(JsonNode.stringNode(s == null ? "" : s));
+                // persisted projection only: full prompts (up to the token budget each) would
+                // blow up the instance file - and the save - on long runs (OOM in the writer)
+                in.add(JsonNode.stringNode(abbrev(s, 500)));
             }
             n.put("input", in);
             return n;
         }
+
+    /** Truncate for persistence/debug display; null-safe. */
+    private static String abbrev(String s, int max) {
+        if (s == null) {
+            return "";
+        }
+        return s.length() <= max ? s : s.substring(0, max) + "…(" + s.length() + " chars)";
+    }
 
         static CalcCall fromJson(JsonNode n) {
             Map<String, String> payload = new LinkedHashMap<>();
@@ -192,6 +205,7 @@ public class TaskData implements TaskView {
     private final long id;
     private String taskType;
     private String title;
+    private String prompt;                 // prompt text for the models; defaults to title
     private Status status = Status.PENDING;
     private Integer score;
     private int attempt;
@@ -211,6 +225,7 @@ public class TaskData implements TaskView {
         this.id = id;
         this.taskType = taskType == null ? "" : taskType;
         this.title = title == null ? "" : title;
+        this.prompt = this.title;   // default: title IS the prompt
     }
 
     /** Standalone task (tests, ad-hoc runs). */
@@ -247,6 +262,9 @@ public class TaskData implements TaskView {
 
     public String getTitle() { return title; }
 
+    /** The prompt text sent to the models - NOT necessarily the title (a reasoning subtask's title is just a label). */
+    public String getPrompt() { return prompt == null ? title : prompt; }
+
     public Status getStatus() { return status; }
 
     void setStatus(Status status) {
@@ -257,6 +275,10 @@ public class TaskData implements TaskView {
 
     void setScore(int score) {
         this.score = score;
+    }
+
+    void clearScore() {
+        this.score = null;
     }
 
     public int getAttempt() { return attempt; }
@@ -300,7 +322,15 @@ public class TaskData implements TaskView {
 
     /** SPLIT / COMPLETE: adds a subtask (reasoning subtask or split part). */
     TaskData addSubtask(long childId, String taskType, String title) {
+        return addSubtask(childId, taskType, title, null);
+    }
+
+    /** @param prompt the prompt text of the child; null = title is the prompt */
+    TaskData addSubtask(long childId, String taskType, String title, String prompt) {
         TaskData child = new TaskData(childId, taskType, title);
+        if (prompt != null && !prompt.isBlank()) {
+            child.prompt = prompt;
+        }
         child.parent = this;
         children.add(child);
         child.addChangeListener(childEventForwarder);   // bubble: the root's listeners see every descendant, with origin
@@ -345,6 +375,7 @@ public class TaskData implements TaskView {
         n.put(M_ID, JsonNode.longNode(id));
         n.put(M_TYPE, JsonNode.stringNode(taskType));
         n.put(M_TITLE, JsonNode.stringNode(title));
+        n.put(M_PROMPT, JsonNode.stringNode(getPrompt()));
         n.put(M_STATUS, JsonNode.stringNode(status.name()));
         if (score != null) {
             n.put(M_SCORE, JsonNode.longNode(score));
@@ -376,6 +407,7 @@ public class TaskData implements TaskView {
     public static TaskData fromJson(JsonNode n) {
         TaskData t = new TaskData(JsonNodes.longOf(n, M_ID, 0),
                 JsonNodes.text(n, M_TYPE, ""), JsonNodes.text(n, M_TITLE, ""));
+        t.prompt = JsonNodes.text(n, M_PROMPT, t.title);   // old files without prompt fall back to the title
         t.status = Status.valueOf(JsonNodes.text(n, M_STATUS, "PENDING"));
         t.score = JsonNodes.child(n, M_SCORE) == null ? null : JsonNodes.child(n, M_SCORE).asLong().intValue();
         t.attempt = (int) JsonNodes.longOf(n, M_ATTEMPT, 0);

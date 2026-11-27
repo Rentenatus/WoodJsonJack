@@ -25,10 +25,12 @@ jsonCasted → jsonCasted_edit → WoodHarness (src_jh/) → WoodJsonJack (src/)
   `ProjectMemory` = project-local memory across runs (`.wood/harness/memory.json`, `/cmd`s).
 - **Projection (trace, persisted)**: `TaskData` — a plain POJO (NOT an EditNode; JSON via
   `toJson()/fromJson()` is the persistence shape, codec `io/HarnessInstanceCodec` delegates to it,
-  persisted at `<projekt>/.wood/harness.json`). Fields + `tasks[]` children + append-only
-  `calculatorLog[]` + `calls[]` (one `CalcCall` per executed atomic calculator: `input` prompts,
-  `payload`, `loopAction` with type/flow/detail — the visible data movement; the engine appends
-  automatically in `HarnessEngine.runNode` via `task.appendCalcCall(...)`).
+  persisted at `<projekt>/.wood/harness.json`). Fields incl. `prompt` (the model prompt text —
+  defaults to the title; a reasoning subtask keeps the ORIGINAL prompt here and only its label in
+  the title) + `tasks[]` children + append-only `calculatorLog[]` + `calls[]` (one `CalcCall` per
+  executed atomic calculator: `input` prompts, `payload`, `loopAction` with type/flow/detail — the
+  visible data movement; the engine appends automatically in `HarnessEngine.runNode` via
+  `task.appendCalcCall(...)`). Mutations go through `TaskCommands` + `CommandHistory` only (§18).
 - **Engine**: `HarnessEngine` — runs loops (`runLoop`/`runItem`), `execute()` per kind → quest →
   base slot → `runNode` (puzzle = sequence of children, results threaded through WorkCache),
   catch-mapping to deterministic fallback. Steering is OO via `HarnessAction` (domain) and
@@ -40,7 +42,8 @@ jsonCasted → jsonCasted_edit → WoodHarness (src_jh/) → WoodJsonJack (src/)
   `DefaultCalculatorFactory`. Named calculators live in `main/calculator/` as pair
   `XxxCalculator` + `XxxBuilder` (builder understands the config `params`, strict
   `rejectUnknown`, generic `temperature`); registered by name in the factory
-  (e.g. `scoring.countQuests`, `askai.decompose`, `printig`, `skill.collect`, `skill.match`,
+  (e.g. `scoring.countQuests`, `askai.decompose`, `work.answer`, `summarize.compose`, `complete.check`,
+  `evaluate.score`, `evaluate.aggregate`, `check.verify`, `printig`, `skill.collect`, `skill.match`,
   `guard.check`, `guard.escalate`). AI calls/parsing go through `impl/AiAnswers` only.
 - **RAG**: one store per embedding model (`HarnessInstance.getRag(embedder)`, persisted
   `.wood/harness/rag/<model>.json`); `engine.activeRag()` resolves the rag-purpose modelclass's
@@ -63,10 +66,20 @@ jsonCasted → jsonCasted_edit → WoodHarness (src_jh/) → WoodJsonJack (src/)
   is `atomic` (`impl: ai|deterministic`, optional `calculator: <name>`, `modelclass`, `tool`,
   `params{model, systemPrompt, emphasisPrompt, temperature, subloop, …}`) or `puzzle`
   (`strategy: sequence`, `children[]`).
-- `loops[]`: `{id, items[]}` — item `{id, kind, trigger: START|EXECUTE|CATCH|CLOSE}`.
+- `loops[]`: `{id, items[]}` — item `{id, kind, trigger: START|EXECUTE|CATCH|CLOSE, skipAfter: [itemIds]}`.
+  `skipAfter` skips this item in the same EXECUTE iteration when one of the listed items steered
+  (e.g. main: complete/work/rag_store/summarize carry `"skipAfter": ["split"]`; evaluate/check are
+  deliberately NOT skipped). The steered set is fresh per iteration; scores are reset per iteration
+  (`ClearScore`), `promptSupplement` persists (retry feedback); a stagnation guard aborts when an
+  iteration repeats exactly without score improvement (→ CATCH).
   `main` START = GUARD+SKILL, EXECUTE = split→…→summarize, CATCH = ABORT, CLOSE = close+rag_prune.
   `sub` = same but START = ABORT (split children inherit consumption, no re-guard).
 - SPLIT children always run the `sub` loop (`LoopSplit`, never a fresh `main`).
+- **Conversation convention**: every `execute()`/loop iteration starts with ONE AUFTRAG segment
+  (`conversation` ref) carrying four labeled lines — `AUFTRAG:` (task prompt), `ANTWORT:` (leaf
+  answers), `BEWERTUNG:` (evaluate results), `ZUSATZ:` (promptSupplement) — empty when not yet
+  present (`PromptFormatter.conversationLines/conversationSegment`). `userPromptOnly` reads ONLY the
+  AUFTRAG line; answer-side calculators use `ctx.conversation()`.
 
 ## Extension recipes
 
@@ -95,8 +108,8 @@ M2=C:/Users/Administrator/.m2/repository
 CP="D:/git_WoodJsonJack/extern/formdev/flatlaf/3.7.1/flatlaf-3.7.1.jar;$M2/org/testng/testng/7.10.2/testng-7.10.2.jar;$M2/com/beust/jcommander/1.82/jcommander-1.82.jar;$M2/org/slf4j/slf4j-api/2.0.16/slf4j-api-2.0.16.jar"
 javac -nowarn -d out_wjj -cp "$CP" @C:/tmp/allsrc.txt        # argfile MUST use D:/ paths; regenerate after adding files
 CLASSES=$(ls test_jh/de/jare/harness/*.java | sed 's|test_jh/||; s|\.java$||; s|/|.|g' | paste -sd,)
-java -cp "out_wjj;$CP" org.testng.TestNG -testclass "$CLASSES" -usedefaultlisteners false -verbose 1   # harness suite (last: 170/170)
-java -cp "out_wjj;$CP" org.testng.TestNG test_assets/wjj_testng.xml -usedefaultlisteners false -verbose 1 # full WJJ (last: 258/258)
+java -cp "out_wjj;$CP" org.testng.TestNG -testclass "$CLASSES" -usedefaultlisteners false -verbose 1   # harness suite
+java -cp "out_wjj;$CP" org.testng.TestNG test_assets/wjj_testng.xml -usedefaultlisteners false -verbose 1 # full WJJ (last: 253/253)
 ```
 
 ## Conventions
@@ -106,11 +119,12 @@ java -cp "out_wjj;$CP" org.testng.TestNG test_assets/wjj_testng.xml -usedefaultl
 - Never commit build outputs (`out*/`, `test-output/`, `.vibe/` session logs, `sandbox/`).
 - `touch` changed files before staging (timestamps).
 - Tests green before every commit; run the harness suite after src_jh changes.
-- Known open items (see `docs/working/PROGRESS_Harness.md` §10.9/§10.11): TEMP `[CALC >>]/[CALC <<]`
-  printlns in `HarnessEngine` still present; legacy `splitInto` path uses the main loop (sub only
-  via `LoopSplit`); `RAG_STORE_MIN_SCORE` still an engine constant (should become a slot param);
-  `structureScore` not yet wired into `EvolutionRunner`; exposure budget (`exposeScopes`) not
-  wired into `AiCalculator.toolLoop`; KI pane does not display the `WorkResponse` answer yet.
+- Known open items (see `docs/working/PROGRESS_Harness.md` §10.18): re-split on RESTART can still
+  create duplicate children (bounded by the stagnation guard, behavior under observation); TEMP
+  `[DIAG.x]` prints still in code (`Diag.EDIT_VERSION` is manual — clean before commit); probe
+  `.class` files under `test_assets/` are build artifacts — remove before commit.
+- Tests must not depend on live Ollama: AI calculators expose a protected `callModel` seam and
+  `HarnessService.createProvider(Modelclass)` is overridable; use `test_jh/.../FakeModelProvider`.
 - Life test against running Ollama (localhost:11434) before merging harness changes to main.
 
 ## Docs (read on demand, paths relative to this skill dir)

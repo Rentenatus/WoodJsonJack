@@ -6,7 +6,7 @@ WoodJsonJack is the top layer of a small ecosystem:
 `jsonCasted` (base library) → `jsonCasted_edit` (editor framework) → **WoodHarness** (agent harness, own product, sources in `src_jh/`) → **WoodJsonJack** (this Swing editor, `src/`).
 WoodHarness is host-agnostic: it depends only on jsonCasted/jsonpost and talks to its host (WJJ today, a TUI later) exclusively through the SPI `de.jare.harness.spi.HarnessHost` / `HarnessView`. See `docs/koncepts/CONCEPT_Harness.md`.
 
-**Note:** WoodHarness is still **experimental and under active development — it does not work yet.** The architecture and SPI separation described above are in place, but the harness is not a usable product at this point.
+**Note:** WoodHarness is still **experimental and under active development.** The architecture and SPI separation described above are in place and the harness runs against local Ollama models (the AI assistant pane shows live loop actions and the final answer), but it is not yet a stable product — expect breaking changes in `assets/harness/harness-model.json` and the `src_jh/` API.
 
 ---
 

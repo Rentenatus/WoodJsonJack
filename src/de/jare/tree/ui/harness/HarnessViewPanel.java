@@ -66,12 +66,36 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
     // subscriber, so it keeps its own listener in a field
     private java.util.function.Consumer<TaskData> changeListener;
 
+    // refresh coalescing: hundreds of change events per run must not rebuild the whole
+    // tree hundreds of times (GC pressure) - one pending rebuild is enough
+    private boolean refreshPending;
+
     public void bind(HarnessInstance instance, HarnessEngine engine) {
         this.instance = instance;
-        engine.addListener((task, msg) -> SwingUtilities.invokeLater(this::refresh));
-        changeListener = t -> SwingUtilities.invokeLater(this::refresh);
+        engine.addListener((task, msg) -> scheduleRefresh());
+        changeListener = t -> scheduleRefresh();
         instance.addChangeListener(changeListener);
         refresh();
+    }
+
+    private void scheduleRefresh() {
+        if (refreshPending) {
+            return;
+        }
+        refreshPending = true;
+        SwingUtilities.invokeLater(() -> {
+            refreshPending = false;
+            refresh();
+        });
+    }
+
+    /** Empty state: no run yet - clear the tree and show the hint in the detail pane. */
+    public void showEmpty(String message) {
+        instance = null;
+        rootNode.removeAllChildren();
+        treeModel.reload();
+        detail.setText(message == null ? "" : message);
+        detail.setCaretPosition(0);
     }
 
     public void refresh() {
@@ -87,9 +111,21 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
     }
 
     private static DefaultMutableTreeNode buildNode(TaskData t) {
+        return buildNode(t, java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+    }
+
+    /** Cycle-guarded recursion: a task that (transitively) contains itself must not loop forever. */
+    private static DefaultMutableTreeNode buildNode(TaskData t,
+            java.util.Set<TaskData> visited) {
+        if (!visited.add(t)) {
+            return new DefaultMutableTreeNode("#" + t.getId() + " " + t.getTitle() + " (cycle!)");
+        }
         DefaultMutableTreeNode n = new DefaultMutableTreeNode(t);
         // the projected calculator steps (data movement: input -> payload -> loopAction)
-        for (TaskData.CalcCall call : t.getCalls()) {
+        // NOTE: snapshot copies - the harness engine mutates these live lists on its own
+        // thread while the EDT iterates here (ConcurrentModificationException otherwise)
+        DefaultMutableTreeNode splitCallNode = null;
+        for (TaskData.CalcCall call : new java.util.ArrayList<>(t.getCalls())) {
             StringBuilder label = new StringBuilder();
             label.append(call.getCalc()).append(" -> ").append(call.getDecision())
                     .append(" [").append(call.getStatus()).append("]");
@@ -104,9 +140,19 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
                 callNode.add(new DefaultMutableTreeNode(p.getKey() + " = " + p.getValue()));
             }
             n.add(callNode);
+            if ("SPLIT".equalsIgnoreCase(call.getLoopActionType())) {
+                splitCallNode = callNode;   // the split-causing call carries the subtasks as children
+            }
         }
-        for (TaskData c : t.getChildren()) {
-            n.add(buildNode(c));
+        if (splitCallNode != null) {
+            // subtasks of a split hang directly under the SPLIT call node, not after the call list
+            for (TaskData c : new java.util.ArrayList<>(t.getChildren())) {
+                splitCallNode.add(buildNode(c, visited));
+            }
+        } else {
+            for (TaskData c : new java.util.ArrayList<>(t.getChildren())) {
+                n.add(buildNode(c, visited));
+            }
         }
         return n;
     }
@@ -125,7 +171,7 @@ public class HarnessViewPanel extends JPanel implements de.jare.harness.spi.Harn
             sb.append("artifact: ").append(t.getArtifact()).append('\n');
         }
         sb.append("--- calculator log (metrics only) ---\n");
-        for (CallLogEntry e : t.getCalculatorLog()) {
+        for (CallLogEntry e : new java.util.ArrayList<>(t.getCalculatorLog())) {
             sb.append(String.format("#%d %-10s slot=%s score=%s status=%s decision=%s%n",
                     e.getAufrufId(), e.getKind(), e.getSlotId(),
                     e.getScore() == null ? "-" : e.getScore(), e.getStatus(), e.getDecision()));

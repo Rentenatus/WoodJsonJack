@@ -31,6 +31,8 @@ public class KIAssistantPanel extends JPanel {
 
     private static final int INPUT_MIN_ROWS = 1;
     private static final int INPUT_MAX_ROWS = 5;
+    /** Placeholder of the prompt input: cleared on focus, restored when left blank. */
+    private static final String INPUT_PLACEHOLDER = "AI prompt here...";
 
     private JTextPane outputPane;
     private JTextArea inputArea;
@@ -64,7 +66,24 @@ public class KIAssistantPanel extends JPanel {
         inputArea = new JTextArea(INPUT_MIN_ROWS, 20);
         inputArea.setLineWrap(true);
         inputArea.setWrapStyleWord(true);
-        inputArea.setText("AI prompt here...");
+        inputArea.setText(INPUT_PLACEHOLDER);
+        // placeholder behavior: click into the field clears it; leaving it blank restores it
+        java.awt.Color defaultFg = inputArea.getForeground();
+        inputArea.setForeground(java.awt.Color.GRAY);
+        inputArea.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override public void focusGained(java.awt.event.FocusEvent e) {
+                if (INPUT_PLACEHOLDER.equals(inputArea.getText())) {
+                    inputArea.setText("");
+                    inputArea.setForeground(defaultFg);
+                }
+            }
+            @Override public void focusLost(java.awt.event.FocusEvent e) {
+                if (inputArea.getText().isBlank()) {
+                    inputArea.setForeground(java.awt.Color.GRAY);
+                    inputArea.setText(INPUT_PLACEHOLDER);
+                }
+            }
+        });
         // auto-height 1..5 rows with content, never scrollable
         inputArea.getDocument().addDocumentListener(new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent e) { adjustRows(); }
@@ -142,12 +161,12 @@ public class KIAssistantPanel extends JPanel {
         commandListener = entry -> {
             String t = actionText(entry);   // [DIAG] temporary: which entries would render as action lines
             if (t != null) {
-                System.out.println("[DIAG] action line seq=" + entry.seq + ": " + t);
+                System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] action line seq=" + entry.seq + ": " + t);
             }
             javax.swing.SwingUtilities.invokeLater(() -> appendCommandEntry(entry));
         };
         responseListener = resp -> {
-            System.out.println("[DIAG] response event status=" + resp.getStatus() + " text=" + resp.getText());
+            System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] response event status=" + resp.getStatus() + " text=" + resp.getText());
             javax.swing.SwingUtilities.invokeLater(() -> appendResponse(resp));
         };
     }
@@ -163,8 +182,14 @@ public class KIAssistantPanel extends JPanel {
      * creates the MemoryQuest/WorkOrder; this pane knows no TaskData logic).
      */
     private void onThinking() {
+        String prompt = inputArea.getText();
+        if (prompt == null || prompt.isBlank() || INPUT_PLACEHOLDER.equals(prompt.strip())) {
+            return;   // never send the placeholder itself as a prompt
+        }
+        // starter line: the user prompt in clean foreground color, before any gray action lines
+        appendOutput("> " + prompt.strip());
         if (thinkingHandler != null) {
-            thinkingHandler.accept(inputArea.getText());
+            thinkingHandler.accept(prompt);
         }
     }
 
@@ -217,12 +242,19 @@ public class KIAssistantPanel extends JPanel {
      * the tags would show up as literal text. {@link javax.swing.text.html.HTMLEditorKit#insertHTML}
      * parses the fragment in the document context.
      */
+    /** Output document cap: a long session must not grow the pane without bound (OOM). */
+    private static final int MAX_DOC_CHARS = 400_000;
+
     private void appendHtml(String html) {
         try {
             javax.swing.text.html.HTMLEditorKit kit =
                     (javax.swing.text.html.HTMLEditorKit) outputPane.getEditorKit();
             javax.swing.text.html.HTMLDocument doc =
                     (javax.swing.text.html.HTMLDocument) outputPane.getDocument();
+            if (doc.getLength() > MAX_DOC_CHARS) {
+                // drop the oldest half - the newest lines (current run) stay
+                doc.remove(0, doc.getLength() / 2);
+            }
             kit.insertHTML(doc, doc.getLength(), html, 0, 0, null);
             outputPane.setCaretPosition(doc.getLength());
         } catch (Exception ignored) {
@@ -257,7 +289,7 @@ public class KIAssistantPanel extends JPanel {
      */
     public void appendCommandEntry(de.jare.harness.memory.CommandHistory.Entry e) {
         String text = actionText(e);
-        System.out.println("[DIAG] appendCommandEntry seq=" + e.seq + " render=" + (text != null));
+        System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] appendCommandEntry seq=" + e.seq + " render=" + (text != null));
         if (text != null) {
             appendAction(text);
         }
@@ -266,7 +298,13 @@ public class KIAssistantPanel extends JPanel {
     /** Short text for the loop action an entry carries (null = not an action line). */
     private static String actionText(de.jare.harness.memory.CommandHistory.Entry e) {
         if (e.command instanceof de.jare.harness.TaskCommands.SplitInto sp) {
-            return "→ SPLIT into " + sp.children().size() + " parts (loop \"" + sp.loopId() + "\")";
+            StringBuilder sb = new StringBuilder("→ SPLIT into " + sp.children().size()
+                    + " parts (loop \"" + sp.loopId() + "\")");
+            int n = 1;
+            for (de.jare.harness.TaskData c : sp.children()) {
+                sb.append("\n").append(n++).append("> ").append(c.getTitle());
+            }
+            return sb.toString();
         }
         if (e.command instanceof de.jare.harness.TaskCommands.AppendCalcCall acc) {
             de.jare.harness.LoopAction la = acc.res().getLoopAction();
@@ -291,6 +329,11 @@ public class KIAssistantPanel extends JPanel {
         de.jare.harness.Status s = r.getStatus();
         if (s == de.jare.harness.Status.DONE || s == de.jare.harness.Status.FAILED
                 || s == de.jare.harness.Status.ABORTED) {
+            if (r.getText() != null && !r.getText().isBlank()) {
+                appendAnswer(r.getText());
+            }
+        } else if (s == de.jare.harness.Status.RUNNING) {
+            // live partial answer of a split child (e.g. "#2 Was ist 7+8? → 7+8 = 15")
             if (r.getText() != null && !r.getText().isBlank()) {
                 appendAnswer(r.getText());
             }

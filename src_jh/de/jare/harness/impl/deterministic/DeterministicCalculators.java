@@ -90,8 +90,10 @@ public final class DeterministicCalculators {
     }
 
     private static CalcResult complete(CalcContext ctx) {
-        // deterministic default: a task whose title ends with "?" is not yet complete -
-        // unless a reasoning subtask already exists, then the loop must not repeat
+        // deterministic fallback for COMPLETE ("Ist unsere Frage komplett?"): a task whose
+        // title ends with "?" is not yet complete - unless a reasoning subtask already exists,
+        // then the loop must not repeat. (The AI complete.check judges the prompt properly;
+        // whether the ANSWER is complete is EVALUATE's job, never COMPLETE's.)
         boolean complete = !ctx.task().getTitle().endsWith("?") || !ctx.task().getChildren().isEmpty();
         return CalcResult.of(Kind.COMPLETE, complete ? "complete" : "incomplete");
     }
@@ -170,12 +172,7 @@ public final class DeterministicCalculators {
         if (ctx.task().getChildren().isEmpty()) {
             return CalcResult.of(Kind.SUMMARIZE, "skipped").put("reason", "no-children").status(Status.DONE);
         }
-        List<String> parts = new ArrayList<>();
-        for (TaskView c : ctx.task().getChildren()) {
-            if (c.getArtifact() != null) {
-                parts.add(c.getArtifact());
-            }
-        }
+        List<String> parts = de.jare.harness.Answers.leafAnswers(ctx.task());
         return CalcResult.of(Kind.SUMMARIZE, "summarized")
                 .put("summary", String.join(" | ", parts));
     }
@@ -242,9 +239,24 @@ public final class DeterministicCalculators {
     }
 
     private static CalcResult close(CalcContext ctx) {
-        String artifact = ctx.task().getChildren().isEmpty()
-                ? "closed:" + ctx.task().getTitle()
-                : "closed:summary";
+        String artifact;
+        if (!ctx.task().getChildren().isEmpty()) {
+            artifact = "closed:summary";   // parent: SUMMARIZE carries the joined child answers
+        } else {
+            // leaf: prefer the WORK calculator's real AI answer (payload "answer", e.g.
+            // work.answer) over the placeholder "closed:<title>"; the deterministic WORK's
+            // payload "artifact" ("worked:...") is deliberately NOT used here
+            String workAnswer = null;
+            for (de.jare.harness.TaskData.CalcCall c : ctx.task().getCalls()) {
+                if ("WORK".equalsIgnoreCase(c.getKind())) {
+                    String a = c.getPayload().get("answer");
+                    if (a != null && !a.isBlank()) {
+                        workAnswer = a;
+                    }
+                }
+            }
+            artifact = workAnswer != null ? workAnswer : "closed:" + ctx.task().getTitle();
+        }
         ctx.commands().apply(new TaskCommands.CloseTask(artifact));   // §18: mutation only as command
         return CalcResult.of(Kind.CLOSE, "closed").put("artifact", artifact).status(Status.DONE);
     }

@@ -4,7 +4,8 @@ Beschlossen in `CONCEPT_Harness.md` §5 (Loop-Regel) und §15.6. Dieses Dokument
 Ausführungs-Spec: Datenmodell, Lifecycle-Semantik, Fehlerkanäle und der schrittweise
 Umsetzungsplan. **Stand: umgesetzt** (Commits `c05f360` Modell+Codec, `3a2d13e` LoopAction/ErrorSignal,
 `28cdf1a` Engine-`runLoop`, `8786625` Asset-Migration; Tests `LoopConfigCodecNGTest`,
-`LoopActionNGTest`, `LoopEngineNGTest`).
+`LoopActionNGTest`, `LoopEngineNGTest`) — ergänzt um `skipAfter`-Steering, Per-Iteration-Reset und
+Stagnations-Guard (uncommittet, siehe `PROGRESS_Harness.md` §10.18).
 
 ## 1. Ziel
 
@@ -47,6 +48,7 @@ verschachtelter SubLoops. Trennung der Verantwortlichkeiten:
 | `kind` | ja | Quest-Kind, dessen Slots ausgeführt werden |
 | `loop` | nein | Ref auf anderen Loop-ID → SubLoop-Aufruf statt Quest-Ausführung |
 | `trigger` | nein (default `EXECUTE`) | `START` \| `EXECUTE` \| `CATCH` \| `CLOSE` |
+| `skipAfter` | nein (default leer) | Liste von Item-IDs: feuert eines davon in derselben EXECUTE-Iteration und steuert (nicht-CONTINUE-LoopAction), wird dieses Item in dieser Iteration übersprungen. Die `steered`-Menge ist pro Iteration frisch. Beispiel `main`: complete/work/rag_store/summarize mit `"skipAfter": ["split"]`; evaluate/check bewusst nicht getaggt |
 
 **Validierung beim Laden (Codec, fail-fast):** unbekannter `kind` (nicht in `quests[]` und nicht
 in `Kind`), unbekannte `loop`-Ref, doppelte Loop-`id`, doppelte Item-`id` innerhalb eines Loops,
@@ -63,7 +65,13 @@ RAG_STORE, CHECK, SUMMARIZE; CLOSE: CLOSE).
 
 1. **START**-Items feuern genau einmal beim Eintritt in diesen Loop (Reihenfolge wie in der Liste).
 2. Iterationsschleife: `limits.countIteration()`; `limits.isAborted(depth)` → harter Stopp.
-   Pro Iteration feuern die **EXECUTE**-Items in Listenreihenfolge.
+   Pro Iteration feuern die **EXECUTE**-Items in Listenreihenfolge. Dabei gilt pro Iteration:
+   - die `steered`-Menge (Items mit nicht-CONTINUE-LoopAction) ist **frisch** — `skipAfter` greift
+     nur innerhalb derselben Iteration;
+   - transiente Werte werden zurückgesetzt (`ClearScore`-Command am Iterationsanfang — Score startet
+     pro Durchlauf neu; `promptSupplement` bleibt bewusst stehen, es ist das Retry-Feedback);
+   - `ctx.iterationCallBase` = `task.getCalls().size()` am Iterationsanfang (z. B. wertet
+     `evaluate.aggregate` nur die EVALUATE-Calls ab diesem Index aus).
 3. Nach jedem Item wird die **LoopAction** des Kalkulators ausgewertet (s. §4).
 4. **CATCH**-Items feuern nur bei DOMAIN-`ErrorSignal` (s. §5); ein Throw *innerhalb* von CATCH
    entrollt eine Loop-Ebene höher (kein erneutes CATCH im selben Loop).
@@ -71,6 +79,14 @@ RAG_STORE, CHECK, SUMMARIZE; CLOSE: CLOSE).
    Break, CATCH und technischem Fehler (Cleanup garantiert).
 6. `maxIterations` zählt EXECUTE-Iterationen **global über alle verschachtelten Loops**;
    `maxDepth` begrenzt die SubLoop-Verschachtelung (neben der Task-Tiefe).
+7. **Stagnations-Guard:** nach jeder Iteration wird eine Signatur gebildet (steered-IDs + Kinder +
+   letztes CHECK-Decision — NICHT Antwort/Score, die jittert). Kinder-Titel werden dafür
+   **normalisiert** (`^(?:reasoning about )+` strippen) und **dedupliziert**, sonst ändert sich die
+   Signatur durch jeden RESTART, der einen weiteren Reasoning-Child anhängt, und der Guard feuert
+   nie; der CHECK-Reason-Text jittert bei AI und bleibt daher außen vor. Ab Iteration 2 bei gleicher
+   Signatur **und** nicht besserem Score feuert ein DOMAIN-`ErrorSignal`
+   („stagnation: iteration N repeats without change - Ich habe diese Antwort ausgearbeitet, ich
+   finde sie nicht ausreichend: <Antwort>") → CATCH (§5).
 
 ## 4. LoopAction — der Flow-Kanal (neben HarnessAction)
 
@@ -153,4 +169,5 @@ weiterlaufen.
   (idempotent guard-fähig, nie ungeprüft `Restart` liefern) — dokumentieren, Tests mitzählen.
 - **Kein konfigurierbarer Wiedereinstieg** bei Restart (immer Index 0 der EXECUTE-Gruppe) —
   heute kein Bedarf, bei Bedarf später als LoopAction-Variante.
-- **TEMP-Debug-Printlns** (`[CALC >>]/[CALC <<]`) werden nach dem Live-Test entfernt.
+- Re-Split nach RESTART kann doppelte Kinder erzeugen — durch den Stagnations-Guard (§3.7)
+  begrenzt, Verhalten wird noch beobachtet.

@@ -96,7 +96,13 @@ public class HarnessFeedbackNGTest {
     @Test
     public void testServicePersistsLineageAcrossRuns() throws Exception {
         Path project = Files.createTempDirectory("harness-feedback");
-        HarnessService service = new HarnessService(project.toFile());
+        // fake provider: stable offline - the model call is canned, not live Ollama
+        HarnessService service = new HarnessService(project.toFile()) {
+            @Override
+            protected de.jare.harness.impl.ModelProvider createProvider(de.jare.harness.model.Modelclass mc) {
+                return new FakeModelProvider(mc);
+            }
+        };
         service.runTask("RESEARCH", "first run");
         File lineageFile = new File(project.toFile(), ".wood/harness/lineage.json");
         Assert.assertTrue(lineageFile.exists(), "lineage.json must persist");

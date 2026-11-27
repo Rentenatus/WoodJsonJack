@@ -29,16 +29,69 @@
             "children": [
               { "type": "atomic", "impl": "ai", "calculator": "scoring.countQuests",
                 "params": { "model": "glm-4.7-flash:latest",
-                            "systemPrompt": "How many separate questions or tasks does the user text contain? Count each question or instruction as 1, also when joined with \"and\"/\"und\"/\",\". Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"counted\",\"score\":100,\"payload\":{\"questCount\":N}}",
+                            "systemPrompt": "How many separate questions or tasks does the user text contain? Count each question or instruction as 1, also when joined with \"and\"/\"und\"/\"oder\"/\",\". Joining words - including typos like \"unf\" for \"und\" - are connectors, never a task of their own. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"counted\",\"score\":100,\"payload\":{\"questCount\":N}}",
                             "emphasisPrompt": "Attention: You must strictly adhere to the JSON structure! Answer with strict JSON only, no other text, no markdown fences.",
                             "temperature": "0.0" } },
               { "type": "atomic", "impl": "ai", "calculator": "askai.decompose",
                 "params": { "model": "nemotron3:33b",
-                            "systemPrompt": "You decompose the user prompt into atomic quests. RULE: if the text contains a SINGLE question or task, you MUST return a list with exactly ONE entry - never split one question into several entries, never add extra steps. Return multiple entries ONLY when the text contains multiple separate questions or tasks joined by \"and\"/\"und\"/\",\". {data.count} is only a hint from a small scoring model - decide yourself. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"decomposed\",\"score\":100,\"payload\":{\"quests\":[\"...\",\"...\"]}} where quests is the list of atomic user prompts.",
+                            "systemPrompt": "You decompose the user prompt into atomic quests. Each entry in payload.quests MUST be a complete, self-contained pseudo user question - a standalone prompt that can be asked on its own, e.g. input \"7+8 und 5*4\" -> quests [\"Was ist 7+8?\", \"Was ist 5*4?\"]. NEVER let a joining connector survive into an entry: \"and\", \"und\", \"oder\", \"or\", typos like \"unf\" and \",\" must be absorbed and must NOT appear in any quest string. Each entry expresses exactly one question or task without the connector. RULE: if the text contains a SINGLE question or task, you MUST return a list with exactly ONE entry - never split one question into several entries, never add extra steps. Return multiple entries ONLY when the text contains multiple separate questions or tasks joined by connectors. {data.count} is only a hint from a small scoring model - decide yourself. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"decomposed\",\"score\":100,\"payload\":{\"quests\":[\"...\",\"...\"]}} where quests is the list of atomic self-contained user prompts.",
                             "temperature": "0.3",
+                            "connectors": "and,und,oder,or,unf",
                             "subloop": "sub" } },
+              { "type": "atomic", "impl": "ai", "calculator": "summarize.compose",
+                "params": { "model": "glm-4.7-flash:latest",
+                            "systemPrompt": "You compose the final answer of a split run. Below the user prompt you get the N sub-prompts and their answers ({data.answers}, separated by \" | \"). Write ONE readable, fluent final answer in the language of the user prompt that answers the original question as a whole, incorporating every sub-answer (e.g. \"Die Ergebnisse der beiden Berechnungen sind 15.8 und 20.00502.\"). Do not use the raw \" | \" separator, do not list the sub-prompts. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"summarized\",\"score\":100,\"payload\":{\"summary\":\"...\"}}. User prompt: {data.userPrompt} Sub-prompts: {data.subPrompts}",
+                            "temperature": "0.2" } },
               { "type": "atomic", "impl": "deterministic", "calculator": "printig" }
             ] } }
+      ]
+    },
+    {
+      "kind": "COMPLETE",
+      "evolvable": false,
+      "slots": [
+        { "id": "complete.base", "mutation": null,
+          "calculator": { "type": "atomic", "impl": "ai", "calculator": "complete.check",
+            "params": { "model": "granite3.3:8b",
+                        "systemPrompt": "COMPLETE reads: \"Ist unsere Frage komplett?\" Judge ONLY the user prompt below - never an answer. Is the request understandable and answerable as-is, or is information missing that would be needed to answer it well? Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"complete|incomplete\",\"score\":100,\"payload\":{\"complete\":true|false,\"missing\":\"what is missing, one short sentence, empty when complete\"}}.",
+                        "temperature": "0.0" } } }
+      ]
+    },
+    {
+      "kind": "EVALUATE",
+      "evolvable": false,
+      "slots": [
+        { "id": "evaluate.base", "mutation": null,
+          "calculator": { "type": "puzzle", "strategy": "sequence",
+            "children": [
+              { "type": "atomic", "impl": "ai", "calculator": "evaluate.score",
+                "params": { "dimension": "completeness",
+                            "model": "glm-4.7-flash:latest",
+                            "systemPrompt": "You are the COMPLETENESS evaluator. Score the ASSISTANT ANSWER below against the USER PROMPT: does the answer fully address everything the user asked (all parts, all constraints like \"mit zwei Kommastellen\")? 100 = fully answered, 0 = nothing answered. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"scored\",\"score\":0-100,\"payload\":{\"verdict\":\"one short sentence\"}}. User prompt: {data.userPrompt} Answer: {data.answer}",
+                            "temperature": "0.0" } },
+              { "type": "atomic", "impl": "ai", "calculator": "evaluate.score",
+                "params": { "dimension": "correctness",
+                            "model": "glm-4.7-flash:latest",
+                            "systemPrompt": "You are the CORRECTNESS evaluator. Score the ASSISTANT ANSWER below: are the facts/calculations/results correct and free of contradictions? 100 = fully correct, 0 = wrong. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"scored\",\"score\":0-100,\"payload\":{\"verdict\":\"one short sentence\"}}. User prompt: {data.userPrompt} Answer: {data.answer}",
+                            "temperature": "0.0" } },
+              { "type": "atomic", "impl": "ai", "calculator": "evaluate.score",
+                "params": { "dimension": "readability",
+                            "model": "glm-4.7-flash:latest",
+                            "systemPrompt": "You are the READABILITY evaluator. Score the ASSISTANT ANSWER below: is it a fluent, well-structured, understandable text in the language of the user prompt (not raw fragments or separators)? 100 = very readable, 0 = unreadable. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"scored\",\"score\":0-100,\"payload\":{\"verdict\":\"one short sentence\"}}. User prompt: {data.userPrompt} Answer: {data.answer}",
+                            "temperature": "0.0" } },
+              { "type": "atomic", "impl": "deterministic", "calculator": "evaluate.aggregate" }
+            ] } }
+      ]
+    },
+    {
+      "kind": "SUMMARIZE",
+      "evolvable": false,
+      "slots": [
+        { "id": "summarize.base", "mutation": null,
+          "calculator": { "type": "atomic", "impl": "ai", "calculator": "summarize.compose",
+            "params": { "model": "glm-4.7-flash:latest",
+                        "systemPrompt": "You compose the final answer of a split run. Below the user prompt you get the N sub-prompts and their answers ({data.answers}, separated by \" | \"). Write ONE readable, fluent final answer in the language of the user prompt that answers the original question as a whole, incorporating every sub-answer. Do not use the raw \" | \" separator. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"summarized\",\"score\":100,\"payload\":{\"summary\":\"...\"}}. User prompt: {data.userPrompt} Sub-prompts: {data.subPrompts}",
+                        "temperature": "0.2" } } }
       ]
     },
     {
@@ -46,7 +99,10 @@
       "evolvable": true,
       "slots": [
         { "id": "work.base", "mutation": null,
-          "calculator": { "type": "atomic", "impl": "deterministic" } },
+          "calculator": { "type": "atomic", "impl": "ai", "calculator": "work.answer",
+            "params": { "model": "glm-4.7-flash:latest",
+                        "systemPrompt": "You answer the user's question or task directly and concisely, in the language of the prompt. Give the concrete result (e.g. the computed value), no filler. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"answered\",\"score\":100,\"payload\":{\"answer\":\"...\"}} where answer is the direct answer text.",
+                        "temperature": "0.0" } } },
         { "id": "work.m1", "mutation": "Mutation-Resolve-01",
           "calculator": { "type": "puzzle", "strategy": "sequence",
             "children": [
@@ -57,6 +113,17 @@
           "calculator": { "type": "atomic", "impl": "ai", "modelclass": "plan" } },
         { "id": "work.m3", "mutation": "Mutation-Resolve-03",
           "calculator": { "type": "atomic", "impl": "deterministic" } }
+      ]
+    },
+    {
+      "kind": "CHECK",
+      "evolvable": false,
+      "slots": [
+        { "id": "check.base", "mutation": null,
+          "calculator": { "type": "atomic", "impl": "ai", "calculator": "check.verify",
+            "params": { "model": "glm-4.7-flash:latest",
+                        "systemPrompt": "You are the run closer (CHECK): decide whether to close the run. Judge the ASSISTANT ANSWER against the USER PROMPT and the EVALUATION lines: is the answer correct and complete enough for the original request (all parts, all constraints like rounding)? close=true only when yes. If not, close=false and give a short concrete reason what must improve. Answer with strict JSON only, no explanation: {\"status\":\"DONE\",\"decision\":\"close|retry\",\"score\":0-100,\"payload\":{\"close\":\"true|false\",\"reason\":\"...\"}}. User prompt: {data.userPrompt} Answer: {data.answer} Evaluation: {data.evaluation} Previous improvement note: {data.supplement}",
+                        "temperature": "0.0" } } }
       ]
     },
     {
@@ -106,12 +173,12 @@
       { "id": "guard",     "kind": "GUARD",     "trigger": "START"   },
       { "id": "skill",     "kind": "SKILL",     "trigger": "START"   },
       { "id": "split",     "kind": "SPLIT",     "trigger": "EXECUTE" },
-      { "id": "complete",  "kind": "COMPLETE",  "trigger": "EXECUTE" },
-      { "id": "work",      "kind": "WORK",      "trigger": "EXECUTE" },
+      { "id": "complete",  "kind": "COMPLETE",  "trigger": "EXECUTE", "skipAfter": ["split"] },
+      { "id": "work",      "kind": "WORK",      "trigger": "EXECUTE", "skipAfter": ["split"] },
       { "id": "evaluate",  "kind": "EVALUATE",  "trigger": "EXECUTE" },
-      { "id": "rag_store", "kind": "RAG_STORE", "trigger": "EXECUTE" },
+      { "id": "rag_store", "kind": "RAG_STORE", "trigger": "EXECUTE", "skipAfter": ["split"] },
       { "id": "check",     "kind": "CHECK",     "trigger": "EXECUTE" },
-      { "id": "summarize", "kind": "SUMMARIZE", "trigger": "EXECUTE" },
+      { "id": "summarize", "kind": "SUMMARIZE", "trigger": "EXECUTE", "skipAfter": ["split"] },
       { "id": "err",       "kind": "ABORT",     "trigger": "CATCH"   },
       { "id": "close",     "kind": "CLOSE",     "trigger": "CLOSE"   },
       { "id": "rag_prune", "kind": "RAG_PRUNE", "trigger": "CLOSE"   }

@@ -7,7 +7,6 @@
 package de.jare.harness.memory;
 
 import de.jare.harness.io.AtomicFileWrite;
-import de.jare.jsoncasted.io.JsonNodeWriter;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.parserservice.JsonParserService;
 import de.jare.jsoncasted.lang.JsonNode;
@@ -49,6 +48,14 @@ public class ProjectMemory {
     public static final long DEFAULT_TTL_DECISION_MS = 90L * 24 * 3600 * 1000;
     public static final long NEVER_EXPIRES = 0L;
 
+    /**
+     * Hard cap for CHAT entries (the chat history must not grow without bound - a long
+     * session would otherwise blow up memory.json and the save). On save, the OLDEST
+     * chat entries beyond the cap are evicted FIFO. NUGGET/DECISION entries are not
+     * affected (they have their own TTLs and feedback fields).
+     */
+    public static final int MAX_CHAT_ENTRIES = 200;
+
     /** One memory entry (chat message or nugget). */
     public static class Nugget {
         public final long id;
@@ -86,7 +93,12 @@ public class ProjectMemory {
 
     /** Adds a chat message (role "user"/"assistant") with the default chat TTL. */
     public Nugget addChat(String role, String text) {
-        return add(Kind.CHAT, role, text, null, DEFAULT_TTL_CHAT_MS);
+        return addChat(role, text, null);
+    }
+
+    /** Chat message with a source marker (e.g. "askai.decompose" for split sub-prompts). */
+    public Nugget addChat(String role, String text, String source) {
+        return add(Kind.CHAT, role, text, source, DEFAULT_TTL_CHAT_MS);
     }
 
     /** Adds a nugget (extracted fact) with the default nugget TTL; source = producing calculator. */
@@ -167,9 +179,11 @@ public class ProjectMemory {
         return entries.size();
     }
 
-    /** Persists to {@code <projekt>/.wood/harness/memory.json} shape: { nextId, entries[] }. */
+    /** Persists to {@code <projekt>/.wood/harness/memory.json} shape: { nextId, entries[] }.
+     *  Streams to a temp file (no full JSON string in the heap), then atomic rename. */
     public void save(File file) throws IOException, JsonParseException {
         pruneExpired(System.currentTimeMillis());
+        evictChatCap();
         JsonNode root = JsonNode.objectNode();
         root.put("nextId", JsonNode.longNode(nextId));
         JsonNode arr = JsonNode.arrayNode();
@@ -187,7 +201,25 @@ public class ProjectMemory {
             arr.add(e);
         }
         root.put("entries", arr);
-        AtomicFileWrite.writeString(file.toPath(), JsonNodeWriter.writeToString(root));
+        AtomicFileWrite.writeNode(file.toPath(), root);
+    }
+
+    /** FIFO eviction: drops the oldest CHAT entries beyond {@link #MAX_CHAT_ENTRIES}
+     *  (LinkedHashMap keeps insertion order = id order, so iteration hits the oldest first). */
+    private void evictChatCap() {
+        long chatCount = entries.values().stream().filter(n -> n.kind == Kind.CHAT).count();
+        long toRemove = chatCount - MAX_CHAT_ENTRIES;
+        if (toRemove <= 0) {
+            return;
+        }
+        java.util.Iterator<Nugget> it = entries.values().iterator();
+        while (it.hasNext() && toRemove > 0) {
+            Nugget n = it.next();
+            if (n.kind == Kind.CHAT) {
+                it.remove();
+                toRemove--;
+            }
+        }
     }
 
     /** Loads a persisted memory; a missing file yields an empty memory. */

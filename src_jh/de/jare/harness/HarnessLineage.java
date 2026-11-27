@@ -12,7 +12,6 @@ import de.jare.harness.model.CalculatorNode;
 import de.jare.harness.model.HarnessModel;
 import de.jare.harness.model.Quest;
 import de.jare.harness.model.Slot;
-import de.jare.jsoncasted.io.JsonNodeWriter;
 import de.jare.jsoncasted.io.JsonParseException;
 import de.jare.jsoncasted.io.parserservice.JsonParserService;
 import de.jare.jsoncasted.lang.JsonNode;
@@ -138,7 +137,15 @@ public class HarnessLineage {
         model.version(model.getVersion() + "+local");
     }
 
+    /**
+     * Max persisted versions: the root version and the newest {@code MAX_VERSIONS - 1} are
+     * kept, older ones are pruned on save. Every version carries a FULL model snapshot, so
+     * without a cap the lineage file grows by one model per run and eventually OOMs the writer.
+     */
+    public static final int MAX_VERSIONS = 20;
+
     public void save(File file) throws IOException, JsonParseException {
+        pruneVersions();
         JsonNode root = JsonNode.objectNode();
         root.put("currentVersionId", JsonNode.stringNode(currentVersionId));
         JsonNode arr = JsonNode.arrayNode();
@@ -152,7 +159,34 @@ public class HarnessLineage {
             arr.add(n);
         }
         root.put("versions", arr);
-        AtomicFileWrite.writeString(file.toPath(), JsonNodeWriter.writeToString(root));
+        // streaming write (never the full JSON as one heap string), then atomic rename
+        AtomicFileWrite.writeNode(file.toPath(), root);
+    }
+
+    /** Keeps the root version + the newest MAX_VERSIONS-1 (by created), never the current one. */
+    private void pruneVersions() {
+        if (versions.size() <= MAX_VERSIONS) {
+            return;
+        }
+        List<Version> sorted = new ArrayList<>(versions.values());
+        sorted.sort((a, b) -> Long.compare(b.created, a.created));   // newest first
+        java.util.Set<String> keep = new java.util.HashSet<>();
+        for (Version v : versions.values()) {
+            if (v.parentId == null) {
+                keep.add(v.versionId);   // root always stays
+            }
+        }
+        keep.add(currentVersionId);
+        int kept = keep.size();
+        for (Version v : sorted) {
+            if (kept >= MAX_VERSIONS) {
+                break;
+            }
+            if (keep.add(v.versionId)) {
+                kept++;
+            }
+        }
+        versions.keySet().retainAll(keep);
     }
 
     public static HarnessLineage load(File file) throws IOException, JsonParseException {

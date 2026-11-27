@@ -50,6 +50,8 @@ public class HarnessController {
     private HarnessService service(File projectRoot) {
         if (service == null) {
             service = new HarnessService(projectRoot, wjjHost(projectRoot));
+            // live view: open the harness window as soon as a run starts, bound to instance+engine
+            service.setRunStartHook((inst, eng) -> javax.swing.SwingUtilities.invokeLater(() -> showLiveView(inst, eng)));
             // attach the orator listeners registered before the service existed (§18.6)
             synchronized (pendingCommandListeners) {
                 for (var l : pendingCommandListeners) {
@@ -61,7 +63,7 @@ public class HarnessController {
                     service.addResponseListener(l);
                 }
             }
-            System.out.println("[DIAG] HarnessController: service created, attached "
+            System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] HarnessController: service created, attached "
                     + pendingCommandListeners.size() + " command + "
                     + pendingResponseListeners.size() + " response listeners");
         }
@@ -96,7 +98,7 @@ public class HarnessController {
         synchronized (pendingCommandListeners) {
             pendingCommandListeners.add(l);
         }
-        System.out.println("[DIAG] HarnessController.addCommandListener: pending now "
+        System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] HarnessController.addCommandListener: pending now "
                 + pendingCommandListeners.size() + ", service exists=" + (service != null));
         if (service != null) {
             service.addCommandListener(l);
@@ -223,7 +225,17 @@ public class HarnessController {
     }
 
     /** Runs one task in a background thread and shows the harness view afterwards. */
+    /** True while a background run is active - parallel runs would collide on the
+     *  .wood/harness/* files (AccessDeniedException on lineage/memory/instance). */
+    private volatile boolean runActive;
+
     public void runTask(File projectRoot, String type, String task) {
+        if (runActive) {
+            JOptionPane.showMessageDialog(owner, "A harness run is already in progress - please wait.",
+                    "Harness", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        runActive = true;
         new SwingWorker<HarnessInstance, Void>() {
             @Override
             protected HarnessInstance doInBackground() throws Exception {
@@ -235,23 +247,25 @@ public class HarnessController {
 
             @Override
             protected void done() {
+                runActive = false;
                 try {
                     get();
                     showView();
-                } catch (Exception e) {
-                    JOptionPane.showMessageDialog(owner, "Harness run failed: " + e.getMessage(),
+                } catch (Throwable t) {   // incl. OutOfMemoryError - never let an Error kill the EDT
+                    Throwable cause = t instanceof java.util.concurrent.ExecutionException && t.getCause() != null
+                            ? t.getCause() : t;
+                    System.out.println("[DIAG." + de.jare.harness.Diag.runNo() + "] harness run failed:");
+                    cause.printStackTrace(System.out);
+                    JOptionPane.showMessageDialog(owner, "Harness run failed: " + cause,
                             "Harness", JOptionPane.ERROR_MESSAGE);
                 }
             }
         }.execute();
     }
 
-    /** Shows the harness window with the last run's task tree (status colors, score badges, protocol). */
+    /** Shows the harness window with the last run's task tree (status colors, score badges, protocol).
+     *  Without a run yet the window still opens - with an empty state instead of a dialog. */
     public void showView() {
-        if (lastInstance == null) {
-            JOptionPane.showMessageDialog(owner, "No harness run yet.", "Harness", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
         try {
             if (viewDialog == null || !viewDialog.isDisplayable()) {
                 viewDialog = new JDialog(owner, "Harness", false);
@@ -259,9 +273,41 @@ public class HarnessController {
                 viewDialog.setContentPane(panel);
                 viewDialog.setSize(900, 500);
                 viewDialog.setLocationRelativeTo(owner);
-                // bind without engine: show the persisted tree + logs of the last run
-                panel.bind(lastInstance, new HarnessEngine(
-                        HarnessService.defaultModel(), lastInstance, null));
+                viewPanel = panel;
+            }
+            if (lastInstance != null) {
+                if (lastInstance != boundInstance) {
+                    // bind without engine: show the persisted tree + logs of the last run
+                    viewPanel.bind(lastInstance, new HarnessEngine(
+                            HarnessService.defaultModel(), lastInstance, null));
+                    boundInstance = lastInstance;
+                }
+            } else {
+                viewPanel.showEmpty("No harness run yet - start one via the KI pane (Ask AI) "
+                        + "or the Harness menu.");
+            }
+            viewDialog.setVisible(true);
+        } catch (HeadlessException e) {
+            // headless environment (tests): nothing to show
+        }
+    }
+
+    private HarnessViewPanel viewPanel;
+    private HarnessInstance boundInstance;
+
+    /** Opens (or reuses) the harness window bound to the LIVE engine - the tree updates during the run. */
+    private void showLiveView(HarnessInstance instance, HarnessEngine engine) {
+        try {
+            if (viewDialog == null || !viewDialog.isDisplayable()) {
+                viewDialog = new JDialog(owner, "Harness", false);
+                viewPanel = new HarnessViewPanel();
+                viewDialog.setContentPane(viewPanel);
+                viewDialog.setSize(900, 500);
+                viewDialog.setLocationRelativeTo(owner);
+            }
+            if (instance != boundInstance) {
+                viewPanel.bind(instance, engine);   // engine listener drives the live refresh
+                boundInstance = instance;
             }
             viewDialog.setVisible(true);
         } catch (HeadlessException e) {

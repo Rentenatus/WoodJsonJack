@@ -15,7 +15,7 @@ Status: decided 2026-11-08, implementation follows in `src_jh/de/jare/harness/`.
 ## Flow at AskAi
 
 1. UI AskAi action (`onThinking`, Enter or "Ask AI") calls the harness with the input text.
-2. The harness creates a new **MemoryQuest** in memory: it creates the **WorkOrder** AND the root task (TaskData on the EditTree) itself — `id = "askai.base"`, `userPrompt` = the raw input. The UI only passes the prompt text, it knows no tree logic.
+2. The harness creates a new **MemoryQuest** in memory: it creates the **WorkOrder** AND the root task (a `TaskData` plain POJO, `prompt` = the raw input) itself — `id = "askai.base"`. The UI only passes the prompt text, it knows no tree logic.
 3. The MemoryQuest (recipe: kind `SPLIT`, slot `askai.base`) also carries `memory/WorkCache` + `memory/WorkResponse`.
 4. Run: `scoring.countQuests` (phi4-mini) counts the quests in the prompt → `askai.decompose` (nemotron3:33b) generates the N atomic user prompts → `printig` writes them to the output. Intermediate results go to the WorkCache, the live answer to the WorkResponse.
 5. The UI attaches to the Quest's WorkResponse via the host SPI (`HarnessHost.addRunListener` / `HarnessView`).
@@ -31,10 +31,10 @@ Status: decided 2026-11-08, implementation follows in `src_jh/de/jare/harness/`.
 ## Layering: runtime truth vs. persisted projection (CONCEPT_Harness.md §3)
 
 This memory package IS the runtime truth of a run: the engine logic (call stack, status, call
-log) runs here independently of any tree. `WorkOrder.getTaskTree()` / `getRoot()` expose a
-`TaskData`/EditTree that is only the PERSISTED PROJECTION (trace) of that runtime state:
-structure (parent/children) + an OVERWRITABLE "current" cell (status/score/attempt —
-progress-bar semantics) + an APPEND-ONLY call log (`calculatorLog[]`). The bridge from runtime
-to projection is the write-through setter path of the `TaskData` facade (fires the EditTree
-change events); `HarnessEngine` writes `instance.logCall` (runtime) and `task.logCall`
-(projection).
+log) runs here independently of any tree. `WorkOrder.getRoot()` exposes a `TaskData` (plain POJO
+since §10.11 — no EditNode/EditTree anymore) that is only the PERSISTED PROJECTION (trace) of that
+runtime state: structure (`tasks[]` children) + an OVERWRITABLE "current" cell
+(status/score/attempt/prompt — progress-bar semantics) + an APPEND-ONLY call log
+(`calculatorLog[]` + `calls[]` per atomic calculator step). JSON (`TaskData.toJson/fromJson`) is
+directly the persistence shape; mutations go through `TaskCommands` + `CommandHistory` (§18) and
+fire the change events that the host UI observes.

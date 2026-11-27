@@ -35,6 +35,9 @@ public class CalcContext {
     private final CalculatorNode node;
     private final Limits limits;
     private final List<String> currentPrompts;
+    /** Index into task.getCalls() at the start of the current loop iteration - calls before it
+     *  belong to a previous (restarted) iteration and must not pollute per-iteration aggregates. */
+    private int iterationCallBase;
     private String loopId;        // loop context of this call (§18 origin triple, like CallLogEntry)
     private String loopItemId;
     private String trigger;
@@ -135,6 +138,30 @@ public class CalcContext {
     /** ctx.prompts.current() - the already assembled prompt list of this call. */
     public List<String> prompts() {
         return new ArrayList<>(currentPrompts);
+    }
+
+    /**
+     * The standardized in-run conversation of the task (AUFTRAG / ANTWORT / BEWERTUNG / ZUSATZ
+     * segments) - the uniform input for answer-side calculators. Split/scoring calculators
+     * keep using only the AUFTRAG segment via {@code PromptFormatter.userPromptOnly(ctx)}.
+     */
+    public List<String> conversation() {
+        return de.jare.harness.prompts.PromptFormatter.conversation(task);
+    }
+
+    /**
+     * The index into {@code task.getCalls()} at the start of the current EXECUTE iteration,
+     * set by the engine per iteration - calculators that must only see the calls of the
+     * CURRENT iteration (e.g. {@code evaluate.aggregate} taking the min over this
+     * iteration's EVALUATE calls) read from this index on.
+     */
+    public int getIterationCallBase() {
+        return iterationCallBase;
+    }
+
+    /** Engine-only setter - see {@link #getIterationCallBase()}. */
+    public void setIterationCallBase(int iterationCallBase) {
+        this.iterationCallBase = iterationCallBase;
     }
 
     /** ctx.ids - the persisted internal counters (§6). */

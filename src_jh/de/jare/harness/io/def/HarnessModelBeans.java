@@ -124,6 +124,7 @@ public class HarnessModelBeans {
         private String kind;
         private String loop;
         private String trigger = "EXECUTE";
+        private List<String> skipAfter = new ArrayList<>();
 
         public String getId() { return id; }
         public void setId(String v) { this.id = v; }
@@ -133,6 +134,8 @@ public class HarnessModelBeans {
         public void setLoop(String v) { this.loop = v; }
         public String getTrigger() { return trigger; }
         public void setTrigger(String v) { this.trigger = v; }
+        public List<String> getSkipAfter() { return skipAfter; }
+        public void setSkipAfter(List<String> v) { this.skipAfter = v; }
     }
 
     public static class LoopBean {

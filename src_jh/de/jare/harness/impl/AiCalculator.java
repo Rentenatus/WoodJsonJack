@@ -42,6 +42,14 @@ public class AiCalculator implements HarnessCalculator {
         return kind;
     }
 
+    /**
+     * The model call - extracted as an overridable seam (tests return a canned answer;
+     * no live provider needed). Result parsing stays in toResult/toolLoop around it.
+     */
+    protected String callModel(CalcContext ctx, List<String> segments) {
+        return AiAnswers.call(ctx, provider, modelclass, segments);
+    }
+
     public Modelclass getModelclass() {
         return modelclass;
     }
@@ -76,7 +84,7 @@ public class AiCalculator implements HarnessCalculator {
         List<String> segments = new java.util.ArrayList<>(ctx.prompts());
         int maxCalls = ctx.limits().remaining(Limits.TOOL_CALLS);
         for (int i = 0; i < Math.max(1, maxCalls); i++) {
-            String answer = AiAnswers.call(ctx, provider, modelclass, segments);
+            String answer = callModel(ctx, segments);
             de.jare.jsoncasted.lang.JsonNode root = AiAnswers.parseStrict(answer);
             String tool = AiAnswers.text(root, "tool", null);
             if (tool == null || tool.isEmpty()) {
@@ -108,7 +116,7 @@ public class AiCalculator implements HarnessCalculator {
     }
 
     private CalcResult singleCall(CalcContext ctx, List<String> segments) {
-        String answer = AiAnswers.call(ctx, provider, modelclass, segments);
+        String answer = callModel(ctx, segments);
         return toResult(AiAnswers.parseStrict(answer));
     }
 

@@ -34,4 +34,23 @@ public final class AtomicFileWrite {
         Files.writeString(tmp, content, StandardCharsets.UTF_8);
         Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
+
+    /**
+     * Streaming variant: the JsonNode is written directly to the temp file (never as one
+     * big string in the heap - the size guard of JsonNodeWriter still applies), then
+     * atomically moved over the target.
+     */
+    public static void writeNode(Path target, de.jare.jsoncasted.lang.JsonNode node) throws IOException {
+        Path parent = target.toAbsolutePath().getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
+        try {
+            de.jare.jsoncasted.io.JsonNodeWriter.write(node, tmp.toFile());
+        } catch (de.jare.jsoncasted.io.JsonParseException e) {
+            throw new IOException("cannot serialize node to " + tmp, e);
+        }
+        Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+    }
 }

@@ -154,6 +154,14 @@ public final class HarnessModelCodec {
                                 + "\": unknown trigger \"" + trig + "\" (START|EXECUTE|CATCH|CLOSE)", e);
                     }
                 }
+                JsonNode skip = JsonNodes.child(it, "skipAfter");
+                if (skip != null && skip.isArray()) {
+                    java.util.List<String> ids = new java.util.ArrayList<>();
+                    for (JsonNode s : skip.asArray()) {
+                        ids.add(s.asText());
+                    }
+                    item.skipAfter(ids);
+                }
                 loop.addItem(item);
             }
         }
@@ -304,6 +312,13 @@ public final class HarnessModelCodec {
             in.put("kind", JsonNode.stringNode(item.getKind().name()));
             in.put("loop", item.getLoop() == null ? JsonNode.nullNode() : JsonNode.stringNode(item.getLoop()));
             in.put("trigger", JsonNode.stringNode(item.getTrigger().name()));
+            if (!item.getSkipAfter().isEmpty()) {
+                JsonNode sa = JsonNode.arrayNode();
+                for (String s : item.getSkipAfter()) {
+                    sa.add(JsonNode.stringNode(s));
+                }
+                in.put("skipAfter", sa);
+            }
             items.add(in);
         }
         node.put("items", items);

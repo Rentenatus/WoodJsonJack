@@ -161,7 +161,12 @@ Regeln (vom Treiber hart durchgesetzt, nicht verhandelbar):
 - Budgets pro Kategorie und gesamt (z. B. max. 2 SYSTEM, 1 SKILL, 3 HISTORY, 2 DATA, 1 AUFTRAG; harte Token-Deckel). Wer sprengt, fliegt deterministisch raus.
 - Quelle pro Segment: `ref` (dateibasiert, versioniert, z. B. `prompts/system/orchestrator.v3.md`) oder inline (nur für generierte Inhalte).
 - **Anti-Vergessen-Mechanismus:** HISTORY ist nie Roh-Historie, sondern vorkondensierte Zusammenfassungen aus dem `calculatorLog` des Tasks (max. 3 Segmente — **gemeinsames Budget**, reserviert für die beiden Produzenten: SUMMARIZE der Vorrunde und die `compact`-Methode bei `ANSWER_VERBOSE`, §13; sie konkurrieren um dieselben 3 Segmente). Dazu ein kurzer **Sticky-Facts**-Block (max. ~150 Tokens: Projektpfad, Sprache, Schema) in jedem Prompt.
-- Keine Konversationshistorie über Aufrufe hinweg — jeder Ollama-Call ist zustandslos.
+- Innerhalb eines Laufs zustandslos, aber mit Konversations-Einstieg: Jede `execute()`/Loop-Iteration
+  startet mit genau einem AUFTRAG-Segment (`conversation`), das vier gelabelte Zeilen trägt —
+  `AUFTRAG:` (Task-Prompt), `ANTWORT:` (Blatt-Antworten), `BEWERTUNG:` (EVALUATE-Ergebnisse),
+  `ZUSATZ:` (promptSupplement) — leer, solange noch nichts da ist (`PromptFormatter.conversationLines`).
+  Über Aufrufe/Runs hinweg bleibt jeder Call zustandslos — Langzeitgedächtnis läuft nur über
+  ProjectMemory (§17).
 
 Der **RelevanceCalculator** (`kind() == RELEVANCE`) Adressiert die Liste über **Task-Typ × Bearbeitungs-Schleife (attempt) × Modell-Version**:
 `relevance(taskType, attempt, kind, modelVersion) → [segmente]`. Default-Implementierung **deterministisch**
@@ -664,8 +669,8 @@ ctx.ui          // * neu: Harness-Fenster
 6. **Freie Loop-Konfiguration (entschieden, Details + Umsetzungsplan in `docs/working/DESIGN_Loops.md`):**
    Die Main-Loop des Treibers ist nicht mehr hartkodiert, sondern als benannte **Loops** in der
    Modell-JSON konfigurierbar (`loops[]`, §5); fehlt sie, gilt die bisherige harte Reihenfolge als
-   default `"main"`. Jeder Loop ist eine Liste von **LoopItems** `{ id, kind, loop?, trigger }` mit
-   festem Attributsatz; `trigger` ∈ `START | EXECUTE | CATCH | CLOSE` (default `EXECUTE`) steuert den
+   default `"main"`. Jeder Loop ist eine Liste von **LoopItems** `{ id, kind, loop?, trigger, skipAfter? }`
+   mit festem Attributsatz; `trigger` ∈ `START | EXECUTE | CATCH | CLOSE` (default `EXECUTE`) steuert den
    Lifecycle: START einmalig beim Eintritt, EXECUTE pro Iteration, CATCH bei **fachlichem** Fehler,
    CLOSE einmalig beim Verlassen (finally — CLOSE feuert immer, auch nach CATCH und Break).
    **Main-START mit GUARD + SKILL (nur in `"main"`, nicht im Subloop):** Der `"main"`-Loop startet
@@ -696,6 +701,16 @@ ctx.ui          // * neu: Harness-Fenster
    Loops, `maxDepth` begrenzt die SubLoop-Verschachtelung. Guards (z. B. RAG_STORE erst ab
    `minScore`, SUMMARIZE nur mit Children) sitzen in den Kalkulatoren, Schwellen als Slot-Params —
    nicht mehr als Konstanten in der Engine.
+   **`skipAfter` (entschieden):** optionales Item-Attribut `skipAfter: [itemIds]` — feuert eines der
+   gelisteten Items in derselben EXECUTE-Iteration und steuert (nicht-CONTINUE-LoopAction), wird
+   dieses Item in dieser Iteration übersprungen. Die `steered`-Menge ist pro Iteration frisch
+   (z. B. `main`: complete/work/rag_store/summarize mit `"skipAfter": ["split"]`; evaluate/check
+   bewusst nicht). **Per-Iteration-Reset (entschieden):** zu jeder EXECUTE-Iteration werden transiente
+   Werte zurückgesetzt (`ClearScore`-Command; `promptSupplement` bleibt als Retry-Feedback stehen),
+   `ctx.iterationCallBase` = Call-Index am Iterationsanfang. **Stagnations-Guard (entschieden):** ab
+   Iteration 2 feuert bei exakt gleicher Iterations-Signatur (steered + Kinder-Titel + letztes
+   CHECK-Vergebnis) und nicht besserem Score ein DOMAIN-`ErrorSignal` („stagnation: … ich finde
+   diese Antwort nicht ausreichend“) → CATCH.
 
 ## 16. Mindset of the AI (nur global, analog zu Skills)
 
@@ -742,8 +757,10 @@ Die History ist reines Audit/Protokoll (noch **kein Undo**), Commands sind Daten
 Undo/Redo ergänzt nur `undo()` an den invertierbaren Commands, ohne Redesign.
 
 1. **Facade gegen Umgehung (entschieden):** Kalkulatoren sehen über `CalcContext.task()` nur noch
-eine Read-Only-Fassade **`TaskView`** (Getter: id/taskType/title/status/score/attempt/children/
-depth/promptSupplement/calls). Die zwei externen Mutationsaufrufe werden in Commands verlagert:
+eine Read-Only-Fassade **`TaskView`** (Getter: id/taskType/title/**prompt**/status/score/attempt/
+children/depth/promptSupplement/calls). `prompt` ist der Modell-Prompt-Text (default = title;
+Reasoning-Subtasks tragen im Titel „reasoning about X“, im Prompt den Originaltext) — getrennt
+vom Anzeige-Titel. Die zwei externen Mutationsaufrufe werden in Commands verlagert:
 `appendCalcCall` (Engine-seitig, HarnessEngine.runNode) und `close` (CLOSE-Kalkulator) laufen über
 einen Command-Kanal auf `CalcContext` (z. B. `ctx.commands().apply(new CloseTask(artifact))`).
 Damit ist „keine direkten Änderungen" keine Konvention, sondern durch die Schnittstelle erzwungen.

@@ -181,7 +181,9 @@ public class HarnessModel {
      * The default main loop: the previously hard-coded processLoop order of the engine,
      * plus GUARD + SKILL at START (§15.6 — entry guard and skill collection fire once per
      * run, only in "main"; backward compat when the JSON has no {@code loops[]},
-     * DESIGN_Loops.md §2).
+     * DESIGN_Loops.md §2). All EXECUTE items except SPLIT are tagged
+     * {@code skipAfter:["split"]} - after a split the slot's own summarize child and the
+     * subloops handle the rest of the iteration.
      */
     public static Loop defaultMainLoop() {
         return defaultLoop(Loop.MAIN, true);
@@ -208,7 +210,11 @@ public class HarnessModel {
         }
         for (Kind k : new Kind[]{Kind.SPLIT, Kind.COMPLETE, Kind.WORK, Kind.EVALUATE,
                 Kind.RAG_STORE, Kind.CHECK, Kind.SUMMARIZE}) {
-            loop.addItem(new LoopItem(k.name().toLowerCase(), k).trigger(Trigger.EXECUTE));
+            LoopItem it = new LoopItem(k.name().toLowerCase(), k).trigger(Trigger.EXECUTE);
+            if (k != Kind.SPLIT) {
+                it.skipAfter(java.util.List.of("split"));   // after a split the slot/subloops handle the rest
+            }
+            loop.addItem(it);
         }
         loop.addItem(new LoopItem("close", Kind.CLOSE).trigger(Trigger.CLOSE));
         loop.addItem(new LoopItem("rag_prune", Kind.RAG_PRUNE).trigger(Trigger.CLOSE)); // prune after CLOSE (§11)
